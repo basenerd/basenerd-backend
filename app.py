@@ -12,8 +12,9 @@ def home():
 # Standings — fetches from MLB API and renders the standings template
 @app.route('/standings')
 def standings():
-    resp = requests.get("https://statsapi.mlb.com/api/v1/standings?season=2025")
-    records = resp.json()["records"]
+    url = "https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025&standingsTypes=regularSeason"
+    resp = requests.get(url)
+    records = resp.json().get("records", [])
     return render_template('standings.html', stats=records)
 
 if __name__ == '__main__':
