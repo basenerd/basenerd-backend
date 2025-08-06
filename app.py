@@ -2,12 +2,14 @@
 from flask import Flask, render_template
 import requests
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', template_folder='templates')
 
+# Homepage — renders your full layout with cards and nav
 @app.route('/')
 def home():
     return render_template('index.html')
 
+# Standings — fetches from MLB API and renders the standings template
 @app.route('/standings')
 def standings():
     resp = requests.get("https://statsapi.mlb.com/api/v1/standings?season=2025")
