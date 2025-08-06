@@ -11,32 +11,43 @@
       background-color: #f5f7fa;
       color: #333;
       display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background-color: #ffffff;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+    }
+
+    header img {
+      height: 60px;
+      margin-right: 1rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      text-transform: lowercase;
+      margin: 0;
+      color: #001f3f;
+    }
+
+    .layout {
+      display: flex;
+      flex: 1;
     }
 
     .sidebar {
       width: 240px;
       background-color: #001f3f;
-      height: 100vh;
       padding-top: 2rem;
-      position: fixed;
-      top: 0;
-      left: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       color: #fff;
-    }
-
-    .sidebar img {
-      width: 100px;
-      margin-bottom: 1rem;
-    }
-
-    .sidebar h1 {
-      font-size: 1.8rem;
-      font-weight: bold;
-      margin-bottom: 2rem;
-      text-transform: lowercase;
     }
 
     .sidebar nav {
@@ -58,9 +69,8 @@
     }
 
     .main {
-      margin-left: 240px;
       padding: 2rem;
-      width: calc(100% - 240px);
+      flex: 1;
     }
 
     .card {
@@ -81,50 +91,51 @@
       padding: 1rem;
       background-color: #00274d;
       color: white;
-      position: fixed;
-      width: 100%;
-      bottom: 0;
-      left: 0;
     }
   </style>
 </head>
 <body>
-  <div class="sidebar">
-    <img src="/static/logo.png" alt="Basenerd Logo">
+  <header>
+    <img src="/static/basenerd-logo-official.png" alt="Basenerd Logo">
     <h1>basenerd</h1>
-    <nav>
-      <a href="#todaysgames">today's games</a>
-      <a href="#players">players</a>
-      <a href="#teams">teams</a>
-      <a href="#standings">standings</a>
-      <a href="#statistics">statistics</a>
-    </nav>
-  </div>
+  </header>
 
-  <div class="main">
-    <div class="card" id="todaysgames">
-      <h2>Today's Games</h2>
-      <p>Game matchups and start times will be displayed here.</p>
+  <div class="layout">
+    <div class="sidebar">
+      <nav>
+        <a href="#todaysgames">Today's Games</a>
+        <a href="#players">Players</a>
+        <a href="#teams">Teams</a>
+        <a href="#standings">Standings</a>
+        <a href="#statistics">Statistics</a>
+      </nav>
     </div>
 
-    <div class="card" id="players">
-      <h2>Players</h2>
-      <p>Explore individual player profiles and performance trends.</p>
-    </div>
+    <div class="main">
+      <div class="card" id="todaysgames">
+        <h2>Today's Games</h2>
+        <p>Game matchups and start times will be displayed here.</p>
+      </div>
 
-    <div class="card" id="teams">
-      <h2>Teams</h2>
-      <p>Team-level breakdowns for offense, defense, and pitching.</p>
-    </div>
+      <div class="card" id="players">
+        <h2>Players</h2>
+        <p>Explore individual player profiles and performance trends.</p>
+      </div>
 
-    <div class="card" id="standings">
-      <h2>Standings</h2>
-      <p>Division and league standings updated daily.</p>
-    </div>
+      <div class="card" id="teams">
+        <h2>Teams</h2>
+        <p>Team-level breakdowns for offense, defense, and pitching.</p>
+      </div>
 
-    <div class="card" id="statistics">
-      <h2>Statistics</h2>
-      <p>Advanced metrics, leaderboards, and filters to come.</p>
+      <div class="card" id="standings">
+        <h2>Standings</h2>
+        <p>Division and league standings updated daily.</p>
+      </div>
+
+      <div class="card" id="statistics">
+        <h2>Statistics</h2>
+        <p>Advanced metrics, leaderboards, and filters to come.</p>
+      </div>
     </div>
   </div>
 
