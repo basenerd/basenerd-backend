@@ -1,0 +1,57 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MLB Standings</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
+      color: #333;
+      padding: 2rem;
+    }
+    h1, h3 {
+      color: #00274d;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 2rem 0;
+    }
+    th, td {
+      padding: 0.6rem;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    th {
+      background-color: #004080;
+      color: #fff;
+    }
+    tr:nth-child(even) {
+      background-color: #eef3f9;
+    }
+  </style>
+</head>
+<body>
+  <h1>MLB Standings (Live)</h1>
+  {% for group in stats %}
+    <h3>{{ group.league.name }} – {{ group.division.name }}</h3>
+    <table>
+      <tr>
+        <th>Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th>
+      </tr>
+      {% for team in group.teamRecords %}
+      <tr>
+        <td>{{ team.team.name }}</td>
+        <td>{{ team.wins }}</td>
+        <td>{{ team.losses }}</td>
+        <td>{{ team.winningPercentage }}</td>
+        <td>{{ team.gamesBack }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% endfor %}
+</body>
+</html>
