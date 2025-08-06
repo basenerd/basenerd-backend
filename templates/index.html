@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basenerd</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+    }
+    header {
+      background-color: #00274d;
+      color: #ffffff;
+      padding: 1rem 2rem;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: 1px;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      background-color: #004080;
+      padding: 0.5rem;
+    }
+    nav a {
+      color: #fff;
+      margin: 0 1rem;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    .container {
+      padding: 2rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #ffffff;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .card h2 {
+      margin-top: 0;
+      color: #004080;
+    }
+    footer {
+      text-align: center;
+      padding: 1rem;
+      background-color: #00274d;
+      color: white;
+      position: fixed;
+      width: 100%;
+      bottom: 0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Basenerd</h1>
+  </header>
+  <nav>
+    <a href="#leaderboards">Leaderboards</a>
+    <a href="#pitchers">Pitchers</a>
+    <a href="#hitters">Hitters</a>
+    <a href="#teams">Teams</a>
+  </nav>
+  <div class="container">
+    <div class="card" id="leaderboards">
+      <h2>League Leaderboards</h2>
+      <p>Coming soon: season-long performance metrics for batters and pitchers.</p>
+    </div>
+    <div class="card" id="pitchers">
+      <h2>Pitcher Analysis</h2>
+      <p>Visuals, stats, and trends on pitch types, velocity, spin, and more.</p>
+    </div>
+    <div class="card" id="hitters">
+      <h2>Hitter Profiles</h2>
+      <p>Spray charts, hard hit rates, expected stats, and matchup data.</p>
+    </div>
+    <div class="card" id="teams">
+      <h2>Team Breakdown</h2>
+      <p>Offensive, defensive, and pitching stats for all 30 MLB teams.</p>
+    </div>
+  </div>
+  <footer>
+    &copy; 2025 Basenerd. All rights reserved.
+  </footer>
+</body>
+</html>
