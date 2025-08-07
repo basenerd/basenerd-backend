@@ -5,7 +5,7 @@
   <title>MLB Standings (Live)</title>
   <style>
     body {
-      font-family: 'Courier New', Courier, monospace;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       padding: 2rem;
       margin: 0;
       background-color: #f4f6f8;
@@ -14,9 +14,18 @@
 
     h1 {
       text-align: center;
-      margin-bottom: 1rem;
+      margin-bottom: 2rem;
       text-transform: uppercase;
       color: #002147;
+    }
+
+    .league-header {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #002147;
+      margin-bottom: 0.5rem;
+      text-align: center;
+      width: 100%;
     }
 
     .standings-container {
@@ -26,8 +35,14 @@
       gap: 2rem;
     }
 
-    .division {
+    .column {
       flex: 1 1 45%;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .division {
       background-color: #fff;
       border-radius: 8px;
       padding: 1rem;
@@ -73,32 +88,69 @@
   <h1>MLB Standings (Live)</h1>
 
   <div class="standings-container">
-    {% for group in stats %}
-      <div class="division">
-        <h2>{{ group.division.name }}</h2>
-        <table>
-          <tr>
-            <th>Team</th>
-            <th>W</th>
-            <th>L</th>
-            <th>Pct</th>
-            <th>GB</th>
-          </tr>
-          {% for record in group.teamRecords %}
-          <tr>
-            <td>
-              <img class="team-logo" src="https://www.mlbstatic.com/team-logos/{{ record.team.id }}.svg" alt="{{ record.team.abbreviation }}">
-              {{ record.team.abbreviation }}
-            </td>
-            <td>{{ record.wins }}</td>
-            <td>{{ record.losses }}</td>
-            <td>{{ record.winningPercentage }}</td>
-            <td>{{ record.gamesBack }}</td>
-          </tr>
-          {% endfor %}
-        </table>
-      </div>
-    {% endfor %}
+    <div class="column">
+      <div class="league-header">National League</div>
+      {% for group in stats %}
+        {% if group.league.name == 'National League' %}
+          <div class="division">
+            <h2>{{ group.division.name }}</h2>
+            <table>
+              <tr>
+                <th>Team</th>
+                <th>W</th>
+                <th>L</th>
+                <th>Pct</th>
+                <th>GB</th>
+              </tr>
+              {% for record in group.teamRecords %}
+              <tr>
+                <td>
+                  <img class="team-logo" src="https://www.mlbstatic.com/team-logos/{{ record.team.id }}.svg" alt="{{ record.team.name }}">
+                  {{ record.team.abbreviation if record.team.abbreviation else record.team.name }}
+                </td>
+                <td>{{ record.wins }}</td>
+                <td>{{ record.losses }}</td>
+                <td>{{ record.winningPercentage }}</td>
+                <td>{{ record.gamesBack }}</td>
+              </tr>
+              {% endfor %}
+            </table>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="column">
+      <div class="league-header">American League</div>
+      {% for group in stats %}
+        {% if group.league.name == 'American League' %}
+          <div class="division">
+            <h2>{{ group.division.name }}</h2>
+            <table>
+              <tr>
+                <th>Team</th>
+                <th>W</th>
+                <th>L</th>
+                <th>Pct</th>
+                <th>GB</th>
+              </tr>
+              {% for record in group.teamRecords %}
+              <tr>
+                <td>
+                  <img class="team-logo" src="https://www.mlbstatic.com/team-logos/{{ record.team.id }}.svg" alt="{{ record.team.name }}">
+                  {{ record.team.abbreviation if record.team.abbreviation else record.team.name }}
+                </td>
+                <td>{{ record.wins }}</td>
+                <td>{{ record.losses }}</td>
+                <td>{{ record.winningPercentage }}</td>
+                <td>{{ record.gamesBack }}</td>
+              </tr>
+              {% endfor %}
+            </table>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
   </div>
 </body>
 </html>
