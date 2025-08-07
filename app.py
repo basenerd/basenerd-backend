@@ -10,20 +10,14 @@ def home():
 
 @app.route('/standings')
 def standings():
-    # Try 2025 data
     url = "https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025&standingsTypes=regularSeason"
     resp = requests.get(url)
     records = resp.json().get("records", [])
 
-    # Log for Render
-    print("RECORDS LENGTH:", len(records))
-
-    # If 2025 is down, fall back to 2024
-    if not records:
-        url = "https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2024&standingsTypes=regularSeason"
-        resp = requests.get(url)
-        records = resp.json().get("records", [])
-        print("Fallback to 2024. RECORDS LENGTH:", len(records))
+    # Add debug logging to Render logs
+    print("RECORDS DEBUG:")
+    for r in records:
+        print(f"{r.get('division', {}).get('name')} | Teams: {len(r.get('teamRecords', []))}")
 
     return render_template('standings.html', stats=records)
 
