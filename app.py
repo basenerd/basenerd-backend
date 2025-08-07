@@ -1,22 +1,40 @@
+
 from flask import Flask, render_template
-import requests
 
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return render_template('index.html')
-
 @app.route('/standings')
 def standings():
-    try:
-        resp = requests.get("https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025&standingsTypes=regularSeason")
-        data = resp.json()
-        print("RECORDS LENGTH:", len(data["records"]))
-        return render_template('standings.html', stats=data["records"])
-    except Exception as e:
-        print("Error loading standings:", e)
-        return f"Error: {e}"
+    # Mocked standings data
+    mock_stats = [
+        {
+            "league": {"name": "National League"},
+            "division": {"name": "NL East"},
+            "teamRecords": [
+                {
+                    "team": {"id": 121, "name": "New York Mets"},
+                    "wins": 60,
+                    "losses": 50,
+                    "winningPercentage": ".545",
+                    "gamesBack": "2.0"
+                }
+            ]
+        },
+        {
+            "league": {"name": "American League"},
+            "division": {"name": "AL West"},
+            "teamRecords": [
+                {
+                    "team": {"id": 117, "name": "Houston Astros"},
+                    "wins": 65,
+                    "losses": 45,
+                    "winningPercentage": ".591",
+                    "gamesBack": "0.0"
+                }
+            ]
+        }
+    ]
+    return render_template('standings.html', stats=mock_stats)
 
 if __name__ == '__main__':
     app.run(debug=True)
