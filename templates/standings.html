@@ -2,139 +2,25 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>MLB Standings (Live)</title>
-  <style>
-    body {
-      font-family: 'Courier New', Courier, monospace;
-      padding: 2rem;
-      background-color: #f4f6f8;
-      color: #222;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 2rem;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .standings-container {
-      display: flex;
-      justify-content: space-between;
-      gap: 2rem;
-      flex-wrap: wrap;
-    }
-
-    .league-column {
-      flex: 1 1 48%;
-    }
-
-    .division-title {
-      margin-top: 2rem;
-      margin-bottom: 0.5rem;
-      color: #002147;
-      font-size: 1.25rem;
-      font-weight: bold;
-      border-bottom: 2px solid #002147;
-      padding-bottom: 0.3rem;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 1.5rem;
-      background: #fff;
-      box-shadow: 0 0 8px rgba(0,0,0,0.05);
-    }
-
-    th, td {
-      padding: 0.75rem;
-      border-bottom: 1px solid #ddd;
-      text-align: left;
-      font-size: 0.95rem;
-    }
-
-    th {
-      background-color: #002147;
-      color: white;
-      text-transform: uppercase;
-      font-size: 0.85rem;
-    }
-
-    td img {
-      width: 22px;
-      vertical-align: middle;
-      margin-right: 8px;
-    }
-  </style>
+  <title>Debug Standings</title>
 </head>
 <body>
+  <h1>DEBUG: MLB Standings</h1>
 
-  <h1>MLB Standings (Live)</h1>
+  {% if stats %}
+    <p>Total Division Groups: {{ stats|length }}</p>
 
-  <div class="standings-container">
-
-    <!-- National League Column -->
-    <div class="league-column">
-      {% for group in stats %}
-        {% if group.league.name == 'National League' %}
-          <div class="division-title">{{ group.division.name }}</div>
-          <table>
-            <tr>
-              <th>Team</th>
-              <th>W</th>
-              <th>L</th>
-              <th>PCT</th>
-              <th>GB</th>
-            </tr>
-            {% for team in group.teamRecords %}
-            <tr>
-              <td>
-                <img src="https://www.mlbstatic.com/team-logos/{{ team.team.id }}.svg" alt="{{ team.team.abbreviation }}">
-                {{ team.team.abbreviation }}
-              </td>
-              <td>{{ team.wins }}</td>
-              <td>{{ team.losses }}</td>
-              <td>{{ team.winningPercentage }}</td>
-              <td>{{ team.gamesBack }}</td>
-            </tr>
-            {% endfor %}
-          </table>
-        {% endif %}
-      {% endfor %}
-    </div>
-
-    <!-- American League Column -->
-    <div class="league-column">
-      {% for group in stats %}
-        {% if group.league.name == 'American League' %}
-          <div class="division-title">{{ group.division.name }}</div>
-          <table>
-            <tr>
-              <th>Team</th>
-              <th>W</th>
-              <th>L</th>
-              <th>PCT</th>
-              <th>GB</th>
-            </tr>
-            {% for team in group.teamRecords %}
-            <tr>
-              <td>
-                <img src="https://www.mlbstatic.com/team-logos/{{ team.team.id }}.svg" alt="{{ team.team.abbreviation }}">
-                {{ team.team.abbreviation }}
-              </td>
-              <td>{{ team.wins }}</td>
-              <td>{{ team.losses }}</td>
-              <td>{{ team.winningPercentage }}</td>
-              <td>{{ team.gamesBack }}</td>
-            </tr>
-            {% endfor %}
-          </table>
-        {% endif %}
-      {% endfor %}
-    </div>
-
-  </div>
+    {% for group in stats %}
+      <h2>{{ group.league.name }} - {{ group.division.name }}</h2>
+      <ul>
+        {% for team in group.teamRecords %}
+          <li>{{ team.team.name }} ({{ team.team.abbreviation }}) - W: {{ team.wins }}, L: {{ team.losses }}</li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+  {% else %}
+    <p>No stats found.</p>
+  {% endif %}
 
 </body>
 </html>
