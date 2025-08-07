@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,12 +11,14 @@
       background-color: #f4f6f8;
       color: #222;
     }
+
     h1 {
       text-align: center;
       margin-bottom: 2rem;
       text-transform: uppercase;
       color: #002147;
     }
+
     .league-header {
       font-size: 1.5rem;
       font-weight: bold;
@@ -26,24 +27,28 @@
       text-align: center;
       width: 100%;
     }
+
     .standings-container {
       display: flex;
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 2rem;
     }
+
     .column {
       flex: 1 1 45%;
       display: flex;
       flex-direction: column;
       gap: 1.5rem;
     }
+
     .division {
       background-color: #fff;
       border-radius: 8px;
       padding: 1rem;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
+
     .division h2 {
       color: #004080;
       border-bottom: 2px solid #004080;
@@ -51,21 +56,26 @@
       margin-bottom: 1rem;
       font-size: 1.25rem;
     }
+
     table {
       width: 100%;
       border-collapse: collapse;
     }
+
     th, td {
       padding: 0.5rem;
       text-align: left;
     }
+
     th {
       background-color: #002147;
       color: white;
     }
+
     tr:nth-child(even) {
       background-color: #f2f2f2;
     }
+
     .team-logo {
       width: 20px;
       height: 20px;
@@ -80,7 +90,7 @@
   <div class="standings-container">
     <div class="column">
       <div class="league-header">National League</div>
-      {% for group in nl_divisions %}
+      {% for group in stats if group.league.name == 'National League' %}
         <div class="division">
           <h2>{{ group.division.name }}</h2>
           <table>
@@ -95,7 +105,7 @@
             <tr>
               <td>
                 <img class="team-logo" src="https://www.mlbstatic.com/team-logos/{{ record.team.id }}.svg" alt="{{ record.team.name }}">
-                {{ record.team.abbreviation or record.team.name }}
+                {{ record.team.name }}
               </td>
               <td>{{ record.wins }}</td>
               <td>{{ record.losses }}</td>
@@ -110,7 +120,7 @@
 
     <div class="column">
       <div class="league-header">American League</div>
-      {% for group in al_divisions %}
+      {% for group in stats if group.league.name == 'American League' %}
         <div class="division">
           <h2>{{ group.division.name }}</h2>
           <table>
@@ -125,7 +135,7 @@
             <tr>
               <td>
                 <img class="team-logo" src="https://www.mlbstatic.com/team-logos/{{ record.team.id }}.svg" alt="{{ record.team.name }}">
-                {{ record.team.abbreviation or record.team.name }}
+                {{ record.team.name }}
               </td>
               <td>{{ record.wins }}</td>
               <td>{{ record.losses }}</td>
