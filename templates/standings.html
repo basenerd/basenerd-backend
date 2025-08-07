@@ -1,50 +1,67 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MLB Standings</title>
+  <title>MLB Standings (Live)</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f5f7fa;
-      color: #333;
       padding: 2rem;
+      background-color: #f8f9fa;
+      color: #333;
     }
-    h1, h3 {
-      color: #00274d;
+
+    h2 {
+      margin-top: 2rem;
+      color: #002b5c;
     }
+
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 1rem 0 2rem 0;
+      margin-bottom: 2rem;
+      background: #fff;
+      box-shadow: 0 0 8px rgba(0,0,0,0.05);
     }
+
     th, td {
-      padding: 0.6rem;
-      border: 1px solid #ccc;
-      text-align: center;
+      padding: 0.75rem;
+      border-bottom: 1px solid #ccc;
+      text-align: left;
     }
+
     th {
       background-color: #004080;
-      color: #fff;
+      color: white;
     }
-    tr:nth-child(even) {
-      background-color: #eef3f9;
+
+    td img {
+      width: 24px;
+      vertical-align: middle;
+      margin-right: 8px;
     }
   </style>
 </head>
 <body>
+
   <h1>MLB Standings (Live)</h1>
+
   {% for group in stats %}
-    <h3>{{ group.league.name }} – {{ group.division.name }}</h3>
+    <h2>{{ group.league.name }} – {{ group.division.name }}</h2>
     <table>
       <tr>
-        <th>Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th>
+        <th>Team</th>
+        <th>W</th>
+        <th>L</th>
+        <th>PCT</th>
+        <th>GB</th>
       </tr>
       {% for team in group.teamRecords %}
       <tr>
-        <td>{{ team.team.name }}</td>
+        <td>
+          <img src="https://www.mlbstatic.com/team-logos/{{ team.team.id }}.svg" alt="{{ team.team.abbreviation }}">
+          {{ team.team.abbreviation }}
+        </td>
         <td>{{ team.wins }}</td>
         <td>{{ team.losses }}</td>
         <td>{{ team.winningPercentage }}</td>
@@ -53,5 +70,6 @@
       {% endfor %}
     </table>
   {% endfor %}
+
 </body>
 </html>
