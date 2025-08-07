@@ -12,8 +12,10 @@ def standings():
     try:
         resp = requests.get("https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025&standingsTypes=regularSeason")
         data = resp.json()
+        print("RECORDS LENGTH:", len(data["records"]))
         return render_template('standings.html', stats=data["records"])
     except Exception as e:
+        print("Error loading standings:", e)
         return f"Error: {e}"
 
 if __name__ == '__main__':
