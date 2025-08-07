@@ -106,7 +106,7 @@
               <tr>
                 <td>
                   <img class="team-logo" src="https://www.mlbstatic.com/team-logos/{{ record.team.id }}.svg" alt="{{ record.team.name }}">
-                  {{ record.team.abbreviation if record.team.abbreviation else record.team.name }}
+                  {{ record.team.triCode if record.team.triCode else record.team.name }}
                 </td>
                 <td>{{ record.wins }}</td>
                 <td>{{ record.losses }}</td>
@@ -138,7 +138,7 @@
               <tr>
                 <td>
                   <img class="team-logo" src="https://www.mlbstatic.com/team-logos/{{ record.team.id }}.svg" alt="{{ record.team.name }}">
-                  {{ record.team.abbreviation if record.team.abbreviation else record.team.name }}
+                  {{ record.team.triCode if record.team.triCode else record.team.name }}
                 </td>
                 <td>{{ record.wins }}</td>
                 <td>{{ record.losses }}</td>
