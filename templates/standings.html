@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,9 +14,15 @@
 
     h1 {
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1rem;
       text-transform: uppercase;
       color: #002147;
+    }
+
+    p.debug {
+      text-align: center;
+      color: gray;
+      font-size: 0.9rem;
     }
 
     .container {
@@ -73,6 +78,7 @@
 </head>
 <body>
   <h1>MLB Standings (Live)</h1>
+  <p class="debug">Stats passed: {{ stats | length }}</p>
 
   <div class="container">
     <!-- National League -->
@@ -141,3 +147,4 @@
   </div>
 </body>
 </html>
+
