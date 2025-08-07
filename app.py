@@ -10,14 +10,11 @@ def home():
 
 @app.route('/standings')
 def standings():
-    import requests
-    url = "https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2025&standingsTypes=regularSeason"
-    resp = requests.get(url)
-    records = resp.json().get("records", [])
-
-    print(f"RECORDS LENGTH: {len(records)}")  # Leave this in
-
-    return render_template("standings.html", stats=records)
+    resp = requests.get("https://statsapi.mlb.com/api/v1/standings?season=2025")
+    records = resp.json()["records"]
+    nl_divisions = [group for group in records if group["league"]["name"] == "National League"]
+    al_divisions = [group for group in records if group["league"]["name"] == "American League"]
+    return render_template('standings.html', nl_divisions=nl_divisions, al_divisions=al_divisions)
 
 if __name__ == '__main__':
     app.run(debug=True)
