@@ -4,7 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MLB Standings • Basenerd</title>
+
+  <!-- Clean, modern “code-y” fonts -->
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+
   <style>
     :root{
       --bg:#0b0e13; --card:#131823; --muted:#8a94ab; --text:#e8edf7; --accent:#f0b90b;
@@ -12,6 +15,8 @@
     }
     *{box-sizing:border-box}
     body{ margin:0; background:var(--bg); color:var(--text); font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+
+    /* White page title/header */
     header{
       display:flex; align-items:center; gap:12px; padding:16px 20px;
       background:var(--header-bg); color:var(--header-text); border-bottom:2px solid var(--border);
@@ -19,11 +24,16 @@
     }
     header img{height:40px}
     header h1{margin:0; font-size:22px; letter-spacing:.2px; font-weight:600}
+
     .wrap{max-width:1200px; margin:24px auto 80px; padding:0 16px}
     .meta{ color:var(--muted); font-size:13px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+
+    /* Two fixed columns: NL left, AL right */
     .columns{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
     @media(max-width:900px){ .columns{ grid-template-columns:1fr; } }
+
     .column-title{margin:0 0 8px 2px; font-weight:600; color:#cdd6ea; letter-spacing:.3px}
+
     .division{
       background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden; margin-bottom:16px;
     }
@@ -31,6 +41,7 @@
       margin:0; padding:14px 16px; font-size:16px; font-weight:600;
       background:linear-gradient(180deg, #12192a, #0f1420); border-bottom:1px solid var(--border);
     }
+
     table{width:100%; border-collapse:collapse}
     thead th{
       text-align:left; font-size:12px; color:var(--muted);
@@ -42,14 +53,17 @@
     td{padding:10px 14px; font-size:14px; vertical-align:middle;}
     td.team{font-weight:600; display:flex; align-items:center; gap:8px;}
     td.team img{height:20px; width:auto}
-    td.num{font-variant-numeric: tabular-nums; text-align:right; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;}
+    td.num{
+      font-variant-numeric: tabular-nums; text-align:right;
+      font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+    }
     .footer-note{margin-top:22px; color:var(--muted); font-size:12px}
   </style>
 </head>
 <body>
   <header>
     <img src="{{ url_for('static', filename='basenerd-logo-official.png') }}" alt="Basenerd" />
-    <h1>MLB Standings 2025</h1>
+    <h1>MLB Standings {{ season }}</h1>
   </header>
 
   <div class="wrap">
@@ -79,7 +93,11 @@
                 {% for row in block["rows"] %}
                   <tr>
                     <td class="team">
-                      {% if row["team_id"] %}<img src="https://www.mlbstatic.com/team-logos/{{ row['team_id'] }}.svg" alt="{{ row['team_name'] }} logo" onerror="this.style.display='none'">{% endif %}
+                      {% if row["team_id"] %}
+                        <img src="https://www.mlbstatic.com/team-logos/{{ row['team_id'] }}.svg"
+                             alt="{{ row['team_name'] }} logo"
+                             onerror="this.style.display='none'">
+                      {% endif %}
                       {{ row["team_name"] }}
                     </td>
                     <td class="num">{{ row["w"] }}</td>
@@ -114,7 +132,11 @@
                 {% for row in block["rows"] %}
                   <tr>
                     <td class="team">
-                      {% if row["team_id"] %}<img src="https://www.mlbstatic.com/team-logos/{{ row['team_id'] }}.svg" alt="{{ row['team_name'] }} logo" onerror="this.style.display='none'">{% endif %}
+                      {% if row["team_id"] %}
+                        <img src="https://www.mlbstatic.com/team-logos/{{ row['team_id'] }}.svg"
+                             alt="{{ row['team_name'] }} logo"
+                             onerror="this.style.display='none'">
+                      {% endif %}
                       {{ row["team_name"] }}
                     </td>
                     <td class="num">{{ row["w"] }}</td>
