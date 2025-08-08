@@ -44,9 +44,16 @@
 
     table{width:100%; border-collapse:collapse}
     thead th{
-      text-align:left; font-size:12px; color:var(--muted);
-      padding:10px 14px; border-bottom:1px solid var(--border); font-weight:600;
+      text-align:left;
+      font-size:12px;
+      color:var(--muted);
+      padding:10px 14px;
+      border-bottom:1px solid var(--border);
+      font-weight:600;
       font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    thead th.num {
+      text-align: right;
     }
     tbody tr:nth-child(odd){background:var(--row)}
     tbody tr:nth-child(even){background:var(--rowAlt)}
@@ -83,7 +90,6 @@
       <span id="updated"></span>
     </div>
 
-    {# Show a friendly message if the server caught an error fetching data #}
     {% if error %}
       <div class="error-banner">
         Live data error: {{ error }}
