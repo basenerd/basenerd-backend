@@ -6,7 +6,8 @@
   <title>MLB Standings • Basenerd</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
   <style>
-:root{
+
+    :root{
       --bg:#ffffff;
       --card:#ffffff;
       --muted:#5b6577;
@@ -41,16 +42,60 @@
     td.num{ font-variant-numeric: tabular-nums; text-align:right; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
     .footer-note{margin-top:16px; color:var(--muted); font-size:10.5px}
     .error-banner{ background:#fdecec; border:1px solid #f7b7b7; color:#7a1e1e; padding:8px 10px; border-radius:10px; margin-bottom:10px; font-size:12px; }
-  
+    /* Run diff coloring */
     .run-positive { color: green; font-weight: 600; }
     .run-negative { color: red; font-weight: 600; }
-</style>
+    /* Drawer + hamburger */
+    .hamburger{
+      display:inline-flex; flex-direction:column; gap:4px; margin-right:8px;
+      background:transparent; border:0; cursor:pointer; padding:8px; border-radius:10px;
+    }
+    .hamburger span{ display:block; width:20px; height:2px; background:#394150; transition:transform .2s, opacity .2s; }
+    .hamburger[aria-expanded="true"] span:nth-child(1){ transform:translateY(6px) rotate(45deg); }
+    .hamburger[aria-expanded="true"] span:nth-child(2){ opacity:0; }
+    .hamburger[aria-expanded="true"] span:nth-child(3){ transform:translateY(-6px) rotate(-45deg); }
+
+    .drawer{
+      position:fixed; inset:0 auto 0 0; width:270px; transform:translateX(-100%);
+      background:var(--card); border-right:1px solid var(--border); box-shadow:0 10px 30px rgba(0,0,0,.08);
+      transition:transform .2s ease; z-index:1000; padding:16px 12px;
+    }
+    .drawer.open{ transform:translateX(0); }
+    .drawer-nav{ display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+    .drawer-nav a{
+      text-decoration:none; font-weight:600; font-size:13px; padding:9px 10px; border-radius:10px; color:#394150;
+    }
+    .drawer-nav a:hover{ background:var(--row); color:#111318; }
+
+    .drawer-backdrop{
+      position:fixed; inset:0; background:rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:opacity .2s; z-index:999;
+    }
+    .drawer-backdrop.show{ opacity:1; pointer-events:auto; }
+
+  </style>
 </head>
 <body>
   <header>
-    <img src="{{ url_for('static', filename='basenerd-logo-official.png') }}" alt="Basenerd" />
+    
+    <button class="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="site-drawer">
+      <span></span><span></span><span></span>
+    </button>
+<img src="{{ url_for('static', filename='basenerd-logo-official.png') }}" alt="Basenerd" />
     <h1>MLB Standings {{ season or '' }}</h1>
   </header>
+  <aside id="site-drawer" class="drawer" aria-hidden="true">
+    <nav class="drawer-nav">
+      <a href="/">Home</a>
+      <a href="/todaysgames">Today's Games</a>
+      <a href="/players">Players</a>
+      <a href="/teams">Teams</a>
+      <a href="/standings">Standings</a>
+      <a href="/statistics">Statistics</a>
+      <a href="/aboutbasenerd">About basenerd</a>
+    </nav>
+  </aside>
+  <div class="drawer-backdrop" data-close-drawer></div>
+
 
   <div class="wrap">
     <div class="meta">
@@ -158,19 +203,47 @@
   </script>
 
   <script>
-    document.querySelectorAll('tbody tr').forEach(row => {
-      let rdCell = row.querySelector('td:last-child');
-      if(rdCell){
-        let val = parseInt(rdCell.textContent.trim(), 10);
-        if(!isNaN(val)){
-          if(val > 0){
-            rdCell.classList.add('run-positive');
-          } else if(val < 0){
-            rdCell.classList.add('run-negative');
+    document.getElementById('updated').textContent = `Updated: ${new Date().toLocaleString()}`;
+    // Color Run Diff column: green for positive, red for negative
+    (function(){
+      document.querySelectorAll('tbody tr').forEach(row => {
+        const rdCell = row.querySelector('td:last-child');
+        if(rdCell){
+          const val = parseInt(rdCell.textContent.trim(), 10);
+          if(!isNaN(val)){
+            if(val > 0){ rdCell.classList.add('run-positive'); }
+            else if(val < 0){ rdCell.classList.add('run-negative'); }
           }
         }
+      });
+    })();
+    // Drawer toggle
+    (function(){
+      const btn = document.querySelector('.hamburger');
+      const drawer = document.getElementById('site-drawer');
+      const backdrop = document.querySelector('.drawer-backdrop');
+      function openDrawer(){
+        drawer.classList.add('open');
+        backdrop.classList.add('show');
+        drawer.setAttribute('aria-hidden','false');
+        btn.setAttribute('aria-expanded','true');
+        document.body.style.overflow='hidden';
       }
-    });
+      function closeDrawer(){
+        drawer.classList.remove('open');
+        backdrop.classList.remove('show');
+        drawer.setAttribute('aria-hidden','true');
+        btn.setAttribute('aria-expanded','false');
+        document.body.style.overflow='';
+      }
+      btn?.addEventListener('click', () => {
+        const expanded = btn.getAttribute('aria-expanded') === 'true';
+        expanded ? closeDrawer() : openDrawer();
+      });
+      backdrop?.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeDrawer(); });
+    })();
   </script>
 </body>
+
 </html>
