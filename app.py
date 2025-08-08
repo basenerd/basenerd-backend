@@ -9,6 +9,18 @@ try:
 except Exception:
     PHOENIX = None
 
+from datetime import timezone
+
+def _parse_iso_utc(iso_str):
+    try:
+        # gameDate is like '2025-08-08T23:05:00Z' -> ensure tz-aware UTC
+        if iso_str.endswith('Z'):
+            return datetime.fromisoformat(iso_str.replace('Z','+00:00'))
+        dt = datetime.fromisoformat(iso_str)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
 app = Flask(__name__)
 
 # ---- Logging ----
@@ -125,8 +137,13 @@ _GAMES_CACHE = {}  # key: date_str -> {"ts": epoch, "ttl": sec, "data": {...}}
 
 def _fmt_local_time(iso_z):
     try:
-        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
-        if PHOENIX: dt = dt.astimezone(PHOENIX)
+        dt = _parse_iso_utc(iso_z)
+        if not dt:
+            return ""
+        if PHOENIX:
+            dt = dt.astimezone(PHOENIX)
+        else:
+            dt = dt.astimezone()  # local system tz
         return dt.strftime("%-I:%M %p")
     except Exception:
         return ""
@@ -157,6 +174,11 @@ def _linescore_blob(ls):
         "homeErrors": ls.get("teams", {}).get("home", {}).get("errors"),
     }
 
+def _record_str(team_obj):
+    rec = team_obj.get("record", {}) if isinstance(team_obj, dict) else {}
+    w = rec.get("wins"); l = rec.get("losses")
+    return f"{w}-{l}" if (w is not None and l is not None) else ""
+
 def _team_blob(gameData, linescore, side):
     t = gameData.get("teams", {}).get(side, {}) or {}
     ls = (linescore or {}).get("teams", {}).get(side, {}) or {}
@@ -169,7 +191,7 @@ def _team_blob(gameData, linescore, side):
         "errors": ls.get("errors"),
     }
 
-def games_live_to_view(live):
+def games_live_to_view(live, schedule_start_iso=None):
     gameData = live.get("gameData", {})
     liveData = live.get("liveData", {})
     status = gameData.get("status", {})
@@ -181,6 +203,9 @@ def games_live_to_view(live):
 
     gamePk = gameData.get("game", {}).get("pk") or live.get("gamePk")
     start_iso = gameData.get("datetime", {}).get("dateTime")
+    # prefer schedule's UTC gameDate when present
+    if schedule_start_iso:
+        start_iso = schedule_start_iso
     venue = (gameData.get("venue") or {}).get("name")
 
     # in-progress bits
@@ -209,16 +234,23 @@ def games_live_to_view(live):
             "linescore": _linescore_blob(ls)
         }
 
+        # Build team blobs
+    away_blob = _team_blob(gameData, ls, "away")
+    home_blob = _team_blob(gameData, ls, "home")
+    # attach records if available
+    away_blob["record"] = _record_str(gameData.get("teams", {}).get("away", {}))
+    home_blob["record"] = _record_str(gameData.get("teams", {}).get("home", {}))
+    # If scheduled, suppress scores so UI won't show 0-0
+    if abstract == "PREVIEW":
+        away_blob["score"] = None
+        home_blob["score"] = None
     return {
         "gamePk": gamePk,
         "status": "in_progress" if abstract == "LIVE" else ("final" if abstract == "FINAL" else "scheduled"),
         "startTimeUtc": start_iso,
         "startTimeLocal": _fmt_local_time(start_iso) if start_iso else "",
         "venue": venue,
-        "teams": {
-            "away": _team_blob(gameData, ls, "away"),
-            "home": _team_blob(gameData, ls, "home"),
-        },
+        "teams": {"away": away_blob, "home": home_blob},
         "inProgress": ip,
         "final": fin
     }
@@ -291,10 +323,12 @@ def api_games():
     any_live = False
     for g in schedule:
         pk = g.get("gamePk")
-        if not pk: continue
+        if not pk:
+            continue
         try:
             live = games_fetch_live(pk)
-            view = games_live_to_view(live)
+            sched_start = g.get("gameDate")  # UTC 'Z'
+            view = games_live_to_view(live, schedule_start_iso=sched_start)
             any_live = any_live or (view["status"] == "in_progress")
             games.append(view)
         except Exception as ex:
