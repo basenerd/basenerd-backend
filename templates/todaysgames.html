@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -31,25 +32,26 @@
     @media(max-width:720px){ .grid{ grid-template-columns:1fr; } }
     .game{ background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
     .game header{ background:linear-gradient(180deg, #fff, #f6f9ff); border-bottom:1px solid var(--border); padding:10px 12px; display:flex; align-items:center; justify-content:space-between; position:initial; }
-    .chip{ font-size:11px; padding:4px 10px; border-radius:999px; color:#fff; font-weight:700; letter-spacing:.3px; }
+    .chip{ font-size:11px; padding:3px 8px; border-radius:999px; color:#fff; font-weight:700; letter-spacing:.3px; }
     .chip.live{ background:var(--chip-live); }
     .chip.final{ background:var(--chip-final); }
     .chip.upcoming{ background:var(--chip-upcoming); }
     .when{ color:var(--muted); font-size:12px; }
     .rows{ display:flex; flex-direction:column; }
-    .row{ display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center; padding:8px 12px; }
+    .row{ display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:8px 12px; }
     .row:nth-child(odd){ background:var(--row); }
     .row:nth-child(even){ background:var(--rowAlt); }
-    .team{ display:flex; align-items:center; gap:8px; min-width:0; }
-    .team img{ height:18px; width:auto; }
+    .left{ display:flex; align-items:center; gap:8px; min-width:0; }
+    .left img{ height:18px; width:auto; }
     .abbr{ font-weight:700; letter-spacing:.2px; }
-    .pitcher{ color:#394150; font-size:12px; margin-left:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .note{ color:#394150; font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .right{ text-align:right; font-variant-numeric: tabular-nums; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
     .score{ font-weight:700; font-size:13.5px; }
     .score .lead{ color:var(--good); }
     .score .trail{ color:var(--bad); }
-    .footer{ padding:8px 12px; display:flex; align-items:center; justify-content:space-between; color:var(--muted); font-size:11.5px; border-top:1px solid var(--border); background:#fff; }
+    .footer{ display:none; } /* footer removed per request */
     .empty{ color:var(--muted); border:1px dashed var(--border); border-radius:12px; padding:18px; text-align:center; background:#fff; }
+    a{ color:#0b5cab; }
   </style>
 </head>
 <body>
@@ -74,7 +76,7 @@
 
     <div id="games" class="grid"></div>
     <div id="empty" class="empty" style="display:none">No games match your filters.</div>
-    <p class="when">All times ET • Source: MLB Stats API</p>
+    <p class="when">Times shown in ET. Source: MLB Stats API</p>
   </div>
 
   <script>
@@ -105,49 +107,34 @@
 
     function chip(g){
       if (g.status === 'in_progress') {
-        const ip = g.inProgress || {};
-        const half = ip.half === 'T' ? 'Top' : 'Bot';
-        const inn = ip.inning || '';
-        const outs = (ip.outs || ip.outs===0) ? ` • ${ip.outs} out${ip.outs===1?'':'s'}` : '';
+        const ls = g.linescore || {};
+        const half = ls.isTopInning ? 'Top' : 'Bot';
+        const inn = ls.currentInningOrdinal || ls.currentInning || '';
+        const outs = (ls.outs || ls.outs===0) ? ` • ${ls.outs} out${ls.outs===1?'':'s'}` : '';
         return `<span class="chip live">${half} ${inn}${outs}</span>`;
       }
-      if (g.status === 'final') {
-        return `<span class="chip final">Final</span>`;
-      }
-      return `<span class="chip upcoming">${g.startTimeLocal || ''}</span>`;
+      if (g.status === 'final') return `<span class="chip final">Final</span>`;
+      return `<span class="chip upcoming">${g.startTimeLocal||''}</span>`;
     }
 
-    function teamRow(team, oppScore){
+    function row(team, oppScore){
       const lead = (team.score ?? -1) > (oppScore ?? -1);
       const trail = (team.score ?? -1) < (oppScore ?? -1);
-      const scoreHtml = team.score!=null ? `<span class="${lead?'lead':(trail?'trail':'')}">${team.score}</span>` : '&nbsp;';
-      const prob = team.probable?.text || '';
       return `
-        <div class="team">
-          ${team.id ? `<img src="https://www.mlbstatic.com/team-logos/${team.id}.svg" alt="">` : ''}
-          <span class="abbr">${team.abbr||''}</span>
-          ${prob ? `<span class="pitcher">${prob}</span>` : ''}
-        </div>
-        <div class="right ${team.score!=null ? 'score' : ''}">${scoreHtml}</div>
-      `;
+        <div class="row">
+          <div class="left">
+            ${team.id ? `<img src="https://www.mlbstatic.com/team-logos/${team.id}.svg" alt="">` : ''}
+            <span class="abbr">${team.abbr||''}</span>
+            ${team.note ? `<span class="note">• ${team.note}</span>` : ''}
+          </div>
+          <div class="right ${team.score!=null ? 'score' : ''}">
+            ${team.score!=null ? `<span class="${lead?'lead':(trail?'trail':'')}">${team.score}</span>` : '&nbsp;'}
+          </div>
+        </div>`;
     }
 
     function card(g){
       const a = g.teams.away, h = g.teams.home;
-      const isPre = g.status === 'scheduled';
-      const isLive = g.status === 'in_progress';
-      const isFinal = g.status === 'final';
-
-      const rowAway = `
-        <div class="row">
-          ${teamRow(a, h.score)}
-        </div>`;
-
-      const rowHome = `
-        <div class="row">
-          ${teamRow(h, a.score)}
-        </div>`;
-
       const el = document.createElement('article');
       el.className = 'game';
       el.innerHTML = `
@@ -155,14 +142,8 @@
           <div class="when">${g.venue||''}</div>
           ${chip(g)}
         </header>
-        <div class="rows">
-          ${rowAway}
-          ${rowHome}
-        </div>
-        <div class="footer">
-          <span>${isPre ? 'Probables' : isLive ? 'Live' : 'Final'}</span>
-          <span></span>
-        </div>
+        ${row(a, h.score)}
+        ${row(h, a.score)}
       `;
       return el;
     }
@@ -174,12 +155,12 @@
       $games.innerHTML = '';
       if (!filtered.length){
         $empty.style.display = 'block';
-        return;
+      } else {
+        $empty.style.display = 'none';
+        const frag = document.createDocumentFragment();
+        filtered.forEach(g => frag.appendChild(card(g)));
+        $games.appendChild(frag);
       }
-      $empty.style.display = 'none';
-      const frag = document.createDocumentFragment();
-      filtered.forEach(g => frag.appendChild(card(g)));
-      $games.appendChild(frag);
       $updated.textContent = 'Updated: ' + new Date().toLocaleString();
     }
 
@@ -192,7 +173,7 @@
         const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
         if (anyLive) state.timer = setTimeout(load, 30000);
       } catch(e){
-        $games.innerHTML = '<div class="empty">Error loading games.</div>'; 
+        $games.innerHTML = '<div class="empty">Error loading games.</div>';
       }
     }
 
