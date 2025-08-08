@@ -4,58 +4,51 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MLB Standings • Basenerd</title>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Clean, modern fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Source+Code+Pro:wght@500&display=swap" rel="stylesheet">
   <style>
     :root{
-      --bg:#0b0e13; --card:#131823; --muted:#7f8aa3; --text:#e8edf7; --accent:#f0b90b;
-      --row:#0f1420; --rowAlt:#0c111b; --border:#1f2a44; --header-bg:#fff; --header-text:#000;
+      --bg:#0b0e13; --card:#131823; --muted:#8a94ab; --text:#e8edf7; --accent:#f0b90b;
+      --row:#0f1420; --rowAlt:#0c111b; --border:#1f2a44; --header-bg:#ffffff; --header-text:#000000;
     }
     *{box-sizing:border-box}
-    body{
-      margin:0; background:var(--bg); color:var(--text);
-      font-family: 'Orbitron', ui-sans-serif, system-ui, -apple-system;
-    }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
     header{
       display:flex; align-items:center; gap:12px; padding:16px 20px;
-      background:var(--header-bg); color:var(--header-text);
-      border-bottom:2px solid var(--border);
+      background:var(--header-bg); color:var(--header-text); border-bottom:2px solid var(--border);
+      position:sticky; top:0; z-index:10;
     }
     header img{height:40px; width:auto}
-    header h1{margin:0; font-size:22px; letter-spacing:.4px; font-weight:600}
+    header h1{margin:0; font-size:22px; letter-spacing:.2px; font-weight:600}
     .wrap{max-width:1200px; margin:24px auto 80px; padding:0 16px}
-    .meta{
-      color:var(--muted); font-size:13px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:20px;
-    }
+    .meta{ color:var(--muted); font-size:13px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+    /* Two columns: NL left, AL right */
+    .columns{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media(max-width:900px){ .columns{ grid-template-columns:1fr; } }
+    .column-title{margin:0 0 8px 2px; font-weight:600; color:#cdd6ea; letter-spacing:.3px}
     .division{
-      background:var(--card); border:1px solid var(--border);
-      border-radius:16px; overflow:hidden;
+      background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden; margin-bottom:16px;
     }
     .division h2{
       margin:0; padding:14px 16px; font-size:16px; font-weight:600;
-      background:linear-gradient(180deg, #12192a, #0f1420);
-      border-bottom:1px solid var(--border);
+      background:linear-gradient(180deg, #12192a, #0f1420); border-bottom:1px solid var(--border);
     }
     table{width:100%; border-collapse:collapse}
     thead th{
       text-align:left; font-size:12px; color:var(--muted);
       padding:10px 14px; border-bottom:1px solid var(--border); font-weight:600;
+      font-family: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace;
     }
     tbody tr:nth-child(odd){background:var(--row)}
     tbody tr:nth-child(even){background:var(--rowAlt)}
     td{padding:10px 14px; font-size:14px; vertical-align:middle;}
     td.team{font-weight:600; display:flex; align-items:center; gap:8px;}
-    td.team img{height:20px; width:auto;}
-    td.num{font-variant-numeric: tabular-nums; text-align:right}
-    .muted{color:var(--muted)}
-    .footer-note{margin-top:22px; color:var(--muted); font-size:12px}
-    @media(max-width:800px){
-      .grid{grid-template-columns:1fr;}
+    td.team img{height:20px; width:auto}
+    td.num{
+      font-variant-numeric: tabular-nums; text-align:right;
+      font-family: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace;
     }
+    .footer-note{margin-top:22px; color:var(--muted); font-size:12px}
   </style>
 </head>
 <body>
@@ -67,83 +60,106 @@
   <div class="wrap">
     <div class="meta">
       <span>Source: MLB Stats API</span>
-      <span id="updated" class="muted"></span>
+      <span id="updated"></span>
     </div>
 
-    <div class="grid">
-      <!-- National League -->
-      <div>
-        {% for block in stats if block.league.name == "National League" %}
-          <div class="division">
-            <h2>{{ block.division.name }} (NL)</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Team</th>
-                  <th class="num">W</th>
-                  <th class="num">L</th>
-                  <th class="num">Pct</th>
-                  <th class="num">GB</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for tr in block.teamRecords %}
+    <div class="columns">
+      <!-- LEFT: National League -->
+      <section>
+        <h3 class="column-title">National League</h3>
+        {% for block in stats %}
+          {% set league_name = (block.get('league') or {}).get('name') %}
+          {% if league_name == "National League" %}
+            <div class="division">
+              <h2>{{ (block.get('division') or {}).get('name', 'Division') }} (NL)</h2>
+              <table>
+                <thead>
                   <tr>
-                    <td class="team">
-                      <img src="https://www.mlbstatic.com/team-logos/{{ tr.team.id }}.svg" alt="{{ tr.team.name }} logo">
-                      {{ tr.team.name }}
-                    </td>
-                    <td class="num">{{ tr.wins }}</td>
-                    <td class="num">{{ tr.losses }}</td>
-                    <td class="num">{{ '%.3f'|format(tr.pct|float) }}</td>
-                    <td class="num">{{ tr.gamesBack if tr.gamesBack != '0.0' else '—' }}</td>
+                    <th>Team</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num">Pct</th>
+                    <th class="num">GB</th>
                   </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {% for tr in block.get('teamRecords', []) %}
+                    {% set team = (tr.get('team') or {}) %}
+                    {% set team_name = team.get('name', 'Team') %}
+                    {% set team_id = team.get('id') %}
+                    {% set wins = tr.get('wins', '') %}
+                    {% set losses = tr.get('losses', '') %}
+                    {% set wpct = tr.get('winningPercentage') %}
+                    {% set gb = tr.get('gamesBack') %}
+                    <tr>
+                      <td class="team">
+                        {% if team_id %}<img src="https://www.mlbstatic.com/team-logos/{{ team_id }}.svg" alt="{{ team_name }} logo" onerror="this.style.display='none'">{% endif %}
+                        {{ team_name }}
+                      </td>
+                      <td class="num">{{ wins }}</td>
+                      <td class="num">{{ losses }}</td>
+                      <td class="num">{{ '%.3f'|format((wpct or '0')|float) }}</td>
+                      <td class="num">{{ gb if gb not in ['0.0', 0, None, '—', '0'] else '—' }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
         {% endfor %}
-      </div>
+      </section>
 
-      <!-- American League -->
-      <div>
-        {% for block in stats if block.league.name == "American League" %}
-          <div class="division">
-            <h2>{{ block.division.name }} (AL)</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Team</th>
-                  <th class="num">W</th>
-                  <th class="num">L</th>
-                  <th class="num">Pct</th>
-                  <th class="num">GB</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for tr in block.teamRecords %}
+      <!-- RIGHT: American League -->
+      <section>
+        <h3 class="column-title">American League</h3>
+        {% for block in stats %}
+          {% set league_name = (block.get('league') or {}).get('name') %}
+          {% if league_name == "American League" %}
+            <div class="division">
+              <h2>{{ (block.get('division') or {}).get('name', 'Division') }} (AL)</h2>
+              <table>
+                <thead>
                   <tr>
-                    <td class="team">
-                      <img src="https://www.mlbstatic.com/team-logos/{{ tr.team.id }}.svg" alt="{{ tr.team.name }} logo">
-                      {{ tr.team.name }}
-                    </td>
-                    <td class="num">{{ tr.wins }}</td>
-                    <td class="num">{{ tr.losses }}</td>
-                    <td class="num">{{ '%.3f'|format(tr.pct|float) }}</td>
-                    <td class="num">{{ tr.gamesBack if tr.gamesBack != '0.0' else '—' }}</td>
+                    <th>Team</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num">Pct</th>
+                    <th class="num">GB</th>
                   </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {% for tr in block.get('teamRecords', []) %}
+                    {% set team = (tr.get('team') or {}) %}
+                    {% set team_name = team.get('name', 'Team') %}
+                    {% set team_id = team.get('id') %}
+                    {% set wins = tr.get('wins', '') %}
+                    {% set losses = tr.get('losses', '') %}
+                    {% set wpct = tr.get('winningPercentage') %}
+                    {% set gb = tr.get('gamesBack') %}
+                    <tr>
+                      <td class="team">
+                        {% if team_id %}<img src="https://www.mlbstatic.com/team-logos/{{ team_id }}.svg" alt="{{ team_name }} logo" onerror="this.style.display='none'">{% endif %}
+                        {{ team_name }}
+                      </td>
+                      <td class="num">{{ wins }}</td>
+                      <td class="num">{{ losses }}</td>
+                      <td class="num">{{ '%.3f'|format((wpct or '0')|float) }}</td>
+                      <td class="num">{{ gb if gb not in ['0.0', 0, None, '—', '0'] else '—' }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
         {% endfor %}
-      </div>
+      </section>
     </div>
 
-    <p class="footer-note">Games Back (GB) shows distance behind the division leader. “—” means tied for first.</p>
+    <p class="footer-note">GB = Games Back. “—” means tied for first.</p>
   </div>
 
   <script>
+    // Updated timestamp
     const el = document.getElementById('updated');
     const d = new Date();
     el.textContent = `Updated: ${d.toLocaleString()}`;
