@@ -1,141 +1,49 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>MLB Standings (Live)</title>
   <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 2rem;
-      margin: 0;
-      background-color: #f4f6f8;
-      color: #222;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 2rem;
-      text-transform: uppercase;
-      color: #002147;
-    }
-    .league-header {
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #002147;
-      margin-bottom: 0.5rem;
-      text-align: center;
-      width: 100%;
-    }
-    .standings-container {
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 2rem;
-    }
-    .column {
-      flex: 1 1 45%;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-    .division {
-      background-color: #fff;
-      border-radius: 8px;
-      padding: 1rem;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .division h2 {
-      color: #004080;
-      border-bottom: 2px solid #004080;
-      padding-bottom: 0.5rem;
-      margin-bottom: 1rem;
-      font-size: 1.25rem;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th, td {
-      padding: 0.5rem;
-      text-align: left;
-    }
-    th {
-      background-color: #002147;
-      color: white;
-    }
-    tr:nth-child(even) {
-      background-color: #f2f2f2;
-    }
-    .team-logo {
-      width: 20px;
-      height: 20px;
-      vertical-align: middle;
-      margin-right: 5px;
-    }
+    body { font-family: Segoe UI, Tahoma, sans-serif; margin:0; background:#f4f6f8; color:#222; padding:2rem; }
+    h1 { text-align:center; margin-bottom:1.5rem; color:#002147; text-transform:uppercase; }
+    .group { background:#fff; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,.06); margin:0 0 1.25rem; }
+    .group h2 { margin:0; padding:.75rem 1rem; border-bottom:2px solid #004080; color:#004080; font-size:1.1rem; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:.6rem .8rem; border-bottom:1px solid #e5e7eb; text-align:left; }
+    th { background:#002147; color:#fff; font-size:.8rem; text-transform:uppercase; }
+    tr:nth-child(even) { background:#fafafa; }
+    .team { display:flex; align-items:center; gap:.5rem; }
+    .team img { width:22px; height:22px; }
   </style>
 </head>
 <body>
   <h1>MLB Standings (Live)</h1>
-  <div class="standings-container">
-    <div class="column">
-      <div class="league-header">National League</div>
-      {% for group in stats if group.league.name == 'National League' %}
-        <div class="division">
-          <h2>{{ group.division.name }}</h2>
-          <table>
-            <tr>
-              <th>Team</th>
-              <th>W</th>
-              <th>L</th>
-              <th>Pct</th>
-              <th>GB</th>
-            </tr>
-            {% for record in group.teamRecords %}
-            <tr>
-              <td>
-                <img class="team-logo" src="https://www.mlbstatic.com/team-logos/{{ record.team.id }}.svg" alt="{{ record.team.name }}">
-                {{ record.team.name }}
-              </td>
-              <td>{{ record.wins }}</td>
-              <td>{{ record.losses }}</td>
-              <td>{{ record.winningPercentage }}</td>
-              <td>{{ record.gamesBack }}</td>
-            </tr>
-            {% endfor %}
-          </table>
-        </div>
-      {% endfor %}
-    </div>
 
-    <div class="column">
-      <div class="league-header">American League</div>
-      {% for group in stats if group.league.name == 'American League' %}
-        <div class="division">
-          <h2>{{ group.division.name }}</h2>
-          <table>
-            <tr>
-              <th>Team</th>
-              <th>W</th>
-              <th>L</th>
-              <th>Pct</th>
-              <th>GB</th>
-            </tr>
-            {% for record in group.teamRecords %}
-            <tr>
-              <td>
-                <img class="team-logo" src="https://www.mlbstatic.com/team-logos/{{ record.team.id }}.svg" alt="{{ record.team.name }}">
-                {{ record.team.name }}
-              </td>
-              <td>{{ record.wins }}</td>
-              <td>{{ record.losses }}</td>
-              <td>{{ record.winningPercentage }}</td>
-              <td>{{ record.gamesBack }}</td>
-            </tr>
-            {% endfor %}
-          </table>
-        </div>
-      {% endfor %}
-    </div>
-  </div>
+  {% if stats %}
+    {% for group in stats %}
+      <div class="group">
+        <h2>{{ group.league.name }} — {{ group.division.name }}</h2>
+        <table>
+          <tr>
+            <th>Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th>
+          </tr>
+          {% for team in group.teamRecords %}
+          <tr>
+            <td class="team">
+              <img src="https://www.mlbstatic.com/team-logos/{{ team.team.id }}.svg" alt="{{ team.team.name }}">
+              {{ team.team.name }}
+            </td>
+            <td>{{ team.wins }}</td>
+            <td>{{ team.losses }}</td>
+            <td>{{ team.winningPercentage }}</td>
+            <td>{{ team.gamesBack }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No standings available right now.</p>
+  {% endif %}
 </body>
 </html>
