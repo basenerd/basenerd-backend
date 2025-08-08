@@ -19,7 +19,6 @@
     header img{height:32px}
     header h1{margin:0; font-size:17px; letter-spacing:.2px; font-weight:600}
     .wrap{max-width:1200px; margin:16px auto 80px; padding:0 12px}
-
     .controls{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
     .date-nav{ display:flex; align-items:center; gap:6px; }
     .date-btn{ border:1px solid var(--border); background:var(--card); border-radius:10px; padding:6px 10px; cursor:pointer; font-weight:600; }
@@ -34,36 +33,38 @@
     @media(max-width:720px){ .grid{ grid-template-columns:1fr; } }
 
     .game{ background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
-    .game header{ background:linear-gradient(180deg, #fff, #f6f9ff); border-bottom:1px solid var(--border); padding:10px 12px; display:flex; align-items:center; justify-content:space-between; position:initial; }
+    .game header{ background:linear-gradient(180deg, #fff, #f6f9ff); border-bottom:1px solid var(--border); padding:10px 12px; display:flex; align-items:center; justify-content:space-between; position:relative; }
     .chip{ font-size:11px; padding:3px 8px; border-radius:999px; color:#fff; font-weight:700; letter-spacing:.3px; }
     .chip.live{ background:var(--chip-live); }
     .chip.final{ background:var(--chip-final); }
     .chip.upcoming{ background:var(--chip-upcoming); }
     .when{ color:var(--muted); font-size:12px; }
-
+    .inning-badge{ position:absolute; right:10px; top:10px; font-size:11px; color:#5b6577; }
     .rows{ display:flex; flex-direction:column; }
     .row{ display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:8px 12px; }
     .row:nth-child(odd){ background:var(--row); }
     .row:nth-child(even){ background:var(--rowAlt); }
     .team{ display:flex; align-items:center; gap:8px; min-width:0; }
     .team img{ height:18px; width:auto; }
-    .abbr{ font-weight:700; letter-spacing:.2px; min-width:28px; }
-    .info{ color:#394150; font-size:11.5px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .abbr{ font-weight:700; letter-spacing:.2px; min-width:26px; }
+    .info{ color:#394150; font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .right{ text-align:right; font-variant-numeric: tabular-nums; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
     .score{ font-weight:700; font-size:13.5px; }
-    .score .lead{ color:var(--good); }
-    .score .trail{ color:var(--bad); }
 
-    .box{ border-top:1px solid var(--border); padding:8px 12px; overflow:auto; }
-    .box table{ width:100%; border-collapse:collapse; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11.5px; }
-    .box th, .box td{ padding:4px 6px; text-align:center; white-space:nowrap; }
-    .box thead th{ color:#5b6577; }
-    .box tbody tr:nth-child(odd){ background:var(--row); }
-    .box tbody tr:nth-child(even){ background:var(--rowAlt); }
-    .box .label{ text-align:left; font-weight:700; }
+    /* bases graphic */
+    .bases{ display:inline-grid; grid-template-columns:repeat(3, 12px); gap:6px; align-items:center; }
+    .base{ width:10px; height:10px; transform:rotate(45deg); border:1px solid var(--border); background:#fff; }
+    .base.on{ background:#ffd147; border-color:#ffd147; }
+
+    /* box table */
+    .box{ padding:8px 12px; border-top:1px solid var(--border); background:#fff; overflow:auto; }
+    .box table{ border-collapse:collapse; width:100%; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11.5px; }
+    .box th, .box td{ padding:4px 6px; text-align:center; border-bottom:1px solid var(--border); }
+    .box thead th{ color:#5b6577; font-weight:600; }
+    .box .team{ justify-content:flex-start; }
+    .box .totals{ font-weight:700; }
 
     .empty{ color:var(--muted); border:1px dashed var(--border); border-radius:12px; padding:18px; text-align:center; background:#fff; }
-    a{ color:#0b5cab; }
   </style>
 </head>
 <body>
@@ -88,7 +89,7 @@
 
     <div id="games" class="grid"></div>
     <div id="empty" class="empty" style="display:none">No games match your filters.</div>
-    <p class="when">Times shown in ET. Source: MLB Stats API</p>
+    <p class="when">Times shown Eastern Time • Source: MLB Stats API</p>
   </div>
 
   <script>
@@ -117,94 +118,103 @@
       return await res.json();
     }
 
-    function chip(g){
-      if (g.status === 'in_progress') {
-        return `<span class="chip live">LIVE</span>`;
-      }
-      if (g.status === 'final') {
-        return `<span class="chip final">Final</span>`;
-      }
-      return `<span class="chip upcoming">${g.startTimeET||''}</span>`;
+    function chipFor(g){
+      if (g.status === 'in_progress') return `<span class="chip live">${g.chip}</span>`;
+      if (g.status === 'final') return `<span class="chip final">Final</span>`;
+      return `<span class="chip upcoming">${g.chip}</span>`; // scheduled shows ET time in chip
     }
 
-    function teamRow(g, side){
-      const t = g.teams[side];
-      const opp = g.teams[side === 'away' ? 'home' : 'away'];
-      const isPre = g.status === 'scheduled';
-      const isLive = g.status === 'in_progress';
-      const isFinal = g.status === 'final';
+    function inningBadge(g){
+      return g.inningBadge ? `<div class="inning-badge">${g.inningBadge}</div>` : '';
+    }
 
-      let info = '';
-      if (isPre && g.probables?.[side]?.text){
-        info = g.probables[side].text;
-      } else if (isLive && g.live){
-        if ((side === 'home' && g.live.defense_team_id === t.id) || (side === 'away' && g.live.defense_team_id === t.id)){
-          const p = g.live.pitcher;
-          if (p) info = `P: ${p.name || ''} • IP ${p.ip ?? '—'} • P ${p.pitches ?? '—'} • ER ${p.er ?? '—'} • K ${p.k ?? '—'} • BB ${p.bb ?? '—'}`;
-        }
-        if ((side === 'home' && g.live.offense_team_id === t.id) || (side === 'away' && g.live.offense_team_id === t.id)){
-          const b = g.live.batter;
-          if (b) info = (info ? info + ' • ' : '') + `B: ${b.name || ''} ${b.line || ''}`;
-        }
-      }
+    function basesGraphic(g){
+      const b = g.bases || {}; // only for live
+      return `<span class="bases">
+        <span class="base ${b.first?'on':''}" title="1B"></span>
+        <span class="base ${b.second?'on':''}" title="2B"></span>
+        <span class="base ${b.third?'on':''}" title="3B"></span>
+      </span>`;
+    }
 
-      const lead = (t.score ?? -1) > (opp.score ?? -1);
-      const trail = (t.score ?? -1) < (opp.score ?? -1);
-      const scoreHTML = (isPre ? '&nbsp;' : `<span class="${lead?'lead':(trail?'trail':'')}">${t.score ?? ''}</span>`);
-
+    function teamRowScheduled(side, t){
+      const info = t.probable ? t.probable : '';
       return `
-        <div class="team">
-          ${t.id ? `<img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="">` : ''}
-          <span class="abbr">${t.abbr||''}</span>
-          ${info ? `<span class="info">• ${info}</span>` : ''}
-        </div>
-        <div class="right score">${scoreHTML}</div>
-      `;
+        <div class="row">
+          <div class="team">
+            ${t.id ? `<img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="">` : ''}
+            <span class="abbr">${t.abbr||''}</span>
+            <span class="info">${info}</span>
+          </div>
+          <div class="right score">&nbsp;</div>
+        </div>`;
+    }
+
+    function teamRowLive(side, t, g){
+      // show current pitcher on defense side, current batter on offense side
+      const info = t.currentPitcher || t.currentBatter || '';
+      const score = (t.score!=null) ? t.score : '&nbsp;';
+      return `
+        <div class="row">
+          <div class="team">
+            ${t.id ? `<img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="">` : ''}
+            <span class="abbr">${t.abbr||''}</span>
+            <span class="info">${info}</span>
+          </div>
+          <div class="right score">${score}</div>
+        </div>`;
+    }
+
+    function teamRowFinal(side, t){
+      const score = (t.score!=null) ? t.score : '&nbsp;';
+      return `
+        <div class="row">
+          <div class="team">
+            ${t.id ? `<img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="">` : ''}
+            <span class="abbr">${t.abbr||''}</span>
+          </div>
+          <div class="right score">${score}</div>
+        </div>`;
     }
 
     function boxTable(g){
-      const ls = g.linescore || {};
-      const awayInn = ls.awayByInning || [];
-      const homeInn = ls.homeByInning || [];
-      const cols = Math.max(awayInn.length, homeInn.length, 9);
-      const head = Array.from({length: cols}, (_,i)=>`<th>${i+1}</th>`).join('');
-      const row = (label, arr, tot) => `
-        <tr>
-          <td class="label">${label}</td>
-          ${Array.from({length: cols}, (_,i)=>`<td>${arr[i] ?? ''}</td>`).join('')}
-          <td>${tot.R ?? ''}</td><td>${tot.H ?? ''}</td><td>${tot.E ?? ''}</td>
-        </tr>`;
+      const ls = g.linescore;
+      if (!ls) return '';
+      const a = ls.awayByInning || [], h = ls.homeByInning || [];
+      const n = Math.max(a.length, h.length);
+      const headInnings = Array.from({length:n}, (_,i)=>`<th>${i+1}</th>`).join('');
+      const aCells = Array.from({length:n}, (_,i)=>`<td>${a[i] ?? ''}</td>`).join('');
+      const hCells = Array.from({length:n}, (_,i)=>`<td>${h[i] ?? ''}</td>`).join('');
+      const aT = ls.totals.away, hT = ls.totals.home;
       return `
         <div class="box">
           <table>
-            <thead>
-              <tr><th></th>${head}<th>R</th><th>H</th><th>E</th></tr>
-            </thead>
+            <thead><tr><th></th>${headInnings}<th class="totals">R</th><th class="totals">H</th><th class="totals">E</th></tr></thead>
             <tbody>
-              ${row(g.teams.away.abbr||'AWY', awayInn, ls.away || {})}
-              ${row(g.teams.home.abbr||'HOM', homeInn, ls.home || {})}
+              <tr><td class="team">${g.teams.away.abbr}</td>${aCells}<td class="totals">${aT.R ?? ''}</td><td class="totals">${aT.H ?? ''}</td><td class="totals">${aT.E ?? ''}</td></tr>
+              <tr><td class="team">${g.teams.home.abbr}</td>${hCells}<td class="totals">${hT.R ?? ''}</td><td class="totals">${hT.H ?? ''}</td><td class="totals">${hT.E ?? ''}</td></tr>
             </tbody>
           </table>
         </div>`;
     }
 
     function card(g){
-      const isPre = g.status === 'scheduled';
-      const isLive = g.status === 'in_progress';
-      const isFinal = g.status === 'final';
+      const a = g.teams.away, h = g.teams.home;
+      const headerLeft = `<div class="when">${g.venue||''}</div>`;
+      const headerRight = `${chipFor(g)}${basesGraphic(g)}${inningBadge(g)}`;
 
       const el = document.createElement('article');
       el.className = 'game';
       el.innerHTML = `
         <header>
-          <div class="when">${g.venue||''}</div>
-          ${chip(g)}
+          ${headerLeft}
+          <div>${headerRight}</div>
         </header>
         <div class="rows">
-          <div class="row">${teamRow(g,'away')}</div>
-          <div class="row">${teamRow(g,'home')}</div>
+          ${g.status==='scheduled' ? teamRowScheduled('away', a) : g.status==='in_progress' ? teamRowLive('away', a, g) : teamRowFinal('away', a)}
+          ${g.status==='scheduled' ? teamRowScheduled('home', h) : g.status==='in_progress' ? teamRowLive('home', h, g) : teamRowFinal('home', h)}
         </div>
-        ${ (isLive || isFinal) ? boxTable(g) : '' }
+        ${g.status!=='scheduled' ? boxTable(g) : ''}
       `;
       return el;
     }
