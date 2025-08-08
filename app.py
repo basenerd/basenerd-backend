@@ -13,7 +13,7 @@ SEASON = 2025
 BASE_URL = "https://statsapi.mlb.com/api/v1/standings"
 HEADERS = {"User-Agent": "basenerd/1.0"}
 
-# League & Division ID -> Name fallbacks (API sometimes omits names at top level)
+# League & Division ID -> Name (fallbacks if API omits names at top level)
 LEAGUE_NAME = {103: "American League", 104: "National League"}
 DIVISION_NAME = {
     # AL
@@ -24,6 +24,41 @@ DIVISION_NAME = {
     203: "National League West",
     204: "National League East",
     205: "National League Central",
+}
+
+# Hardcoded MLB team abbreviations (consistent 3-letter codes)
+# Keys are MLB StatsAPI team IDs
+TEAM_ABBR = {
+    109: "ARI",  # Arizona Diamondbacks
+    144: "ATL",  # Atlanta Braves
+    110: "BAL",  # Baltimore Orioles
+    111: "BOS",  # Boston Red Sox
+    112: "CHC",  # Chicago Cubs
+    145: "CHW",  # Chicago White Sox
+    113: "CIN",  # Cincinnati Reds
+    114: "CLE",  # Cleveland Guardians
+    115: "COL",  # Colorado Rockies
+    116: "DET",  # Detroit Tigers
+    117: "HOU",  # Houston Astros
+    118: "KCR",  # Kansas City Royals
+    108: "LAA",  # Los Angeles Angels
+    119: "LAD",  # Los Angeles Dodgers
+    146: "MIA",  # Miami Marlins
+    158: "MIL",  # Milwaukee Brewers
+    142: "MIN",  # Minnesota Twins
+    121: "NYM",  # New York Mets
+    147: "NYY",  # New York Yankees
+    133: "OAK",  # Oakland Athletics
+    143: "PHI",  # Philadelphia Phillies
+    134: "PIT",  # Pittsburgh Pirates
+    135: "SDP",  # San Diego Padres
+    136: "SEA",  # Seattle Mariners
+    137: "SFG",  # San Francisco Giants
+    138: "STL",  # St. Louis Cardinals
+    139: "TBR",  # Tampa Bay Rays
+    140: "TEX",  # Texas Rangers
+    141: "TOR",  # Toronto Blue Jays
+    120: "WSH",  # Washington Nationals
 }
 
 PRIMARY_PARAMS = {
@@ -73,11 +108,11 @@ def get_last10(tr: dict) -> str:
             return f"{rec.get('wins', 0)}-{rec.get('losses', 0)}"
     return ""
 
-def safe_abbr(team: dict) -> str:
-    """Prefer team.abbreviation; fallback to a 3-letter code derived from name."""
-    abbr = team.get("abbreviation")
-    if isinstance(abbr, str) and abbr:
-        return abbr.upper()
+def hardcoded_abbr(team: dict) -> str:
+    """Always prefer our hardcoded 3-letter code; fallback to a derived one."""
+    tid = team.get("id")
+    if tid in TEAM_ABBR:
+        return TEAM_ABBR[tid]
     name = (team.get("name") or "").replace(" ", "")
     return (name[:3] or "TBD").upper()
 
@@ -113,7 +148,7 @@ def simplify_standings(records):
             team = tr.get("team", {}) or {}
             rows.append({
                 "team_name": team.get("name", "Team"),
-                "team_abbr": safe_abbr(team),
+                "team_abbr": hardcoded_abbr(team),
                 "team_id": team.get("id"),
                 "w": tr.get("wins"),
                 "l": tr.get("losses"),
