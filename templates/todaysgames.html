@@ -18,7 +18,6 @@
     header{ display:flex; align-items:center; gap:10px; padding:12px 16px; background:var(--header-bg); color:var(--header-text); border-bottom:2px solid var(--border); position:sticky; top:0; z-index:10; }
     header img{height:32px}
     header h1{margin:0; font-size:17px; letter-spacing:.2px; font-weight:600}
-
     .wrap{max-width:1200px; margin:16px auto 80px; padding:0 12px}
     .controls{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
     .date-nav{ display:flex; align-items:center; gap:6px; }
@@ -35,7 +34,6 @@
 
     .game{ background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
     .game header{ background:linear-gradient(180deg, #fff, #f6f9ff); border-bottom:1px solid var(--border); padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .header-right{ display:flex; align-items:center; gap:10px; }
     .chip{ font-size:11px; padding:3px 8px; border-radius:999px; color:#fff; font-weight:700; letter-spacing:.3px; }
     .chip.live{ background:var(--chip-live); }
     .chip.final{ background:var(--chip-final); }
@@ -46,30 +44,33 @@
     .row{ display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:8px 12px; }
     .row:nth-child(odd){ background:var(--row); }
     .row:nth-child(even){ background:var(--rowAlt); }
-    .team{ display:flex; align-items:center; gap:8px; min-width:0; }
+    .team{ display:flex; align-items:center; gap:10px; min-width:0; }
+    .iconstack{ display:flex; flex-direction:column; align-items:center; gap:4px; }
     .team img{ height:18px; width:auto; }
+    .record{ color:var(--muted); font-size:10px; line-height:1; }
     .abbr{ font-weight:700; letter-spacing:.2px; min-width:26px; }
     .info{ color:#394150; font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .right{ text-align:right; font-variant-numeric: tabular-nums; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
     .score{ font-weight:700; font-size:13.5px; }
 
-    /* bases diamond */
-    .diamond{ position:relative; width:34px; height:34px; display:inline-block; }
+    /* diamond bases */
+    .diamond{ position:relative; width:26px; height:26px; display:inline-block; margin-left:8px; }
     .diamond .base{ position:absolute; width:10px; height:10px; transform:rotate(45deg); border:1px solid var(--border); background:#fff; }
     .diamond .on{ background:#ffd147; border-color:#ffd147; }
-    /* positions: home bottom, 1B right, 2B top, 3B left (we light only 1/2/3) */
-    .b1{ left:50%; top:50%; transform: translate(6px,-4px) rotate(45deg); }
-    .b2{ left:50%; top:50%; transform: translate(-4px,-14px) rotate(45deg); }
-    .b3{ left:50%; top:50%; transform: translate(-14px,-4px) rotate(45deg); }
+    .diamond .b2{ top:0; left:50%; transform:translate(-50%, 0) rotate(45deg); }      /* second base */
+    .diamond .b1{ top:50%; right:0; transform:translate(0, -50%) rotate(45deg); }     /* first base */
+    .diamond .b3{ top:50%; left:0; transform:translate(0, -50%) rotate(45deg); }      /* third base */
 
-    .lastplay{ padding:8px 12px; color:#5b6577; font-size:11.5px; border-top:1px solid var(--border); background:#fff; }
-
+    /* box table */
     .box{ padding:8px 12px; border-top:1px solid var(--border); background:#fff; overflow:auto; }
     .box table{ border-collapse:collapse; width:100%; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11.5px; }
     .box th, .box td{ padding:4px 6px; text-align:center; border-bottom:1px solid var(--border); }
     .box thead th{ color:#5b6577; font-weight:600; }
-    .box .teamlabel{ text-align:left; font-weight:700; }
+    .box .team{ justify-content:flex-start; }
+    .box .totals{ font-weight:700; }
 
+    .lastplay{ padding:8px 12px; border-top:1px solid var(--border); background:#fff; font-size:11.5px; color:#394150; }
+    .lastplay strong{ color:#5b6577; margin-right:4px; }
     .empty{ color:var(--muted); border:1px dashed var(--border); border-radius:12px; padding:18px; text-align:center; background:#fff; }
   </style>
 </head>
@@ -124,77 +125,82 @@
       return await res.json();
     }
 
-    const chipFor = (g) => g.status==='in_progress' ? `<span class="chip live">${g.chip}</span>` : (g.status==='final' ? `<span class="chip final">Final</span>` : `<span class="chip upcoming">${g.chip}</span>`);
+    function chipFor(g){
+      if (g.status === 'in_progress') return `<span class="chip live">${g.chip}</span>`;
+      if (g.status === 'final') return `<span class="chip final">Final</span>`;
+      return `<span class="chip upcoming">${g.chip}</span>`; // scheduled shows ET time
+    }
 
-    function diamond(bases){
-      if(!bases) return '';
-      const b = bases || {};
-      return `<span class="diamond">
-        <span class="base b1 ${b.first?'on':''}" title="1B"></span>
-        <span class="base b2 ${b.second?'on':''}" title="2B"></span>
-        <span class="base b3 ${b.third?'on':''}" title="3B"></span>
+    function diamondHTML(g){
+      const b = g.bases || {};
+      return `<span class="diamond" aria-label="Bases">
+        <span class="base b2 ${b.second?'on':''}"></span>
+        <span class="base b1 ${b.first?'on':''}"></span>
+        <span class="base b3 ${b.third?'on':''}"></span>
       </span>`;
     }
 
-    function teamRowScheduled(t){
-      const info = t.probable ? t.probable : '';
+    function teamBlock(t, extraInfo){
+      return `
+        <div class="team">
+          <div class="iconstack">
+            ${t.id ? `<img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="">` : ''}
+            <span class="record">${t.record||''}</span>
+          </div>
+          <span class="abbr">${t.abbr||''}</span>
+          <span class="info">${extraInfo||''}</span>
+        </div>`;
+    }
+
+    function teamRowScheduled(side, t){
       return `
         <div class="row">
-          <div class="team">
-            ${t.id ? `<img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="">` : ''}
-            <span class="abbr">${t.abbr||''}</span>
-            <span class="info">${info}</span>
-          </div>
+          ${teamBlock(t, t.probable || '')}
           <div class="right score">&nbsp;</div>
         </div>`;
     }
 
-    function teamRowLive(t){
+    function teamRowLive(side, t){
       const info = t.currentPitcher || t.currentBatter || '';
       const score = (t.score!=null) ? t.score : '&nbsp;';
       return `
         <div class="row">
-          <div class="team">
-            ${t.id ? `<img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="">` : ''}
-            <span class="abbr">${t.abbr||''}</span>
-            <span class="info">${info}</span>
-          </div>
+          ${teamBlock(t, info)}
           <div class="right score">${score}</div>
         </div>`;
     }
 
-    function teamRowFinal(t){
+    function teamRowFinal(side, t){
       const score = (t.score!=null) ? t.score : '&nbsp;';
-      const info = t.finalPitcher || '';
+      const extra = t.finalPitcher ? `<div class="info" style="grid-column:1/-1; padding:0 12px 8px 12px;">${t.finalPitcher}</div>` : '';
       return `
         <div class="row">
-          <div class="team">
-            ${t.id ? `<img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="">` : ''}
-            <span class="abbr">${t.abbr||''}</span>
-            ${info ? `<span class="info">${info}</span>` : ''}
-          </div>
+          ${teamBlock(t, '')}
           <div class="right score">${score}</div>
-        </div>`;
+        </div>
+        ${extra}`;
+    }
+
+    function lastPlayHTML(g){
+      if (!g.lastPlay) return '';
+      return `<div class="lastplay"><strong>Last Play:</strong> ${g.lastPlay}</div>`;
     }
 
     function boxTable(g){
       const ls = g.linescore;
       if (!ls) return '';
-      const n = (g.status==='in_progress') ? 9 : Math.max(9, ls.n || 9);
-      const head = Array.from({length:n}, (_,i)=>`<th>${i+1}</th>`).join('');
-      const row = (arr) => {
-        const padded = [...arr];
-        if (padded.length < n) padded.push(...Array(n - padded.length).fill(""));
-        return padded.slice(0,n).map(v => `<td>${v===null?'':v}</td>`).join('');
-      };
+      const n = ls.n || 9;
+      const headInnings = Array.from({length:n}, (_,i)=>`<th>${i+1}</th>`).join('');
+      const aCells = Array.from({length:n}, (_,i)=>`<td>${(ls.away[i] ?? '')}</td>`).join('');
+      const hCells = Array.from({length:n}, (_,i)=>`<td>${(ls.home[i] ?? '')}</td>`).join('');
       const aT = ls.totals.away, hT = ls.totals.home;
       return `
         <div class="box">
           <table>
-            <thead><tr><th class="teamlabel"></th>${head}<th>R</th><th>H</th><th>E</th></tr></thead>
+            <thead><tr><th></th>${headInnings}<th class="totals">R</th><th class="totals">H</th><th class="totals">E</th></tr></thead>
             <tbody>
-              <tr><td class="teamlabel">${g.teams.away.abbr}</td>${row(ls.away)}<td>${aT.R ?? ''}</td><td>${aT.H ?? ''}</td><td>${aT.E ?? ''}</td></tr>
-              <tr><td class="teamlabel">${g.teams.home.abbr}</td>${row(ls.home)}<td>${hT.R ?? ''}</td><td>${hT.H ?? ''}</td><td>${hT.E ?? ''}</td></tr>
+              <tr><td class="team">${g.teams.away.abbr}</td>${aCells}<td class="totals">${aT.R ?? ''}</td><td class="totals">${aT.H ?? ''}</td><td class="totals">${aT.E ?? ''}</td></tr>
+              <tr><td class="team">${g.teams.home.abbr}</td>${hCells}<td class="totals">${hT.R ?? ''}</td><td class="totals">${hT.H ?? ''}</td><td class="totals">${hT.E ?? ''}</td></tr>
             </tbody>
           </table>
         </div>`;
@@ -202,22 +208,22 @@
 
     function card(g){
       const a = g.teams.away, h = g.teams.home;
+      const headerLeft = `<div class="when">${g.venue||''}</div>`;
+      const headerRight = g.status==='in_progress' ? `${chipFor(g)}${diamondHTML(g)}` : chipFor(g);
+
       const el = document.createElement('article');
       el.className = 'game';
       el.innerHTML = `
         <header>
-          <div class="when">${g.venue||''}</div>
-          <div class="header-right">
-            ${chipFor(g)}
-            ${diamond(g.bases)}
-          </div>
+          ${headerLeft}
+          <div>${headerRight}</div>
         </header>
         <div class="rows">
-          ${g.status==='scheduled' ? teamRowScheduled(a) : g.status==='in_progress' ? teamRowLive(a) : teamRowFinal(a)}
-          ${g.status==='scheduled' ? teamRowScheduled(h) : g.status==='in_progress' ? teamRowLive(h) : teamRowFinal(h)}
+          ${g.status==='scheduled' ? teamRowScheduled('away', a) : g.status==='in_progress' ? teamRowLive('away', a) : teamRowFinal('away', a)}
+          ${g.status==='scheduled' ? teamRowScheduled('home', h) : g.status==='in_progress' ? teamRowLive('home', h) : teamRowFinal('home', h)}
         </div>
-        ${g.lastPlay && g.status!=='scheduled' ? `<div class="lastplay"><strong>Last Play:</strong> ${g.lastPlay}</div>` : ''}
-        ${g.status!=='scheduled' ? boxTable(g) : ''}
+        ${ (g.status!=='scheduled' ? lastPlayHTML(g) : '') }
+        ${ (g.status!=='scheduled' ? boxTable(g) : '') }
       `;
       return el;
     }
@@ -247,7 +253,7 @@
         const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
         if (anyLive) state.timer = setTimeout(load, 30000);
       } catch(e){
-        $games.innerHTML = '<div class="empty">Error loading games.</div>'; 
+        $games.innerHTML = '<div class="empty">Error loading games.</div>';
       }
     }
 
