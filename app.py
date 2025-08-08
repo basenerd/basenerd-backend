@@ -43,7 +43,6 @@ def fetch_live(game_pk):
     return r.json()
 
 def fetch_pitcher_stats(pid, season):
-    # Cache 6 hours
     now = time.time()
     cached = _PITCHER_CACHE.get(pid)
     if cached and (now - cached["ts"] < 6*3600):
@@ -88,22 +87,37 @@ def get_probables(gameData, season):
         out[side] = {"id": pid, "name": name, "statline": statline}
     return out
 
-def linescore_blob(ls, force_nine_live=False):
+def linescore_blob(ls, force_9_live=False):
     if not ls:
         return None
-    innings = ls.get("innings", [])
+    innings = ls.get("innings", []) or []
+    # runs by inning may be integers or None; coerce to '' for missing
     away_by = []
     home_by = []
     for inn in innings:
-        # inn has keys "away" and "home" which are integers (runs) or None
-        away_by.append(inn.get("away", ""))
-        home_by.append(inn.get("home", ""))
-    n = max(len(away_by), len(home_by))
-    # For live games, pad to 9
-    if force_nine_live and n < 9:
-        away_by += [""] * (9 - len(away_by))
-        home_by += [""] * (9 - len(home_by))
-        n = 9
+        a = inn.get("away"); h = inn.get("home")
+        # Some feeds provide dicts; prefer numeric 'runs' if dict
+        if isinstance(a, dict):
+            a = a.get("runs")
+        if isinstance(h, dict):
+            h = h.get("runs")
+        away_by.append("" if a is None else a)
+        home_by.append("" if h is None else h)
+
+    n = len(away_by)
+    if force_9_live:
+        # ensure 9 columns for live; pad blanks
+        if n < 9:
+            away_by += [""] * (9 - n)
+            home_by += [""] * (9 - n)
+            n = 9
+    else:
+        # finals: at least 9, or extras
+        if n < 9:
+            away_by += [""] * (9 - n)
+            home_by += [""] * (9 - n)
+            n = 9
+
     totals = {
         "away": {
             "R": (ls.get("teams", {}).get("away", {}) or {}).get("runs"),
@@ -116,7 +130,48 @@ def linescore_blob(ls, force_nine_live=False):
             "E": (ls.get("teams", {}).get("home", {}) or {}).get("errors"),
         }
     }
-    return {"n": n, "awayByInning": away_by, "homeByInning": home_by, "totals": totals}
+    return {"n": n, "away": away_by, "home": home_by, "totals": totals}
+
+def get_last_play(ld):
+    plays = ld.get("plays", {}) or {}
+    cur = plays.get("currentPlay") or {}
+    desc = (cur.get("result") or {}).get("description")
+    if desc:
+        return desc
+    # fallback to last allPlays entry
+    allp = plays.get("allPlays") or []
+    if allp:
+        return (allp[-1].get("result") or {}).get("description") or ""
+    return ""
+
+def pitcher_line_for_player_obj(player_obj, prefix=None):
+    st = (player_obj.get("stats") or {}).get("pitching") or {}
+    ip = st.get("inningsPitched")
+    p = st.get("numberOfPitches") or st.get("pitchesThrown")
+    er = st.get("earnedRuns"); k = st.get("strikeOuts"); bb = st.get("baseOnBalls")
+    name = (player_obj.get("person") or {}).get("fullName")
+    line = f"{name} • IP {ip or '-'} • P {p or '-'} • ER {er or 0} • K {k or 0} • BB {bb or 0}"
+    return (f"{prefix}: " + line) if prefix else line
+
+def final_pitcher_lines(ld, winner_id, loser_id):
+    box = ld.get("boxscore", {}) or {}
+    home = (box.get("teams", {}).get("home", {}).get("players") or {})
+    away = (box.get("teams", {}).get("away", {}).get("players") or {})
+    lines = {"home": "", "away": ""}
+    def find(pid):
+        if not pid: return None
+        key = f"ID{pid}"
+        return home.get(key) or away.get(key)
+    w_obj = find(winner_id)
+    l_obj = find(loser_id)
+    if w_obj:
+        lines["home"] = pitcher_line_for_player_obj(w_obj, "W")
+        lines["away"] = lines["away"]  # unchanged
+    if l_obj:
+        l_line = pitcher_line_for_player_obj(l_obj, "L")
+        # we won't know side here; return both and assign by team later
+        lines["loser_line"] = l_line
+    return lines
 
 def game_state_and_participants(live):
     gd = live.get("gameData", {}) or {}
@@ -150,6 +205,7 @@ def game_state_and_participants(live):
         "third": bool((ls.get("offense") or {}).get("third")),
     }
 
+    # per-player game stats (from boxscore)
     home_players = (box.get("teams", {}).get("home", {}).get("players") or {})
     away_players = (box.get("teams", {}).get("away", {}).get("players") or {})
 
@@ -179,14 +235,15 @@ def game_state_and_participants(live):
     bat_line = {}
     if bat_obj:
         st = (bat_obj.get("stats") or {}).get("batting") or {}
-        ab = st.get("atBats")
-        h = st.get("hits")
+        ab = st.get("atBats"); h = st.get("hits")
         name = (bat_obj.get("person") or {}).get("fullName")
         line = f"{h}-{ab}" if (ab is not None and h is not None) else ""
         bat_line = {"name": name, "line": line, "side": bat_side}
 
-    # Build linescore blob with forced 9 if live
-    ls_blob = linescore_blob(ls, force_nine_live=(abstract == "LIVE"))
+    # decisions for finals
+    decisions = (ld.get("decisions") or {})
+    winner_id = (decisions.get("winner") or {}).get("id")
+    loser_id = (decisions.get("loser") or {}).get("id")
 
     return {
         "abstract": abstract,
@@ -197,11 +254,15 @@ def game_state_and_participants(live):
         "bases": bases,
         "pitcher": pitch_stats,
         "batter": bat_line,
-        "linescore": ls_blob
+        "linescore_live": linescore_blob(ls, force_9_live=True) if abstract == "LIVE" else None,
+        "linescore_final": linescore_blob(ls, force_9_live=False) if abstract == "FINAL" else None,
+        "winner_id": winner_id, "loser_id": loser_id,
+        "lastPlay": get_last_play(ld)
     }
 
 def shape_game(live, season):
     gd = live.get("gameData", {}) or {}
+    ld = live.get("liveData", {}) or {}
     teams = gd.get("teams", {}) or {}
     home = teams.get("home", {}) or {}
     away = teams.get("away", {}) or {}
@@ -212,88 +273,76 @@ def shape_game(live, season):
         "teams": {
             "home": {"id": home.get("id"), "abbr": home.get("abbreviation") or home.get("clubName")},
             "away": {"id": away.get("id"), "abbr": away.get("abbreviation") or away.get("clubName")},
-        }
+        },
+        "lastPlay": ""
     }
 
     state = game_state_and_participants(live)
-    # Chip text
+    game["lastPlay"] = state["lastPlay"]
+
+    # status & chip
     if state["abstract"] == "PREVIEW":
-        chip = state["startET"]
+        game["status"] = "scheduled"
+        game["chip"] = state["startET"]
     elif state["abstract"] == "LIVE":
-        outs_text = f"{state['outs']} out{'s' if state['outs']!=1 else ''}" if state['outs'] is not None else ""
-        chip = f"{'Top' if state['isTop'] else 'Bot'} {state['inning']} • {state['balls']}-{state['strikes']}, {outs_text}".strip().strip(', ')
+        game["status"] = "in_progress"
+        game["chip"] = f"{'Top' if state['isTop'] else 'Bot'} {state['inning']} • {state['balls']}-{state['strikes']}, {state['outs']} out{'s' if state['outs']!=1 else ''}"
     else:
-        chip = "Final"
+        game["status"] = "final"
+        game["chip"] = "Final"
 
-    game.update({
-        "status": "scheduled" if state["abstract"] == "PREVIEW" else ("in_progress" if state["abstract"] == "LIVE" else "final"),
-        "chip": chip,
-        "bases": state["bases"],
-        "linescore": state["linescore"]
-    })
-
-    # scores for live/final
-    if state["linescore"]:
-        totals = state["linescore"]["totals"]
+    # scores/linescore
+    if state["abstract"] == "LIVE":
+        ls = state["linescore_live"]
+    elif state["abstract"] == "FINAL":
+        ls = state["linescore_final"]
+    else:
+        ls = None
+    game["linescore"] = ls
+    if ls:
+        totals = ls["totals"]
         game["teams"]["away"].update({"score": totals["away"]["R"], "hits": totals["away"]["H"], "errors": totals["away"]["E"]})
         game["teams"]["home"].update({"score": totals["home"]["R"], "hits": totals["home"]["H"], "errors": totals["home"]["E"]})
     else:
-        game["teams"]["away"].update({"score": None})
-        game["teams"]["home"].update({"score": None})
+        game["teams"]["away"]["score"] = None
+        game["teams"]["home"]["score"] = None
 
-    # Probables for scheduled
+    # probables for scheduled
     if game["status"] == "scheduled":
-        season_year = season or datetime.utcnow().year
-        prob = get_probables(gd, season_year)
+        prob = get_probables(gd, season)
         for side in ("away","home"):
             p = prob.get(side)
-            game["teams"][side]["probable"] = (f"{p['name']} • {p['statline']}".strip(" •") if p else "")
+            game["teams"][side]["probable"] = f"{p['name']} • {p['statline']}".strip(" •") if p else ""
 
-    # Live participants: current pitcher and batter
+    # live: current pitcher/batter lines
     if game["status"] == "in_progress":
-        pit = state["pitcher"]
-        bat = state["batter"]
-        # We don't know which is home/away from pitch_side/bat_side? We included 'side' above.
+        pit = state["pitcher"]; bat = state["batter"]
         if pit and pit.get("side") in ("home","away"):
             game["teams"][pit["side"]]["currentPitcher"] = f"P: {pit['name']} • IP {pit['ip'] or '-'} • P {pit['p'] or '-'} • ER {pit['er'] or 0} • K {pit['k'] or 0} • BB {pit['bb'] or 0}"
         if bat and bat.get("side") in ("home","away"):
             game["teams"][bat["side"]]["currentBatter"] = f"B: {bat['name']} • {bat['line'] or ''}"
+        game["bases"] = state["bases"]
+    else:
+        game["bases"] = None
 
-    # Final pitchers next to teams (W/L with this-game stats if we can find them)
+    # finals: winner/loser pitcher lines next to winning/losing team
     if game["status"] == "final":
-        box = live.get("liveData", {}).get("boxscore", {}) or {}
-        decisions = live.get("liveData", {}).get("decisions", {}) or {}
-        winner = decisions.get("winner", {}) or {}
-        loser = decisions.get("loser", {}) or {}
-
-        def find_pitch_line(pid):
-            if not pid:
-                return ""
-            for side in ("home","away"):
-                players = (box.get("teams", {}).get(side, {}).get("players") or {})
-                key = f"ID{pid}"
-                if key in players:
-                    st = (players[key].get("stats") or {}).get("pitching") or {}
-                    ip = st.get("inningsPitched"); p = st.get("numberOfPitches") or st.get("pitchesThrown")
-                    er = st.get("earnedRuns"); k = st.get("strikeOuts"); bb = st.get("baseOnBalls")
-                    name = (players[key].get("person") or {}).get("fullName") or ""
-                    return f"{name} • IP {ip or '-'} • P {p or '-'} • ER {er or 0} • K {k or 0} • BB {bb or 0}"
-            return ""
-
-        w_pid = winner.get("id"); l_pid = loser.get("id")
-        w_line = find_pitch_line(w_pid)
-        l_line = find_pitch_line(l_pid)
-
-        # Decide which team is winner/loser by totals
-        totals = game["linescore"]["totals"] if game.get("linescore") else None
-        if totals and (totals["home"]["R"] is not None and totals["away"]["R"] is not None):
-            home_won = totals["home"]["R"] > totals["away"]["R"]
-            if home_won:
-                game["teams"]["home"]["winnerLine"] = f"W: {w_line}" if w_line else ""
-                game["teams"]["away"]["loserLine"]  = f"L: {l_line}" if l_line else ""
-            else:
-                game["teams"]["away"]["winnerLine"] = f"W: {w_line}" if w_line else ""
-                game["teams"]["home"]["loserLine"]  = f"L: {l_line}" if l_line else ""
+        winner_id, loser_id = state["winner_id"], state["loser_id"]
+        box = ld.get("boxscore", {}) or {}
+        home_players = (box.get("teams", {}).get("home", {}).get("players") or {})
+        away_players = (box.get("teams", {}).get("away", {}).get("players") or {})
+        def find(pid):
+            if not pid: return None, None
+            key = f"ID{pid}"
+            if key in home_players: return "home", home_players[key]
+            if key in away_players: return "away", away_players[key]
+            return None, None
+        w_side, w_obj = find(winner_id)
+        l_side, l_obj = find(loser_id)
+        if w_obj and w_side in ("home","away"):
+            game["teams"][w_side]["finalPitcher"] = pitcher_line_for_player_obj(w_obj, "W")
+        if l_obj and l_side in ("home","away"):
+            game["teams"][l_side]["finalPitcher"] = pitcher_line_for_player_obj(l_obj, "L")
 
     return game
 
