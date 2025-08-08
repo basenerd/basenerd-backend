@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template, jsonify, request
 import requests
 import logging
@@ -5,21 +6,9 @@ import time
 from datetime import datetime
 try:
     import pytz
-    PHOENIX = pytz.timezone("America/Phoenix")
+    ET_TZ = pytz.timezone("America/New_York")
 except Exception:
-    PHOENIX = None
-
-from datetime import timezone
-
-def _parse_iso_utc(iso_str):
-    try:
-        # gameDate is like '2025-08-08T23:05:00Z' -> ensure tz-aware UTC
-        if iso_str.endswith('Z'):
-            return datetime.fromisoformat(iso_str.replace('Z','+00:00'))
-        dt = datetime.fromisoformat(iso_str)
-        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-    except Exception:
-        return None
+    ET_TZ = None
 
 app = Flask(__name__)
 
@@ -127,25 +116,30 @@ def simplify_standings(records):
     return leagues
 
 # ===========================
-# TODAY'S GAMES (new)
+# TODAY'S GAMES (with probables W-L/ERA) 
 # ===========================
 STATS = "https://statsapi.mlb.com/api/v1"
 LIVE  = "https://statsapi.mlb.com/api/v1.1"
 
-# tiny cache for the games feed
-_GAMES_CACHE = {}  # key: date_str -> {"ts": epoch, "ttl": sec, "data": {...}}
+_GAMES_CACHE = {}       # date_str -> {ts, ttl, data}
+_PITCHER_CACHE = {}     # (pitcher_id, season) -> {name, wins, losses, era}
 
-def _fmt_local_time(iso_z):
+def _to_et(iso_z: str) -> str:
+    """Return an ET-formatted time like '10:40 PM ET' from a Zulu ISO string."""
+    if not iso_z:
+        return ""
     try:
-        dt = _parse_iso_utc(iso_z)
-        if not dt:
-            return ""
-        if PHOENIX:
-            dt = dt.astimezone(PHOENIX)
-        else:
-            dt = dt.astimezone()  # local system tz
-        return dt.strftime("%-I:%M %p")
-    except Exception:
+        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
+        if ET_TZ:
+            dt = dt.astimezone(ET_TZ)
+        # %-I not portable on Windows; try both
+        try:
+            s = dt.strftime("%-I:%M %p")
+        except Exception:
+            s = dt.strftime("%I:%M %p").lstrip("0")
+        return f"{s} ET"
+    except Exception as e:
+        log.warning("time parse failed: %s", e)
         return ""
 
 def games_fetch_schedule(date_str):
@@ -161,6 +155,45 @@ def games_fetch_live(game_pk):
     r.raise_for_status()
     return r.json()
 
+def fetch_pitcher_stats(pid: int, season: int):
+    """Fetch pitcher W-L and ERA for a season and cache results."""
+    if not pid:
+        return None
+    key = (pid, season)
+    cached = _PITCHER_CACHE.get(key)
+    if cached:
+        return cached
+    url = f"{STATS}/people/{pid}"
+    # hydrate season stats
+    params = {"hydrate": f"stats(group=pitching,type=season,season={season})"}
+    try:
+        r = requests.get(url, params=params, timeout=15)
+        r.raise_for_status()
+        data = r.json() or {}
+        people = data.get("people") or []
+        if not people:
+            return None
+        p = people[0]
+        name = p.get("fullName") or ""
+        stats_groups = p.get("stats") or []
+        wins = losses = None
+        era = None
+        for grp in stats_groups:
+            if (grp.get("group") or {}).get("displayName","").lower() == "pitching" or grp.get("group") == "pitching":
+                splits = grp.get("splits") or []
+                if splits:
+                    stat = splits[0].get("stat") or {}
+                    wins = stat.get("wins")
+                    losses = stat.get("losses")
+                    era = stat.get("era")
+                    break
+        result = {"name": name, "wins": wins, "losses": losses, "era": era}
+        _PITCHER_CACHE[key] = result
+        return result
+    except Exception as e:
+        log.warning("pitcher stats fetch failed for %s: %s", pid, e)
+        return None
+
 def _linescore_blob(ls):
     if not ls: return None
     return {
@@ -174,11 +207,6 @@ def _linescore_blob(ls):
         "homeErrors": ls.get("teams", {}).get("home", {}).get("errors"),
     }
 
-def _record_str(team_obj):
-    rec = team_obj.get("record", {}) if isinstance(team_obj, dict) else {}
-    w = rec.get("wins"); l = rec.get("losses")
-    return f"{w}-{l}" if (w is not None and l is not None) else ""
-
 def _team_blob(gameData, linescore, side):
     t = gameData.get("teams", {}).get(side, {}) or {}
     ls = (linescore or {}).get("teams", {}).get(side, {}) or {}
@@ -191,7 +219,8 @@ def _team_blob(gameData, linescore, side):
         "errors": ls.get("errors"),
     }
 
-def games_live_to_view(live, schedule_start_iso=None):
+def games_live_to_view(live, schedule_piece=None):
+    """Shape a single game's live feed into the UI view model, using schedule for start time."""
     gameData = live.get("gameData", {})
     liveData = live.get("liveData", {})
     status = gameData.get("status", {})
@@ -202,10 +231,10 @@ def games_live_to_view(live, schedule_start_iso=None):
         abstract = "PREVIEW"
 
     gamePk = gameData.get("game", {}).get("pk") or live.get("gamePk")
-    start_iso = gameData.get("datetime", {}).get("dateTime")
-    # prefer schedule's UTC gameDate when present
-    if schedule_start_iso:
-        start_iso = schedule_start_iso
+    # Use schedule.gameDate if available; else gameData.datetime.dateTime
+    start_iso = (schedule_piece or {}).get("gameDate") or gameData.get("datetime", {}).get("dateTime")
+    start_local = _to_et(start_iso)
+
     venue = (gameData.get("venue") or {}).get("name")
 
     # in-progress bits
@@ -234,25 +263,50 @@ def games_live_to_view(live, schedule_start_iso=None):
             "linescore": _linescore_blob(ls)
         }
 
-        # Build team blobs
-    away_blob = _team_blob(gameData, ls, "away")
-    home_blob = _team_blob(gameData, ls, "home")
-    # attach records if available
-    away_blob["record"] = _record_str(gameData.get("teams", {}).get("away", {}))
-    home_blob["record"] = _record_str(gameData.get("teams", {}).get("home", {}))
-    # If scheduled, suppress scores so UI won't show 0-0
+    # Probables (with W-L, ERA)
+    prob_away = (gameData.get("probablePitchers") or {}).get("away") or (gameData.get("teams", {}).get("away", {}) or {}).get("probablePitcher") or {}
+    prob_home = (gameData.get("probablePitchers") or {}).get("home") or (gameData.get("teams", {}).get("home", {}) or {}).get("probablePitcher") or {}
+    away_stats = fetch_pitcher_stats(prob_away.get("id"), SEASON) if prob_away else None
+    home_stats = fetch_pitcher_stats(prob_home.get("id"), SEASON) if prob_home else None
+
+    def fmt_prob(stats, fallback_name):
+        if not stats and not fallback_name:
+            return ""
+        name = (stats or {}).get("name") or fallback_name or ""
+        w = (stats or {}).get("wins")
+        l = (stats or {}).get("losses")
+        era = (stats or {}).get("era")
+        parts = [name]
+        wl = (f"{w}-{l}" if (w is not None and l is not None) else None)
+        if wl: parts.append(wl)
+        if era: parts.append(f"{era} ERA")
+        return " • ".join(parts)
+
+    probables_text = None
     if abstract == "PREVIEW":
-        away_blob["score"] = None
-        home_blob["score"] = None
+        pa = fmt_prob(away_stats, prob_away.get("fullName") if prob_away else "")
+        ph = fmt_prob(home_stats, prob_home.get("fullName") if prob_home else "")
+        if pa or ph:
+            probables_text = f"{pa or 'TBD'} vs {ph or 'TBD'}"
+
+    # Build teams
+    away_team = _team_blob(gameData, ls, "away")
+    home_team = _team_blob(gameData, ls, "home")
+
+    # suppress scores for scheduled
+    if abstract == "PREVIEW":
+        away_team["score"] = None
+        home_team["score"] = None
+
     return {
         "gamePk": gamePk,
         "status": "in_progress" if abstract == "LIVE" else ("final" if abstract == "FINAL" else "scheduled"),
-        "startTimeUtc": start_iso,
-        "startTimeLocal": _fmt_local_time(start_iso) if start_iso else "",
+        "startTimeLocal": start_local,
         "venue": venue,
-        "teams": {"away": away_blob, "home": home_blob},
+        "teams": {"away": away_team, "home": home_team},
         "inProgress": ip,
-        "final": fin
+        "final": fin,
+        "probablesText": probables_text
     }
 
 def cache_get(key):
@@ -274,7 +328,7 @@ def home():
     return render_template("index.html")
 
 @app.route("/standings")
-def standings():
+def standings_page():
     try:
         records = fetch_standings()
         data = simplify_standings(records)
@@ -293,21 +347,15 @@ def debug_standings():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ---- Today's Games page (template) ----
 @app.route("/todaysgames")
 def todays_games_page():
     return render_template("todaysgames.html")
 
-# ---- Today's Games API ----
 @app.route("/api/games")
 def api_games():
     date_str = request.args.get("date")
     if not date_str:
-        if PHOENIX:
-            date_str = datetime.now(PHOENIX).strftime("%Y-%m-%d")
-        else:
-            date_str = datetime.utcnow().strftime("%Y-%m-%d")
-
+        date_str = datetime.utcnow().strftime("%Y-%m-%d")
     cached = cache_get(date_str)
     if cached:
         return jsonify(cached)
@@ -323,12 +371,10 @@ def api_games():
     any_live = False
     for g in schedule:
         pk = g.get("gamePk")
-        if not pk:
-            continue
+        if not pk: continue
         try:
             live = games_fetch_live(pk)
-            sched_start = g.get("gameDate")  # UTC 'Z'
-            view = games_live_to_view(live, schedule_start_iso=sched_start)
+            view = games_live_to_view(live, schedule_piece=g)
             any_live = any_live or (view["status"] == "in_progress")
             games.append(view)
         except Exception as ex:
@@ -343,6 +389,5 @@ def api_games():
 def ping():
     return "ok", 200
 
-# ---- Local dev entrypoint ----
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

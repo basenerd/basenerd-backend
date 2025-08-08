@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -120,7 +121,7 @@
       return `<span class="chip upcoming">${t}</span>`;
     }
 
-    function teamRow(team, oppScore, showRecord=false, suppressScore=false){
+    function teamRow(team, oppScore, showRecord=false){
       const lead = (team.score ?? -1) > (oppScore ?? -1);
       const trail = (team.score ?? -1) < (oppScore ?? -1);
       return `
@@ -130,7 +131,7 @@
           ${showRecord ? `<span class="record">${team.record||''}</span>` : ''}
         </div>
         <div class="right ${team.score!=null ? 'score' : 'pitch'}">
-          ${(!suppressScore && team.score!=null) ? `<span class="${lead?'lead':(trail?'trail':'')}">${team.score}</span>` : '&nbsp;'}
+          ${team.score!=null ? `<span class="${lead?'lead':(trail?'trail':'')}">${team.score}</span>` : '&nbsp;'}
         </div>
       `;
     }
@@ -143,7 +144,7 @@
 
       const rowAway = isPre ? `
         <div class="row">
-          ${teamRow(a, null, true, true)}
+          ${teamRow(a, null, true)}
           <div class="right when">${g.startTimeLocal||''}</div>
         </div>` : `
         <div class="row">
@@ -153,7 +154,7 @@
 
       const rowHome = isPre ? `
         <div class="row">
-          ${teamRow(h, null, true, true)}
+          ${teamRow(h, null, true)}
           <div class="right when">&nbsp;</div>
         </div>` : `
         <div class="row">
@@ -161,11 +162,7 @@
           <div class="right when">&nbsp;</div>
         </div>`;
 
-      const finChips = isFinal ? [
-        g.final?.winningPitcher ? 'W: '+g.final.winningPitcher : '',
-        g.final?.losingPitcher ? 'L: '+g.final.losingPitcher : '',
-        g.final?.savePitcher ? 'SV: '+g.final.savePitcher : ''
-      ].filter(Boolean).join(' • ') : '';
+      const probables = (isPre && g.probablesText) ? `Probables: ${g.probablesText}` : (isLive ? 'Live' : isFinal ? 'Final' : '—');
 
       const el = document.createElement('article');
       el.className = 'game';
@@ -179,8 +176,8 @@
           ${rowHome}
         </div>
         <div class="footer">
-          <span>${isPre ? 'Probables' : isLive ? 'Live' : 'Final'}</span>
-          <span>${finChips}</span>
+          <span>${probables}</span>
+          <span></span>
         </div>
       `;
       return el;
