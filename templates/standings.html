@@ -112,10 +112,16 @@
                     <th class="num">L</th>
                     <th class="num">Pct</th>
                     <th class="num">GB</th>
+                    <th class="num">Streak</th>
+                    <th class="num">Last 10</th>
+                    <th class="num">Run Diff</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for row in block["rows"] %}
+                    {% set streak = row.get("streak", "") %}
+                    {% set last10 = row.get("last10", "") %}
+                    {% set rd = row.get("runDiff", "") %}
                     <tr>
                       <td class="team">
                         {% if row["team_id"] %}
@@ -129,6 +135,9 @@
                       <td class="num">{{ row["l"] }}</td>
                       <td class="num">{{ '%.3f'|format(row["pct"]) }}</td>
                       <td class="num">{{ row["gb"] if row["gb"] not in ['0.0', 0, None, '0'] else '—' }}</td>
+                      <td class="num">{{ streak }}</td>
+                      <td class="num">{{ last10 }}</td>
+                      <td class="num">{{ rd }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -158,10 +167,16 @@
                     <th class="num">L</th>
                     <th class="num">Pct</th>
                     <th class="num">GB</th>
+                    <th class="num">Streak</th>
+                    <th class="num">Last 10</th>
+                    <th class="num">Run Diff</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for row in block["rows"] %}
+                    {% set streak = row.get("streak", "") %}
+                    {% set last10 = row.get("last10", "") %}
+                    {% set rd = row.get("runDiff", "") %}
                     <tr>
                       <td class="team">
                         {% if row["team_id"] %}
@@ -175,6 +190,9 @@
                       <td class="num">{{ row["l"] }}</td>
                       <td class="num">{{ '%.3f'|format(row["pct"]) }}</td>
                       <td class="num">{{ row["gb"] if row["gb"] not in ['0.0', 0, None, '0'] else '—' }}</td>
+                      <td class="num">{{ streak }}</td>
+                      <td class="num">{{ last10 }}</td>
+                      <td class="num">{{ rd }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -190,7 +208,7 @@
       </section>
     </div>
 
-    <p class="footer-note">GB = Games Back. “—” means tied for first.</p>
+    <p class="footer-note">GB = Games Back. “—” means tied for first. Last 10 = last ten games. Run Diff = Runs Scored minus Runs Allowed.</p>
   </div>
 
   <script>
