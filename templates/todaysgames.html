@@ -19,6 +19,7 @@
     header img{height:32px}
     header h1{margin:0; font-size:17px; letter-spacing:.2px; font-weight:600}
     .wrap{max-width:1200px; margin:16px auto 80px; padding:0 12px}
+
     .controls{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
     .date-nav{ display:flex; align-items:center; gap:6px; }
     .date-btn{ border:1px solid var(--border); background:var(--card); border-radius:10px; padding:6px 10px; cursor:pointer; font-weight:600; }
@@ -27,9 +28,11 @@
     .filters{ display:flex; align-items:center; gap:10px; color:var(--muted); }
     .toggle{ display:inline-flex; align-items:center; gap:6px; cursor:pointer; user-select:none; }
     .toggle input{ accent-color:var(--accent); }
+
     .grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
     @media(max-width:1100px){ .grid{ grid-template-columns:1fr 1fr; } }
     @media(max-width:720px){ .grid{ grid-template-columns:1fr; } }
+
     .game{ background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
     .game header{ background:linear-gradient(180deg, #fff, #f6f9ff); border-bottom:1px solid var(--border); padding:10px 12px; display:flex; align-items:center; justify-content:space-between; position:initial; }
     .chip{ font-size:11px; padding:3px 8px; border-radius:999px; color:#fff; font-weight:700; letter-spacing:.3px; }
@@ -37,19 +40,28 @@
     .chip.final{ background:var(--chip-final); }
     .chip.upcoming{ background:var(--chip-upcoming); }
     .when{ color:var(--muted); font-size:12px; }
+
     .rows{ display:flex; flex-direction:column; }
-    .row{ display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:8px 12px; }
+    .row{ display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:8px 12px; }
     .row:nth-child(odd){ background:var(--row); }
     .row:nth-child(even){ background:var(--rowAlt); }
-    .left{ display:flex; align-items:center; gap:8px; min-width:0; }
-    .left img{ height:18px; width:auto; }
-    .abbr{ font-weight:700; letter-spacing:.2px; }
-    .note{ color:#394150; font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .team{ display:flex; align-items:center; gap:8px; min-width:0; }
+    .team img{ height:18px; width:auto; }
+    .abbr{ font-weight:700; letter-spacing:.2px; min-width:28px; }
+    .info{ color:#394150; font-size:11.5px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
     .right{ text-align:right; font-variant-numeric: tabular-nums; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
     .score{ font-weight:700; font-size:13.5px; }
     .score .lead{ color:var(--good); }
     .score .trail{ color:var(--bad); }
-    .footer{ display:none; } /* footer removed per request */
+
+    .box{ border-top:1px solid var(--border); padding:8px 12px; overflow:auto; }
+    .box table{ width:100%; border-collapse:collapse; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11.5px; }
+    .box th, .box td{ padding:4px 6px; text-align:center; white-space:nowrap; }
+    .box thead th{ color:#5b6577; }
+    .box tbody tr:nth-child(odd){ background:var(--row); }
+    .box tbody tr:nth-child(even){ background:var(--rowAlt); }
+    .box .label{ text-align:left; font-weight:700; }
+
     .empty{ color:var(--muted); border:1px dashed var(--border); border-radius:12px; padding:18px; text-align:center; background:#fff; }
     a{ color:#0b5cab; }
   </style>
@@ -107,34 +119,80 @@
 
     function chip(g){
       if (g.status === 'in_progress') {
-        const ls = g.linescore || {};
-        const half = ls.isTopInning ? 'Top' : 'Bot';
-        const inn = ls.currentInningOrdinal || ls.currentInning || '';
-        const outs = (ls.outs || ls.outs===0) ? ` • ${ls.outs} out${ls.outs===1?'':'s'}` : '';
-        return `<span class="chip live">${half} ${inn}${outs}</span>`;
+        return `<span class="chip live">LIVE</span>`;
       }
-      if (g.status === 'final') return `<span class="chip final">Final</span>`;
-      return `<span class="chip upcoming">${g.startTimeLocal||''}</span>`;
+      if (g.status === 'final') {
+        return `<span class="chip final">Final</span>`;
+      }
+      return `<span class="chip upcoming">${g.startTimeET||''}</span>`;
     }
 
-    function row(team, oppScore){
-      const lead = (team.score ?? -1) > (oppScore ?? -1);
-      const trail = (team.score ?? -1) < (oppScore ?? -1);
+    function teamRow(g, side){
+      const t = g.teams[side];
+      const opp = g.teams[side === 'away' ? 'home' : 'away'];
+      const isPre = g.status === 'scheduled';
+      const isLive = g.status === 'in_progress';
+      const isFinal = g.status === 'final';
+
+      let info = '';
+      if (isPre && g.probables?.[side]?.text){
+        info = g.probables[side].text;
+      } else if (isLive && g.live){
+        if ((side === 'home' && g.live.defense_team_id === t.id) || (side === 'away' && g.live.defense_team_id === t.id)){
+          const p = g.live.pitcher;
+          if (p) info = `P: ${p.name || ''} • IP ${p.ip ?? '—'} • P ${p.pitches ?? '—'} • ER ${p.er ?? '—'} • K ${p.k ?? '—'} • BB ${p.bb ?? '—'}`;
+        }
+        if ((side === 'home' && g.live.offense_team_id === t.id) || (side === 'away' && g.live.offense_team_id === t.id)){
+          const b = g.live.batter;
+          if (b) info = (info ? info + ' • ' : '') + `B: ${b.name || ''} ${b.line || ''}`;
+        }
+      }
+
+      const lead = (t.score ?? -1) > (opp.score ?? -1);
+      const trail = (t.score ?? -1) < (opp.score ?? -1);
+      const scoreHTML = (isPre ? '&nbsp;' : `<span class="${lead?'lead':(trail?'trail':'')}">${t.score ?? ''}</span>`);
+
       return `
-        <div class="row">
-          <div class="left">
-            ${team.id ? `<img src="https://www.mlbstatic.com/team-logos/${team.id}.svg" alt="">` : ''}
-            <span class="abbr">${team.abbr||''}</span>
-            ${team.note ? `<span class="note">• ${team.note}</span>` : ''}
-          </div>
-          <div class="right ${team.score!=null ? 'score' : ''}">
-            ${team.score!=null ? `<span class="${lead?'lead':(trail?'trail':'')}">${team.score}</span>` : '&nbsp;'}
-          </div>
+        <div class="team">
+          ${t.id ? `<img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="">` : ''}
+          <span class="abbr">${t.abbr||''}</span>
+          ${info ? `<span class="info">• ${info}</span>` : ''}
+        </div>
+        <div class="right score">${scoreHTML}</div>
+      `;
+    }
+
+    function boxTable(g){
+      const ls = g.linescore || {};
+      const awayInn = ls.awayByInning || [];
+      const homeInn = ls.homeByInning || [];
+      const cols = Math.max(awayInn.length, homeInn.length, 9);
+      const head = Array.from({length: cols}, (_,i)=>`<th>${i+1}</th>`).join('');
+      const row = (label, arr, tot) => `
+        <tr>
+          <td class="label">${label}</td>
+          ${Array.from({length: cols}, (_,i)=>`<td>${arr[i] ?? ''}</td>`).join('')}
+          <td>${tot.R ?? ''}</td><td>${tot.H ?? ''}</td><td>${tot.E ?? ''}</td>
+        </tr>`;
+      return `
+        <div class="box">
+          <table>
+            <thead>
+              <tr><th></th>${head}<th>R</th><th>H</th><th>E</th></tr>
+            </thead>
+            <tbody>
+              ${row(g.teams.away.abbr||'AWY', awayInn, ls.away || {})}
+              ${row(g.teams.home.abbr||'HOM', homeInn, ls.home || {})}
+            </tbody>
+          </table>
         </div>`;
     }
 
     function card(g){
-      const a = g.teams.away, h = g.teams.home;
+      const isPre = g.status === 'scheduled';
+      const isLive = g.status === 'in_progress';
+      const isFinal = g.status === 'final';
+
       const el = document.createElement('article');
       el.className = 'game';
       el.innerHTML = `
@@ -142,8 +200,11 @@
           <div class="when">${g.venue||''}</div>
           ${chip(g)}
         </header>
-        ${row(a, h.score)}
-        ${row(h, a.score)}
+        <div class="rows">
+          <div class="row">${teamRow(g,'away')}</div>
+          <div class="row">${teamRow(g,'home')}</div>
+        </div>
+        ${ (isLive || isFinal) ? boxTable(g) : '' }
       `;
       return el;
     }
@@ -155,12 +216,12 @@
       $games.innerHTML = '';
       if (!filtered.length){
         $empty.style.display = 'block';
-      } else {
-        $empty.style.display = 'none';
-        const frag = document.createDocumentFragment();
-        filtered.forEach(g => frag.appendChild(card(g)));
-        $games.appendChild(frag);
+        return;
       }
+      $empty.style.display = 'none';
+      const frag = document.createDocumentFragment();
+      filtered.forEach(g => frag.appendChild(card(g)));
+      $games.appendChild(frag);
       $updated.textContent = 'Updated: ' + new Date().toLocaleString();
     }
 
@@ -173,7 +234,7 @@
         const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
         if (anyLive) state.timer = setTimeout(load, 30000);
       } catch(e){
-        $games.innerHTML = '<div class="empty">Error loading games.</div>';
+        $games.innerHTML = '<div class="empty">Error loading games.</div>'; 
       }
     }
 

@@ -1,7 +1,7 @@
 
 from flask import Flask, render_template, jsonify, request
 import requests, logging, time
-from datetime import datetime, timezone
+from datetime import datetime
 try:
     import pytz
     ET_TZ = pytz.timezone("America/New_York")
@@ -10,10 +10,13 @@ except Exception:
 
 app = Flask(__name__)
 
+# ---- Logging ----
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("basenerd")
 
-# ---------------- STANDINGS (unchanged from your app) ----------------
+# ===========================
+# STANDINGS (existing baseline)
+# ===========================
 SEASON = 2025
 BASE_URL = "https://statsapi.mlb.com/api/v1/standings"
 HEADERS = {"User-Agent": "basenerd/1.0"}
@@ -34,8 +37,8 @@ TEAM_ABBR = {
     134: "PIT", 135: "SDP", 136: "SEA", 137: "SFG", 138: "STL", 139: "TBR", 140: "TEX",
     141: "TOR", 120: "WSH",
 }
-PRIMARY_PARAMS = {"leagueId": "103,104", "season": str(SEASON), "standingsTypes": "byDivision"}
-FALLBACK_PARAMS = {"leagueId": "103,104", "season": str(SEASON)}
+PRIMARY_PARAMS = {"leagueId":"103,104", "season":str(SEASON), "standingsTypes":"byDivision"}
+FALLBACK_PARAMS = {"leagueId":"103,104", "season":str(SEASON)}
 
 def fetch_standings():
     r = requests.get(BASE_URL, params=PRIMARY_PARAMS, headers=HEADERS, timeout=15)
@@ -46,28 +49,27 @@ def fetch_standings():
         return recs
     r2 = requests.get(BASE_URL, params=FALLBACK_PARAMS, headers=HEADERS, timeout=15)
     r2.raise_for_status()
-    data2 = r2.json() or {}
-    return data2.get("records") or []
+    return (r2.json() or {}).get("records") or []
 
 def normalize_pct(pct_str):
     if pct_str in (None, ""): return 0.0
     try:
         s = str(pct_str).strip()
-        return float("0" + s) if s.startswith(".") else float(s)
+        return float("0"+s) if s.startswith(".") else float(s)
     except Exception:
         return 0.0
 
-def get_last10(tr: dict) -> str:
+def get_last10(tr):
     recs = (tr.get("records") or {}).get("splitRecords") or []
     for rec in recs:
         if rec.get("type") == "lastTen":
-            return f"{rec.get('wins', 0)}-{rec.get('losses', 0)}"
+            return f"{rec.get('wins',0)}-{rec.get('losses',0)}"
     return ""
 
-def hardcoded_abbr(team: dict) -> str:
+def hardcoded_abbr(team):
     tid = team.get("id")
     if tid in TEAM_ABBR: return TEAM_ABBR[tid]
-    name = (team.get("name") or "").replace(" ", "")
+    name = (team.get("name") or "").replace(" ","")
     return (name[:3] or "TBD").upper()
 
 def simplify_standings(records):
@@ -76,21 +78,20 @@ def simplify_standings(records):
         league_obj = block.get("league") or {}
         division_obj = block.get("division") or {}
         league_id = league_obj.get("id")
-        division_id = division_obj.get("id")
         league_name = LEAGUE_NAME.get(league_id, league_obj.get("name") or "League")
-        division_name = DIVISION_NAME.get(division_id, division_obj.get("name") or "Division")
+        division_name = DIVISION_NAME.get(division_obj.get("id"), division_obj.get("name") or "Division")
         rows = []
         for tr in (block.get("teamRecords") or []):
             team = tr.get("team", {}) or {}
             rows.append({
-                "team_name": team.get("name", "Team"),
+                "team_name": team.get("name","Team"),
                 "team_abbr": hardcoded_abbr(team),
                 "team_id": team.get("id"),
                 "w": tr.get("wins"),
                 "l": tr.get("losses"),
                 "pct": normalize_pct(tr.get("winningPercentage")),
                 "gb": tr.get("gamesBack"),
-                "streak": (tr.get("streak") or {}).get("streakCode", ""),
+                "streak": (tr.get("streak") or {}).get("streakCode",""),
                 "last10": get_last10(tr),
                 "runDiff": tr.get("runDifferential"),
             })
@@ -102,255 +103,167 @@ def simplify_standings(records):
             leagues["National League"].append({"division": division_name, "rows": rows})
     return leagues
 
-# ---------------- TODAY'S GAMES ----------------
+# ===========================
+# TODAY'S GAMES (ET, probables, live batter/pitcher + box score)
+# ===========================
 STATS = "https://statsapi.mlb.com/api/v1"
 LIVE  = "https://statsapi.mlb.com/api/v1.1"
-_PEOPLE_CACHE = {}  # (pid, season) -> (ts, ttl, data)
-_GAMES_CACHE = {}   # date -> (ts, ttl, data)
 
-def _parse_utc(iso_z: str):
-    if not iso_z: return None
-    # robust parse of '2025-08-09T00:10:00Z'
+_PITCHER_CACHE = {}   # id -> {"ts": epoch, "ttl": sec, "data": {name, wl, era}}
+_GAMES_CACHE = {}     # date -> cached payload
+
+def _fmt_et_from_iso(iso_z):
     try:
-        if iso_z.endswith('Z'):
-            dt = datetime.fromisoformat(iso_z.replace('Z', '+00:00'))
-        else:
-            dt = datetime.fromisoformat(iso_z)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
-    except Exception:
-        return None
-
-def _to_et(iso_z: str):
-    dt_utc = _parse_utc(iso_z)
-    if not dt_utc: return ""
-    if ET_TZ:
-        return dt_utc.astimezone(ET_TZ).strftime("%-I:%M %p ET")
-    # Fallback to UTC label if pytz missing
-    return dt_utc.strftime("%-I:%M %p UTC")
-
-def _people_pitch_stats(pid: int, season: int):
-    key = (pid, season)
-    now = time.time()
-    cached = _PEOPLE_CACHE.get(key)
-    if cached and (now - cached[0] < cached[1]):
-        return cached[2]
-    url = f"{STATS}/people/{pid}"
-    params = {"hydrate": f"stats(group=pitching,type=season,season={season})"}
-    r = requests.get(url, params=params, timeout=15)
-    r.raise_for_status()
-    data = r.json() or {}
-    person = (data.get("people") or [{}])[0]
-    splits = (((person.get("stats") or []) + [{}])[0].get("splits") or [])
-    stat = (splits[0] if splits else {}).get("stat") or {}
-    result = {
-        "wins": stat.get("wins"),
-        "losses": stat.get("losses"),
-        "era": stat.get("era"),
-        "firstLastName": person.get("firstLastName") or person.get("fullName") or person.get("lastName"),
-        "throws": person.get("pitchHand", {}).get("code"),
-    }
-    _PEOPLE_CACHE[key] = (now, 6*3600, result)  # 6h TTL
-    return result
-
-def _probable_line(pid: int, season: int):
-    if not pid: return ""
-    try:
-        st = _people_pitch_stats(pid, season)
-        name = st.get("firstLastName") or ""
-        wl = (f"{st.get('wins','?')}-{st.get('losses','?')}")
-        era = st.get("era") or "—"
-        return f"{name} • {wl} • {era} ERA"
+        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
+        if ET_TZ: dt = dt.astimezone(ET_TZ)
+        return dt.strftime("%-I:%M %p") + " ET"
     except Exception:
         return ""
 
 def _fetch_schedule(date_str):
-    url = f"{STATS}/schedule"
-    params = {"sportId": 1, "date": date_str}
-    r = requests.get(url, params=params, timeout=15)
+    r = requests.get(f"{STATS}/schedule", params={"sportId":1,"date":date_str}, timeout=15)
     r.raise_for_status()
-    return r.json().get("dates", [{}])[0].get("games", [])
+    data = r.json()
+    games = data.get("dates", [{}])[0].get("games", [])
+    return { g.get("gamePk"): g.get("gameDate") for g in games }
 
 def _fetch_live(game_pk):
     r = requests.get(f"{LIVE}/game/{game_pk}/feed/live", timeout=15)
     r.raise_for_status()
     return r.json()
 
-def _cache_get(store, key):
-    item = store.get(key)
-    if not item: return None
-    ts, ttl, data = item
-    if time.time() - ts > ttl: return None
-    return data
+def _fetch_pitcher_season_line(pid, season):
+    now = time.time()
+    c = _PITCHER_CACHE.get(pid)
+    if c and now - c["ts"] < c["ttl"]:
+        return c["data"]
+    url = f"{STATS}/people/{pid}"
+    params = {"hydrate": f"stats(group=pitching,type=season,season={season})"}
+    r = requests.get(url, params=params, timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    ppl = (data.get("people") or [{}])[0]
+    name = ppl.get("fullName") or ppl.get("lastFirstName") or ppl.get("firstLastName") or ""
+    era = None; w = None; l = None
+    for st in (ppl.get("stats") or []):
+        if st.get("group","").get("displayName") == "pitching" or st.get("group") == "pitching":
+            splits = st.get("splits") or []
+            if splits:
+                stat = splits[0].get("stat") or {}
+                era = stat.get("era")
+                w = stat.get("wins"); l = stat.get("losses")
+                break
+    line = {"name": name, "wl": (f"{w}-{l}" if w is not None and l is not None else None), "era": era}
+    _PITCHER_CACHE[pid] = {"ts": now, "ttl": 21600, "data": line}
+    return line
 
-def _cache_set(store, key, data, ttl):
-    store[key] = (time.time(), ttl, data)
+def _team_side_blob(gameData, linescore, boxscore, side):
+    team = gameData.get("teams", {}).get(side, {}) or {}
+    abbr = team.get("abbreviation") or team.get("clubName")
+    tid = team.get("id")
+    ls_team = (linescore or {}).get("teams", {}).get(side, {}) or {}
+    score = ls_team.get("runs")
+    return {"id": tid, "abbr": abbr, "name": team.get("name"), "score": score}
 
-def _team_basic(gameData, side, linescore):
-    t = (gameData.get("teams", {}) or {}).get(side, {}) or {}
-    ls = (linescore or {}).get("teams", {}).get(side, {}) or {}
-    return {
-        "id": t.get("id"),
-        "abbr": t.get("abbreviation") or t.get("clubName") or "",
-        "name": t.get("name") or "",
-        "score": ls.get("runs"),  # may be None for scheduled
-        "hits": ls.get("hits"),
-        "errors": ls.get("errors"),
-        "note": ""  # we'll fill later
-    }
-
-def _player_pitch_line(boxscore, side_key, player_id):
-    try:
-        players = (boxscore.get("teams", {}).get(side_key, {}).get("players") or {})
-        pid_key = f"ID{player_id}"
-        p = players.get(pid_key, {})
-        st = (p.get("stats") or {}).get("pitching") or {}
-        # inningsPitched is like "4.2"
-        return {
-            "name": (p.get("person") or {}).get("fullName", ""),
-            "ip": st.get("inningsPitched"),
-            "er": st.get("earnedRuns"),
-            "so": st.get("strikeOuts"),
-            "bb": st.get("baseOnBalls"),
-            "pitches": st.get("numberOfPitches") or st.get("pitchesThrown") or st.get("pitchCount")
-        }
-    except Exception:
-        return None
-
-def _current_batter_name(boxscore, side_key, player_id):
-    try:
-        players = (boxscore.get("teams", {}).get(side_key, {}).get("players") or {})
-        pid_key = f"ID{player_id}"
-        p = players.get(pid_key, {})
-        return (p.get("person") or {}).get("fullName") or ""
-    except Exception:
-        return ""
-
-def _shape_game(live, sched_game):
-    gd = live.get("gameData", {}) or {}
+def _current_pitch_bat(live):
     ld = live.get("liveData", {}) or {}
-    ls = ld.get("linescore", {}) or {}
-    status = gd.get("status", {}) or {}
-    abstract = (status.get("abstractGameState") or "").upper()
-    if abstract not in ("PREVIEW","LIVE","FINAL"):
-        abstract = "PREVIEW"
+    linescore = ld.get("linescore", {}) or {}
+    current = ld.get("plays", {}).get("currentPlay", {}) or {}
+    matchup = current.get("matchup", {}) or {}
 
-    home = _team_basic(gd, "home", ls)
-    away = _team_basic(gd, "away", ls)
-    home_id, away_id = home["id"], away["id"]
+    pit_id = (matchup.get("pitcher") or {}).get("id") or (linescore.get("defense") or {}).get("pitcher", {}).get("id")
+    bat_id = (matchup.get("batter")  or {}).get("id") or (linescore.get("offense") or {}).get("batter", {}).get("id")
 
-    # Use schedule-provided gameDate (UTC) for start time -> ET
-    start_utc = (sched_game or {}).get("gameDate") or gd.get("datetime", {}).get("dateTime")
-    start_time_local = _to_et(start_utc)
+    offense = (linescore.get("offense") or {}).get("team", {}).get("id")
+    defense = (linescore.get("defense") or {}).get("team", {}).get("id")
 
-    # Default: suppress scores for scheduled
-    if abstract == "PREVIEW":
-        away["score"] = None
-        home["score"] = None
-        # Probables with W-L & ERA
-        probs = gd.get("probablePitchers", {}) or {}
-        a_pid = (probs.get("away") or {}).get("id")
-        h_pid = (probs.get("home") or {}).get("id")
-        away["note"] = _probable_line(a_pid, SEASON) if a_pid else ""
-        home["note"] = _probable_line(h_pid, SEASON) if h_pid else ""
+    box = ld.get("boxscore", {}) or {}
+    home_players = (box.get("teams", {}).get("home", {}) or {}).get("players", {}) or {}
+    away_players = (box.get("teams", {}).get("away", {}) or {}).get("players", {}) or {}
 
-    elif abstract == "LIVE":
-        # Current pitcher / batter (from currentPlay; fallback to linescore offense/defense)
-        cur = (ld.get("plays", {}) or {}).get("currentPlay", {}) or {}
-        matchup = cur.get("matchup") or {}
-        pitcher_id = (matchup.get("pitcher") or {}).get("id") or (ls.get("defense") or {}).get("pitcher", {}).get("id")
-        batter_id  = (matchup.get("batter") or {}).get("id")  or (ls.get("offense") or {}).get("batter", {}).get("id")
-        # Determine which side is pitching/hitting
-        defense_team_id = (ls.get("defense") or {}).get("team", {}).get("id")
-        offense_team_id = (ls.get("offense") or {}).get("team", {}).get("id")
-        box = ld.get("boxscore", {}) or {}
+    def _pitch_line(pid):
+        if not pid: return None
+        key = f"ID{pid}"
+        stat = (home_players.get(key) or away_players.get(key) or {}).get("stats", {}).get("pitching", {}) or {}
+        ip = stat.get("inningsPitched")
+        pitches = stat.get("numberOfPitches") or stat.get("pitchesThrown")
+        er = stat.get("earnedRuns"); so = stat.get("strikeOuts"); bb = stat.get("baseOnBalls")
+        name = (home_players.get(key) or away_players.get(key) or {}).get("person", {}).get("lastName")
+        return {"id": pid, "name": name, "ip": ip, "pitches": pitches, "er": er, "k": so, "bb": bb}
 
-        if defense_team_id == home_id:
-            # home pitching, away batting
-            pline = _player_pitch_line(box, "home", pitcher_id) if pitcher_id else None
-            bname = _current_batter_name(box, "away", batter_id) if batter_id else ""
-            if pline:
-                home["note"] = f"P: {pline['name']} • IP {pline['ip'] or '—'} • P {pline['pitches'] or '—'} • ER {pline['er'] or 0} • K {pline['so'] or 0} • BB {pline['bb'] or 0}"
-            if bname:
-                away["note"] = f"Bat: {bname}"
-        elif defense_team_id == away_id:
-            # away pitching
-            pline = _player_pitch_line(box, "away", pitcher_id) if pitcher_id else None
-            bname = _current_batter_name(box, "home", batter_id) if batter_id else ""
-            if pline:
-                away["note"] = f"P: {pline['name']} • IP {pline['ip'] or '—'} • P {pline['pitches'] or '—'} • ER {pline['er'] or 0} • K {pline['so'] or 0} • BB {pline['bb'] or 0}"
-            if bname:
-                home["note"] = f"Bat: {bname}"
-        else:
-            # Fallback: just list names if team ids aren't present
-            if pitcher_id:
-                # guess pitcher belongs to defense
-                # try find in boxscore home first
-                pl = _player_pitch_line(box, "home", pitcher_id) or _player_pitch_line(box, "away", pitcher_id)
-                if pl:
-                    # assign to whichever side has that player
-                    home["note"] = home["note"] or f"P: {pl['name']} • IP {pl['ip'] or '—'} • P {pl['pitches'] or '—'} • ER {pl['er'] or 0} • K {pl['so'] or 0} • BB {pl['bb'] or 0}"
-            if batter_id:
-                # can't tell side; just put on away
-                bname = _current_batter_name(box, "away", batter_id) or _current_batter_name(box, "home", batter_id)
-                if bname:
-                    away["note"] = away["note"] or f"Bat: {bname}"
+    def _bat_line(pid):
+        if not pid: return None
+        key = f"ID{pid}"
+        stat = (home_players.get(key) or away_players.get(key) or {}).get("stats", {}).get("batting", {}) or {}
+        ab = stat.get("atBats") or 0
+        hits = stat.get("hits") or 0
+        name = (home_players.get(key) or away_players.get(key) or {}).get("person", {}).get("lastName")
+        return {"id": pid, "name": name, "line": f"{hits}-{ab}"}
 
-    # Final: leave note blank or could show winning/losing pitcher later.
     return {
-        "gamePk": live.get("gamePk") or (gd.get("game") or {}).get("pk"),
-        "status": "in_progress" if abstract == "LIVE" else ("final" if abstract == "FINAL" else "scheduled"),
-        "startTimeLocal": start_time_local,
-        "venue": (gd.get("venue") or {}).get("name", ""),
-        "teams": {"away": away, "home": home},
-        "linescore": ls,  # keep for future
+        "offense_team_id": offense,
+        "defense_team_id": defense,
+        "pitcher": _pitch_line(pit_id),
+        "batter": _bat_line(bat_id)
     }
 
-@app.route("/todaysgames")
-def todays_games_page():
-    return render_template("todaysgames.html")
+def _shape_view(live, gameDateUTC):
+    gdata = live.get("gameData", {}) or {}
+    ld = live.get("liveData", {}) or {}
+    status = gdata.get("status", {}) or {}
+    abstract = (status.get("abstractGameState") or "").upper()
 
-@app.route("/api/games")
-def api_games():
-    date_str = request.args.get("date")
-    if not date_str:
-        # Use ET today's date for schedule queries
-        now = datetime.now(tz=ET_TZ) if ET_TZ else datetime.utcnow()
-        date_str = now.strftime("%Y-%m-%d")
+    ls = ld.get("linescore", {}) or {}
+    boxscore = ld.get("boxscore", {}) or {}
+    venue = (gdata.get("venue") or {}).get("name")
 
-    cached = _cache_get(_GAMES_CACHE, date_str)
-    if cached:
-        return jsonify(cached)
+    away = _team_side_blob(gdata, ls, boxscore, "away")
+    home = _team_side_blob(gdata, ls, boxscore, "home")
 
-    try:
-        schedule = _fetch_schedule(date_str)
-    except Exception as e:
-        payload = {"date": date_str, "games": [], "error": f"schedule_error: {e}"}
-        _cache_set(_GAMES_CACHE, date_str, payload, 30)
-        return jsonify(payload), 502
+    start_et = _fmt_et_from_iso(gameDateUTC) if gameDateUTC else ""
 
-    games_map = {g.get("gamePk"): g for g in schedule}
-    games = []
-    any_live = False
+    probables = {}
+    if abstract == "PREVIEW":
+        probs = gdata.get("probablePitchers") or {}
+        for side in ("away","home"):
+            pid = (probs.get(side) or {}).get("id") or (gdata.get("teams",{}).get(side,{}).get("probablePitcher") or {}).get("id")
+            if pid:
+                p = _fetch_pitcher_season_line(pid, SEASON)
+                probables[side] = {"id": pid, "text": " • ".join([x for x in [p.get("name"), p.get("wl"), (p.get("era") and f"{p.get('era')} ERA")] if x])}
 
-    for g in schedule:
-        pk = g.get("gamePk")
-        if not pk: continue
-        try:
-            live = _fetch_live(pk)
-            shaped = _shape_game(live, games_map.get(pk))
-            any_live = any_live or (shaped["status"] == "in_progress")
-            games.append(shaped)
-        except Exception as ex:
-            log.warning("live fetch failed for %s: %s", pk, ex)
-            continue
+    livepb = _current_pitch_bat(live) if abstract == "LIVE" else None
 
-    payload = {"date": date_str, "games": games}
-    _cache_set(_GAMES_CACHE, date_str, payload, 15 if any_live else 300)
-    return jsonify(payload)
+    away_inns = [inn.get("away","") for inn in (ls.get("innings") or [])]
+    home_inns = [inn.get("home","") for inn in (ls.get("innings") or [])]
+    totals = ls.get("teams", {}) or {}
+    a_tot = totals.get("away", {}) or {}
+    h_tot = totals.get("home", {}) or {}
 
-# ---------------- ROUTES YOU ALREADY HAVE ----------------
+    return {
+        "gamePk": gdata.get("game", {}).get("pk") or live.get("gamePk"),
+        "status": "scheduled" if abstract=="PREVIEW" else ("in_progress" if abstract=="LIVE" else "final"),
+        "startTimeET": start_et,
+        "venue": venue,
+        "teams": {"away": away, "home": home},
+        "probables": probables or None,
+        "live": livepb,
+        "linescore": {
+            "awayByInning": away_inns,
+            "homeByInning": home_inns,
+            "away": {"R": a_tot.get("runs"), "H": a_tot.get("hits"), "E": a_tot.get("errors")},
+            "home": {"R": h_tot.get("runs"), "H": h_tot.get("hits"), "E": h_tot.get("errors")},
+        }
+    }
+
+def _cache_get(k):
+    v = _GAMES_CACHE.get(k)
+    if not v: return None
+    if time.time() - v["ts"] > v["ttl"]: return None
+    return v["data"]
+
+def _cache_set(k, data, ttl):
+    _GAMES_CACHE[k] = {"ts": time.time(), "ttl": ttl, "data": data}
+
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -363,8 +276,48 @@ def standings_page():
         if "American League" not in data: data["American League"] = []
         return render_template("standings.html", data=data, season=SEASON)
     except Exception as e:
+        log.exception("standings failed")
         safe = {"National League": [], "American League": []}
         return render_template("standings.html", data=safe, season=SEASON, error=str(e)), 200
+
+@app.route("/todaysgames")
+def todays_games_page():
+    return render_template("todaysgames.html")
+
+@app.route("/api/games")
+def api_games():
+    date_str = request.args.get("date")
+    if not date_str:
+        if ET_TZ:
+            date_str = datetime.now(ET_TZ).strftime("%Y-%m-%d")
+        else:
+            date_str = datetime.utcnow().strftime("%Y-%m-%d")
+
+    cached = _cache_get(date_str)
+    if cached:
+        return jsonify(cached)
+
+    try:
+        sched_map = _fetch_schedule(date_str)
+    except Exception as e:
+        payload = {"date": date_str, "games": [], "error": f"schedule_error: {e}"}
+        _cache_set(date_str, payload, 30)
+        return jsonify(payload), 502
+
+    games = []
+    any_live = False
+    for pk, gameDateUTC in sched_map.items():
+        try:
+            live = _fetch_live(pk)
+            view = _shape_view(live, gameDateUTC)
+            any_live = any_live or (view["status"] == "in_progress")
+            games.append(view)
+        except Exception as ex:
+            log.warning("live fetch failed for %s: %s", pk, ex)
+
+    payload = {"date": date_str, "games": games}
+    _cache_set(date_str, payload, 15 if any_live else 300)
+    return jsonify(payload)
 
 @app.route("/ping")
 def ping():
