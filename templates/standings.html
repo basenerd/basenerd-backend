@@ -1,49 +1,156 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>MLB Standings (Live)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MLB Standings • Basenerd</title>
   <style>
-    body { font-family: Segoe UI, Tahoma, sans-serif; margin:0; background:#f4f6f8; color:#222; padding:2rem; }
-    h1 { text-align:center; margin-bottom:1.5rem; color:#002147; text-transform:uppercase; }
-    .group { background:#fff; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,.06); margin:0 0 1.25rem; }
-    .group h2 { margin:0; padding:.75rem 1rem; border-bottom:2px solid #004080; color:#004080; font-size:1.1rem; }
-    table { width:100%; border-collapse:collapse; }
-    th, td { padding:.6rem .8rem; border-bottom:1px solid #e5e7eb; text-align:left; }
-    th { background:#002147; color:#fff; font-size:.8rem; text-transform:uppercase; }
-    tr:nth-child(even) { background:#fafafa; }
-    .team { display:flex; align-items:center; gap:.5rem; }
-    .team img { width:22px; height:22px; }
+    :root{
+      --bg:#0b0e13; --card:#131823; --muted:#7f8aa3; --text:#e8edf7; --accent:#f0b90b;
+      --row:#0f1420; --rowAlt:#0c111b; --border:#1f2a44;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+    }
+    header{
+      display:flex; align-items:center; gap:12px; padding:16px 20px; border-bottom:1px solid var(--border);
+      background:linear-gradient(180deg, #0e1421, #0b0e13 60%);
+      position:sticky; top:0; z-index:10;
+    }
+    header img{height:32px; width:auto}
+    header h1{margin:0; font-size:18px; letter-spacing:.2px}
+    header .spacer{flex:1}
+    header .btn{
+      background:transparent; color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:10px; cursor:pointer;
+    }
+    header .btn:hover{border-color:#2a3a60}
+    .wrap{max-width:1100px; margin:24px auto 80px; padding:0 16px}
+    .meta{
+      color:var(--muted); font-size:13px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px;
+    }
+    .tabs{display:flex; gap:8px; margin:12px 0 20px}
+    .tab{
+      border:1px solid var(--border); padding:8px 14px; border-radius:999px; cursor:pointer; font-weight:600; font-size:14px;
+      background:var(--card); color:var(--muted);
+    }
+    .tab.active{background:var(--accent); color:#0c0a00; border-color:#dba90d}
+    .league{display:none}
+    .league.active{display:block}
+    .grid{display:grid; grid-template-columns:repeat(12, 1fr); gap:14px}
+    .division{
+      grid-column: span 12;
+      background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden;
+    }
+    @media(min-width:700px){ .division{grid-column: span 6} }
+    .division h2{
+      margin:0; padding:12px 14px; font-size:15px; letter-spacing:.3px; background:linear-gradient(180deg, #12192a, #0f1420);
+      border-bottom:1px solid var(--border);
+    }
+    table{width:100%; border-collapse:collapse}
+    thead th{
+      text-align:left; font-size:12px; color:var(--muted); padding:10px 14px; border-bottom:1px solid var(--border); font-weight:600;
+    }
+    tbody tr:nth-child(odd){background:var(--row)}
+    tbody tr:nth-child(even){background:var(--rowAlt)}
+    td{padding:10px 14px; font-size:14px}
+    td.team{font-weight:600}
+    td.num{font-variant-numeric: tabular-nums; text-align:right}
+    .muted{color:var(--muted)}
+    .footer-note{margin-top:22px; color:var(--muted); font-size:12px}
   </style>
 </head>
 <body>
-  <h1>MLB Standings (Live)</h1>
+  <header>
+    <img src="{{ url_for('static', filename='basenerd-logo-official.png') }}" alt="Basenerd" />
+    <h1>MLB Standings</h1>
+    <div class="spacer"></div>
+    <button class="btn" onclick="window.location.reload()">Refresh</button>
+  </header>
 
-  {% if stats %}
-    {% for group in stats %}
-      <div class="group">
-        <h2>{{ group.league.name }} — {{ group.division.name }}</h2>
-        <table>
-          <tr>
-            <th>Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th>
-          </tr>
-          {% for team in group.teamRecords %}
-          <tr>
-            <td class="team">
-              <img src="https://www.mlbstatic.com/team-logos/{{ team.team.id }}.svg" alt="{{ team.team.name }}">
-              {{ team.team.name }}
-            </td>
-            <td>{{ team.wins }}</td>
-            <td>{{ team.losses }}</td>
-            <td>{{ team.winningPercentage }}</td>
-            <td>{{ team.gamesBack }}</td>
-          </tr>
-          {% endfor %}
-        </table>
-      </div>
+  <div class="wrap">
+    <div class="meta">
+      <span>Season: <strong>2025</strong></span>
+      <span>Source: MLB Stats API</span>
+      <span id="updated" class="muted"></span>
+    </div>
+
+    <!-- League tabs -->
+    <div class="tabs">
+      <button class="tab active" data-league="American League">American League</button>
+      <button class="tab" data-league="National League">National League</button>
+    </div>
+
+    <!-- Leagues -->
+    {% set leagues = {} %}
+    {% for block in stats %}
+      {% set league_name = block.league.name if block.league and block.league.name else (block['league']['name'] if block.get('league') else 'Unknown League') %}
+      {% set _ = leagues.setdefault(league_name, []).append(block) %}
     {% endfor %}
-  {% else %}
-    <p>No standings available right now.</p>
-  {% endif %}
+
+    {% for league_name, blocks in leagues.items() %}
+      <section class="league {% if loop.index0 == 0 %}active{% endif %}" data-league="{{ league_name }}">
+        <div class="grid">
+          {% for divblock in blocks %}
+            {% set div_name = divblock.division.name if divblock.division and divblock.division.name else (divblock['division']['name'] if divblock.get('division') else 'Division') %}
+            <div class="division">
+              <h2>{{ div_name }}</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num">Pct</th>
+                    <th class="num">GB</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for tr in divblock.teamRecords or divblock['teamRecords'] %}
+                    {% set team = tr.team.name if tr.team and tr.team.name else (tr['team']['name'] if tr.get('team') else 'Team') %}
+                    {% set w = tr.wins if tr.get('wins') is not none else tr['wins'] %}
+                    {% set l = tr.losses if tr.get('losses') is not none else tr['losses'] %}
+                    {% set pct = tr.pct if tr.get('pct') else tr.get('winningPercentage', '') %}
+                    {% set gb = tr.gamesBack if tr.get('gamesBack') is not none else tr.get('gamesBackFormatted', '') %}
+                    <tr>
+                      <td class="team">{{ team }}</td>
+                      <td class="num">{{ w }}</td>
+                      <td class="num">{{ l }}</td>
+                      <td class="num">{{ '%.3f'|format(pct|float) if pct is string or pct is number else pct }}</td>
+                      <td class="num">{{ gb if gb not in [None, '', '0.0'] else '—' }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endfor %}
+
+    <p class="footer-note">Games Back (GB) shows distance behind the division leader. “—” means tied for first.</p>
+  </div>
+
+  <script>
+    // Tabs
+    const tabs = document.querySelectorAll('.tab');
+    const leagues = document.querySelectorAll('.league');
+    tabs.forEach(t=>{
+      t.addEventListener('click', ()=>{
+        tabs.forEach(x=>x.classList.remove('active'));
+        t.classList.add('active');
+        const target = t.getAttribute('data-league');
+        leagues.forEach(sec=>{
+          sec.classList.toggle('active', sec.getAttribute('data-league') === target);
+        });
+      });
+    });
+
+    // Last updated (client-side)
+    const el = document.getElementById('updated');
+    const d = new Date();
+    el.textContent = `Updated: ${d.toLocaleString()}`;
+  </script>
 </body>
 </html>
