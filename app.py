@@ -36,30 +36,24 @@ def fetch_standings():
     return (r2.json() or {}).get("records") or []
 
 def normalize_pct(pct_str):
-    if not pct_str:
-        return 0.0
     try:
-        return float(pct_str)
-    except Exception:
-        try:
-            s = str(pct_str).strip()
-            return float("0" + s) if s.startswith(".") else float(s)
-        except Exception:
+        if pct_str is None or pct_str == "":
             return 0.0
+        s = str(pct_str).strip()
+        return float("0"+s) if s.startswith(".") else float(s)
+    except Exception:
+        return 0.0
 
 def get_last10(tr):
     for rec in (tr.get("splitRecords") or []):
         if rec.get("type") == "lastTen":
-            w = rec.get("wins", 0)
-            l = rec.get("losses", 0)
-            return f"{w}-{l}"
+            return f"{rec.get('wins',0)}-{rec.get('losses',0)}"
     return ""
 
 def simplify_standings(records):
     leagues = {"National League": [], "American League": []}
-    total_rows = 0
 
-    for block in records:
+    for block in (records or []):
         league_obj = block.get("league") or {}
         division_obj = block.get("division") or {}
         league_id = league_obj.get("id")
@@ -83,18 +77,29 @@ def simplify_standings(records):
                 "runDiff": tr.get("runDifferential"),
             })
 
+        # Always append somewhere so template has data
         if league_name in leagues:
             leagues[league_name].append({"division": division_name, "rows": rows})
-            total_rows += len(rows)
+        elif league_id == 103:
+            leagues["American League"].append({"division": division_name, "rows": rows})
+        elif league_id == 104:
+            leagues["National League"].append({"division": division_name, "rows": rows})
         else:
-            (leagues["American League"] if league_id == 103 else leagues["National League"]).append(
-                {"division": division_name, "rows": rows}
-            )
-            total_rows += len(rows)
+            # Unknown league? Put it in NL to avoid None errors
+            leagues["National League"].append({"division": division_name, "rows": rows})
 
-    log.info("simplify_standings: NL_divs=%d AL_divs=%d total_rows=%d",
-             len(leagues["National League"]), len(leagues["American League"]), total_rows)
     return leagues
+
+@app.route("/ping")
+def ping():
+    return "ok", 200
+
+@app.route("/debug/standings.json")
+def debug_standings():
+    try:
+        return jsonify({"records": fetch_standings()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/")
 def home():
@@ -105,19 +110,14 @@ def standings():
     try:
         records = fetch_standings()
         data = simplify_standings(records)
+        # Ensure keys exist even if empty
+        if "National League" not in data: data["National League"] = []
+        if "American League" not in data: data["American League"] = []
         return render_template("standings.html", data=data, season=SEASON)
     except Exception as e:
         log.exception("Failed to fetch standings")
-        return render_template("standings.html",
-                               data={"National League": [], "American League": []},
-                               season=SEASON, error=str(e)), 200
-
-@app.route("/debug/standings.json")
-def debug_standings():
-    try:
-        return jsonify({"records": fetch_standings()})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        safe = {"National League": [], "American League": []}
+        return render_template("standings.html", data=safe, season=SEASON, error=str(e)), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
