@@ -40,6 +40,7 @@
     .chip.upcoming{ background:var(--chip-upcoming); }
     .when{ color:var(--muted); font-size:12px; }
     .inning-badge{ position:absolute; right:10px; top:10px; font-size:11px; color:#5b6577; }
+
     .rows{ display:flex; flex-direction:column; }
     .row{ display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:8px 12px; }
     .row:nth-child(odd){ background:var(--row); }
@@ -51,10 +52,13 @@
     .right{ text-align:right; font-variant-numeric: tabular-nums; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
     .score{ font-weight:700; font-size:13.5px; }
 
-    /* bases graphic */
-    .bases{ display:inline-grid; grid-template-columns:repeat(3, 12px); gap:6px; align-items:center; }
-    .base{ width:10px; height:10px; transform:rotate(45deg); border:1px solid var(--border); background:#fff; }
-    .base.on{ background:#ffd147; border-color:#ffd147; }
+    /* Bases diamond */
+    .bases-diamond{ position:relative; width:28px; height:28px; display:inline-block; margin-left:8px; }
+    .base-dot{ position:absolute; width:10px; height:10px; transform:rotate(45deg); border:1px solid var(--border); background:#fff; }
+    .base-dot.on{ background:#ffd147; border-color:#ffd147; }
+    .b-first{ right:0; top:50%; transform:translateY(-50%) rotate(45deg); }
+    .b-second{ left:50%; top:0; transform:translate(-50%,0) rotate(45deg); }
+    .b-third{ left:0; top:50%; transform:translateY(-50%) rotate(45deg); }
 
     /* box table */
     .box{ padding:8px 12px; border-top:1px solid var(--border); background:#fff; overflow:auto; }
@@ -121,23 +125,23 @@
     function chipFor(g){
       if (g.status === 'in_progress') return `<span class="chip live">${g.chip}</span>`;
       if (g.status === 'final') return `<span class="chip final">Final</span>`;
-      return `<span class="chip upcoming">${g.chip}</span>`; // scheduled shows ET time in chip
+      return `<span class="chip upcoming">${g.chip}</span>`;
     }
 
     function inningBadge(g){
       return g.inningBadge ? `<div class="inning-badge">${g.inningBadge}</div>` : '';
     }
 
-    function basesGraphic(g){
-      const b = g.bases || {}; // only for live
-      return `<span class="bases">
-        <span class="base ${b.first?'on':''}" title="1B"></span>
-        <span class="base ${b.second?'on':''}" title="2B"></span>
-        <span class="base ${b.third?'on':''}" title="3B"></span>
+    function basesDiamond(g){
+      const b = g.bases || {};
+      return `<span class="bases-diamond">
+        <span class="base-dot b-second ${b.second?'on':''}"></span>
+        <span class="base-dot b-first ${b.first?'on':''}"></span>
+        <span class="base-dot b-third ${b.third?'on':''}"></span>
       </span>`;
     }
 
-    function teamRowScheduled(side, t){
+    function teamRowScheduled(t){
       const info = t.probable ? t.probable : '';
       return `
         <div class="row">
@@ -150,8 +154,7 @@
         </div>`;
     }
 
-    function teamRowLive(side, t, g){
-      // show current pitcher on defense side, current batter on offense side
+    function teamRowLive(t){
       const info = t.currentPitcher || t.currentBatter || '';
       const score = (t.score!=null) ? t.score : '&nbsp;';
       return `
@@ -165,13 +168,15 @@
         </div>`;
     }
 
-    function teamRowFinal(side, t){
+    function teamRowFinal(t){
+      const info = t.finalPitcher || '';
       const score = (t.score!=null) ? t.score : '&nbsp;';
       return `
         <div class="row">
           <div class="team">
             ${t.id ? `<img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="">` : ''}
             <span class="abbr">${t.abbr||''}</span>
+            ${info ? `<span class="info">${info}</span>` : ''}
           </div>
           <div class="right score">${score}</div>
         </div>`;
@@ -180,16 +185,16 @@
     function boxTable(g){
       const ls = g.linescore;
       if (!ls) return '';
-      const a = ls.awayByInning || [], h = ls.homeByInning || [];
-      const n = Math.max(a.length, h.length);
-      const headInnings = Array.from({length:n}, (_,i)=>`<th>${i+1}</th>`).join('');
-      const aCells = Array.from({length:n}, (_,i)=>`<td>${a[i] ?? ''}</td>`).join('');
-      const hCells = Array.from({length:n}, (_,i)=>`<td>${h[i] ?? ''}</td>`).join('');
+      const n = (g.status==='in_progress') ? 9 : (ls.n || 9);
+      const a = ls.away || []; const h = ls.home || [];
+      const head = Array.from({length:n}, (_,i)=>`<th>${i+1}</th>`).join('');
+      const aCells = Array.from({length:n}, (_,i)=>`<td>${(a[i]??'')===0?0:(a[i]??'')}</td>`).join('');
+      const hCells = Array.from({length:n}, (_,i)=>`<td>${(h[i]??'')===0?0:(h[i]??'')}</td>`).join('');
       const aT = ls.totals.away, hT = ls.totals.home;
       return `
         <div class="box">
           <table>
-            <thead><tr><th></th>${headInnings}<th class="totals">R</th><th class="totals">H</th><th class="totals">E</th></tr></thead>
+            <thead><tr><th></th>${head}<th class="totals">R</th><th class="totals">H</th><th class="totals">E</th></tr></thead>
             <tbody>
               <tr><td class="team">${g.teams.away.abbr}</td>${aCells}<td class="totals">${aT.R ?? ''}</td><td class="totals">${aT.H ?? ''}</td><td class="totals">${aT.E ?? ''}</td></tr>
               <tr><td class="team">${g.teams.home.abbr}</td>${hCells}<td class="totals">${hT.R ?? ''}</td><td class="totals">${hT.H ?? ''}</td><td class="totals">${hT.E ?? ''}</td></tr>
@@ -201,7 +206,7 @@
     function card(g){
       const a = g.teams.away, h = g.teams.home;
       const headerLeft = `<div class="when">${g.venue||''}</div>`;
-      const headerRight = `${chipFor(g)}${basesGraphic(g)}${inningBadge(g)}`;
+      const headerRight = `${chipFor(g)}${g.status==='in_progress' ? basesDiamond(g) : ''}${inningBadge(g)}`;
 
       const el = document.createElement('article');
       el.className = 'game';
@@ -211,8 +216,8 @@
           <div>${headerRight}</div>
         </header>
         <div class="rows">
-          ${g.status==='scheduled' ? teamRowScheduled('away', a) : g.status==='in_progress' ? teamRowLive('away', a, g) : teamRowFinal('away', a)}
-          ${g.status==='scheduled' ? teamRowScheduled('home', h) : g.status==='in_progress' ? teamRowLive('home', h, g) : teamRowFinal('home', h)}
+          ${g.status==='scheduled' ? teamRowScheduled(a) : g.status==='in_progress' ? teamRowLive(a) : teamRowFinal(a)}
+          ${g.status==='scheduled' ? teamRowScheduled(h) : g.status==='in_progress' ? teamRowLive(h) : teamRowFinal(h)}
         </div>
         ${g.status!=='scheduled' ? boxTable(g) : ''}
       `;
