@@ -58,6 +58,17 @@
       font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
     }
     .footer-note{margin-top:22px; color:var(--muted); font-size:12px}
+
+    /* Error banner */
+    .error-banner{
+      background:#2a1b1b;
+      border:1px solid #7a3b3b;
+      color:#ffb3b3;
+      padding:10px 14px;
+      border-radius:10px;
+      margin-bottom:12px;
+      font-size:14px;
+    }
   </style>
 </head>
 <body>
@@ -72,83 +83,104 @@
       <span id="updated"></span>
     </div>
 
+    {# Show a friendly message if the server caught an error fetching data #}
+    {% if error %}
+      <div class="error-banner">
+        Live data error: {{ error }}
+      </div>
+    {% endif %}
+
     <div class="columns">
       <!-- LEFT: National League -->
       <section>
         <h3 class="column-title">National League</h3>
-        {% for block in data["National League"] %}
-          <div class="division">
-            <h2>{{ block["division"] }} (NL)</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Team</th>
-                  <th class="num">W</th>
-                  <th class="num">L</th>
-                  <th class="num">Pct</th>
-                  <th class="num">GB</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in block["rows"] %}
+        {% if data["National League"] %}
+          {% for block in data["National League"] %}
+            <div class="division">
+              <h2>{{ block["division"] }} (NL)</h2>
+              <table>
+                <thead>
                   <tr>
-                    <td class="team">
-                      {% if row["team_id"] %}
-                        <img src="https://www.mlbstatic.com/team-logos/{{ row['team_id'] }}.svg"
-                             alt="{{ row['team_name'] }} logo"
-                             onerror="this.style.display='none'">
-                      {% endif %}
-                      {{ row["team_name"] }}
-                    </td>
-                    <td class="num">{{ row["w"] }}</td>
-                    <td class="num">{{ row["l"] }}</td>
-                    <td class="num">{{ '%.3f'|format(row["pct"]) }}</td>
-                    <td class="num">{{ row["gb"] if row["gb"] not in ['0.0', 0, None, '0'] else '—' }}</td>
+                    <th>Team</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num">Pct</th>
+                    <th class="num">GB</th>
                   </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {% for row in block["rows"] %}
+                    <tr>
+                      <td class="team">
+                        {% if row["team_id"] %}
+                          <img src="https://www.mlbstatic.com/team-logos/{{ row['team_id'] }}.svg"
+                               alt="{{ row['team_name'] }} logo"
+                               onerror="this.style.display='none'">
+                        {% endif %}
+                        {{ row["team_name"] }}
+                      </td>
+                      <td class="num">{{ row["w"] }}</td>
+                      <td class="num">{{ row["l"] }}</td>
+                      <td class="num">{{ '%.3f'|format(row["pct"]) }}</td>
+                      <td class="num">{{ row["gb"] if row["gb"] not in ['0.0', 0, None, '0'] else '—' }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="division">
+            <h2>No NL data</h2>
+            <div style="padding:12px 16px;color:var(--muted);">Standings unavailable.</div>
           </div>
-        {% endfor %}
+        {% endif %}
       </section>
 
       <!-- RIGHT: American League -->
       <section>
         <h3 class="column-title">American League</h3>
-        {% for block in data["American League"] %}
-          <div class="division">
-            <h2>{{ block["division"] }} (AL)</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Team</th>
-                  <th class="num">W</th>
-                  <th class="num">L</th>
-                  <th class="num">Pct</th>
-                  <th class="num">GB</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in block["rows"] %}
+        {% if data["American League"] %}
+          {% for block in data["American League"] %}
+            <div class="division">
+              <h2>{{ block["division"] }} (AL)</h2>
+              <table>
+                <thead>
                   <tr>
-                    <td class="team">
-                      {% if row["team_id"] %}
-                        <img src="https://www.mlbstatic.com/team-logos/{{ row['team_id'] }}.svg"
-                             alt="{{ row['team_name'] }} logo"
-                             onerror="this.style.display='none'">
-                      {% endif %}
-                      {{ row["team_name"] }}
-                    </td>
-                    <td class="num">{{ row["w"] }}</td>
-                    <td class="num">{{ row["l"] }}</td>
-                    <td class="num">{{ '%.3f'|format(row["pct"]) }}</td>
-                    <td class="num">{{ row["gb"] if row["gb"] not in ['0.0', 0, None, '0'] else '—' }}</td>
+                    <th>Team</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num">Pct</th>
+                    <th class="num">GB</th>
                   </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {% for row in block["rows"] %}
+                    <tr>
+                      <td class="team">
+                        {% if row["team_id"] %}
+                          <img src="https://www.mlbstatic.com/team-logos/{{ row['team_id'] }}.svg"
+                               alt="{{ row['team_name'] }} logo"
+                               onerror="this.style.display='none'">
+                        {% endif %}
+                        {{ row["team_name"] }}
+                      </td>
+                      <td class="num">{{ row["w"] }}</td>
+                      <td class="num">{{ row["l"] }}</td>
+                      <td class="num">{{ '%.3f'|format(row["pct"]) }}</td>
+                      <td class="num">{{ row["gb"] if row["gb"] not in ['0.0', 0, None, '0'] else '—' }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="division">
+            <h2>No AL data</h2>
+            <div style="padding:12px 16px;color:var(--muted);">Standings unavailable.</div>
           </div>
-        {% endfor %}
+        {% endif %}
       </section>
     </div>
 
