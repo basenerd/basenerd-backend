@@ -1,6 +1,6 @@
 from flask import Flask, render_template, jsonify, request
 import requests
-import pytz
+from zoneinfo import ZoneInfo
 from datetime import datetime
 import logging as log
 
@@ -107,7 +107,7 @@ def standings():
         return render_template("standings.html", data=safe, season=SEASON, error=str(e))
 
 # === Today’s Games ===
-ET_TZ = pytz.timezone("America/New_York")
+ET_TZ = ZoneInfo("America/New_York")
 
 def extract_last_play(live):
     ld = live.get("liveData", {}) or {}
