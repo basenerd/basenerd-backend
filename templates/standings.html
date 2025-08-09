@@ -49,15 +49,6 @@
     .run-positive { color: green; font-weight: 600; }
     .run-negative { color: red; font-weight: 600; }
 
-    /* WC badges inside the first cell, right-aligned; no layout shift */
-    .row-badge{
-      position:absolute; right:8px; top:50%; transform:translateY(-50%);
-      display:inline-block; font-size:10px; font-weight:700; padding:2px 6px; border-radius:999px;
-      background:#eef2f7; color:#32425c; white-space:nowrap; pointer-events:none;
-    }
-    /* Reserve space for the pill in WC view so it never overlaps */
-    #view-wc td.team{ padding-right:46px; overflow:visible; }
-
     /* Leaders mini card */
     .leaders-card{
       background:var(--card); border:1px solid var(--border); border-radius:12px; margin:0 0 10px 0;
@@ -72,6 +63,20 @@
     .leader-pill img{ height:16px; width:auto; }
     .leader-pill .abbr{ font-weight:700; letter-spacing:.2px; }
     .leader-pill .muted{ color:#5b6577; font-size:11px; }
+
+    /* LEFT-HAND RAIL BADGES (WC view only) */
+    /* Let the WC contenders cards show content beyond their border so the rail is visible */
+    .division.rail-open{ overflow:visible; }
+    /* Team cell becomes the anchor; badge sits outside the left border in a rail */
+    #view-wc td.team{ overflow:visible; }
+    #view-wc td.team .wc-rail-badge{
+      position:absolute;
+      left:-34px;                 /* outside the table cell, creating a left rail */
+      top:50%; transform:translateY(-50%);
+      display:inline-block; font-size:10px; font-weight:700; padding:2px 6px; border-radius:999px;
+      background:#eef2f7; color:#32425c; white-space:nowrap; pointer-events:none;
+      box-shadow:0 0 0 1px var(--border) inset;
+    }
 
     /* Drawer + hamburger */
     .hamburger{
@@ -256,8 +261,8 @@
               </div>
             </div>
 
-            <!-- Contenders table -->
-            <div class="division">
+            <!-- Contenders table with left-rail badges -->
+            <div class="division rail-open">
               <h2>{{ block.get("division","Wild Card") }} (NL)</h2>
               <table>
                 <thead>
@@ -277,7 +282,7 @@
                     <tr>
                       <td class="team" title="{{ row.get('team_name','Team') }}">
                         {% if row.get('badge','').startswith('WC') %}
-                          <span class="row-badge">{{ row.get('badge') }}</span>
+                          <span class="wc-rail-badge">{{ row.get('badge') }}</span>
                         {% endif %}
                         {% if row.get("team_id") %}
                           <img src="https://www.mlbstatic.com/team-logos/{{ row.get('team_id') }}.svg" alt="{{ row.get('team_name','Team') }} logo" onerror="this.style.display='none'">
@@ -287,7 +292,6 @@
                       <td class="num">{{ row.get("w","") }}</td>
                       <td class="num">{{ row.get("l","") }}</td>
                       <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
-                      <!-- WC GB provided by server -->
                       <td class="num">{{ row.get("gb") if row.get("gb") not in [None, '', '0', '0.0', 0, '-', '—'] else '—' }}</td>
                       <td class="num">{{ row.get("streak","") }}</td>
                       <td class="num">{{ row.get("last10","") }}</td>
@@ -322,8 +326,8 @@
               </div>
             </div>
 
-            <!-- Contenders table -->
-            <div class="division">
+            <!-- Contenders table with left-rail badges -->
+            <div class="division rail-open">
               <h2>{{ block.get("division","Wild Card") }} (AL)</h2>
               <table>
                 <thead>
@@ -343,7 +347,7 @@
                     <tr>
                       <td class="team" title="{{ row.get('team_name','Team') }}">
                         {% if row.get('badge','').startswith('WC') %}
-                          <span class="row-badge">{{ row.get('badge') }}</span>
+                          <span class="wc-rail-badge">{{ row.get('badge') }}</span>
                         {% endif %}
                         {% if row.get("team_id") %}
                           <img src="https://www.mlbstatic.com/team-logos/{{ row.get('team_id') }}.svg" alt="{{ row.get('team_name','Team') }} logo" onerror="this.style.display='none'">
@@ -353,7 +357,6 @@
                       <td class="num">{{ row.get("w","") }}</td>
                       <td class="num">{{ row.get("l","") }}</td>
                       <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
-                      <!-- WC GB provided by server -->
                       <td class="num">{{ row.get("gb") if row.get("gb") not in [None, '', '0', '0.0', 0, '-', '—'] else '—' }}</td>
                       <td class="num">{{ row.get("streak","") }}</td>
                       <td class="num">{{ row.get("last10","") }}</td>
