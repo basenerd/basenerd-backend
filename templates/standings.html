@@ -49,13 +49,14 @@
     .run-positive { color: green; font-weight: 600; }
     .run-negative { color: red; font-weight: 600; }
 
-    /* Row badge that sits OUTSIDE the box (to the left) */
+    /* WC badges inside the first cell, right-aligned; no layout shift */
     .row-badge{
-      position:absolute; left:-28px; top:50%; transform:translateY(-50%);
+      position:absolute; right:8px; top:50%; transform:translateY(-50%);
       display:inline-block; font-size:10px; font-weight:700; padding:2px 6px; border-radius:999px;
-      background:#eef2f7; color:#32425c; white-space:nowrap;
-      pointer-events:none;
+      background:#eef2f7; color:#32425c; white-space:nowrap; pointer-events:none;
     }
+    /* Reserve space for the pill in WC view so it never overlaps */
+    #view-wc td.team{ padding-right:46px; overflow:visible; }
 
     /* Leaders mini card */
     .leaders-card{
@@ -275,7 +276,7 @@
                   {% for row in block.get("rows", []) if not row.get('isLeader') %}
                     <tr>
                       <td class="team" title="{{ row.get('team_name','Team') }}">
-                        {% if row.get('badge') and row.get('badge').startswith('WC') %}
+                        {% if row.get('badge','').startswith('WC') %}
                           <span class="row-badge">{{ row.get('badge') }}</span>
                         {% endif %}
                         {% if row.get("team_id") %}
@@ -286,7 +287,7 @@
                       <td class="num">{{ row.get("w","") }}</td>
                       <td class="num">{{ row.get("l","") }}</td>
                       <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
-                      <!-- WC GB provided by server (leaders are not in this table) -->
+                      <!-- WC GB provided by server -->
                       <td class="num">{{ row.get("gb") if row.get("gb") not in [None, '', '0', '0.0', 0, '-', '—'] else '—' }}</td>
                       <td class="num">{{ row.get("streak","") }}</td>
                       <td class="num">{{ row.get("last10","") }}</td>
@@ -341,7 +342,7 @@
                   {% for row in block.get("rows", []) if not row.get('isLeader') %}
                     <tr>
                       <td class="team" title="{{ row.get('team_name','Team') }}">
-                        {% if row.get('badge') and row.get('badge').startswith('WC') %}
+                        {% if row.get('badge','').startswith('WC') %}
                           <span class="row-badge">{{ row.get('badge') }}</span>
                         {% endif %}
                         {% if row.get("team_id") %}
@@ -352,7 +353,7 @@
                       <td class="num">{{ row.get("w","") }}</td>
                       <td class="num">{{ row.get("l","") }}</td>
                       <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
-                      <!-- WC GB provided by server (leaders are not in this table) -->
+                      <!-- WC GB provided by server -->
                       <td class="num">{{ row.get("gb") if row.get("gb") not in [None, '', '0', '0.0', 0, '-', '—'] else '—' }}</td>
                       <td class="num">{{ row.get("streak","") }}</td>
                       <td class="num">{{ row.get("last10","") }}</td>
