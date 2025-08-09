@@ -19,16 +19,13 @@
 
     .wrap{max-width:1200px; margin:16px auto 56px; padding:0 12px}
     .meta{ color:var(--muted); font-size:11px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
-    .view-toggle{
-      display:flex; gap:6px; align-items:center; margin-bottom:10px;
-    }
-    .seg{
-      display:inline-flex; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#fff;
-    }
+    .view-toggle{ display:flex; gap:6px; align-items:center; margin-bottom:10px; }
+    .seg{ display:inline-flex; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#fff; }
     .seg button{
       appearance:none; border:0; padding:6px 10px; font-weight:700; font-size:12px; letter-spacing:.2px; cursor:pointer; background:transparent; color:#394150;
     }
     .seg button.active{ background:#f1f5fb; color:#0b0e13; }
+
     .columns{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     @media(max-width:900px){ .columns{ grid-template-columns:1fr; } }
     .column-title{margin:0 0 6px 2px; font-weight:600; color:#394150; letter-spacing:.3px; font-size:12px}
@@ -49,6 +46,21 @@
     /* Run diff coloring */
     .run-positive { color: green; font-weight: 600; }
     .run-negative { color: red; font-weight: 600; }
+
+    /* Badge for WC/E/C/W labels */
+    .tag{
+      display:inline-block; font-size:10px; font-weight:700; padding:2px 6px; border-radius:999px;
+      margin-right:6px; background:#eef2f7; color:#32425c;
+    }
+
+    /* Divider row */
+    .divider-row td {
+      background: #e9edf3;
+      height: 2px;
+      padding: 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
 
     /* Drawer + hamburger */
     .hamburger{
@@ -231,9 +243,14 @@
                   </tr>
                 </thead>
                 <tbody>
+                  {% set leader_count = 0 %}
                   {% for row in block.get("rows", []) %}
+                    {% if leader_count == 3 %}
+                      <tr class="divider-row"><td colspan="8"></td></tr>
+                    {% endif %}
                     <tr>
                       <td class="team" title="{{ row.get('team_name','Team') }}">
+                        {% if row.get('badge') %}<span class="tag">{{ row.get('badge') }}</span>{% endif %}
                         {% if row.get("team_id") %}
                           <img src="https://www.mlbstatic.com/team-logos/{{ row.get('team_id') }}.svg" alt="{{ row.get('team_name','Team') }} logo" onerror="this.style.display='none'">
                         {% endif %}
@@ -247,6 +264,7 @@
                       <td class="num">{{ row.get("last10","") }}</td>
                       <td class="num">{{ row.get("runDiff","") }}</td>
                     </tr>
+                    {% set leader_count = leader_count + 1 %}
                   {% endfor %}
                 </tbody>
               </table>
@@ -274,9 +292,14 @@
                   </tr>
                 </thead>
                 <tbody>
+                  {% set leader_count = 0 %}
                   {% for row in block.get("rows", []) %}
+                    {% if leader_count == 3 %}
+                      <tr class="divider-row"><td colspan="8"></td></tr>
+                    {% endif %}
                     <tr>
                       <td class="team" title="{{ row.get('team_name','Team') }}">
+                        {% if row.get('badge') %}<span class="tag">{{ row.get('badge') }}</span>{% endif %}
                         {% if row.get("team_id") %}
                           <img src="https://www.mlbstatic.com/team-logos/{{ row.get('team_id') }}.svg" alt="{{ row.get('team_name','Team') }} logo" onerror="this.style.display='none'">
                         {% endif %}
@@ -290,6 +313,7 @@
                       <td class="num">{{ row.get("last10","") }}</td>
                       <td class="num">{{ row.get("runDiff","") }}</td>
                     </tr>
+                    {% set leader_count = leader_count + 1 %}
                   {% endfor %}
                 </tbody>
               </table>
@@ -305,29 +329,7 @@
   <script>
     document.getElementById('updated').textContent = `Updated: ${new Date().toLocaleString()}`;
 
-    // Drawer toggle (same behavior as your other pages)
-    (function(){
-      const btn = document.querySelector('.hamburger');
-      const drawer = document.getElementById('site-drawer');
-      const backdrop = document.querySelector('.drawer-backdrop');
-      function openDrawer(){
-        drawer.classList.add('open'); backdrop.classList.add('show');
-        drawer.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true');
-        document.body.style.overflow='hidden';
-      }
-      function closeDrawer(){
-        drawer.classList.remove('open'); backdrop.classList.remove('show');
-        drawer.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false');
-        document.body.style.overflow='';
-      }
-      btn?.addEventListener('click', () => {
-        const expanded = btn.getAttribute('aria-expanded') === 'true';
-        expanded ? closeDrawer() : openDrawer();
-      });
-      backdrop?.addEventListener('click', closeDrawer);
-      document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeDrawer(); });
-    })();
-
+    // Color Run Diff column: green for positive, red for negative
     function colorRunDiff(scope){
       scope.querySelectorAll('tbody tr').forEach(row => {
         const rdCell = row.querySelector('td:last-child');
@@ -341,9 +343,7 @@
         }
       });
     }
-
-    // Apply colors initially to the default (division) view
-    colorRunDiff(document.getElementById('view-division'));
+    colorRunDiff(document.getElementById('view-division')); // initial
 
     // Toggle logic
     (function(){
@@ -367,6 +367,29 @@
 
       btnDiv.addEventListener('click', showDiv);
       btnWC.addEventListener('click', showWC);
+    })();
+
+    // Drawer toggle
+    (function(){
+      const btn = document.querySelector('.hamburger');
+      const drawer = document.getElementById('site-drawer');
+      const backdrop = document.querySelector('.drawer-backdrop');
+      function openDrawer(){
+        drawer.classList.add('open'); backdrop.classList.add('show');
+        drawer.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true');
+        document.body.style.overflow='hidden';
+      }
+      function closeDrawer(){
+        drawer.classList.remove('open'); backdrop.classList.remove('show');
+        drawer.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false');
+        document.body.style.overflow='';
+      }
+      btn?.addEventListener('click', () => {
+        const expanded = btn.getAttribute('aria-expanded') === 'true';
+        expanded ? closeDrawer() : openDrawer();
+      });
+      backdrop?.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeDrawer(); });
     })();
   </script>
 </body>
