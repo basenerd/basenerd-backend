@@ -9,11 +9,13 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("basenerd")
 
 # ===========================
-# Standings (AL/NL) — Division + Wild Card
+# Standings (AL/NL) — Division + Wild Card with badges and WC GB
 # ===========================
 SEASON = 2025
 STANDINGS_URL = "https://statsapi.mlb.com/api/v1/standings"
+
 LEAGUE_NAME = {103: "American League", 104: "National League"}
+
 DIVISION_NAME = {
     200: "American League West",
     201: "American League East",
@@ -22,6 +24,13 @@ DIVISION_NAME = {
     204: "National League East",
     205: "National League Central",
 }
+
+# Map division id -> short badge for WC leaders
+DIV_BADGE = {
+    201: "E", 202: "C", 200: "W",  # AL East/Central/West
+    204: "E", 205: "C", 203: "W",  # NL East/Central/West
+}
+
 TEAM_ABBR = {
     109: "ARI", 144: "ATL", 110: "BAL", 111: "BOS", 112: "CHC", 145: "CHW", 113: "CIN",
     114: "CLE", 115: "COL", 116: "DET", 117: "HOU", 118: "KCR", 108: "LAA", 119: "LAD",
@@ -66,63 +75,112 @@ def fetch_standings_type(standings_type: str, season: int = SEASON):
     r.raise_for_status()
     return (r.json() or {}).get("records") or []
 
-def simplify_standings(records, mode: str = "division"):
+def _row_from_teamRecord(tr, use_wc: bool = False):
     """
-    Return:
-    {
-      "National League": [ { "division":"...", "rows":[...]} ],
-      "American League": [ ... ]
+    Build a row dict from a teamRecord.
+    - use_wc=True uses 'wildCardGamesBack' as GB; otherwise 'gamesBack'.
+    - We normalize GB to '—' for 0/tied/blank.
+    """
+    team = tr.get("team", {}) or {}
+    gb_field = "wildCardGamesBack" if use_wc else "gamesBack"
+    gb_val = tr.get(gb_field)
+    if gb_val in (None, "", "0.0", "0", 0, "-", "—"):
+        gb_norm = "—"
+    else:
+        gb_norm = gb_val
+    return {
+        "team_name": team.get("name", "Team"),
+        "team_abbr": _abbr(team),
+        "team_id": team.get("id"),
+        "w": tr.get("wins"),
+        "l": tr.get("losses"),
+        "pct": _normalize_pct(tr.get("winningPercentage")),
+        "gb": gb_norm,  # WC GB when use_wc=True; division GB otherwise
+        "streak": (tr.get("streak") or {}).get("streakCode", ""),
+        "last10": _last10(tr),
+        "runDiff": tr.get("runDifferential"),
     }
-    - mode='division': keep divisions per league
-    - mode='wildcard': compress to a single 'Wild Card' block per league
-    """
+
+def simplify_standings_division(records):
+    """Division layout, unchanged."""
     leagues = {"National League": [], "American League": []}
     for block in (records or []):
         league_obj = block.get("league") or {}
         division_obj = block.get("division") or {}
 
         league_id = league_obj.get("id")
+        division_id = division_obj.get("id")
         league_name = LEAGUE_NAME.get(league_id, league_obj.get("name") or "League")
+        division_name = DIVISION_NAME.get(division_id, division_obj.get("name") or "Division")
 
-        if mode == "wildcard":
-            division_name = "Wild Card"
-        else:
-            division_id = division_obj.get("id")
-            division_name = DIVISION_NAME.get(division_id, division_obj.get("name") or "Division")
-
-        rows = []
-        for tr in (block.get("teamRecords") or []):
-            team = tr.get("team", {}) or {}
-            rows.append({
-                "team_name": team.get("name", "Team"),
-                "team_abbr": _abbr(team),
-                "team_id": team.get("id"),
-                "w": tr.get("wins"),
-                "l": tr.get("losses"),
-                "pct": _normalize_pct(tr.get("winningPercentage")),
-                "gb": tr.get("gamesBack"),
-                "streak": (tr.get("streak") or {}).get("streakCode", ""),
-                "last10": _last10(tr),
-                "runDiff": tr.get("runDifferential"),
-            })
-
+        rows = [_row_from_teamRecord(tr, use_wc=False) for tr in (block.get("teamRecords") or [])]
         if league_name in leagues:
-            if mode == "wildcard":
-                # merge into a single Wild Card block per league
-                if leagues[league_name] and leagues[league_name][-1]["division"] == "Wild Card":
-                    leagues[league_name][-1]["rows"].extend(rows)
-                else:
-                    leagues[league_name].append({"division": "Wild Card", "rows": rows})
-            else:
-                leagues[league_name].append({"division": division_name, "rows": rows})
+            leagues[league_name].append({"division": division_name, "rows": rows})
         else:
-            # fallback: place under NL
             leagues["National League"].append({"division": division_name, "rows": rows})
+    return leagues
 
+def simplify_standings_wildcard(records_division, records_wc):
+    """
+    Build WC view per league:
+      - Leaders first (E/C/W), marked isLeader=True, badge 'E'|'C'|'W', WC GB '—'
+      - Then contenders by wildCardRank with WC GB and badges WC1/WC2/WC3
+    """
+    # 1) Leaders from division data (rank 1 in each division), per league
+    leaders_by_league = {103: {}, 104: {}}  # leagueId -> {'E': row, 'C': row, 'W': row}
+    for block in (records_division or []):
+        league_id = (block.get("league") or {}).get("id")
+        division_id = (block.get("division") or {}).get("id")
+        if league_id not in (103, 104) or not division_id:
+            continue
+        badge = DIV_BADGE.get(division_id)
+        if not badge:
+            continue
+        for tr in (block.get("teamRecords") or []):
+            if str(tr.get("divisionRank", "")).strip() == "1":
+                row = _row_from_teamRecord(tr, use_wc=True)  # use WC GB field, but force em dash
+                row["gb"] = "—"
+                row["badge"] = badge
+                row["isLeader"] = True
+                leaders_by_league[league_id][badge] = row
+                break
+
+    # 2) Contenders from wildCard data with WC rank/GB
+    contenders_by_league = {103: [], 104: []}
+    for block in (records_wc or []):
+        league_id = (block.get("league") or {}).get("id")
+        if league_id not in (103, 104):
+            continue
+        for tr in (block.get("teamRecords") or []):
+            row = _row_from_teamRecord(tr, use_wc=True)  # WC GB in 'gb'
+            try:
+                wc_rank = int(str(tr.get("wildCardRank", "999")))
+            except Exception:
+                wc_rank = 999
+            row["_wc_rank"] = wc_rank
+            if wc_rank in (1, 2, 3):
+                row["badge"] = f"WC{wc_rank}"
+            row["isLeader"] = False
+            contenders_by_league[league_id].append(row)
+
+    # 3) Combine: E,C,W leaders first, then contenders by WC rank (exclude leaders)
+    def combine(league_id):
+        # Order leaders in E, C, W to match your header expectation
+        leaders_ordered = [leaders_by_league[league_id].get(k) for k in ("E", "C", "W") if leaders_by_league[league_id].get(k)]
+        leader_ids = {r["team_id"] for r in leaders_ordered}
+        rest = [r for r in contenders_by_league[league_id] if r["team_id"] not in leader_ids]
+        rest.sort(key=lambda r: r.get("_wc_rank", 999))
+        for r in rest:
+            r.pop("_wc_rank", None)
+        return leaders_ordered + rest
+
+    leagues = {"National League": [], "American League": []}
+    leagues["National League"].append({"division": "Wild Card", "rows": combine(104)})
+    leagues["American League"].append({"division": "Wild Card", "rows": combine(103)})
     return leagues
 
 # ===========================
-# Today’s Games (no external tz deps)
+# Today’s Games (no external tz deps, ET conversion)
 # ===========================
 STATS = "https://statsapi.mlb.com/api/v1"
 LIVE  = "https://statsapi.mlb.com/api/v1.1"
@@ -134,9 +192,6 @@ def to_et(iso_z: str) -> str:
     """
     Convert MLB ISO UTC (e.g. '2025-08-09T22:05:00Z') to Eastern Time string like '6:05 PM ET'
     using US daylight-saving rules without external libraries.
-
-    US DST: starts 2:00 local on the second Sunday in March (07:00 UTC),
-            ends   2:00 local on the first Sunday in November (06:00 UTC).
     """
     if not iso_z:
         return ""
@@ -159,7 +214,6 @@ def to_et(iso_z: str) -> str:
         offset_hours = -4 if dst_start_utc <= dt_utc < dst_end_utc else -5
         dt_et = dt_utc + timedelta(hours=offset_hours)
 
-        # %-I not on Windows; fall back to %I and strip leading 0
         try:
             return dt_et.strftime("%-I:%M %p ET")
         except Exception:
@@ -458,12 +512,12 @@ def home():
 @app.route("/standings")
 def standings():
     try:
-        # Division and Wild Card datasets
+        # Fetch both datasets
         rec_div = fetch_standings_type("byDivision", SEASON)
-        data_div = simplify_standings(rec_div, mode="division")
+        rec_wc  = fetch_standings_type("wildCard", SEASON)
 
-        rec_wc = fetch_standings_type("wildCard", SEASON)
-        data_wc = simplify_standings(rec_wc, mode="wildcard")
+        data_div = simplify_standings_division(rec_div)
+        data_wc  = simplify_standings_wildcard(rec_div, rec_wc)
 
         # Ensure keys exist
         for d in (data_div, data_wc):
@@ -543,5 +597,5 @@ def ping():
 
 # ---- Local dev entrypoint ----
 if __name__ == "__main__":
-    # Render/Gunicorn uses this as a module; this is for local testing.
+    # For local testing; in production you'll run with gunicorn.
     app.run(host="0.0.0.0", port=5000, debug=True)
