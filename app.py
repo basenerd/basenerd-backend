@@ -156,49 +156,59 @@ def linescore_blob(ls, force_n=None):
     }
     return {"n": max(n, force_n or 0), "away": away_by, "home": home_by, "totals": totals}
 
-def extract_last_play(live):
+# ---------- NEW: unified latest play picker ----------
+def latest_play_from_feed(live):
+    """
+    Return the *actual most recent* play object with a description from allPlays.
+    Falls back smartly if needed. This is the single source for Last Play & Statcast.
+    """
     ld = live.get("liveData", {}) or {}
     plays = ld.get("plays", {}) or {}
-    desc = (plays.get("currentPlay", {}).get("result", {}) or {}).get("description")
-    if desc: return desc
-    scoring = plays.get("scoringPlays") or []
-    if scoring:
-        last_id = scoring[-1]
-        for p in plays.get("allPlays", []):
-            if p.get("about", {}).get("atBatIndex") == last_id:
-                d = (p.get("result") or {}).get("description")
-                if d: return d
+
+    # Primary: walk backwards through allPlays to the first with a description
     allp = plays.get("allPlays") or []
-    if allp:
-        d = allp[-1].get("result", {}).get("description")
-        if d: return d
-    return ""
+    for p in reversed(allp):
+        desc = (p.get("result") or {}).get("description")
+        if desc:
+            return p
+
+    # Fallback: currentPlay if it has a description
+    cur = plays.get("currentPlay") or {}
+    if (cur.get("result") or {}).get("description"):
+        return cur
+
+    # Fallback: last scoring play if exists
+    scoring = plays.get("scoringPlays") or []
+    if scoring and allp:
+        # scoringPlays contains atBatIndex values; map to allPlays by atBatIndex
+        ids = {p.get("about", {}).get("atBatIndex"): p for p in allp}
+        sp = ids.get(scoring[-1])
+        if sp:
+            return sp
+
+    # Nothing usable
+    return {}
+
+def extract_last_play(live):
+    p = latest_play_from_feed(live)
+    return (p.get("result") or {}).get("description") or ""
 
 def _find_latest_hitdata_from_play(play):
-    if not play: return None
+    if not play:
+        return None
     events = play.get("playEvents") or []
     for ev in reversed(events):
         hd = ev.get("hitData")
         if hd:
             return hd
-    if play.get("hitData"):
-        return play.get("hitData")
-    return None
+    return play.get("hitData") or None
 
 def extract_statcast_line(live):
-    ld = live.get("liveData", {}) or {}
-    plays = ld.get("plays", {}) or {}
-    play = plays.get("currentPlay") or {}
-
+    # Use the SAME play as extract_last_play
+    play = latest_play_from_feed(live)
     hd = _find_latest_hitdata_from_play(play)
     if not hd:
-        allp = plays.get("allPlays") or []
-        for p in reversed(allp):
-            hd = _find_latest_hitdata_from_play(p)
-            if hd: break
-    if not hd:
         return ""
-
     ev = hd.get("launchSpeed")
     la = hd.get("launchAngle")
     dist = hd.get("totalDistance")
@@ -207,7 +217,6 @@ def extract_statcast_line(live):
            or hd.get("estimatedBattingAverage")
            or hd.get("xba")
            or hd.get("expectedBattingAverage"))
-
     parts = []
     if ev is not None:
         try: parts.append(f"EV: {float(ev):.1f} MPH")
@@ -232,6 +241,7 @@ def extract_statcast_line(live):
                 parts.append(f"xBA: {s}")
     return " • ".join(parts)
 
+# ----- Batter outcome tokens for live hitter line -----
 SCORING_MAP = {
     "walk": "BB", "intent_walk": "BB", "hit_by_pitch": "HBP",
     "single": "1B", "double": "2B", "triple": "3B", "home_run": "HR",
@@ -312,22 +322,14 @@ def build_due_up(ls, box, inning_state):
     if inning_state not in ("Middle", "End"):
         return None, []
     try:
-        # MLB linescore gives offense/defense team IDs sometimes,
-        # but building exact next 3 reliably is complex. We’ll attempt from boxscore batting order & next batter.
         teams = box.get("teams", {}) or {}
-        # heuristic: next half-inning batting side
         side = "home" if inning_state == "Middle" else "away"
         t = teams.get(side, {}) or {}
         order = t.get("battingOrder") or []
         if not order:
             return side, []
         players = t.get("players") or {}
-        # nextBatter from linescore if present, else fall back to first in order
-        next_pid = (ls.get("offense") or {}).get("batter", {}).get("id")
-        if not next_pid:
-            # find first in order
-            next_pid = order[0]
-        # locate index
+        next_pid = (ls.get("offense") or {}).get("batter", {}).get("id") or order[0]
         try:
             idx = order.index(next_pid)
         except ValueError:
@@ -612,13 +614,11 @@ def api_games():
         cache_set(date_str, data, 30)
         return jsonify(data), 502
 
-    # No games from MLB? Return explicit info so UI can show it.
     if not schedule:
         data = {"date": date_str, "games": [], "note": "mlb_schedule_empty"}
         cache_set(date_str, data, 60)
         return jsonify(data)
 
-    # Map records from schedule by gamePk
     record_map = {}
     for g in schedule:
         pk = g.get("gamePk")
@@ -649,7 +649,7 @@ def api_games():
     cache_set(date_str, payload, 15 if any_live else 300)
     return jsonify(payload)
 
-# ---- Debug proxy endpoints (to verify upstream from the same server) ----
+# ---- Debug proxy endpoints (optional) ----
 @app.route("/api/debug/schedule")
 def debug_schedule():
     date_str = request.args.get("date") or datetime.utcnow().strftime("%Y-%m-%d")
@@ -685,5 +685,4 @@ def ping():
 
 # ------------- Entrypoint -------------
 if __name__ == "__main__":
-    # If you’re behind a proxy/load-balancer, set host/port accordingly.
     app.run(host="0.0.0.0", port=5000, debug=True)
