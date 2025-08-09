@@ -10,6 +10,7 @@
       --bg:#ffffff; --card:#ffffff; --muted:#5b6577; --text:#111318; --accent:#f0b90b;
       --row:#fafbfc; --rowAlt:#f4f6f9; --border:#e2e8f0;
       --header-bg:#ffffff; --header-text:#0b0e13;
+      --rail:34px; /* reserved gutter for WC badge */
     }
     *{box-sizing:border-box}
     body{ margin:0; background:var(--bg); color:var(--text); font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial; font-size:13px; }
@@ -64,18 +65,21 @@
     .leader-pill .abbr{ font-weight:700; letter-spacing:.2px; }
     .leader-pill .muted{ color:#5b6577; font-size:11px; }
 
-    /* LEFT-HAND RAIL BADGES (WC view only) */
-    /* Let the WC contenders cards show content beyond their border so the rail is visible */
-    .division.rail-open{ overflow:visible; }
-    /* Team cell becomes the anchor; badge sits outside the left border in a rail */
-    #view-wc td.team{ overflow:visible; }
-    #view-wc td.team .wc-rail-badge{
+    /* WC badges as a left rail, but INSIDE a reserved gutter so they don't overlap columns */
+    #view-wc .division.rail{
+      overflow:hidden;            /* contain row internals */
+    }
+    #view-wc .division.rail table td.team{
+      padding-left: calc(8px + var(--rail)); /* room for the rail + normal padding */
+    }
+    #view-wc .division.rail td.team .wc-rail-badge{
       position:absolute;
-      left:-34px;                 /* outside the table cell, creating a left rail */
+      left:8px;                   /* inside the reserved gutter */
       top:50%; transform:translateY(-50%);
       display:inline-block; font-size:10px; font-weight:700; padding:2px 6px; border-radius:999px;
-      background:#eef2f7; color:#32425c; white-space:nowrap; pointer-events:none;
+      background:#eef2f7; color:#32425c; white-space:nowrap;
       box-shadow:0 0 0 1px var(--border) inset;
+      pointer-events:none;
     }
 
     /* Drawer + hamburger */
@@ -261,8 +265,8 @@
               </div>
             </div>
 
-            <!-- Contenders table with left-rail badges -->
-            <div class="division rail-open">
+            <!-- Contenders table with safe left-rail badges -->
+            <div class="division rail">
               <h2>{{ block.get("division","Wild Card") }} (NL)</h2>
               <table>
                 <thead>
@@ -326,8 +330,8 @@
               </div>
             </div>
 
-            <!-- Contenders table with left-rail badges -->
-            <div class="division rail-open">
+            <!-- Contenders table with safe left-rail badges -->
+            <div class="division rail">
               <h2>{{ block.get("division","Wild Card") }} (AL)</h2>
               <table>
                 <thead>
