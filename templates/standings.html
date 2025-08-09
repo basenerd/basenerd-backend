@@ -6,14 +6,29 @@
   <title>MLB Standings • Basenerd</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
   <style>
-    :root{ --bg:#ffffff; --card:#ffffff; --muted:#5b6577; --text:#111318; --accent:#f0b90b; --row:#fafbfc; --rowAlt:#f4f6f9; --border:#e2e8f0; --header-bg:#ffffff; --header-text:#0b0e13; }
+    :root{
+      --bg:#ffffff; --card:#ffffff; --muted:#5b6577; --text:#111318; --accent:#f0b90b;
+      --row:#fafbfc; --rowAlt:#f4f6f9; --border:#e2e8f0;
+      --header-bg:#ffffff; --header-text:#0b0e13;
+    }
     *{box-sizing:border-box}
     body{ margin:0; background:var(--bg); color:var(--text); font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial; font-size:13px; }
     header{ display:flex; align-items:center; gap:10px; padding:12px 16px; background:var(--header-bg); color:var(--header-text); border-bottom:2px solid var(--border); position:sticky; top:0; z-index:10; }
     header img{height:32px}
     header h1{margin:0; font-size:17px; letter-spacing:.2px; font-weight:600}
+
     .wrap{max-width:1200px; margin:16px auto 56px; padding:0 12px}
     .meta{ color:var(--muted); font-size:11px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+    .view-toggle{
+      display:flex; gap:6px; align-items:center; margin-bottom:10px;
+    }
+    .seg{
+      display:inline-flex; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#fff;
+    }
+    .seg button{
+      appearance:none; border:0; padding:6px 10px; font-weight:700; font-size:12px; letter-spacing:.2px; cursor:pointer; background:transparent; color:#394150;
+    }
+    .seg button.active{ background:#f1f5fb; color:#0b0e13; }
     .columns{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     @media(max-width:900px){ .columns{ grid-template-columns:1fr; } }
     .column-title{margin:0 0 6px 2px; font-weight:600; color:#394150; letter-spacing:.3px; font-size:12px}
@@ -30,30 +45,48 @@
     td.num{ font-variant-numeric: tabular-nums; text-align:right; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
     .footer-note{margin-top:16px; color:var(--muted); font-size:10.5px}
     .error-banner{ background:#fdecec; border:1px solid #f7b7b7; color:#7a1e1e; padding:8px 10px; border-radius:10px; margin-bottom:10px; font-size:12px; }
+
+    /* Run diff coloring */
     .run-positive { color: green; font-weight: 600; }
     .run-negative { color: red; font-weight: 600; }
 
     /* Drawer + hamburger */
-    .hamburger{ display:inline-flex; flex-direction:column; gap:4px; margin-right:8px; background:transparent; border:0; cursor:pointer; padding:8px; border-radius:10px; }
+    .hamburger{
+      display:inline-flex; flex-direction:column; gap:4px; margin-right:8px;
+      background:transparent; border:0; cursor:pointer; padding:8px; border-radius:10px;
+    }
     .hamburger span{ display:block; width:20px; height:2px; background:#394150; transition:transform .2s, opacity .2s; }
     .hamburger[aria-expanded="true"] span:nth-child(1){ transform:translateY(6px) rotate(45deg); }
     .hamburger[aria-expanded="true"] span:nth-child(2){ opacity:0; }
     .hamburger[aria-expanded="true"] span:nth-child(3){ transform:translateY(-6px) rotate(-45deg); }
-    .drawer{ position:fixed; inset:0 auto 0 0; width:270px; transform:translateX(-100%); background:var(--card); border-right:1px solid var(--border); box-shadow:0 10px 30px rgba(0,0,0,.08); transition:transform .2s ease; z-index:1000; padding:16px 12px; }
+
+    .drawer{
+      position:fixed; inset:0 auto 0 0; width:270px; transform:translateX(-100%);
+      background:var(--card); border-right:1px solid var(--border); box-shadow:0 10px 30px rgba(0,0,0,.08);
+      transition:transform .2s ease; z-index:1000; padding:16px 12px;
+    }
     .drawer.open{ transform:translateX(0); }
     .drawer-nav{ display:flex; flex-direction:column; gap:8px; margin-top:8px; }
-    .drawer-nav a{ text-decoration:none; font-weight:600; font-size:13px; padding:9px 10px; border-radius:10px; color:#394150; }
+    .drawer-nav a{
+      text-decoration:none; font-weight:600; font-size:13px; padding:9px 10px; border-radius:10px; color:#394150;
+    }
     .drawer-nav a:hover{ background:var(--row); color:#111318; }
-    .drawer-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:opacity .2s; z-index:999; }
+
+    .drawer-backdrop{
+      position:fixed; inset:0; background:rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:opacity .2s; z-index:999;
+    }
     .drawer-backdrop.show{ opacity:1; pointer-events:auto; }
   </style>
 </head>
 <body>
   <header>
-    <button class="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="site-drawer"><span></span><span></span><span></span></button>
+    <button class="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="site-drawer">
+      <span></span><span></span><span></span>
+    </button>
     <img src="{{ url_for('static', filename='basenerd-logo-official.png') }}" alt="Basenerd" />
     <h1>MLB Standings {{ season or '' }}</h1>
   </header>
+
   <aside id="site-drawer" class="drawer" aria-hidden="true">
     <nav class="drawer-nav">
       <a href="/">Home</a>
@@ -73,78 +106,197 @@
       <span id="updated"></span>
     </div>
 
+    <div class="view-toggle">
+      <div class="seg" role="tablist" aria-label="Standings view">
+        <button id="btnDiv" class="active" role="tab" aria-selected="true" aria-controls="view-division">Division</button>
+        <button id="btnWC" role="tab" aria-selected="false" aria-controls="view-wc">Wild Card</button>
+      </div>
+    </div>
+
     {% if error %}
       <div class="error-banner">Live data error: {{ error }}</div>
     {% endif %}
 
-    <div class="columns">
-      <section>
-        <h3 class="column-title">National League</h3>
-        {% for block in (data.get("National League", [])) %}
-          <div class="division">
-            <h2>{{ block.get("division","Division") }} (NL)</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Team</th><th class="num">W</th><th class="num">L</th><th class="num">Pct</th>
-                  <th class="num">GB</th><th class="num">Streak</th><th class="num">Last 10</th><th class="num">Run Diff</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in block.get("rows", []) %}
+    <!-- DIVISION VIEW -->
+    <div id="view-division">
+      <div class="columns">
+        <!-- NL -->
+        <section>
+          <h3 class="column-title">National League</h3>
+          {% for block in (data_division.get("National League", [])) %}
+            <div class="division">
+              <h2>{{ block.get("division","Division") }} (NL)</h2>
+              <table>
+                <thead>
                   <tr>
-                    <td class="team" title="{{ row.get('team_name','Team') }}">
-                      {% if row.get("team_id") %}<img src="https://www.mlbstatic.com/team-logos/{{ row.get('team_id') }}.svg" alt="{{ row.get('team_name','Team') }} logo" onerror="this.style.display='none'">{% endif %}
-                      {{ row.get("team_abbr","TBD") }}
-                    </td>
-                    <td class="num">{{ row.get("w","") }}</td>
-                    <td class="num">{{ row.get("l","") }}</td>
-                    <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
-                    <td class="num">{{ row.get("gb") if row.get("gb") not in ['0.0', 0, None, '0', '-', '—'] else '—' }}</td>
-                    <td class="num">{{ row.get("streak","") }}</td>
-                    <td class="num">{{ row.get("last10","") }}</td>
-                    <td class="num">{{ row.get("runDiff","") }}</td>
+                    <th>Team</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num">Pct</th>
+                    <th class="num">GB</th>
+                    <th class="num">Streak</th>
+                    <th class="num">Last 10</th>
+                    <th class="num">Run Diff</th>
                   </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% endfor %}
-      </section>
+                </thead>
+                <tbody>
+                  {% for row in block.get("rows", []) %}
+                    <tr>
+                      <td class="team" title="{{ row.get('team_name','Team') }}">
+                        {% if row.get("team_id") %}
+                          <img src="https://www.mlbstatic.com/team-logos/{{ row.get('team_id') }}.svg" alt="{{ row.get('team_name','Team') }} logo" onerror="this.style.display='none'">
+                        {% endif %}
+                        {{ row.get("team_abbr","TBD") }}
+                      </td>
+                      <td class="num">{{ row.get("w","") }}</td>
+                      <td class="num">{{ row.get("l","") }}</td>
+                      <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
+                      <td class="num">{{ row.get("gb") if row.get("gb") not in ['0.0', 0, None, '0', '-', '—'] else '—' }}</td>
+                      <td class="num">{{ row.get("streak","") }}</td>
+                      <td class="num">{{ row.get("last10","") }}</td>
+                      <td class="num">{{ row.get("runDiff","") }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endfor %}
+        </section>
 
-      <section>
-        <h3 class="column-title">American League</h3>
-        {% for block in (data.get("American League", [])) %}
-          <div class="division">
-            <h2>{{ block.get("division","Division") }} (AL)</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Team</th><th class="num">W</th><th class="num">L</th><th class="num">Pct</th>
-                  <th class="num">GB</th><th class="num">Streak</th><th class="num">Last 10</th><th class="num">Run Diff</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in block.get("rows", []) %}
+        <!-- AL -->
+        <section>
+          <h3 class="column-title">American League</h3>
+          {% for block in (data_division.get("American League", [])) %}
+            <div class="division">
+              <h2>{{ block.get("division","Division") }} (AL)</h2>
+              <table>
+                <thead>
                   <tr>
-                    <td class="team" title="{{ row.get('team_name','Team') }}">
-                      {% if row.get("team_id") %}<img src="https://www.mlbstatic.com/team-logos/{{ row.get('team_id') }}.svg" alt="{{ row.get('team_name','Team') }} logo" onerror="this.style.display='none'">{% endif %}
-                      {{ row.get("team_abbr","TBD") }}
-                    </td>
-                    <td class="num">{{ row.get("w","") }}</td>
-                    <td class="num">{{ row.get("l","") }}</td>
-                    <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
-                    <td class="num">{{ row.get("gb") if row.get("gb") not in ['0.0', 0, None, '0', '-', '—'] else '—' }}</td>
-                    <td class="num">{{ row.get("streak","") }}</td>
-                    <td class="num">{{ row.get("last10","") }}</td>
-                    <td class="num">{{ row.get("runDiff","") }}</td>
+                    <th>Team</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num">Pct</th>
+                    <th class="num">GB</th>
+                    <th class="num">Streak</th>
+                    <th class="num">Last 10</th>
+                    <th class="num">Run Diff</th>
                   </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% endfor %}
-      </section>
+                </thead>
+                <tbody>
+                  {% for row in block.get("rows", []) %}
+                    <tr>
+                      <td class="team" title="{{ row.get('team_name','Team') }}">
+                        {% if row.get("team_id") %}
+                          <img src="https://www.mlbstatic.com/team-logos/{{ row.get('team_id') }}.svg" alt="{{ row.get('team_name','Team') }} logo" onerror="this.style.display='none'">
+                        {% endif %}
+                        {{ row.get("team_abbr","TBD") }}
+                      </td>
+                      <td class="num">{{ row.get("w","") }}</td>
+                      <td class="num">{{ row.get("l","") }}</td>
+                      <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
+                      <td class="num">{{ row.get("gb") if row.get("gb") not in ['0.0', 0, None, '0', '-', '—'] else '—' }}</td>
+                      <td class="num">{{ row.get("streak","") }}</td>
+                      <td class="num">{{ row.get("last10","") }}</td>
+                      <td class="num">{{ row.get("runDiff","") }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endfor %}
+        </section>
+      </div>
+    </div>
+
+    <!-- WILD CARD VIEW -->
+    <div id="view-wc" style="display:none">
+      <div class="columns">
+        <!-- NL Wild Card -->
+        <section>
+          <h3 class="column-title">National League</h3>
+          {% for block in (data_wc.get("National League", [])) %}
+            <div class="division">
+              <h2>{{ block.get("division","Wild Card") }} (NL)</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num">Pct</th>
+                    <th class="num">GB</th>
+                    <th class="num">Streak</th>
+                    <th class="num">Last 10</th>
+                    <th class="num">Run Diff</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in block.get("rows", []) %}
+                    <tr>
+                      <td class="team" title="{{ row.get('team_name','Team') }}">
+                        {% if row.get("team_id") %}
+                          <img src="https://www.mlbstatic.com/team-logos/{{ row.get('team_id') }}.svg" alt="{{ row.get('team_name','Team') }} logo" onerror="this.style.display='none'">
+                        {% endif %}
+                        {{ row.get("team_abbr","TBD") }}
+                      </td>
+                      <td class="num">{{ row.get("w","") }}</td>
+                      <td class="num">{{ row.get("l","") }}</td>
+                      <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
+                      <td class="num">{{ row.get("gb") if row.get("gb") not in ['0.0', 0, None, '0', '-', '—'] else '—' }}</td>
+                      <td class="num">{{ row.get("streak","") }}</td>
+                      <td class="num">{{ row.get("last10","") }}</td>
+                      <td class="num">{{ row.get("runDiff","") }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endfor %}
+        </section>
+
+        <!-- AL Wild Card -->
+        <section>
+          <h3 class="column-title">American League</h3>
+          {% for block in (data_wc.get("American League", [])) %}
+            <div class="division">
+              <h2>{{ block.get("division","Wild Card") }} (AL)</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num">Pct</th>
+                    <th class="num">GB</th>
+                    <th class="num">Streak</th>
+                    <th class="num">Last 10</th>
+                    <th class="num">Run Diff</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in block.get("rows", []) %}
+                    <tr>
+                      <td class="team" title="{{ row.get('team_name','Team') }}">
+                        {% if row.get("team_id") %}
+                          <img src="https://www.mlbstatic.com/team-logos/{{ row.get('team_id') }}.svg" alt="{{ row.get('team_name','Team') }} logo" onerror="this.style.display='none'">
+                        {% endif %}
+                        {{ row.get("team_abbr","TBD") }}
+                      </td>
+                      <td class="num">{{ row.get("w","") }}</td>
+                      <td class="num">{{ row.get("l","") }}</td>
+                      <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
+                      <td class="num">{{ row.get("gb") if row.get("gb") not in ['0.0', 0, None, '0', '-', '—'] else '—' }}</td>
+                      <td class="num">{{ row.get("streak","") }}</td>
+                      <td class="num">{{ row.get("last10","") }}</td>
+                      <td class="num">{{ row.get("runDiff","") }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endfor %}
+        </section>
+      </div>
     </div>
 
     <p class="footer-note">GB = Games Back. “—” means tied for first. Last 10 = last ten games. Run Diff = Runs Scored minus Runs Allowed.</p>
@@ -152,29 +304,69 @@
 
   <script>
     document.getElementById('updated').textContent = `Updated: ${new Date().toLocaleString()}`;
-    // Color Run Diff
+
+    // Drawer toggle (same behavior as your other pages)
     (function(){
-      document.querySelectorAll('tbody tr').forEach(row => {
+      const btn = document.querySelector('.hamburger');
+      const drawer = document.getElementById('site-drawer');
+      const backdrop = document.querySelector('.drawer-backdrop');
+      function openDrawer(){
+        drawer.classList.add('open'); backdrop.classList.add('show');
+        drawer.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true');
+        document.body.style.overflow='hidden';
+      }
+      function closeDrawer(){
+        drawer.classList.remove('open'); backdrop.classList.remove('show');
+        drawer.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false');
+        document.body.style.overflow='';
+      }
+      btn?.addEventListener('click', () => {
+        const expanded = btn.getAttribute('aria-expanded') === 'true';
+        expanded ? closeDrawer() : openDrawer();
+      });
+      backdrop?.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeDrawer(); });
+    })();
+
+    function colorRunDiff(scope){
+      scope.querySelectorAll('tbody tr').forEach(row => {
         const rdCell = row.querySelector('td:last-child');
         if(rdCell){
           const val = parseInt(rdCell.textContent.trim(), 10);
+          rdCell.classList.remove('run-positive','run-negative');
           if(!isNaN(val)){
             if(val > 0){ rdCell.classList.add('run-positive'); }
             else if(val < 0){ rdCell.classList.add('run-negative'); }
           }
         }
       });
-    })();
-    // Drawer
+    }
+
+    // Apply colors initially to the default (division) view
+    colorRunDiff(document.getElementById('view-division'));
+
+    // Toggle logic
     (function(){
-      const btn = document.querySelector('.hamburger');
-      const drawer = document.getElementById('site-drawer');
-      const backdrop = document.querySelector('.drawer-backdrop');
-      function openDrawer(){ drawer.classList.add('open'); backdrop.classList.add('show'); drawer.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); document.body.style.overflow='hidden'; }
-      function closeDrawer(){ drawer.classList.remove('open'); backdrop.classList.remove('show'); drawer.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); document.body.style.overflow=''; }
-      btn?.addEventListener('click', () => { (btn.getAttribute('aria-expanded') === 'true') ? closeDrawer() : openDrawer(); });
-      backdrop?.addEventListener('click', closeDrawer);
-      document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeDrawer(); });
+      const btnDiv = document.getElementById('btnDiv');
+      const btnWC  = document.getElementById('btnWC');
+      const viewDiv = document.getElementById('view-division');
+      const viewWC  = document.getElementById('view-wc');
+
+      function showDiv(){
+        btnDiv.classList.add('active'); btnDiv.setAttribute('aria-selected', 'true');
+        btnWC.classList.remove('active'); btnWC.setAttribute('aria-selected', 'false');
+        viewDiv.style.display='block'; viewWC.style.display='none';
+        colorRunDiff(viewDiv);
+      }
+      function showWC(){
+        btnWC.classList.add('active'); btnWC.setAttribute('aria-selected', 'true');
+        btnDiv.classList.remove('active'); btnDiv.setAttribute('aria-selected', 'false');
+        viewWC.style.display='block'; viewDiv.style.display='none';
+        colorRunDiff(viewWC);
+      }
+
+      btnDiv.addEventListener('click', showDiv);
+      btnWC.addEventListener('click', showWC);
     })();
   </script>
 </body>

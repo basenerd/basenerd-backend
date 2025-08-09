@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("basenerd")
 
 # ===========================
-# Standings (AL/NL)
+# Standings (AL/NL)  — supports Division & Wild Card
 # ===========================
 SEASON = 2025
 STANDINGS_URL = "https://statsapi.mlb.com/api/v1/standings"
@@ -24,25 +24,11 @@ DIVISION_NAME = {
 }
 TEAM_ABBR = {
     109: "ARI", 144: "ATL", 110: "BAL", 111: "BOS", 112: "CHC", 145: "CHW", 113: "CIN",
-    114: "CLE", 115: "COL", 116: "DET", 117: "HOU", 118: "KC", 108: "LAA", 119: "LAD",
+    114: "CLE", 115: "COL", 116: "DET", 117: "HOU", 118: "KCR", 108: "LAA", 119: "LAD",
     146: "MIA", 158: "MIL", 142: "MIN", 121: "NYM", 147: "NYY", 133: "OAK", 143: "PHI",
-    134: "PIT", 135: "SD", 136: "SEA", 137: "SFG", 138: "STL", 139: "TB", 140: "TEX",
+    134: "PIT", 135: "SDP", 136: "SEA", 137: "SFG", 138: "STL", 139: "TBR", 140: "TEX",
     141: "TOR", 120: "WSH",
 }
-PRIMARY_PARAMS = {"leagueId": "103,104", "season": str(SEASON), "standingsTypes": "byDivision"}
-FALLBACK_PARAMS = {"leagueId": "103,104", "season": str(SEASON)}
-
-def fetch_standings():
-    r = requests.get(STANDINGS_URL, params=PRIMARY_PARAMS, timeout=20)
-    r.raise_for_status()
-    data = r.json() or {}
-    recs = data.get("records") or []
-    if recs:
-        return recs
-    r2 = requests.get(STANDINGS_URL, params=FALLBACK_PARAMS, timeout=20)
-    r2.raise_for_status()
-    data2 = r2.json() or {}
-    return data2.get("records") or []
 
 def _normalize_pct(pct_str):
     if pct_str in (None, ""):
@@ -67,15 +53,40 @@ def _abbr(team: dict) -> str:
     name = (team.get("name") or "").replace(" ", "")
     return (name[:3] or "TBD").upper()
 
-def simplify_standings(records):
+def fetch_standings_type(standings_type: str, season: int = SEASON):
+    """standings_type e.g. 'byDivision' (division view) or 'wildCard' (wild card view)."""
+    params = {
+        "leagueId": "103,104",
+        "season": str(season),
+        "standingsTypes": standings_type,
+    }
+    r = requests.get(STANDINGS_URL, params=params, timeout=20)
+    r.raise_for_status()
+    return (r.json() or {}).get("records") or []
+
+def simplify_standings(records, mode: str = "division"):
+    """
+    Convert MLB API records into:
+    {
+      "National League": [ { "division":"National League East", "rows":[...]} ],
+      "American League": [ ... ]
+    }
+    If mode='wildcard', each league becomes a single 'Wild Card' block.
+    """
     leagues = {"National League": [], "American League": []}
     for block in (records or []):
         league_obj = block.get("league") or {}
         division_obj = block.get("division") or {}
+
         league_id = league_obj.get("id")
-        division_id = division_obj.get("id")
         league_name = LEAGUE_NAME.get(league_id, league_obj.get("name") or "League")
-        division_name = DIVISION_NAME.get(division_id, division_obj.get("name") or "Division")
+
+        if mode == "wildcard":
+            division_name = "Wild Card"
+        else:
+            division_id = division_obj.get("id")
+            division_name = DIVISION_NAME.get(division_id, division_obj.get("name") or "Division")
+
         rows = []
         for tr in (block.get("teamRecords") or []):
             team = tr.get("team", {}) or {}
@@ -91,13 +102,52 @@ def simplify_standings(records):
                 "last10": _last10(tr),
                 "runDiff": tr.get("runDifferential"),
             })
+
+        # Division mode preserves multiple divisions per league.
+        # Wild Card mode: compress to a single block per league.
         if league_name in leagues:
-            leagues[league_name].append({"division": division_name, "rows": rows})
-        elif league_id == 103:
-            leagues["American League"].append({"division": division_name, "rows": rows})
+            if mode == "wildcard":
+                # Merge all rows for a league under one 'Wild Card' block
+                if leagues[league_name] and leagues[league_name][-1]["division"] == "Wild Card":
+                    leagues[league_name][-1]["rows"].extend(rows)
+                else:
+                    leagues[league_name].append({"division": "Wild Card", "rows": rows})
+            else:
+                leagues[league_name].append({"division": division_name, "rows": rows})
         else:
+            # Fallback: assign to NL
             leagues["National League"].append({"division": division_name, "rows": rows})
+
     return leagues
+
+@app.route("/standings")
+def standings():
+    try:
+        # Division view
+        rec_div = fetch_standings_type("byDivision", SEASON)
+        data_div = simplify_standings(rec_div, mode="division")
+
+        # Wild Card view
+        rec_wc = fetch_standings_type("wildCard", SEASON)
+        data_wc = simplify_standings(rec_wc, mode="wildcard")
+
+        # Ensure keys
+        for d in (data_div, data_wc):
+            if "National League" not in d: d["National League"] = []
+            if "American League" not in d: d["American League"] = []
+
+        return render_template("standings.html",
+                               season=SEASON,
+                               data_division=data_div,
+                               data_wc=data_wc)
+    except Exception as e:
+        log.exception("standings error")
+        safe = {"National League": [], "American League": []}
+        return render_template("standings.html",
+                               season=SEASON,
+                               data_division=safe,
+                               data_wc=safe,
+                               error=str(e)), 200
 
 # ===========================
 # Today’s Games (no external tz deps)
