@@ -84,6 +84,13 @@
     .lineup .trip{ color:#5b6577; }
     .lineup .list{ display:flex; flex-direction:column; gap:4px; margin:0; padding:0; }
     @media(max-width:600px){ .lineup-flex{ grid-template-columns:1fr; } }
+
+    /* debug panel */
+    details#debug { max-width:1200px; margin:0 auto 24px; padding:8px 12px; color:#32425c; }
+    details#debug summary{ cursor:pointer; font-weight:700; }
+    .debug-box{ border:1px dashed var(--border); border-radius:10px; padding:10px; background:#fff; margin-top:8px; font-size:12px; }
+    .debug-box code{ word-break:break-all; }
+    .debug-note{ color:#5b6577; margin-top:8px; }
   </style>
 </head>
 <body>
@@ -111,12 +118,31 @@
     <p class="when">Times shown Eastern Time • Source: MLB Stats API</p>
   </div>
 
+  <details id="debug">
+    <summary>Debug</summary>
+    <div class="debug-box">
+      <div>Primary (ET) API: <code id="dbgUrl">—</code></div>
+      <div>Fallback (Local) API: <code id="dbgUrlLocal">—</code></div>
+      <div>Result: <span id="dbgResult">—</span></div>
+      <div>Error: <span id="dbgError">—</span></div>
+      <div class="debug-note">
+        Tip: click the URL to open the JSON directly. If that shows an error, the server route may not be running.
+      </div>
+    </div>
+  </details>
+
   <script>
     const $games = document.getElementById('games');
     const $empty = document.getElementById('empty');
     const $dateLabel = document.getElementById('dateLabel');
     const $updated = document.getElementById('updated');
     const $liveOnly = document.getElementById('liveOnly');
+
+    // Debug elems
+    const $dbgUrl = document.getElementById('dbgUrl');
+    const $dbgUrlLocal = document.getElementById('dbgUrlLocal');
+    const $dbgResult = document.getElementById('dbgResult');
+    const $dbgError = document.getElementById('dbgError');
 
     // ---- ET date helpers ----
     const fmtET = new Intl.DateTimeFormat('en-US', {
@@ -125,7 +151,6 @@
       weekday: 'short'
     });
     function etParts(d){
-      // returns {yyyy, mm, dd, label}
       const f = fmtET.formatToParts(d);
       const get = t => (f.find(p => p.type===t)||{}).value || '';
       const mm = get('month').padStart(2,'0');
@@ -157,9 +182,9 @@
     document.getElementById('todayBtn').onclick = () => setDate(new Date());
     $liveOnly.addEventListener('change', () => render(window.__last || {games:[]}));
 
-    async function fetchGames(dateStr){
-      const res = await fetch('/api/games?date=' + dateStr);
-      if(!res.ok) throw new Error('fetch failed');
+    async function fetchJson(url){
+      const res = await fetch(url);
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     }
 
@@ -257,7 +282,6 @@
         </div>`;
     }
 
-    // Lineup rendering: position (gray) + LAST NAME + | .AVG/HR/RBI
     function lineupDetails(g){
       if (g.status !== 'scheduled') return '';
       const lu = g.lineups || {};
@@ -331,6 +355,7 @@
       if (!filtered.length){
         $empty.style.display = 'block';
         $empty.textContent = $liveOnly.checked ? 'No live games right now.' : 'No games to show for this date.';
+        $dbgResult.textContent = `Games: ${(data.games||[]).length}`;
         return;
       }
       $empty.style.display = 'none';
@@ -338,18 +363,43 @@
       filtered.forEach(g => frag.appendChild(card(g)));
       $games.appendChild(frag);
       $updated.textContent = 'Updated: ' + new Date().toLocaleString();
+      $dbgResult.textContent = `Games: ${(data.games||[]).length}`;
+    }
+
+    function setDebugUrl(el, url){
+      el.textContent = url;
+      el.onclick = () => window.open(url, '_blank');
+      el.style.cursor = 'pointer';
+      el.style.textDecoration = 'underline';
     }
 
     async function load(){
       if (state.timer) { clearTimeout(state.timer); state.timer = null; }
-      const dateStr = dateStrET(state.date); // <-- use ET date for API
+      const et = dateStrET(state.date);
+      const primaryUrl = '/api/games?date=' + et;
+      setDebugUrl($dbgUrl, location.origin + primaryUrl);
+      $dbgError.textContent = '—';
       try {
-        const data = await fetchGames(dateStr);
-        render(data);
-        const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
-        if (anyLive) state.timer = setTimeout(load, 30000);
+        const data = await fetchJson(primaryUrl);
+        if ((data.games || []).length) {
+          render(data);
+          const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
+          if (anyLive) state.timer = setTimeout(load, 30000);
+          setDebugUrl($dbgUrlLocal, '—');
+          return;
+        }
+        // Fallback: try local date (in case ET date mismatch)
+        const d = state.date;
+        const localStr = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
+        const fallbackUrl = '/api/games?date=' + localStr;
+        setDebugUrl($dbgUrlLocal, location.origin + fallbackUrl);
+        const dataLocal = await fetchJson(fallbackUrl);
+        render(dataLocal);
+        const anyLive2 = (dataLocal.games||[]).some(g => g.status === 'in_progress');
+        if (anyLive2) state.timer = setTimeout(load, 30000);
       } catch(e){
         $games.innerHTML = '<div class="empty">Error loading games.</div>';
+        $dbgError.textContent = e.message || String(e);
       }
     }
 
