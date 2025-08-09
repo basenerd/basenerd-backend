@@ -156,37 +156,27 @@ def linescore_blob(ls, force_n=None):
     }
     return {"n": max(n, force_n or 0), "away": away_by, "home": home_by, "totals": totals}
 
-# ---------- NEW: unified latest play picker ----------
+# ---------- Unified latest play ----------
 def latest_play_from_feed(live):
-    """
-    Return the *actual most recent* play object with a description from allPlays.
-    Falls back smartly if needed. This is the single source for Last Play & Statcast.
-    """
     ld = live.get("liveData", {}) or {}
     plays = ld.get("plays", {}) or {}
 
-    # Primary: walk backwards through allPlays to the first with a description
     allp = plays.get("allPlays") or []
     for p in reversed(allp):
         desc = (p.get("result") or {}).get("description")
         if desc:
             return p
 
-    # Fallback: currentPlay if it has a description
     cur = plays.get("currentPlay") or {}
     if (cur.get("result") or {}).get("description"):
         return cur
 
-    # Fallback: last scoring play if exists
     scoring = plays.get("scoringPlays") or []
     if scoring and allp:
-        # scoringPlays contains atBatIndex values; map to allPlays by atBatIndex
         ids = {p.get("about", {}).get("atBatIndex"): p for p in allp}
         sp = ids.get(scoring[-1])
         if sp:
             return sp
-
-    # Nothing usable
     return {}
 
 def extract_last_play(live):
@@ -204,7 +194,6 @@ def _find_latest_hitdata_from_play(play):
     return play.get("hitData") or None
 
 def extract_statcast_line(live):
-    # Use the SAME play as extract_last_play
     play = latest_play_from_feed(live)
     hd = _find_latest_hitdata_from_play(play)
     if not hd:
@@ -241,39 +230,153 @@ def extract_statcast_line(live):
                 parts.append(f"xBA: {s}")
     return " • ".join(parts)
 
-# ----- Batter outcome tokens for live hitter line -----
-SCORING_MAP = {
-    "walk": "BB", "intent_walk": "BB", "hit_by_pitch": "HBP",
-    "single": "1B", "double": "2B", "triple": "3B", "home_run": "HR",
-    "sac_fly": "SF", "sac_bunt": "SH", "strikeout": "K", "strikeout_double_play": "KDP",
-    "field_error": "E",
-}
+# ----- Scoring notation helpers -----
 PAREN_CODE_RE = re.compile(r"\(([1-9](?:-[1-9]){0,3})\)")
+ABBREV_TO_NUM = {"P":1,"C":2,"1B":3,"2B":4,"3B":5,"SS":6,"LF":7,"CF":8,"RF":9}
+WORD_TO_NUM = {
+    "pitcher":1,"catcher":2,"first baseman":3,"first base":3,"second baseman":4,"second base":4,
+    "third baseman":5,"third base":5,"shortstop":6,"left fielder":7,"left field":7,
+    "center fielder":8,"center field":8,"right fielder":9,"right field":9
+}
 
+# Extracts a sequence like 6-4-3 from play. Prefers credits; falls back to description.
+def fielder_chain(play):
+    credits = play.get("credits") or []
+    assists = []
+    putouts = []
+    errors = []
+    for c in credits:
+        credit = (c.get("credit") or "").lower()
+        pos = None
+        posobj = c.get("position") or {}
+        code = posobj.get("code")
+        abbr = (posobj.get("abbrev") or "").upper()
+        if code and str(code).isdigit():
+            pos = int(code)
+        elif abbr in ABBREV_TO_NUM:
+            pos = ABBREV_TO_NUM[abbr]
+        if pos is None:
+            continue
+        if "assist" in credit:
+            assists.append(pos)
+        elif "putout" in credit:
+            putouts.append(pos)
+        elif "error" in credit:
+            errors.append(pos)
+
+    if assists or putouts:
+        chain = assists + (putouts[-1:] if putouts else [])
+        if chain:
+            return "-".join(str(n) for n in chain)
+
+    # Fallback: parenthetical like (5-3) in description
+    desc = ((play.get("result") or {}).get("description") or "")
+    m = PAREN_CODE_RE.search(desc)
+    if m:
+        return m.group(1)
+
+    # Fallback: "to shortstop" etc.
+    m2 = re.search(r"\bto ([a-z ]+?)(?:$|,|\.|\s)", desc.lower())
+    if m2:
+        w = m2.group(1).strip()
+        if w in WORD_TO_NUM:
+            return str(WORD_TO_NUM[w])
+
+    return ""
+
+def out_air_prefix(event_type):
+    et = (event_type or "").lower()
+    if "pop" in et:
+        return "P"
+    if "line" in et:
+        return "L"
+    # default fly
+    return "F"
+
+# Convert a single play to standard scorekeeping token
+def play_to_token(play):
+    res = (play.get("result") or {})
+    et = (res.get("eventType") or "").lower()
+    desc = (res.get("description") or "")
+
+    # Hitting events with simple codes
+    if et == "single": return "1B"
+    if et == "double": return "2B"
+    if et == "triple": return "3B"
+    if et == "home_run": return "HR"
+    if "walk" in et: return "BB"
+    if et == "hit_by_pitch": return "HBP"
+    if et == "catcher_interf": return "CI"
+    if et in ("intent_walk", "intentional_walk"): return "BB"
+
+    # Strikeouts
+    if et.startswith("strikeout"):
+        return "K" if et != "strikeout_double_play" else "KDP"
+
+    # Sacrifices
+    if et in ("sac_fly", "sac_fly_double_play"):
+        pos = fielder_chain(play)
+        return f"SF{pos}" if pos else "SF"
+    if et in ("sac_bunt", "sac_bunt_double_play"):
+        pos = fielder_chain(play)
+        return f"SH{pos}" if pos else "SH"
+
+    # Errors
+    if "error" in et:
+        chain = fielder_chain(play)
+        return f"E{chain}" if chain else "E"
+
+    # Fielder's choice
+    if "fielders_choice" in et:
+        chain = fielder_chain(play)
+        return f"FC{chain}" if chain else "FC"
+
+    # Ground/force/double/triple plays -> chain
+    if et in ("groundout", "force_out", "double_play", "triple_play", "grounded_into_double_play"):
+        chain = fielder_chain(play)
+        return chain or "GO"
+
+    # Air outs (flyout/lineout/popout)
+    if any(k in et for k in ("flyout", "lineout", "pop_out", "foul_popout")):
+        prefix = out_air_prefix(et)
+        chain = fielder_chain(play)
+        if chain:
+            # for air outs fielder_chain is typically single number (putout fielder)
+            return f"{prefix}{chain}"
+        # fallback to position word in description
+        m2 = re.search(r"\bto ([a-z ]+?)(?:$|,|\.|\s)", desc.lower())
+        if m2 and m2.group(1).strip() in WORD_TO_NUM:
+            return f"{prefix}{WORD_TO_NUM[m2.group(1).strip()]}"
+        return prefix
+
+    # Last resort: parenthetical numbers or event text
+    m = PAREN_CODE_RE.search(desc)
+    if m:
+        return m.group(1)
+    evshort = (res.get("event") or "").upper().replace(" ", "_")
+    return evshort[:6] if evshort else ""
+
+# Build batter’s sequence of outcome tokens in game order
 def batter_outcomes(live, batter_id):
     if not batter_id:
         return ""
     allp = (live.get("liveData", {}) or {}).get("plays", {}).get("allPlays", []) or []
-    out = []
+    tokens = []
     for p in allp:
         m = p.get("matchup") or {}
         b = (m.get("batter") or {}).get("id")
         if b != batter_id:
             continue
-        res = (p.get("result") or {})
-        et = (res.get("eventType") or "").lower()
-        token = SCORING_MAP.get(et)
-        if not token:
-            desc = res.get("description") or ""
-            mcode = PAREN_CODE_RE.search(desc)
-            if mcode:
-                token = mcode.group(1)
-            else:
-                token = (res.get("event") or "").upper().replace(" ", "_")[:6] or ""
+        # Use MLB classification to include true PAs (walks/HBP included)
+        et = ((p.get("result") or {}).get("eventType") or "").lower()
+        if not et:
+            continue
+        token = play_to_token(p)
         if token:
-            out.append(token)
-    return ", ".join(out)
+            tokens.append(token)
+    return ", ".join(tokens)
 
+# ----- Other helpers you already had -----
 def team_last_pitcher_line(box, side):
     t = (box.get("teams", {}) or {}).get(side, {}) or {}
     pitchers = t.get("pitchers") or []
@@ -315,10 +418,6 @@ def extract_pregame_lineups(live):
     return res
 
 def build_due_up(ls, box, inning_state):
-    """
-    Returns (side, [lastnames...]) for who is due up next when in 'Middle' or 'End'.
-    If not determinable, returns (None, []).
-    """
     if inning_state not in ("Middle", "End"):
         return None, []
     try:
