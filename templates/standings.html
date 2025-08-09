@@ -395,7 +395,7 @@
       });
     }
 
-    // Add 🔥 / ❄️ to streaks (>=3)
+    // Add 🔥 / ❄️ BEFORE streak text (>=3)
     function decorateStreaks(scope){
       scope.querySelectorAll('table').forEach(table => {
         const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
@@ -408,15 +408,15 @@
           const cell = tds[sIdx];
           let txt = (cell.textContent || '').trim();
           // already decorated? avoid doubling
-          if (txt.endsWith('🔥') || txt.endsWith('❄️')) return;
+          if (txt.startsWith('🔥') || txt.startsWith('❄️')) return;
 
           const m = txt.match(/^([WL])(\d+)$/i);
           if (!m) return;
           const kind = m[1].toUpperCase();
           const n = parseInt(m[2], 10);
           if (n >= 3) {
-            if (kind === 'W') cell.textContent = `${txt}🔥`;
-            else if (kind === 'L') cell.textContent = `${txt}❄️`;
+            if (kind === 'W') cell.textContent = `🔥${txt}`;
+            else if (kind === 'L') cell.textContent = `❄️${txt}`;
           }
           cell.classList.add('streak-cell');
         });
