@@ -15,7 +15,7 @@ log = logging.getLogger("basenerd")
 STATS = "https://statsapi.mlb.com/api/v1"
 LIVE  = "https://statsapi.mlb.com/api/v1.1"
 
-_PITCHER_CACHE = {}   # id -> cached person stats (for probables W-L/ERA)
+_PITCHER_CACHE = {}   # id -> cached person stats (for probables W-L/ERA/handedness)
 _CACHE = {}           # date -> cached games payload
 
 def to_et(iso_z):
@@ -59,19 +59,23 @@ def fetch_pitcher_stats(pid, season):
 
 def probable_line_from_person(person):
     name = person.get("fullName") or ""
+    # handedness
+    hand = (((person.get("pitchHand") or {}).get("code") or "") or "").upper()
+    arm = "RHP" if hand == "R" else ("LHP" if hand == "L" else "").strip()
+    # season stats
     wl, era = "", ""
     for s in person.get("stats", []):
         if s.get("group", {}).get("displayName") == "pitching":
             splits = s.get("splits", [])
             if splits:
                 st = splits[0].get("stat", {})
-                w = st.get("wins"); l = st.get("losses"); era = st.get("era")
+                w = st.get("wins"); l = st.get("losses"); eraval = st.get("era")
                 if w is not None and l is not None:
                     wl = f"{w}-{l}"
-                if era:
-                    era = f"{era} ERA"
+                if eraval:
+                    era = f"{eraval} ERA"
             break
-    parts = [name]
+    parts = [name + (f" ({arm})" if arm else "")]
     if wl: parts.append(wl)
     if era: parts.append(era)
     return " • ".join([p for p in parts if p])
@@ -143,48 +147,36 @@ def extract_last_play(live):
     return ""
 
 def _find_latest_hitdata_from_play(play):
-    """Return the most recent hitData dict from a single play object, or None."""
     if not play: return None
-    # Most events have playEvents; scan from the end to find the last with hitData
     events = play.get("playEvents") or []
     for ev in reversed(events):
         hd = ev.get("hitData")
         if hd:
             return hd
-    # Some feeds include hitData directly on the play (rare)
     if play.get("hitData"):
         return play.get("hitData")
     return None
 
 def extract_statcast_line(live):
     """
-    Find Statcast hit data (EV, LA, distance, xBA) from the most recent tracked ball in play.
-    Checks currentPlay first, then falls back to the last play in allPlays.
-    Returns a string like: 'EV: 104.5 MPH • LA: 24.5° • Dist: 347ft • xBA: .780'
-    or '' if not available.
+    Returns: 'EV: 104.5 MPH • LA: 24.5° • Dist: 347ft • xBA: .780' or '' if missing.
     """
     ld = live.get("liveData", {}) or {}
     plays = ld.get("plays", {}) or {}
     play = plays.get("currentPlay") or {}
 
-    # Try current play
     hd = _find_latest_hitdata_from_play(play)
-
-    # Fall back to most recent in allPlays
     if not hd:
         allp = plays.get("allPlays") or []
         for p in reversed(allp):
             hd = _find_latest_hitdata_from_play(p)
-            if hd:
-                break
-
+            if hd: break
     if not hd:
         return ""
 
     ev = hd.get("launchSpeed")
     la = hd.get("launchAngle")
     dist = hd.get("totalDistance")
-    # xBA appears under various keys depending on feed
     xba = (hd.get("estimatedBA")
            or hd.get("estimatedBa")
            or hd.get("estimatedBattingAverage")
@@ -201,29 +193,93 @@ def extract_statcast_line(live):
     if dist is not None:
         try:
             dval = float(dist)
-            if abs(dval - int(dval)) < 1e-9:
-                parts.append(f"Dist: {int(dval)}ft")
-            else:
-                parts.append(f"Dist: {dval:.0f}ft")
+            parts.append(f"Dist: {int(dval) if abs(dval-int(dval))<1e-9 else round(dval):d}ft")
         except:
             pass
     if xba is not None:
         try:
             x = float(xba)
-            # If feed returns 0-1, keep; if 0-100, convert
             if x > 1.0: x = x / 100.0
             parts.append(f"xBA: {x:.3f}".replace("0.", "."))
         except:
-            # If it's already a string like ".780"
             s = str(xba).strip()
             if s:
-                # Normalize: ensure starts with dot for 3 decimals
-                if s.replace(".","",1).isdigit():
-                    if not s.startswith(".") and float(s) < 1.0:
-                        s = "." + s
                 parts.append(f"xBA: {s}")
-
     return " • ".join(parts)
+
+def _initial_last(person_dict):
+    if not person_dict: return ""
+    name = (person_dict.get("fullName") or "").strip()
+    if not name: return ""
+    parts = name.split()
+    first_initial = (parts[0][0] + ".") if parts and parts[0] else ""
+    last = parts[-1] if parts else ""
+    return f"{first_initial} {last}".strip()
+
+def _last_only(person_dict):
+    name = (person_dict.get("fullName") or "").strip()
+    if not name: return ""
+    return name.split()[-1]
+
+def build_due_up(ls, box, inning_state):
+    """
+    Determine next-side and due up 3 names.
+    inning_state: 'Middle' means home bats next; 'End' means away bats next.
+    """
+    if inning_state not in ("Middle", "End"):
+        return None, []
+
+    next_side = "home" if inning_state == "Middle" else "away"
+
+    # Try linescore.offense batter/onDeck/inHole (often already for the upcoming half-inning)
+    offense = (ls.get("offense") or {})
+    cand = []
+    for key in ("batter", "onDeck", "inHole"):
+        p = offense.get(key)
+        if p and isinstance(p, dict) and p.get("fullName"):
+            cand.append(_last_only(p))
+    cand = [c for c in cand if c]
+
+    # If those aren't available, try boxscore battingOrder
+    if len(cand) < 3:
+        t = (box.get("teams") or {}).get(next_side, {}) or {}
+        order = t.get("battingOrder") or []
+        players = t.get("players") or {}
+        # battingOrder is list of IDs e.g., [123, 456]; find next three cyclically (approximate start)
+        # We don't know current spot reliably; show top three in order as fallback.
+        for pid in order[:3]:
+            p = players.get(f"ID{pid}", {})
+            person = p.get("person") or {}
+            cand.append(_last_only(person))
+        cand = [c for c in cand if c][:3]
+
+    return next_side, cand[:3]
+
+def extract_pregame_lineups(live):
+    """
+    For scheduled games, attempt to read projected/posted lineups from boxscore.battingOrder.
+    Returns dict { 'home': [{'pos':'CF','name':'A. Judge'}, ...], 'away': [...] } or {} if unavailable.
+    """
+    box = (live.get("liveData") or {}).get("boxscore") or {}
+    res = {}
+    for side in ("away","home"):
+        t = (box.get("teams") or {}).get(side, {}) or {}
+        order = t.get("battingOrder") or []
+        players = t.get("players") or {}
+        lineup = []
+        for pid in order:
+            pl = players.get(f"ID{pid}", {})
+            pos = ((pl.get("position") or {}).get("abbreviation") or "").upper()
+            if pos == "P":  # skip pitcher per request
+                continue
+            person = pl.get("person") or {}
+            lineup.append({
+                "pos": pos,
+                "name": _initial_last(person)
+            })
+        if lineup:
+            res[side] = lineup
+    return res
 
 def game_state_and_participants(live, include_records=None):
     gd = live.get("gameData", {}) or {}
@@ -239,15 +295,14 @@ def game_state_and_participants(live, include_records=None):
     ls = ld.get("linescore", {}) or {}
     box = ld.get("boxscore", {}) or {}
 
+    inning_state = (ls.get("inningState") or "").strip()  # 'Middle', 'End', 'Top', 'Bottom', etc.
+    inning = ls.get("currentInning")
+    is_top = ls.get("isTopInning")
+
     # Current matchup
     current = ld.get("plays", {}).get("currentPlay", {}) or {}
     matchup = current.get("matchup", {}) or {}
     count = current.get("count", {}) or {}
-    batter_id = (matchup.get("batter") or {}).get("id")
-    pitcher_id = (matchup.get("pitcher") or {}).get("id")
-
-    is_top = ls.get("isTopInning")
-    inning = ls.get("currentInning")
     balls = count.get("balls", ls.get("balls"))
     strikes = count.get("strikes", ls.get("strikes"))
     outs = count.get("outs", ls.get("outs"))
@@ -273,6 +328,9 @@ def game_state_and_participants(live, include_records=None):
             return "away", away_players[key]
         return None, None
 
+    batter_id = (matchup.get("batter") or {}).get("id")
+    pitcher_id = (matchup.get("pitcher") or {}).get("id")
+
     # Pitcher game stats
     pitch_side, pitch_obj = find_player(pitcher_id)
     pitch_stats = {}
@@ -296,13 +354,29 @@ def game_state_and_participants(live, include_records=None):
         ab = st.get("atBats"); h = st.get("hits")
         bat_line = {"name": (bat_obj.get("person") or {}).get("fullName"), "line": (f"{h}-{ab}" if h is not None and ab is not None else ""), "side": bat_side}
 
+    # Due up (when in break)
+    due_side, due_list = build_due_up(ls, box, inning_state)
+    due_str = ", ".join([n for n in due_list if n]) if due_list else ""
+
     # Records from schedule (if provided)
     records = include_records or {"away":"", "home":""}
+
+    # Chip text
+    if abstract == "LIVE":
+        if inning_state in ("Middle", "End") and inning:
+            chip = f"{'MID' if inning_state=='Middle' else 'END'} {inning}"
+        else:
+            chip = f"{'Top' if is_top else 'Bot'} {inning} • {balls}-{strikes}, {outs} out{'s' if outs!=1 else ''}"
+    elif abstract == "PREVIEW":
+        chip = start_et
+    else:
+        chip = "Final"
 
     return {
         "abstract": abstract,
         "startET": start_et,
         "inning": inning,
+        "inningState": inning_state,
         "isTop": bool(is_top),
         "balls": balls, "strikes": strikes, "outs": outs,
         "bases": bases,
@@ -311,8 +385,16 @@ def game_state_and_participants(live, include_records=None):
         "records": records,
         "lastPlay": extract_last_play(live),
         "statcast": extract_statcast_line(live),
-        "linescore": ls
+        "linescore": ls,
+        "dueUpSide": due_side,
+        "dueUp": due_str
     }
+
+def extract_pregame_lineups_wrapped(live):
+    try:
+        return extract_pregame_lineups(live)
+    except Exception:
+        return {}
 
 def shape_game(live, season, records=None):
     gd = live.get("gameData", {}) or {}
@@ -323,15 +405,19 @@ def shape_game(live, season, records=None):
     state = game_state_and_participants(live, include_records=records)
     ls = state["linescore"]
 
-    # Base structure
+    # Base
+    status = "scheduled" if state["abstract"] == "PREVIEW" else ("in_progress" if state["abstract"] == "LIVE" else "final")
     game = {
         "gamePk": gd.get("game", {}).get("pk") or live.get("gamePk"),
         "venue": (gd.get("venue") or {}).get("name"),
-        "status": "scheduled" if state["abstract"] == "PREVIEW" else ("in_progress" if state["abstract"] == "LIVE" else "final"),
-        "chip": state["startET"] if state["abstract"] == "PREVIEW" else (f"{'Top' if state['isTop'] else 'Bot'} {state['inning']} • {state['balls']}-{state['strikes']}, {state['outs']} out{'s' if state['outs']!=1 else ''}" if state["abstract"] == "LIVE" else "Final"),
+        "status": status,
+        "chip": state["startET"] if status=="scheduled" else (state["chip"] if "chip" in state else ("Final" if status=="final" else "")),
         "bases": state["bases"],
         "lastPlay": state["lastPlay"],
         "statcast": state["statcast"],
+        "dueUpSide": state["dueUpSide"],
+        "dueUp": state["dueUp"],
+        "inBreak": state["inningState"] in ("Middle","End"),
         "teams": {
             "home": {"id": home.get("id"), "abbr": home.get("abbreviation") or home.get("clubName"), "record": state["records"].get("home","")},
             "away": {"id": away.get("id"), "abbr": away.get("abbreviation") or away.get("clubName"), "record": state["records"].get("away","")},
@@ -339,15 +425,14 @@ def shape_game(live, season, records=None):
     }
 
     # Linescore & totals
-    if game["status"] == "in_progress":
+    if status == "in_progress":
         game["linescore"] = linescore_blob(ls, force_n=9)
-    elif game["status"] == "final":
+    elif status == "final":
         n_innings = max(9, len(ls.get("innings", []) if ls else []))
         game["linescore"] = linescore_blob(ls, force_n=n_innings)
     else:
         game["linescore"] = None
 
-    # add team totals to scores
     if game["linescore"]:
         totals = game["linescore"]["totals"]
         game["teams"]["away"].update({"score": totals["away"]["R"], "hits": totals["away"]["H"], "errors": totals["away"]["E"]})
@@ -356,14 +441,15 @@ def shape_game(live, season, records=None):
         game["teams"]["away"]["score"] = None
         game["teams"]["home"]["score"] = None
 
-    # Probables for scheduled
-    if game["status"] == "scheduled":
+    # Probables for scheduled + pregame lineups
+    if status == "scheduled":
         prob = get_probables(gd, season)
         for side in ("away","home"):
             game["teams"][side]["probable"] = prob.get(side, "")
+        game["lineups"] = extract_pregame_lineups_wrapped(live)
 
     # Live: current pitcher & batter lines
-    if game["status"] == "in_progress":
+    if status == "in_progress":
         pit = state["pitcher"]; bat = state["batter"]
         if pit and pit.get("side") in ("home","away"):
             game["teams"][pit["side"]]["currentPitcher"] = f"P: {pit['name']} • IP {pit.get('ip','-')} • P {pit.get('p','-')} • ER {pit.get('er',0)} • K {pit.get('k',0)} • BB {pit.get('bb',0)}"
@@ -371,7 +457,7 @@ def shape_game(live, season, records=None):
             game["teams"][bat["side"]]["currentBatter"] = f"B: {bat['name']} • {bat.get('line','')}"
 
     # Final: winning/losing pitcher lines by team
-    if game["status"] == "final":
+    if status == "final":
         box = live.get("liveData", {}).get("boxscore", {})
         decisions = live.get("liveData", {}).get("decisions", {}) or {}
         win_id = (decisions.get("winner") or {}).get("id")
@@ -461,7 +547,6 @@ def api_games():
 
 @app.route("/standings")
 def standings_page():
-    # Your existing server-side standings rendering remains untouched
     return render_template("standings.html")
 
 @app.route("/")

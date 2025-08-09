@@ -10,7 +10,7 @@
       --bg:#ffffff; --card:#ffffff; --muted:#5b6577; --text:#111318; --accent:#0b5cab;
       --row:#fafbfc; --rowAlt:#f4f6f9; --border:#e2e8f0;
       --header-bg:#ffffff; --header-text:#0b0e13;
-      --good:#16803c; --bad:#b3261e; --chip-live:#e21d48; --chip-final:#32425c; --chip-upcoming:#6b7a94;
+      --chip-live:#e21d48; --chip-final:#32425c; --chip-upcoming:#6b7a94;
     }
     *{box-sizing:border-box}
     body{ margin:0; background:var(--bg); color:var(--text); font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial; font-size:13.5px; }
@@ -50,15 +50,15 @@
     .abbr{ font-weight:700; letter-spacing:.2px; min-width:26px; }
     .info{ color:#394150; font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .right{ text-align:right; font-variant-numeric: tabular-nums; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
-    .score{ font-weight:700; font-size:13.5px; }
+    .score{ font-weight:800; font-size:16px; } /* make totals more prominent */
 
     /* diamond bases */
     .diamond{ position:relative; width:26px; height:26px; display:inline-block; margin-left:8px; }
     .diamond .base{ position:absolute; width:10px; height:10px; transform:rotate(45deg); border:1px solid var(--border); background:#fff; }
     .diamond .on{ background:#ffd147; border-color:#ffd147; }
-    .diamond .b2{ top:0; left:50%; transform:translate(-50%, 0) rotate(45deg); }      /* second */
-    .diamond .b1{ top:50%; right:0; transform:translate(0, -50%) rotate(45deg); }     /* first */
-    .diamond .b3{ top:50%; left:0; transform:translate(0, -50%) rotate(45deg); }      /* third */
+    .diamond .b2{ top:0; left:50%; transform:translate(-50%, 0) rotate(45deg); }
+    .diamond .b1{ top:50%; right:0; transform:translate(0, -50%) rotate(45deg); }
+    .diamond .b3{ top:50%; left:0; transform:translate(0, -50%) rotate(45deg); }
 
     /* box table */
     .box{ padding:8px 12px; border-top:1px solid var(--border); background:#fff; overflow:auto; }
@@ -72,6 +72,15 @@
     .lastplay strong{ color:#5b6577; margin-right:4px; }
     .statcast{ padding:0 12px 8px 12px; font-size:11.5px; color:#394150; }
     .empty{ color:var(--muted); border:1px dashed var(--border); border-radius:12px; padding:18px; text-align:center; background:#fff; }
+
+    /* lineup dropdown */
+    details.lineups{ padding:8px 12px 12px 12px; border-top:1px solid var(--border); background:#fff; }
+    details.lineups summary{ cursor:pointer; font-weight:700; color:#32425c; margin:4px 0 8px; }
+    .lineup-flex{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .lineup h4{ margin:0 0 6px; font-size:12px; color:#5b6577; }
+    .lineup ul{ margin:0; padding-left:16px; }
+    .lineup li{ font-size:12px; color:#394150; }
+    @media(max-width:600px){ .lineup-flex{ grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -132,6 +141,8 @@
     }
 
     function diamondHTML(g){
+      // Only show bases if *not* in a break between halves
+      if (g.inBreak) return '';
       const b = g.bases || {};
       return `<span class="diamond" aria-label="Bases">
         <span class="base b2 ${b.second?'on':''}"></span>
@@ -160,8 +171,14 @@
         </div>`;
     }
 
-    function teamRowLive(side, t){
-      const info = t.currentPitcher || t.currentBatter || '';
+    function teamRowLive(side, t, g){
+      // If we're between halves, show Due: for the side that bats next; otherwise show current batter/pitcher info.
+      let info = '';
+      if (g.inBreak && g.dueUpSide === side && g.dueUp) {
+        info = 'Due: ' + g.dueUp;
+      } else {
+        info = t.currentPitcher || t.currentBatter || '';
+      }
       const score = (t.score!=null) ? t.score : '&nbsp;';
       return `
         <div class="row">
@@ -182,6 +199,7 @@
     }
 
     function lastPlayHTML(g){
+      if (g.status !== 'in_progress') return '';  // show only for LIVE games
       if (!g.lastPlay) return '';
       const stat = g.statcast ? `<div class="statcast">${g.statcast}</div>` : '';
       return `<div class="lastplay"><strong>Last Play:</strong> ${g.lastPlay}</div>${stat}`;
@@ -207,6 +225,33 @@
         </div>`;
     }
 
+    function lineupDetails(g){
+      if (g.status !== 'scheduled') return '';
+      const lu = g.lineups || {};
+      const away = Array.isArray(lu.away) ? lu.away : [];
+      const home = Array.isArray(lu.home) ? lu.home : [];
+      if (!away.length && !home.length){
+        return `<details class="lineups"><summary>Lineups</summary><div class="lineup-flex"><div class="lineup"><h4>${g.teams.away.abbr}</h4><div>Lineups not yet available.</div></div><div class="lineup"><h4>${g.teams.home.abbr}</h4><div>Lineups not yet available.</div></div></div></details>`;
+      }
+      const list = arr => (arr && arr.length)
+        ? `<ul>${arr.map(x=>`<li>${(x.pos||'')}${x.pos?': ':''}${x.name||''}</li>`).join('')}</ul>`
+        : `<div>Lineup not yet available.</div>`;
+      return `
+        <details class="lineups">
+          <summary>Lineups</summary>
+          <div class="lineup-flex">
+            <div class="lineup">
+              <h4>${g.teams.away.abbr}</h4>
+              ${list(away)}
+            </div>
+            <div class="lineup">
+              <h4>${g.teams.home.abbr}</h4>
+              ${list(home)}
+            </div>
+          </div>
+        </details>`;
+    }
+
     function card(g){
       const a = g.teams.away, h = g.teams.home;
       const headerLeft = `<div class="when">${g.venue||''}</div>`;
@@ -220,10 +265,11 @@
           <div>${headerRight}</div>
         </header>
         <div class="rows">
-          ${g.status==='scheduled' ? teamRowScheduled('away', a) : g.status==='in_progress' ? teamRowLive('away', a) : teamRowFinal('away', a)}
-          ${g.status==='scheduled' ? teamRowScheduled('home', h) : g.status==='in_progress' ? teamRowLive('home', h) : teamRowFinal('home', h)}
+          ${g.status==='scheduled' ? teamRowScheduled('away', a) : g.status==='in_progress' ? teamRowLive('away', a, g) : teamRowFinal('away', a)}
+          ${g.status==='scheduled' ? teamRowScheduled('home', h) : g.status==='in_progress' ? teamRowLive('home', h, g) : teamRowFinal('home', h)}
         </div>
-        ${ (g.status!=='scheduled' ? lastPlayHTML(g) : '') }
+        ${ lastPlayHTML(g) }
+        ${ g.status==='scheduled' ? lineupDetails(g) : '' }
         ${ (g.status!=='scheduled' ? boxTable(g) : '') }
       `;
       return el;
