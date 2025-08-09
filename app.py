@@ -18,6 +18,7 @@ LIVE  = "https://statsapi.mlb.com/api/v1.1"
 _PITCHER_CACHE = {}   # id -> cached person stats (for probables W-L/ERA/handedness)
 _CACHE = {}           # date -> cached games payload
 
+# ---------- Utilities ----------
 def to_et(iso_z):
     if not iso_z:
         return ""
@@ -31,6 +32,19 @@ def to_et(iso_z):
             return dt.strftime("%I:%M %p ET").lstrip("0") + " ET"
     except Exception:
         return ""
+
+def fmt_avg(v):
+    """Format average like .295 (3 decimals, leading dot)."""
+    if v in (None, "", "-"):
+        return ""
+    try:
+        x = float(v)
+        return f"{x:.3f}".replace("0.", ".")
+    except Exception:
+        s = str(v).strip()
+        if s.startswith("0."):
+            return s.replace("0.", ".")
+        return s
 
 def fetch_schedule(date_str):
     url = f"{STATS}/schedule"
@@ -128,10 +142,8 @@ def linescore_blob(ls, force_n=None):
 def extract_last_play(live):
     ld = live.get("liveData", {}) or {}
     plays = ld.get("plays", {}) or {}
-    # Prefer currentPlay description
     desc = (plays.get("currentPlay", {}).get("result", {}) or {}).get("description")
     if desc: return desc
-    # Fallback: last scoring play
     scoring = plays.get("scoringPlays") or []
     if scoring:
         last_id = scoring[-1]
@@ -139,7 +151,6 @@ def extract_last_play(live):
             if p.get("about", {}).get("atBatIndex") == last_id:
                 d = (p.get("result") or {}).get("description")
                 if d: return d
-    # Fallback: last item in allPlays
     allp = plays.get("allPlays") or []
     if allp:
         d = allp[-1].get("result", {}).get("description")
@@ -216,6 +227,9 @@ def _initial_last(person_dict):
     last = parts[-1] if parts else ""
     return f"{first_initial} {last}".strip()
 
+def _full_name(person_dict):
+    return (person_dict or {}).get("fullName") or ""
+
 def _last_only(person_dict):
     name = (person_dict.get("fullName") or "").strip()
     if not name: return ""
@@ -231,7 +245,6 @@ def build_due_up(ls, box, inning_state):
 
     next_side = "home" if inning_state == "Middle" else "away"
 
-    # Try linescore.offense batter/onDeck/inHole (often already for the upcoming half-inning)
     offense = (ls.get("offense") or {})
     cand = []
     for key in ("batter", "onDeck", "inHole"):
@@ -240,13 +253,10 @@ def build_due_up(ls, box, inning_state):
             cand.append(_last_only(p))
     cand = [c for c in cand if c]
 
-    # If those aren't available, try boxscore battingOrder
     if len(cand) < 3:
         t = (box.get("teams") or {}).get(next_side, {}) or {}
         order = t.get("battingOrder") or []
         players = t.get("players") or {}
-        # battingOrder is list of IDs e.g., [123, 456]; find next three cyclically (approximate start)
-        # We don't know current spot reliably; show top three in order as fallback.
         for pid in order[:3]:
             p = players.get(f"ID{pid}", {})
             person = p.get("person") or {}
@@ -257,8 +267,8 @@ def build_due_up(ls, box, inning_state):
 
 def extract_pregame_lineups(live):
     """
-    For scheduled games, attempt to read projected/posted lineups from boxscore.battingOrder.
-    Returns dict { 'home': [{'pos':'CF','name':'A. Judge'}, ...], 'away': [...] } or {} if unavailable.
+    For scheduled games, try to read posted lineups from boxscore.battingOrder.
+    Returns dict with per-side lineup entries including season AVG/HR/RBI.
     """
     box = (live.get("liveData") or {}).get("boxscore") or {}
     res = {}
@@ -270,17 +280,32 @@ def extract_pregame_lineups(live):
         for pid in order:
             pl = players.get(f"ID{pid}", {})
             pos = ((pl.get("position") or {}).get("abbreviation") or "").upper()
-            if pos == "P":  # skip pitcher per request
+            if pos == "P":  # skip pitcher (already on card)
                 continue
             person = pl.get("person") or {}
+            # Try season batting stats; fall back sensibly
+            season_bat = (pl.get("seasonStats") or {}).get("batting") or {}
+            if not season_bat:
+                season_bat = (pl.get("stats") or {}).get("batting") or {}
+            avg = fmt_avg(season_bat.get("avg"))
+            hr  = season_bat.get("homeRuns")
+            if hr is None: hr = season_bat.get("homeRunsTotal") or season_bat.get("hr")
+            rbi = season_bat.get("rbi")
+            if rbi is None: rbi = season_bat.get("runsBattedIn")
+            trip = " | ".join(
+                [f"{avg if avg else ''}/{hr if hr is not None else 0}/{rbi if rbi is not None else 0}"]
+            ) if (avg or hr is not None or rbi is not None) else ""
             lineup.append({
                 "pos": pos,
-                "name": _initial_last(person)
+                "name": _full_name(person),
+                "trip": trip.replace("| .", "| .")  # keep bar spacing
             })
         if lineup:
-            res[side] = lineup
+            # keep top 9 (typical)
+            res[side] = lineup[:9]
     return res
 
+# ---------- State builders ----------
 def game_state_and_participants(live, include_records=None):
     gd = live.get("gameData", {}) or {}
     ld = live.get("liveData", {}) or {}
@@ -299,7 +324,6 @@ def game_state_and_participants(live, include_records=None):
     inning = ls.get("currentInning")
     is_top = ls.get("isTopInning")
 
-    # Current matchup
     current = ld.get("plays", {}).get("currentPlay", {}) or {}
     matchup = current.get("matchup", {}) or {}
     count = current.get("count", {}) or {}
@@ -307,14 +331,12 @@ def game_state_and_participants(live, include_records=None):
     strikes = count.get("strikes", ls.get("strikes"))
     outs = count.get("outs", ls.get("outs"))
 
-    # Bases
     bases = {
         "first": bool((ls.get("offense") or {}).get("first")),
         "second": bool((ls.get("offense") or {}).get("second")),
         "third": bool((ls.get("offense") or {}).get("third")),
     }
 
-    # Player lookups in boxscore
     home_players = (box.get("teams", {}).get("home", {}).get("players") or {})
     away_players = (box.get("teams", {}).get("away", {}).get("players") or {})
 
@@ -331,7 +353,6 @@ def game_state_and_participants(live, include_records=None):
     batter_id = (matchup.get("batter") or {}).get("id")
     pitcher_id = (matchup.get("pitcher") or {}).get("id")
 
-    # Pitcher game stats
     pitch_side, pitch_obj = find_player(pitcher_id)
     pitch_stats = {}
     if pitch_obj:
@@ -346,7 +367,6 @@ def game_state_and_participants(live, include_records=None):
             "side": pitch_side
         }
 
-    # Batter game line
     bat_side, bat_obj = find_player(batter_id)
     bat_line = {}
     if bat_obj:
@@ -354,14 +374,11 @@ def game_state_and_participants(live, include_records=None):
         ab = st.get("atBats"); h = st.get("hits")
         bat_line = {"name": (bat_obj.get("person") or {}).get("fullName"), "line": (f"{h}-{ab}" if h is not None and ab is not None else ""), "side": bat_side}
 
-    # Due up (when in break)
     due_side, due_list = build_due_up(ls, box, inning_state)
     due_str = ", ".join([n for n in due_list if n]) if due_list else ""
 
-    # Records from schedule (if provided)
     records = include_records or {"away":"", "home":""}
 
-    # Chip text
     if abstract == "LIVE":
         if inning_state in ("Middle", "End") and inning:
             chip = f"{'MID' if inning_state=='Middle' else 'END'} {inning}"
@@ -387,7 +404,8 @@ def game_state_and_participants(live, include_records=None):
         "statcast": extract_statcast_line(live),
         "linescore": ls,
         "dueUpSide": due_side,
-        "dueUp": due_str
+        "dueUp": due_str,
+        "chip": chip
     }
 
 def extract_pregame_lineups_wrapped(live):
@@ -405,13 +423,12 @@ def shape_game(live, season, records=None):
     state = game_state_and_participants(live, include_records=records)
     ls = state["linescore"]
 
-    # Base
     status = "scheduled" if state["abstract"] == "PREVIEW" else ("in_progress" if state["abstract"] == "LIVE" else "final")
     game = {
         "gamePk": gd.get("game", {}).get("pk") or live.get("gamePk"),
         "venue": (gd.get("venue") or {}).get("name"),
         "status": status,
-        "chip": state["startET"] if status=="scheduled" else (state["chip"] if "chip" in state else ("Final" if status=="final" else "")),
+        "chip": state["chip"],
         "bases": state["bases"],
         "lastPlay": state["lastPlay"],
         "statcast": state["statcast"],
@@ -441,7 +458,7 @@ def shape_game(live, season, records=None):
         game["teams"]["away"]["score"] = None
         game["teams"]["home"]["score"] = None
 
-    # Probables for scheduled + pregame lineups
+    # Probables + pregame lineups for scheduled
     if status == "scheduled":
         prob = get_probables(gd, season)
         for side in ("away","home"):
@@ -456,12 +473,14 @@ def shape_game(live, season, records=None):
         if bat and bat.get("side") in ("home","away"):
             game["teams"][bat["side"]]["currentBatter"] = f"B: {bat['name']} • {bat.get('line','')}"
 
-    # Final: winning/losing pitcher lines by team
+    # Final: winner/loser + save (if present)
     if status == "final":
         box = live.get("liveData", {}).get("boxscore", {})
         decisions = live.get("liveData", {}).get("decisions", {}) or {}
         win_id = (decisions.get("winner") or {}).get("id")
         lose_id = (decisions.get("loser") or {}).get("id")
+        save_obj = decisions.get("save") or {}
+
         def pitcher_line_for(pid):
             if not pid: return ""
             for side in ("home","away"):
@@ -472,6 +491,7 @@ def shape_game(live, season, records=None):
                     name = (p.get("person") or {}).get("fullName") or ""
                     return side, f"{name} • IP {st.get('inningsPitched','-')} • P {st.get('numberOfPitches') or st.get('pitchesThrown') or '-'} • ER {st.get('earnedRuns',0)} • K {st.get('strikeOuts',0)} • BB {st.get('baseOnBalls',0)}"
             return "", ""
+
         win_side, win_line = pitcher_line_for(win_id)
         lose_side, lose_line = pitcher_line_for(lose_id)
         if win_side:
@@ -479,8 +499,18 @@ def shape_game(live, season, records=None):
         if lose_side:
             game["teams"][lose_side]["finalPitcher"] = "L: " + lose_line
 
+        # Save: appears under decisions.save with season save count
+        if save_obj:
+            sv_id = save_obj.get("id")
+            sv_name = save_obj.get("fullName") or ""
+            sv_num = save_obj.get("saves") or save_obj.get("saveNumber") or save_obj.get("save")
+            # Attach to same side as the winning pitcher (conventional placement)
+            if win_side and sv_name:
+                game["teams"][win_side]["savePitcher"] = f"SV: {sv_name} ({sv_num if sv_num is not None else '-'})"
+
     return game
 
+# ---------- Caching & Routes ----------
 def cache_get(key):
     x = _CACHE.get(key)
     if not x: return None

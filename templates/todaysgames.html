@@ -50,7 +50,7 @@
     .abbr{ font-weight:700; letter-spacing:.2px; min-width:26px; }
     .info{ color:#394150; font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .right{ text-align:right; font-variant-numeric: tabular-nums; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
-    .score{ font-weight:800; font-size:16px; } /* make totals more prominent */
+    .score{ font-weight:800; font-size:16px; }
 
     /* diamond bases */
     .diamond{ position:relative; width:26px; height:26px; display:inline-block; margin-left:8px; }
@@ -78,7 +78,7 @@
     details.lineups summary{ cursor:pointer; font-weight:700; color:#32425c; margin:4px 0 8px; }
     .lineup-flex{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .lineup h4{ margin:0 0 6px; font-size:12px; color:#5b6577; }
-    .lineup ul{ margin:0; padding-left:16px; }
+    .lineup ol{ margin:0; padding-left:18px; }
     .lineup li{ font-size:12px; color:#394150; }
     @media(max-width:600px){ .lineup-flex{ grid-template-columns:1fr; } }
   </style>
@@ -141,7 +141,6 @@
     }
 
     function diamondHTML(g){
-      // Only show bases if *not* in a break between halves
       if (g.inBreak) return '';
       const b = g.bases || {};
       return `<span class="diamond" aria-label="Bases">
@@ -172,7 +171,6 @@
     }
 
     function teamRowLive(side, t, g){
-      // If we're between halves, show Due: for the side that bats next; otherwise show current batter/pitcher info.
       let info = '';
       if (g.inBreak && g.dueUpSide === side && g.dueUp) {
         info = 'Due: ' + g.dueUp;
@@ -189,17 +187,18 @@
 
     function teamRowFinal(side, t){
       const score = (t.score!=null) ? t.score : '&nbsp;';
-      const extra = t.finalPitcher ? `<div class="info" style="grid-column:1/-1; padding:0 12px 8px 12px;">${t.finalPitcher}</div>` : '';
+      const wOrL = t.finalPitcher ? `<div class="info" style="grid-column:1/-1; padding:0 12px 4px 12px;">${t.finalPitcher}</div>` : '';
+      const save = t.savePitcher ? `<div class="info" style="grid-column:1/-1; padding:0 12px 8px 12px;">${t.savePitcher}</div>` : '';
       return `
         <div class="row">
           ${teamBlock(t, '')}
           <div class="right score">${score}</div>
         </div>
-        ${extra}`;
+        ${wOrL}${save}`;
     }
 
     function lastPlayHTML(g){
-      if (g.status !== 'in_progress') return '';  // show only for LIVE games
+      if (g.status !== 'in_progress') return '';
       if (!g.lastPlay) return '';
       const stat = g.statcast ? `<div class="statcast">${g.statcast}</div>` : '';
       return `<div class="lastplay"><strong>Last Play:</strong> ${g.lastPlay}</div>${stat}`;
@@ -230,11 +229,8 @@
       const lu = g.lineups || {};
       const away = Array.isArray(lu.away) ? lu.away : [];
       const home = Array.isArray(lu.home) ? lu.home : [];
-      if (!away.length && !home.length){
-        return `<details class="lineups"><summary>Lineups</summary><div class="lineup-flex"><div class="lineup"><h4>${g.teams.away.abbr}</h4><div>Lineups not yet available.</div></div><div class="lineup"><h4>${g.teams.home.abbr}</h4><div>Lineups not yet available.</div></div></div></details>`;
-      }
       const list = arr => (arr && arr.length)
-        ? `<ul>${arr.map(x=>`<li>${(x.pos||'')}${x.pos?': ':''}${x.name||''}</li>`).join('')}</ul>`
+        ? `<ol>${arr.map(x=>`<li>${(x.pos||'')}${x.pos? ' ': ''}${x.name||''}${x.trip? ' ' + x.trip: ''}</li>`).join('')}</ol>`
         : `<div>Lineup not yet available.</div>`;
       return `
         <details class="lineups">
