@@ -41,6 +41,7 @@
     td.team{ font-weight:700; display:flex; align-items:center; gap:6px; min-width:0; letter-spacing:.2px; position:relative; }
     td.team img{height:16px; width:auto; flex:0 0 auto}
     td.num{ font-variant-numeric: tabular-nums; text-align:right; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
+    td.streak-cell{ white-space:nowrap; } /* keep streak+emoji together */
 
     .footer-note{margin-top:16px; color:var(--muted); font-size:10.5px}
     .error-banner{ background:#fdecec; border:1px solid #f7b7b7; color:#7a1e1e; padding:8px 10px; border-radius:10px; margin-bottom:10px; font-size:12px; }
@@ -174,7 +175,7 @@
                       <td class="num">{{ row.get("l","") }}</td>
                       <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
                       <td class="num">{{ row.get("gb") if row.get("gb") not in ['0.0', 0, None, '0', '-', '—'] else '—' }}</td>
-                      <td class="num">{{ row.get("streak","") }}</td>
+                      <td class="num streak-cell">{{ row.get("streak","") }}</td>
                       <td class="num">{{ row.get("last10","") }}</td>
                       <td class="num">{{ row.get("runDiff","") }}</td>
                     </tr>
@@ -217,7 +218,7 @@
                       <td class="num">{{ row.get("l","") }}</td>
                       <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
                       <td class="num">{{ row.get("gb") if row.get("gb") not in ['0.0', 0, None, '0', '-', '—'] else '—' }}</td>
-                      <td class="num">{{ row.get("streak","") }}</td>
+                      <td class="num streak-cell">{{ row.get("streak","") }}</td>
                       <td class="num">{{ row.get("last10","") }}</td>
                       <td class="num">{{ row.get("runDiff","") }}</td>
                     </tr>
@@ -290,7 +291,7 @@
                       <td class="num">{{ row.get("l","") }}</td>
                       <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
                       <td class="num">{{ row.get("gb") if row.get("gb") not in [None, '', '0', '0.0', 0, '-', '—'] else '—' }}</td>
-                      <td class="num">{{ row.get("streak","") }}</td>
+                      <td class="num streak-cell">{{ row.get("streak","") }}</td>
                       <td class="num">{{ row.get("last10","") }}</td>
                       <td class="num">{{ row.get("runDiff","") }}</td>
                     </tr>
@@ -344,7 +345,7 @@
                   {% for row in block.get("rows", []) if not row.get('isLeader') %}
                     <tr>
                       <td class="wc-col">
-                        {% if row.get('badge','').startswith('WC') %}
+                        {% if row.get('badge','').startsWith('WC') %}
                           <span class="wc-badge">{{ row.get('badge') }}</span>
                         {% endif %}
                       </td>
@@ -358,7 +359,7 @@
                       <td class="num">{{ row.get("l","") }}</td>
                       <td class="num">{{ '%.3f'|format(row.get("pct",0.0)) }}</td>
                       <td class="num">{{ row.get("gb") if row.get("gb") not in [None, '', '0', '0.0', 0, '-', '—'] else '—' }}</td>
-                      <td class="num">{{ row.get("streak","") }}</td>
+                      <td class="num streak-cell">{{ row.get("streak","") }}</td>
                       <td class="num">{{ row.get("last10","") }}</td>
                       <td class="num">{{ row.get("runDiff","") }}</td>
                     </tr>
@@ -391,26 +392,59 @@
         }
       });
     }
-    colorRunDiff(document.getElementById('view-division')); // initial
+
+    // Add 🔥 / ❄️ to streaks (>=3)
+    function decorateStreaks(scope){
+      scope.querySelectorAll('table').forEach(table => {
+        const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+        const sIdx = headers.indexOf('Streak');
+        if (sIdx === -1) return;
+
+        table.querySelectorAll('tbody tr').forEach(tr => {
+          const tds = tr.querySelectorAll('td');
+          if (tds.length <= sIdx) return;
+          const cell = tds[sIdx];
+          let txt = (cell.textContent || '').trim();
+          // already decorated? avoid doubling
+          if (txt.endsWith('🔥') || txt.endsWith('❄️')) return;
+
+          const m = txt.match(/^([WL])(\d+)$/i);
+          if (!m) return;
+          const kind = m[1].toUpperCase();
+          const n = parseInt(m[2], 10);
+          if (n >= 3) {
+            if (kind === 'W') cell.textContent = `${txt}🔥`;
+            else if (kind === 'L') cell.textContent = `${txt}❄️`;
+          }
+          cell.classList.add('streak-cell');
+        });
+      });
+    }
+
+    // Initial pass for the visible view
+    const viewDiv = document.getElementById('view-division');
+    const viewWC  = document.getElementById('view-wc');
+    colorRunDiff(viewDiv);
+    decorateStreaks(viewDiv);
 
     // Toggle logic
     (function(){
       const btnDiv = document.getElementById('btnDiv');
       const btnWC  = document.getElementById('btnWC');
-      const viewDiv = document.getElementById('view-division');
-      const viewWC  = document.getElementById('view-wc');
 
       function showDiv(){
         btnDiv.classList.add('active'); btnDiv.setAttribute('aria-selected', 'true');
         btnWC.classList.remove('active'); btnWC.setAttribute('aria-selected', 'false');
         viewDiv.style.display='block'; viewWC.style.display='none';
         colorRunDiff(viewDiv);
+        decorateStreaks(viewDiv);
       }
       function showWC(){
         btnWC.classList.add('active'); btnWC.setAttribute('aria-selected', 'true');
         btnDiv.classList.remove('active'); btnDiv.setAttribute('aria-selected', 'false');
         viewWC.style.display='block'; viewDiv.style.display='none';
         colorRunDiff(viewWC);
+        decorateStreaks(viewWC);
       }
 
       btnDiv.addEventListener('click', showDiv);
