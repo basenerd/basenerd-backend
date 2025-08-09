@@ -73,7 +73,7 @@
     .statcast{ padding:0 12px 8px 12px; font-size:11.5px; color:#394150; }
     .empty{ color:var(--muted); border:1px dashed var(--border); border-radius:12px; padding:18px; text-align:center; background:#fff; }
 
-    /* lineup dropdown (pos gray + last name + trip) */
+    /* lineup dropdown */
     details.lineups{ padding:8px 12px 12px 12px; border-top:1px solid var(--border); background:#fff; }
     details.lineups summary{ cursor:pointer; font-weight:700; color:#32425c; margin:4px 0 8px; }
     .lineup-flex{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
@@ -107,7 +107,7 @@
     </div>
 
     <div id="games" class="grid"></div>
-    <div id="empty" class="empty" style="display:none">No games match your filters.</div>
+    <div id="empty" class="empty" style="display:none">No games to show for this date.</div>
     <p class="when">Times shown Eastern Time • Source: MLB Stats API</p>
   </div>
 
@@ -118,7 +118,33 @@
     const $updated = document.getElementById('updated');
     const $liveOnly = document.getElementById('liveOnly');
 
-    const labelDate = d => d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+    // ---- ET date helpers ----
+    const fmtET = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      weekday: 'short'
+    });
+    function etParts(d){
+      // returns {yyyy, mm, dd, label}
+      const f = fmtET.formatToParts(d);
+      const get = t => (f.find(p => p.type===t)||{}).value || '';
+      const mm = get('month').padStart(2,'0');
+      const dd = get('day').padStart(2,'0');
+      const yyyy = get('year');
+      const wk = get('weekday');
+      const label = `${wk} ${new Date(`${yyyy}-${mm}-${dd}T00:00:00`).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'})}`;
+      return {yyyy, mm, dd, label};
+    }
+    function dateStrET(d){
+      const {yyyy, mm, dd} = etParts(d);
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    function labelET(d){
+      const {label} = etParts(d);
+      return label;
+    }
+
+    const labelDate = d => labelET(d);
     let state = { date: new Date(), timer: null };
 
     function setDate(d){
@@ -176,7 +202,6 @@
     function teamRowLive(side, t, g){
       let info = '';
       if (g.inBreak) {
-        // If it's in the break, the side with dueUp shows "Due:", the other side should show pitcher line.
         if (g.dueUpSide === side && g.dueUp) {
           info = 'Due: ' + g.dueUp;
         } else {
@@ -305,6 +330,7 @@
       $games.innerHTML = '';
       if (!filtered.length){
         $empty.style.display = 'block';
+        $empty.textContent = $liveOnly.checked ? 'No live games right now.' : 'No games to show for this date.';
         return;
       }
       $empty.style.display = 'none';
@@ -316,7 +342,7 @@
 
     async function load(){
       if (state.timer) { clearTimeout(state.timer); state.timer = null; }
-      const d = state.date; const dateStr = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
+      const dateStr = dateStrET(state.date); // <-- use ET date for API
       try {
         const data = await fetchGames(dateStr);
         render(data);
