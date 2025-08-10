@@ -20,10 +20,7 @@
     header h1{margin:0; font-size:17px; letter-spacing:.2px; font-weight:600}
 
     /* Drawer + hamburger */
-    .hamburger{
-      display:inline-flex; flex-direction:column; gap:4px; margin-right:8px;
-      background:transparent; border:0; cursor:pointer; padding:8px; border-radius:10px;
-    }
+    .hamburger{ display:inline-flex; flex-direction:column; gap:4px; margin-right:8px; background:transparent; border:0; cursor:pointer; padding:8px; border-radius:10px; }
     .hamburger span{ display:block; width:20px; height:2px; background:#394150; transition:transform .2s, opacity .2s; }
     .hamburger[aria-expanded="true"] span:nth-child(1){ transform:translateY(6px) rotate(45deg); }
     .hamburger[aria-expanded="true"] span:nth-child(2){ opacity:0; }
@@ -109,22 +106,17 @@
 
     .boxwrap{ display:grid; grid-template-columns:1fr; gap:12px; }
 
-    /* Shared table look (matching lineup vibe) */
     .box table{ border-collapse:collapse; width:100%; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11.5px; }
     .box thead th{ color:#5b6577; font-weight:700; border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; }
     .box tbody td{ border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; color:#394150; }
     .box .teamhdr{ text-align:left; font-weight:700; color:#394150; padding-top:2px; }
 
-    /* Name column: left, normal weight */
     .box td.name, .box th.name { text-align:left; font-weight:normal; color:#111318; }
-
-    /* POS column tone */
     .box td.pos, .box th.pos { color:#8a94ab; font-weight:700; text-transform:uppercase; }
 
     .batters, .pitchers { overflow:auto; }
     .batters table, .pitchers table { width:100%; }
 
-    /* Indentation for subs/relievers */
     .indent .name { padding-left:16px; position:relative; }
     .indent .name::before{
       content:"";
@@ -178,29 +170,14 @@
   </div>
 
   <script>
-    // Drawer toggle (same as standings)
+    // Drawer
     (function(){
       const btn = document.querySelector('.hamburger');
       const drawer = document.getElementById('site-drawer');
       const backdrop = document.querySelector('.drawer-backdrop');
-      function openDrawer(){
-        drawer.classList.add('open');
-        backdrop.classList.add('show');
-        drawer.setAttribute('aria-hidden','false');
-        btn.setAttribute('aria-expanded','true');
-        document.body.style.overflow='hidden';
-      }
-      function closeDrawer(){
-        drawer.classList.remove('open');
-        backdrop.classList.remove('show');
-        drawer.setAttribute('aria-hidden','true');
-        btn.setAttribute('aria-expanded','false');
-        document.body.style.overflow='';
-      }
-      btn?.addEventListener('click', () => {
-        const expanded = btn.getAttribute('aria-expanded') === 'true';
-        expanded ? closeDrawer() : openDrawer();
-      });
+      function openDrawer(){ drawer.classList.add('open'); backdrop.classList.add('show'); drawer.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); document.body.style.overflow='hidden'; }
+      function closeDrawer(){ drawer.classList.remove('open'); backdrop.classList.remove('show'); drawer.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); document.body.style.overflow=''; }
+      btn?.addEventListener('click', () => { (btn.getAttribute('aria-expanded') === 'true') ? closeDrawer() : openDrawer(); });
       backdrop?.addEventListener('click', closeDrawer);
       document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeDrawer(); });
     })();
@@ -212,18 +189,11 @@
     const $liveOnly = document.getElementById('liveOnly');
 
     // ET helpers
-    const fmtET = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/New_York',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      weekday: 'short'
-    });
+    const fmtET = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
     function etParts(d){
       const f = fmtET.formatToParts(d);
       const get = t => (f.find(p => p.type===t)||{}).value || '';
-      const mm = get('month').padStart(2,'0');
-      const dd = get('day').padStart(2,'0');
-      const yyyy = get('year');
-      const wk = get('weekday');
+      const mm = get('month').padStart(2,'0'); const dd = get('day').padStart(2,'0'); const yyyy = get('year'); const wk = get('weekday');
       const label = `${wk} ${new Date(`${yyyy}-${mm}-${dd}T00:00:00`).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'})}`;
       return {yyyy, mm, dd, label};
     }
@@ -231,21 +201,13 @@
     function labelET(d){ return etParts(d).label; }
 
     let state = { date: new Date(), timer: null };
-    function setDate(d){
-      state.date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      $dateLabel.textContent = labelET(state.date);
-      load();
-    }
+    function setDate(d){ state.date = new Date(d.getFullYear(), d.getMonth(), d.getDate()); $dateLabel.textContent = labelET(state.date); load(); }
     document.getElementById('prevDay').onclick = () => setDate(new Date(state.date.getTime()-86400000));
     document.getElementById('nextDay').onclick = () => setDate(new Date(state.date.getTime()+86400000));
     document.getElementById('todayBtn').onclick = () => setDate(new Date());
     $liveOnly.addEventListener('change', () => render(window.__last || {games:[]}));
 
-    async function fetchJson(url){
-      const res = await fetch(url);
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    }
+    async function fetchJson(url){ const res = await fetch(url); if(!res.ok) throw new Error(`HTTP ${res.status}`); return await res.json(); }
 
     function chipFor(g){
       if (g.status === 'in_progress') return `<span class="chip live">${g.chip}</span>`;
@@ -276,79 +238,56 @@
     }
 
     function teamRowScheduled(side, t){
-      return `
-        <div class="row">
-          ${teamBlock(t, t.probable || '')}
-          <div class="right score">&nbsp;</div>
-        </div>`;
+      return `<div class="row">${teamBlock(t, t.probable || '')}<div class="right score">&nbsp;</div></div>`;
     }
 
     function teamRowLive(side, t, g){
       let info = '';
       if (g.inBreak) {
-        if (g.dueUpSide === side && g.dueUp) {
-          info = 'Due: ' + g.dueUp;
-        } else {
-          info = t.breakPitcher || t.currentPitcher || t.currentBatter || '';
-        }
+        if (g.dueUpSide === side && g.dueUp) info = 'Due: ' + g.dueUp;
+        else info = t.breakPitcher || t.currentPitcher || t.currentBatter || '';
       } else {
         info = t.currentPitcher || t.currentBatter || '';
       }
       const score = (t.score!=null) ? t.score : '&nbsp;';
-      return `
-        <div class="row">
-          ${teamBlock(t, info)}
-          <div class="right score">${score}</div>
-        </div>`;
+      return `<div class="row">${teamBlock(t, info)}<div class="right score">${score}</div></div>`;
     }
 
     function teamRowFinal(side, t){
       const score = (t.score!=null) ? t.score : '&nbsp;';
       const wOrL = t.finalPitcher ? `<div class="info" style="grid-column:1/-1; padding:0 12px 4px 12px;">${t.finalPitcher}</div>` : '';
       const save = t.savePitcher ? `<div class="info" style="grid-column:1/-1; padding:0 12px 8px 12px;">${t.savePitcher}</div>` : '';
-      return `
-        <div class="row">
-          ${teamBlock(t, '')}
-          <div class="right score">${score}</div>
-        </div>
-        ${wOrL}${save}`;
+      return `<div class="row">${teamBlock(t, '')}<div class="right score">${score}</div></div>${wOrL}${save}`;
     }
 
     function lastPlayHTML(g){
-      if (g.status !== 'in_progress') return '';
-      if (!g.lastPlay) return '';
+      if (g.status !== 'in_progress' || !g.lastPlay) return '';
       const stat = g.statcast ? `<div class="statcast">${g.statcast}</div>` : '';
       return `<div class="lastplay"><strong>Last Play:</strong> ${g.lastPlay}</div>${stat}`;
     }
 
-    /* ---------- Name formatting + indent helpers for box score ---------- */
+    // Name shortener: "F. Lastname"
     function fmtShortName(full){
       if(!full) return '';
       const parts = String(full).trim().split(/\s+/);
       if(parts.length === 1) return parts[0];
-      const last = parts.pop();
-      const first = parts.shift();
+      const last = parts.pop(); const first = parts.shift();
       const initial = first ? first[0].toUpperCase() + '.' : '';
       return `${initial} ${last}`;
     }
-    function withIndentClass(trHtml, addIndent){
-      if(!addIndent) return trHtml;
-      return trHtml.replace('<tr', '<tr class="indent"');
-    }
 
-    // Inning-by-inning runs table (inside dropdown)
+    // Inning-by-inning runs
     function linescoreTable(g){
-      const ls = g.linescore;
-      if (!ls) return '';
+      const ls = g.linescore; if (!ls) return '';
       const n = ls.n || 9;
-      const headInnings = Array.from({length:n}, (_,i)=>`<th>${i+1}</th>`).join('');
+      const head = Array.from({length:n}, (_,i)=>`<th>${i+1}</th>`).join('');
       const aCells = Array.from({length:n}, (_,i)=>`<td>${(ls.away[i] ?? '')}</td>`).join('');
       const hCells = Array.from({length:n}, (_,i)=>`<td>${(ls.home[i] ?? '')}</td>`).join('');
       const aT = ls.totals.away, hT = ls.totals.home;
       return `
         <div class="box">
           <table>
-            <thead><tr><th></th>${headInnings}<th>R</th><th>H</th><th>E</th></tr></thead>
+            <thead><tr><th></th>${head}<th>R</th><th>H</th><th>E</th></tr></thead>
             <tbody>
               <tr><td class="name">${g.teams.away.abbr}</td>${aCells}<td>${aT.R ?? ''}</td><td>${aT.H ?? ''}</td><td>${aT.E ?? ''}</td></tr>
               <tr><td class="name">${g.teams.home.abbr}</td>${hCells}<td>${hT.R ?? ''}</td><td>${hT.H ?? ''}</td><td>${hT.E ?? ''}</td></tr>
@@ -357,14 +296,12 @@
         </div>`;
     }
 
-    // Batting box score (indent when POS repeats => sub)
+    // Batting box (indent from backend flag)
     function battersTable(teamAbbr, rows){
       if (!rows || !rows.length) return `<div class="batters"><em>No batter stats yet.</em></div>`;
-      const trs = rows.map((r, i, arr) => {
-        const prev = i>0 ? arr[i-1] : null;
-        const indent = !!(prev && prev.pos && r.pos && prev.pos === r.pos);
+      const trs = rows.map(r => {
         const tr = `
-          <tr>
+          <tr ${r.indent ? 'class="indent"' : ''}>
             <td class="pos">${r.pos||''}</td>
             <td class="name">${fmtShortName(r.name)||''}</td>
             <td>${r.ab ?? ''}</td>
@@ -374,7 +311,7 @@
             <td>${r.bb ?? ''}</td>
             <td>${r.k ?? ''}</td>
           </tr>`;
-        return withIndentClass(tr, indent);
+        return tr;
       }).join('');
       return `
         <div class="batters box">
@@ -385,30 +322,26 @@
             </thead>
             <tbody>${trs}</tbody>
           </table>
-        </div>
-      `;
+        </div>`;
     }
 
-    // Pitching box score (starter first; relievers indented)
+    // Pitching box (indent relievers)
     function pitchersTable(teamAbbr, rows){
       if (!rows || !rows.length) return `<div class="pitchers"><em>No pitching stats yet.</em></div>`;
-      const trs = rows.map((r, i) => {
-        const indent = i > 0;
-        const tr = `
-          <tr>
-            <td class="pos">${r.pos||'P'}</td>
-            <td class="name">${fmtShortName(r.name)||''}</td>
-            <td>${r.ip ?? ''}</td>
-            <td>${r.h ?? ''}</td>
-            <td>${r.r ?? ''}</td>
-            <td>${r.er ?? ''}</td>
-            <td>${r.bb ?? ''}</td>
-            <td>${r.k ?? ''}</td>
-            <td>${r.hr ?? ''}</td>
-            <td>${r.p ?? ''}</td>
-          </tr>`;
-        return withIndentClass(tr, indent);
-      }).join('');
+      const trs = rows.map(r => `
+        <tr ${r.indent ? 'class="indent"' : ''}>
+          <td class="pos">${r.pos||'P'}</td>
+          <td class="name">${fmtShortName(r.name)||''}</td>
+          <td>${r.ip ?? ''}</td>
+          <td>${r.h ?? ''}</td>
+          <td>${r.r ?? ''}</td>
+          <td>${r.er ?? ''}</td>
+          <td>${r.bb ?? ''}</td>
+          <td>${r.k ?? ''}</td>
+          <td>${r.hr ?? ''}</td>
+          <td>${r.p ?? ''}</td>
+        </tr>
+      `).join('');
       return `
         <div class="pitchers box">
           <div class="teamhdr">${teamAbbr} — Pitching</div>
@@ -418,11 +351,9 @@
             </thead>
             <tbody>${trs}</tbody>
           </table>
-        </div>
-      `;
+        </div>`;
     }
 
-    // Box score dropdown content: linescore + batting + pitching
     function boxscoreDropdown(g){
       if (!g.linescore && !g.batters && !g.pitchers) return '';
       const awayBat = g.batters ? battersTable(g.teams.away.abbr, g.batters.away) : '';
@@ -440,21 +371,15 @@
             ${awayPit}
             ${homePit}
           </div>
-        </details>
-      `;
+        </details>`;
     }
 
-    // Scheduled lineups dropdown
+    // Scheduled lineups (unchanged visual)
     function lineupDetails(g){
       const lu = g.lineups || {};
       const away = Array.isArray(lu.away) ? lu.away : [];
       const home = Array.isArray(lu.home) ? lu.home : [];
-      const last = full => {
-        const s = (full || '').trim();
-        if (!s) return '';
-        const parts = s.split(/\s+/);
-        return parts[parts.length-1];
-      };
+      const last = full => { const s = (full || '').trim(); if (!s) return ''; const parts = s.split(/\s+/); return parts[parts.length-1]; };
       const list = arr => {
         if (!(arr && arr.length)) return `<div>Lineup not yet available.</div>`;
         return `<div class="list">${
@@ -463,22 +388,15 @@
               <span class="pos">${(x.pos||'').toUpperCase()}</span>
               <span class="name">${last(x.name)}</span>
               <span class="trip">${x.trip ? x.trip : ''}</span>
-            </div>
-          `).join('')
+            </div>`).join('')
         }</div>`;
       };
       return `
         <details class="lineups">
           <summary>Lineups</summary>
           <div class="lineup-flex">
-            <div class="lineup">
-              <h4>${g.teams.away.abbr}</h4>
-              ${list(away)}
-            </div>
-            <div class="lineup">
-              <h4>${g.teams.home.abbr}</h4>
-              ${list(home)}
-            </div>
+            <div class="lineup"><h4>${g.teams.away.abbr}</h4>${list(away)}</div>
+            <div class="lineup"><h4>${g.teams.home.abbr}</h4>${list(home)}</div>
           </div>
         </details>`;
     }
@@ -487,14 +405,10 @@
       const a = g.teams.away, h = g.teams.home;
       const headerLeft = `<div class="when">${g.venue||''}</div>`;
       const headerRight = g.status==='in_progress' ? `${chipFor(g)}${diamondHTML(g)}` : chipFor(g);
-
       const el = document.createElement('article');
       el.className = 'game';
       el.innerHTML = `
-        <header>
-          ${headerLeft}
-          <div>${headerRight}</div>
-        </header>
+        <header>${headerLeft}<div>${headerRight}</div></header>
         <div class="rows">
           ${g.status==='scheduled' ? teamRowScheduled('away', a) : g.status==='in_progress' ? teamRowLive('away', a, g) : teamRowFinal('away', a)}
           ${g.status==='scheduled' ? teamRowScheduled('home', h) : g.status==='in_progress' ? teamRowLive('home', h, g) : teamRowFinal('home', h)}
@@ -526,9 +440,8 @@
     async function load(){
       if (state.timer) { clearTimeout(state.timer); state.timer = null; }
       const et = dateStrET(state.date);
-      const url = '/api/games?date=' + et;
       try {
-        const data = await fetchJson(url);
+        const data = await fetchJson('/api/games?date=' + et);
         render(data);
         const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
         if (anyLive) state.timer = setTimeout(load, 30000);
