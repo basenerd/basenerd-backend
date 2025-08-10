@@ -365,39 +365,43 @@ def extract_statcast_line(live):
             if s: parts.append(f"xBA: {s}")
     return " • ".join(parts)
 
-def extract_scoring_summary(live):
-    """
-    Build a list of scoring plays with inning/half, description, and score after the play.
-    Returns: [{"inning":"Top 3","play":"...", "away":3, "home":1}, ...]
-    """
-    ld = (live.get("liveData") or {})
-    plays = (ld.get("plays") or {})
-    allp = plays.get("allPlays") or []
-    scoring = plays.get("scoringPlays") or []
-    out = []
-    # Build a safe lookup from atBatIndex to play
-    by_index = {}
-    for p in allp:
-        abi = (p.get("about") or {}).get("atBatIndex")
-        if abi is not None:
-            by_index[abi] = p
-    for idx in scoring:
-        p = allp[idx] if isinstance(idx, int) and 0 <= idx < len(allp) else by_index.get(idx, {})
-        if not p:
-            continue
-        about = p.get("about") or {}
-        inn = about.get("inning")
-        top = about.get("isTopInning")
-        half = "Top" if top else "Bot"
-        desc = (p.get("result") or {}).get("description") or ""
-        res = p.get("result") or {}
-        a = res.get("awayScore")
-        h = res.get("homeScore")
-        out.append({"inning": f"{half} {inn}" if inn else half, "play": desc, "away": a, "home": h})
-    return out
-
 # ---- Plate appearance tokens for current batter line ----
 PAREN_CODE_RE = re.compile(r"\(([1-9](?:-[1-9]){0,3})\)")
+def extract_scoring_summary(live):
+    """Return scoring plays with inning label, description, and score after play."""
+    try:
+        ld = live.get("liveData") or {}
+        plays = ld.get("plays") or {}
+        allp = plays.get("allPlays") or []
+        scoring_idxs = plays.get("scoringPlays") or []
+        # Map atBatIndex to play
+        by_idx = {}
+        for p in allp:
+            abidx = (p.get("about") or {}).get("atBatIndex")
+            if abidx is not None:
+                by_idx[abidx] = p
+        out = []
+        for idx in scoring_idxs:
+            p = by_idx.get(idx) or {}
+            about = (p.get("about") or {})
+            res = (p.get("result") or {})
+            inn = about.get("inning")
+            half = about.get("halfInning")
+            inning_label = f"{('Top' if str(half).lower().startswith('t') else 'Bot') if half else ''} {inn}".strip()
+            desc = res.get("description") or ""
+            away = res.get("awayScore")
+            home = res.get("homeScore")
+            # Fallback: if scores missing, try to derive from linescore totals up to this play (skipped for speed)
+            out.append({
+                "inning": inning_label or inn,
+                "play": desc,
+                "away": away,
+                "home": home
+            })
+        return out
+    except Exception:
+        return []
+
 def out_air_prefix(event_type):
     et = (event_type or "").lower()
     if "pop" in et: return "P"
@@ -796,15 +800,9 @@ def shape_game(live, season, records=None):
             "home": {"id": home.get("id"), "abbr": home.get("abbreviation") or home.get("clubName"), "record": state["records"].get("home","")},
             "away": {"id": away.get("id"), "abbr": away.get("abbreviation") or away.get("clubName"), "record": state["records"].get("away","")},
         }
+    game["scoring"] = extract_scoring_summary(live)
     }
 
-
-    # scoring summary (for Score Summary dropdown)
-    try:
-        scoring = extract_scoring_summary(live)
-    except Exception:
-        scoring = []
-    game["scoring"] = {"awayAbbr": game["teams"]["away"]["abbr"], "homeAbbr": game["teams"]["home"]["abbr"], "plays": scoring}
     # linescore columns
     if status == "in_progress":
         game["linescore"] = linescore_blob(ls, force_n=9)
@@ -926,7 +924,6 @@ def standings_page():
         "standings.html",
         data_division=data_division,
         data_wildcard=data_wildcard,
-        data_wc=data_wildcard,
         season=SEASON,
         error=err
     )
@@ -987,16 +984,6 @@ def api_games():
     payload = {"date": date_str, "games": games}
     cache_set(date_str, payload, 15 if any_live else 300)
     return jsonify(payload)
-
-
-@app.route("/debug/games")
-def debug_games():
-    date_str = request.args.get("date") or datetime.utcnow().strftime("%Y-%m-%d")
-    try:
-        schedule = fetch_schedule(date_str)
-        return jsonify({"date": date_str, "count": len(schedule), "keys": [g.get("gamePk") for g in schedule]})
-    except Exception as e:
-        return jsonify({"date": date_str, "error": str(e)}), 200
 
 @app.route("/ping")
 def ping():
