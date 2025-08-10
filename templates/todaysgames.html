@@ -11,6 +11,7 @@
       --row:#fafbfc; --rowAlt:#f4f6f9; --border:#e2e8f0;
       --header-bg:#ffffff; --header-text:#0b0e13;
       --chip-live:#e21d48; --chip-final:#32425c; --chip-upcoming:#6b7a94;
+      --subtle:#8a94ab;
     }
     *{box-sizing:border-box}
     body{ margin:0; background:var(--bg); color:var(--text); font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial; font-size:13.5px; }
@@ -90,12 +91,24 @@
     .box tbody td{ border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; color:#394150; }
     .box .teamhdr{ text-align:left; font-weight:700; color:#394150; padding-top:2px; }
 
-    /* Keep first column (labels) visually aligned & centered too */
-    .box td.name, .box th.name { text-align:center; font-weight:600; color:#111318; }
+    /* Name column: left, normal weight */
+    .box td.name, .box th.name { text-align:left; font-weight:normal; color:#111318; }
+
+    /* POS column tone */
     .box td.pos, .box th.pos { color:#8a94ab; font-weight:700; text-transform:uppercase; }
 
     .batters, .pitchers { overflow:auto; }
     .batters table, .pitchers table { width:100%; }
+
+    /* Indentation for subs/relievers */
+    .indent .name { padding-left:16px; position:relative; }
+    .indent .name::before{
+      content:"";
+      position:absolute; left:6px; top:50%;
+      width:8px; height:0;
+      border-top:1px solid var(--border);
+      transform:translateY(-50%);
+    }
   </style>
 </head>
 <body>
@@ -240,7 +253,22 @@
       return `<div class="lastplay"><strong>Last Play:</strong> ${g.lastPlay}</div>${stat}`;
     }
 
-    // Inning-by-inning runs table (now inside dropdown; no matchup header)
+    /* ---------- Name formatting + indent helpers ---------- */
+    function fmtShortName(full){
+      if(!full) return '';
+      const parts = String(full).trim().split(/\s+/);
+      if(parts.length === 1) return parts[0];
+      const last = parts.pop();
+      const first = parts.shift();
+      const initial = first ? first[0].toUpperCase() + '.' : '';
+      return `${initial} ${last}`;
+    }
+    function withIndentClass(trHtml, addIndent){
+      if(!addIndent) return trHtml;
+      return trHtml.replace('<tr', '<tr class="indent"');
+    }
+
+    // Inning-by-inning runs table (inside dropdown)
     function linescoreTable(g){
       const ls = g.linescore;
       if (!ls) return '';
@@ -261,21 +289,25 @@
         </div>`;
     }
 
-    // Batting box score table (centered columns, lineup styling)
+    // Batting box score table (centered cols; name left; subs indented when same POS repeats)
     function battersTable(teamAbbr, rows){
       if (!rows || !rows.length) return `<div class="batters"><em>No batter stats yet.</em></div>`;
-      const trs = rows.map(r => `
-        <tr>
-          <td class="pos">${r.pos||''}</td>
-          <td class="name">${r.name||''}</td>
-          <td>${r.ab ?? ''}</td>
-          <td>${r.r ?? ''}</td>
-          <td>${r.h ?? ''}</td>
-          <td>${r.rbi ?? ''}</td>
-          <td>${r.bb ?? ''}</td>
-          <td>${r.k ?? ''}</td>
-        </tr>
-      `).join('');
+      const trs = rows.map((r, i, arr) => {
+        const prev = i>0 ? arr[i-1] : null;
+        const indent = !!(prev && prev.pos && r.pos && prev.pos === r.pos);
+        const tr = `
+          <tr>
+            <td class="pos">${r.pos||''}</td>
+            <td class="name">${fmtShortName(r.name)||''}</td>
+            <td>${r.ab ?? ''}</td>
+            <td>${r.r ?? ''}</td>
+            <td>${r.h ?? ''}</td>
+            <td>${r.rbi ?? ''}</td>
+            <td>${r.bb ?? ''}</td>
+            <td>${r.k ?? ''}</td>
+          </tr>`;
+        return withIndentClass(tr, indent);
+      }).join('');
       return `
         <div class="batters box">
           <div class="teamhdr">${teamAbbr} — Batting</div>
@@ -289,23 +321,26 @@
       `;
     }
 
-    // Pitching box score table
+    // Pitching box score table (starter first; relievers indented)
     function pitchersTable(teamAbbr, rows){
       if (!rows || !rows.length) return `<div class="pitchers"><em>No pitching stats yet.</em></div>`;
-      const trs = rows.map(r => `
-        <tr>
-          <td class="pos">${r.pos||'P'}</td>
-          <td class="name">${r.name||''}</td>
-          <td>${r.ip ?? ''}</td>
-          <td>${r.h ?? ''}</td>
-          <td>${r.r ?? ''}</td>
-          <td>${r.er ?? ''}</td>
-          <td>${r.bb ?? ''}</td>
-          <td>${r.k ?? ''}</td>
-          <td>${r.hr ?? ''}</td>
-          <td>${r.p ?? ''}</td>
-        </tr>
-      `).join('');
+      const trs = rows.map((r, i) => {
+        const indent = i > 0; // all after starter
+        const tr = `
+          <tr>
+            <td class="pos">${r.pos||'P'}</td>
+            <td class="name">${fmtShortName(r.name)||''}</td>
+            <td>${r.ip ?? ''}</td>
+            <td>${r.h ?? ''}</td>
+            <td>${r.r ?? ''}</td>
+            <td>${r.er ?? ''}</td>
+            <td>${r.bb ?? ''}</td>
+            <td>${r.k ?? ''}</td>
+            <td>${r.hr ?? ''}</td>
+            <td>${r.p ?? ''}</td>
+          </tr>`;
+        return withIndentClass(tr, indent);
+      }).join('');
       return `
         <div class="pitchers box">
           <div class="teamhdr">${teamAbbr} — Pitching</div>
@@ -341,7 +376,7 @@
       `;
     }
 
-    // Scheduled lineups dropdown (unchanged visuals)
+    // Scheduled lineups dropdown
     function lineupDetails(g){
       const lu = g.lineups || {};
       const away = Array.isArray(lu.away) ? lu.away : [];
