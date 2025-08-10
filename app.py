@@ -25,7 +25,7 @@ def make_session():
         allowed_methods=frozenset(["GET"])
     )
     s.mount("https://", HTTPAdapter(max_retries=retries))
-    s.headers.update({"User-Agent": "basenerd/1.0 (+https://basenerd.app)"})
+    s.headers.update({"User-Agent": "basenerd/1.0"})
     return s
 
 SESSION = make_session()
@@ -156,21 +156,18 @@ def linescore_blob(ls, force_n=None):
     }
     return {"n": max(n, force_n or 0), "away": away_by, "home": home_by, "totals": totals}
 
-# ---------- Unified latest play ----------
+# ---------- Last play + Statcast ----------
 def latest_play_from_feed(live):
     ld = live.get("liveData", {}) or {}
     plays = ld.get("plays", {}) or {}
-
     allp = plays.get("allPlays") or []
     for p in reversed(allp):
         desc = (p.get("result") or {}).get("description")
         if desc:
             return p
-
     cur = plays.get("currentPlay") or {}
     if (cur.get("result") or {}).get("description"):
         return cur
-
     scoring = plays.get("scoringPlays") or []
     if scoring and allp:
         ids = {p.get("about", {}).get("atBatIndex"): p for p in allp}
@@ -230,8 +227,17 @@ def extract_statcast_line(live):
                 parts.append(f"xBA: {s}")
     return " • ".join(parts)
 
-# ----- Scoring notation helpers -----
+# ----- Scoring notation for live hitter outcomes -----
 PAREN_CODE_RE = re.compile(r"\(([1-9](?:-[1-9]){0,3})\)")
+
+def out_air_prefix(event_type):
+    et = (event_type or "").lower()
+    if "pop" in et:
+        return "P"
+    if "line" in et:
+        return "L"
+    return "F"
+
 ABBREV_TO_NUM = {"P":1,"C":2,"1B":3,"2B":4,"3B":5,"SS":6,"LF":7,"CF":8,"RF":9}
 WORD_TO_NUM = {
     "pitcher":1,"catcher":2,"first baseman":3,"first base":3,"second baseman":4,"second base":4,
@@ -239,12 +245,9 @@ WORD_TO_NUM = {
     "center fielder":8,"center field":8,"right fielder":9,"right field":9
 }
 
-# Extracts a sequence like 6-4-3 from play. Prefers credits; falls back to description.
 def fielder_chain(play):
     credits = play.get("credits") or []
-    assists = []
-    putouts = []
-    errors = []
+    assists = []; putouts = []
     for c in credits:
         credit = (c.get("credit") or "").lower()
         pos = None
@@ -255,51 +258,26 @@ def fielder_chain(play):
             pos = int(code)
         elif abbr in ABBREV_TO_NUM:
             pos = ABBREV_TO_NUM[abbr]
-        if pos is None:
-            continue
-        if "assist" in credit:
-            assists.append(pos)
-        elif "putout" in credit:
-            putouts.append(pos)
-        elif "error" in credit:
-            errors.append(pos)
-
+        if pos is None: continue
+        if "assist" in credit: assists.append(pos)
+        elif "putout" in credit: putouts.append(pos)
     if assists or putouts:
         chain = assists + (putouts[-1:] if putouts else [])
         if chain:
             return "-".join(str(n) for n in chain)
-
-    # Fallback: parenthetical like (5-3) in description
     desc = ((play.get("result") or {}).get("description") or "")
     m = PAREN_CODE_RE.search(desc)
-    if m:
-        return m.group(1)
-
-    # Fallback: "to shortstop" etc.
+    if m: return m.group(1)
     m2 = re.search(r"\bto ([a-z ]+?)(?:$|,|\.|\s)", desc.lower())
-    if m2:
-        w = m2.group(1).strip()
-        if w in WORD_TO_NUM:
-            return str(WORD_TO_NUM[w])
-
+    if m2 and m2.group(1).strip() in WORD_TO_NUM:
+        return str(WORD_TO_NUM[m2.group(1).strip()])
     return ""
 
-def out_air_prefix(event_type):
-    et = (event_type or "").lower()
-    if "pop" in et:
-        return "P"
-    if "line" in et:
-        return "L"
-    # default fly
-    return "F"
-
-# Convert a single play to standard scorekeeping token
 def play_to_token(play):
     res = (play.get("result") or {})
     et = (res.get("eventType") or "").lower()
     desc = (res.get("description") or "")
 
-    # Hitting events with simple codes
     if et == "single": return "1B"
     if et == "double": return "2B"
     if et == "triple": return "3B"
@@ -309,11 +287,9 @@ def play_to_token(play):
     if et == "catcher_interf": return "CI"
     if et in ("intent_walk", "intentional_walk"): return "BB"
 
-    # Strikeouts
     if et.startswith("strikeout"):
         return "K" if et != "strikeout_double_play" else "KDP"
 
-    # Sacrifices
     if et in ("sac_fly", "sac_fly_double_play"):
         pos = fielder_chain(play)
         return f"SF{pos}" if pos else "SF"
@@ -321,42 +297,34 @@ def play_to_token(play):
         pos = fielder_chain(play)
         return f"SH{pos}" if pos else "SH"
 
-    # Errors
     if "error" in et:
         chain = fielder_chain(play)
         return f"E{chain}" if chain else "E"
 
-    # Fielder's choice
     if "fielders_choice" in et:
         chain = fielder_chain(play)
         return f"FC{chain}" if chain else "FC"
 
-    # Ground/force/double/triple plays -> chain
     if et in ("groundout", "force_out", "double_play", "triple_play", "grounded_into_double_play"):
         chain = fielder_chain(play)
         return chain or "GO"
 
-    # Air outs (flyout/lineout/popout)
     if any(k in et for k in ("flyout", "lineout", "pop_out", "foul_popout")):
         prefix = out_air_prefix(et)
         chain = fielder_chain(play)
         if chain:
-            # for air outs fielder_chain is typically single number (putout fielder)
             return f"{prefix}{chain}"
-        # fallback to position word in description
         m2 = re.search(r"\bto ([a-z ]+?)(?:$|,|\.|\s)", desc.lower())
         if m2 and m2.group(1).strip() in WORD_TO_NUM:
             return f"{prefix}{WORD_TO_NUM[m2.group(1).strip()]}"
         return prefix
 
-    # Last resort: parenthetical numbers or event text
     m = PAREN_CODE_RE.search(desc)
     if m:
         return m.group(1)
     evshort = (res.get("event") or "").upper().replace(" ", "_")
     return evshort[:6] if evshort else ""
 
-# Build batter’s sequence of outcome tokens in game order
 def batter_outcomes(live, batter_id):
     if not batter_id:
         return ""
@@ -367,7 +335,6 @@ def batter_outcomes(live, batter_id):
         b = (m.get("batter") or {}).get("id")
         if b != batter_id:
             continue
-        # Use MLB classification to include true PAs (walks/HBP included)
         et = ((p.get("result") or {}).get("eventType") or "").lower()
         if not et:
             continue
@@ -376,7 +343,46 @@ def batter_outcomes(live, batter_id):
             tokens.append(token)
     return ", ".join(tokens)
 
-# ----- Other helpers you already had -----
+# ----- Box score (batters) -----
+def extract_batting_box(box, side):
+    """Return ordered batters with POS, name, AB,R,H,RBI,BB,K."""
+    t = (box.get("teams", {}) or {}).get(side, {}) or {}
+    order = t.get("battingOrder") or []
+    players = t.get("players") or {}
+    starters = []
+    seen = set()
+    def statline(pl):
+        pos = ((pl.get("position") or {}).get("abbreviation") or "").upper()
+        person = pl.get("person") or {}
+        name = person.get("fullName") or ""
+        bat = (pl.get("stats") or {}).get("batting") or {}
+        return {
+            "pos": pos,
+            "name": name,
+            "ab": bat.get("atBats", 0),
+            "r": bat.get("runs", 0),
+            "h": bat.get("hits", 0),
+            "rbi": bat.get("rbi") or bat.get("runsBattedIn", 0),
+            "bb": bat.get("baseOnBalls", 0),
+            "k": bat.get("strikeOuts", 0),
+        }
+    for pid in order:
+        key = f"ID{pid}"
+        pl = players.get(key)
+        if not pl: 
+            continue
+        starters.append(statline(pl))
+        seen.add(key)
+    # add any other batters who aren't in order (pinch hitters/late subs) but have batting stats
+    for key, pl in players.items():
+        if key in seen: 
+            continue
+        bat = (pl.get("stats") or {}).get("batting") or {}
+        if any(bat.get(k) for k in ("atBats","hits","runs","rbi","runsBattedIn","baseOnBalls","strikeOuts")):
+            starters.append(statline(pl))
+    return starters
+
+# ------------- State builders -------------
 def team_last_pitcher_line(box, side):
     t = (box.get("teams", {}) or {}).get(side, {}) or {}
     pitchers = t.get("pitchers") or []
@@ -443,7 +449,6 @@ def build_due_up(ls, box, inning_state):
     except Exception:
         return None, []
 
-# ------------- State builders -------------
 def game_state_and_participants(live, include_records=None):
     gd = live.get("gameData", {}) or {}
     ld = live.get("liveData", {}) or {}
@@ -554,7 +559,8 @@ def game_state_and_participants(live, include_records=None):
         "dueUpSide": due_side,
         "dueUp": due_str,
         "lastPitcherLine": last_pitcher_line,
-        "chip": chip
+        "chip": chip,
+        "box": box
     }
 
 def extract_pregame_lineups_wrapped(live):
@@ -590,6 +596,7 @@ def shape_game(live, season, records=None):
         }
     }
 
+    # Linescore columns
     if status == "in_progress":
         game["linescore"] = linescore_blob(ls, force_n=9)
     elif status == "final":
@@ -598,6 +605,7 @@ def shape_game(live, season, records=None):
     else:
         game["linescore"] = None
 
+    # Totals at top level for scores
     if game["linescore"]:
         totals = game["linescore"]["totals"]
         game["teams"]["away"].update({"score": totals["away"]["R"], "hits": totals["away"]["H"], "errors": totals["away"]["E"]})
@@ -606,12 +614,14 @@ def shape_game(live, season, records=None):
         game["teams"]["away"]["score"] = None
         game["teams"]["home"]["score"] = None
 
+    # Scheduled: probables + pregame lineups
     if status == "scheduled":
         prob = get_probables(gd, season)
         for side in ("away","home"):
             game["teams"][side]["probable"] = prob.get(side, "")
         game["lineups"] = extract_pregame_lineups_wrapped(live)
 
+    # Live: current pitcher/batter + break pitcher
     if status == "in_progress":
         pit = state["pitcher"]; bat = state["batter"]
         if pit and pit.get("side") in ("home","away"):
@@ -627,8 +637,9 @@ def shape_game(live, season, records=None):
                 if lp:
                     game["teams"][next_pitch_side]["breakPitcher"] = lp
 
+    # Final: decisions + save
     if status == "final":
-        box = live.get("liveData", {}).get("boxscore", {})
+        box = state["box"]
         decisions = live.get("liveData", {}).get("decisions", {}) or {}
         win_id = (decisions.get("winner") or {}).get("id")
         lose_id = (decisions.get("loser") or {}).get("id")
@@ -672,6 +683,16 @@ def shape_game(live, season, records=None):
                     log.warning("save total lookup failed for %s: %s", sv_id, ex)
             if win_side and sv_name:
                 game["teams"][win_side]["savePitcher"] = f"SV: {sv_name} ({sv_num if sv_num is not None else '-'})"
+
+    # 🔹 Batting box score (for live and final)
+    if status in ("in_progress", "final"):
+        box = state["box"]
+        game["batters"] = {
+            "away": extract_batting_box(box, "away"),
+            "home": extract_batting_box(box, "home"),
+        }
+    else:
+        game["batters"] = None
 
     return game
 
@@ -747,27 +768,6 @@ def api_games():
     payload = {"date": date_str, "games": games}
     cache_set(date_str, payload, 15 if any_live else 300)
     return jsonify(payload)
-
-# ---- Debug proxy endpoints (optional) ----
-@app.route("/api/debug/schedule")
-def debug_schedule():
-    date_str = request.args.get("date") or datetime.utcnow().strftime("%Y-%m-%d")
-    try:
-        raw = fetch_json(f"{STATS}/schedule", {"sportId": 1, "date": date_str})
-        return jsonify({"ok": True, "date": date_str, "raw": raw})
-    except Exception as e:
-        return jsonify({"ok": False, "date": date_str, "error": str(e)}), 502
-
-@app.route("/api/debug/live")
-def debug_live():
-    pk = request.args.get("pk")
-    if not pk:
-        return jsonify({"ok": False, "error": "missing pk"}), 400
-    try:
-        raw = fetch_json(f"{LIVE}/game/{pk}/feed/live")
-        return jsonify({"ok": True, "pk": pk, "raw": raw})
-    except Exception as e:
-        return jsonify({"ok": False, "pk": pk, "error": str(e)}), 502
 
 # ---- Other pages (keep working) ----
 @app.route("/standings")

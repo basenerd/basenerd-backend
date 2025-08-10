@@ -59,13 +59,6 @@
     .diamond .b1{ top:50%; right:0; transform:translate(0, -50%) rotate(45deg); }
     .diamond .b3{ top:50%; left:0; transform:translate(0, -50%) rotate(45deg); }
 
-    .box{ padding:8px 12px; border-top:1px solid var(--border); background:#fff; overflow:auto; }
-    .box table{ border-collapse:collapse; width:100%; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11.5px; }
-    .box th, .box td{ padding:4px 6px; text-align:center; border-bottom:1px solid var(--border); }
-    .box thead th{ color:#5b6577; font-weight:600; }
-    .box .team{ justify-content:flex-start; }
-    .box .totals{ font-weight:700; }
-
     .lastplay{ padding:8px 12px; border-top:1px solid var(--border); background:#fff; font-size:11.5px; color:#394150; }
     .lastplay strong{ color:#5b6577; margin-right:4px; }
     .statcast{ padding:0 12px 8px 12px; font-size:11.5px; color:#394150; }
@@ -77,14 +70,28 @@
     details.lineups summary{ cursor:pointer; font-weight:700; color:#32425c; margin:4px 0 8px; }
     .lineup-flex{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .lineup h4{ margin:0 0 6px; font-size:12px; color:#5b6577; }
-    .lineup .entry{ display:flex; gap:4px; align-items:baseline; font-size:12px; color:#394150; } /* reduced gap */
+    .lineup .entry{ display:flex; gap:4px; align-items:baseline; font-size:12px; color:#394150; }
     .lineup .pos{ color:#8a94ab; min-width:26px; text-transform:uppercase; }
     .lineup .name{ font-weight:600; }
     .lineup .trip{ color:#5b6577; }
     .lineup .list{ display:flex; flex-direction:column; gap:4px; margin:0; padding:0; }
     @media(max-width:600px){ .lineup-flex{ grid-template-columns:1fr; } }
 
-    /* debug panel */
+    /* box score dropdown */
+    details.boxscore{ padding:8px 12px 12px 12px; border-top:1px solid var(--border); background:#fff; }
+    details.boxscore summary{ cursor:pointer; font-weight:700; color:#32425c; margin:4px 0 8px; }
+    .boxwrap{ display:grid; grid-template-columns:1fr; gap:12px; }
+    .box table{ border-collapse:collapse; width:100%; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11.5px; }
+    .box th, .box td{ padding:4px 6px; text-align:center; border-bottom:1px solid var(--border); }
+    .box thead th{ color:#5b6577; font-weight:600; }
+    .box .teamhdr{ text-align:left; font-weight:700; color:#394150; padding-top:6px; }
+    .batters{ overflow:auto; }
+    .batters table{ width:100%; }
+    .batters th:first-child, .batters td:first-child{ text-align:left; }
+    .batters .pos{ color:#8a94ab; font-weight:700; padding-right:6px; }
+    .batters .name{ text-align:left; }
+
+    /* debug (optional) */
     details#debug { max-width:1200px; margin:0 auto 24px; padding:8px 12px; color:#32425c; }
     details#debug summary{ cursor:pointer; font-weight:700; }
     .debug-box{ border:1px dashed var(--border); border-radius:10px; padding:10px; background:#fff; margin-top:8px; font-size:12px; }
@@ -125,7 +132,7 @@
       <div>Result: <span id="dbgResult">—</span></div>
       <div>Error: <span id="dbgError">—</span></div>
       <div class="debug-note">
-        Tip: click the URL to open the JSON directly. If that shows an error, the server route may not be running.
+        Tip: click the URL to open the JSON directly.
       </div>
     </div>
   </details>
@@ -137,13 +144,12 @@
     const $updated = document.getElementById('updated');
     const $liveOnly = document.getElementById('liveOnly');
 
-    // Debug elems
     const $dbgUrl = document.getElementById('dbgUrl');
     const $dbgUrlLocal = document.getElementById('dbgUrlLocal');
     const $dbgResult = document.getElementById('dbgResult');
     const $dbgError = document.getElementById('dbgError');
 
-    // ---- ET date helpers ----
+    // ET helpers
     const fmtET = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/New_York',
       year: 'numeric', month: '2-digit', day: '2-digit',
@@ -159,21 +165,13 @@
       const label = `${wk} ${new Date(`${yyyy}-${mm}-${dd}T00:00:00`).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'})}`;
       return {yyyy, mm, dd, label};
     }
-    function dateStrET(d){
-      const {yyyy, mm, dd} = etParts(d);
-      return `${yyyy}-${mm}-${dd}`;
-    }
-    function labelET(d){
-      const {label} = etParts(d);
-      return label;
-    }
+    function dateStrET(d){ const {yyyy, mm, dd} = etParts(d); return `${yyyy}-${mm}-${dd}`; }
+    function labelET(d){ return etParts(d).label; }
 
-    const labelDate = d => labelET(d);
     let state = { date: new Date(), timer: null };
-
     function setDate(d){
       state.date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      $dateLabel.textContent = labelDate(state.date);
+      $dateLabel.textContent = labelET(state.date);
       load();
     }
     document.getElementById('prevDay').onclick = () => setDate(new Date(state.date.getTime()-86400000));
@@ -261,7 +259,8 @@
       return `<div class="lastplay"><strong>Last Play:</strong> ${g.lastPlay}</div>${stat}`;
     }
 
-    function boxTable(g){
+    // Inning-by-inning runs table (used inside dropdown now)
+    function linescoreTable(g){
       const ls = g.linescore;
       if (!ls) return '';
       const n = ls.n || 9;
@@ -271,6 +270,7 @@
       const aT = ls.totals.away, hT = ls.totals.home;
       return `
         <div class="box">
+          <div class="teamhdr">${g.teams.away.abbr} at ${g.teams.home.abbr}</div>
           <table>
             <thead><tr><th></th>${headInnings}<th class="totals">R</th><th class="totals">H</th><th class="totals">E</th></tr></thead>
             <tbody>
@@ -281,49 +281,53 @@
         </div>`;
     }
 
-    // Lineup rendering: position (gray) + LAST NAME + | .AVG/HR/RBI
-    function lineupDetails(g){
-      if (g.status !== 'scheduled') return '';
-      const lu = g.lineups || {};
-      const away = Array.isArray(lu.away) ? lu.away : [];
-      const home = Array.isArray(lu.home) ? lu.home : [];
-
-      const last = full => {
-        const s = (full || '').trim();
-        if (!s) return '';
-        const parts = s.split(/\s+/);
-        return parts[parts.length-1];
-      };
-
-      const list = arr => {
-        if (!(arr && arr.length)) return `<div>Lineup not yet available.</div>`;
-        return `<div class="list">${
-          arr.slice(0,9).map(x => `
-            <div class="entry">
-              <span class="pos">${(x.pos||'').toUpperCase()}</span>
-              <span class="name">${last(x.name)}</span>
-              <span class="trip">${x.trip ? x.trip : ''}</span>
-            </div>
-          `).join('')
-        }</div>`;
-      };
-
+    // Batting box score tables
+    function battersTable(teamAbbr, rows){
+      if (!rows || !rows.length) return `<div class="batters"><em>No batter stats yet.</em></div>`;
+      const trs = rows.map(r => `
+        <tr>
+          <td class="pos">${r.pos||''}</td>
+          <td class="name">${r.name||''}</td>
+          <td>${r.ab ?? ''}</td>
+          <td>${r.r ?? ''}</td>
+          <td>${r.h ?? ''}</td>
+          <td>${r.rbi ?? ''}</td>
+          <td>${r.bb ?? ''}</td>
+          <td>${r.k ?? ''}</td>
+        </tr>
+      `).join('');
       return `
-        <details class="lineups">
-          <summary>Lineups</summary>
-          <div class="lineup-flex">
-            <div class="lineup">
-              <h4>${g.teams.away.abbr}</h4>
-              ${list(away)}
-            </div>
-            <div class="lineup">
-              <h4>${g.teams.home.abbr}</h4>
-              ${list(home)}
-            </div>
-          </div>
-        </details>`;
+        <div class="batters">
+          <div class="teamhdr">${teamAbbr}</div>
+          <table>
+            <thead>
+              <tr><th>POS</th><th style="text-align:left">Player</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th></tr>
+            </thead>
+            <tbody>${trs}</tbody>
+          </table>
+        </div>
+      `;
     }
 
+    // Box score dropdown content: linescore + both batting tables
+    function boxscoreDropdown(g){
+      if (!g.linescore && !g.batters) return '';
+      const awayBat = g.batters ? battersTable(g.teams.away.abbr, g.batters.away) : '';
+      const homeBat = g.batters ? battersTable(g.teams.home.abbr, g.batters.home) : '';
+      const ls = g.linescore ? linescoreTable(g) : '';
+      return `
+        <details class="boxscore">
+          <summary>Box score</summary>
+          <div class="boxwrap">
+            ${ls}
+            ${awayBat}
+            ${homeBat}
+          </div>
+        </details>
+      `;
+    }
+
+    // Card builder
     function card(g){
       const a = g.teams.away, h = g.teams.home;
       const headerLeft = `<div class="when">${g.venue||''}</div>`;
@@ -340,11 +344,50 @@
           ${g.status==='scheduled' ? teamRowScheduled('away', a) : g.status==='in_progress' ? teamRowLive('away', a, g) : teamRowFinal('away', a)}
           ${g.status==='scheduled' ? teamRowScheduled('home', h) : g.status==='in_progress' ? teamRowLive('home', h, g) : teamRowFinal('home', h)}
         </div>
-        ${ lastPlayHTML(g) }
+        ${ g.status==='in_progress' ? lastPlayHTML(g) : '' }
         ${ g.status==='scheduled' ? lineupDetails(g) : '' }
-        ${ (g.status!=='scheduled' ? boxTable(g) : '') }
+        ${ (g.status!=='scheduled') ? boxscoreDropdown(g) : '' }
       `;
       return el;
+    }
+
+    // Scheduled lineups dropdown (unchanged)
+    function lineupDetails(g){
+      const lu = g.lineups || {};
+      const away = Array.isArray(lu.away) ? lu.away : [];
+      const home = Array.isArray(lu.home) ? lu.home : [];
+      const last = full => {
+        const s = (full || '').trim();
+        if (!s) return '';
+        const parts = s.split(/\s+/);
+        return parts[parts.length-1];
+      };
+      const list = arr => {
+        if (!(arr && arr.length)) return `<div>Lineup not yet available.</div>`;
+        return `<div class="list">${
+          arr.slice(0,9).map(x => `
+            <div class="entry">
+              <span class="pos">${(x.pos||'').toUpperCase()}</span>
+              <span class="name">${last(x.name)}</span>
+              <span class="trip">${x.trip ? x.trip : ''}</span>
+            </div>
+          `).join('')
+        }</div>`;
+      };
+      return `
+        <details class="lineups">
+          <summary>Lineups</summary>
+          <div class="lineup-flex">
+            <div class="lineup">
+              <h4>${g.teams.away.abbr}</h4>
+              ${list(away)}
+            </div>
+            <div class="lineup">
+              <h4>${g.teams.home.abbr}</h4>
+              ${list(home)}
+            </div>
+          </div>
+        </details>`;
     }
 
     function render(data){
@@ -388,7 +431,6 @@
           setDebugUrl($dbgUrlLocal, '—');
           return;
         }
-        // Fallback: try local date (in case ET date mismatch)
         const d = state.date;
         const localStr = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
         const fallbackUrl = '/api/games?date=' + localStr;
