@@ -338,7 +338,8 @@ def play_to_token(play):
         if chain: return f"{prefix}{chain}"
         m2 = re.search(r"\bto ([a-z ]+?)(?:$|,|\.|\s)", desc.lower())
         if m2 and m2.group(1).strip() in WORD_TO_NUM:
-            return f"{prefix}{WORD_TO_NUM[m2.group(1).strip())}"
+            # FIXED BRACKET HERE
+            return f"{prefix}{WORD_TO_NUM[m2.group(1).strip()]}"
         return prefix
     m = PAREN_CODE_RE.search(desc)
     if m: return m.group(1)
