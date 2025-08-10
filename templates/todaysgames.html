@@ -137,6 +137,15 @@
     .wp-labels{ display:flex; justify-content:space-between; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:9px; color:#5b6577; margin-top:2px; }
     .wp-labels strong{ color:#111318; }
 
+
+    /* score summary dropdown */
+    details.scoresum{ padding:8px 12px 12px 12px; border-top:1px solid var(--border); background:#fff; }
+    details.scoresum summary{ cursor:pointer; font-weight:700; color:#32425c; margin:4px 0 8px; font-size:12px; }
+    .scoresum table{ width:100%; border-collapse:collapse; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11px; }
+    .scoresum thead th{ color:#5b6577; font-weight:700; border-bottom:1px solid var(--border); padding:6px; text-align:left; }
+    .scoresum tbody td{ border-bottom:1px solid var(--border); padding:6px; color:#394150; }
+    .scoresum .num{ text-align:center; }
+
 </style>
 </head>
 <body>
@@ -367,6 +376,28 @@
         </div>`;
     }
 
+    
+    function scoreSummaryDropdown(g){
+      const sc = g.scoring || {};
+      const plays = sc.plays || [];
+      const a = sc.awayAbbr || (g.teams && g.teams.away && g.teams.away.abbr) || 'AWY';
+      const h = sc.homeAbbr || (g.teams && g.teams.home && g.teams.home.abbr) || 'HME';
+      const head = `<thead><tr><th>Inning</th><th>Play</th><th class="num">${a}</th><th class="num">${h}</th></tr></thead>`;
+      const body = plays.length ?
+        `<tbody>${plays.map(p => `<tr><td>${p.inning||''}</td><td>${p.play||''}</td><td class="num">${(p.away??'')}</td><td class="num">${(p.home??'')}</td></tr>`).join('')}</tbody>`
+        : `<tbody><tr><td colspan="4" style="color:#5b6577">No scoring plays yet.</td></tr></tbody>`;
+      return `
+        <details class="scoresum" open>
+          <summary>Score Summary</summary>
+          <div class="box">
+            <table>
+              ${head}
+              ${body}
+            </table>
+          </div>
+        </details>`;
+    }
+
     function boxscoreDropdown(g){
       if (!g.linescore && !g.batters && !g.pitchers) return '';
       const awayBat = g.batters ? battersTable(g.teams.away.abbr, g.batters.away) : '';
@@ -481,6 +512,7 @@
         </div>
         ${ g.status==='in_progress' ? lastPlayHTML(g) : '' }
         ${ g.status==='in_progress' ? renderWinProb(g) : '' }
+        ${ scoreSummaryDropdown(g) }
         ${ g.status==='scheduled' ? lineupDetails(g) : '' }
         ${ (g.status!=='scheduled') ? boxscoreDropdown(g) : '' }
       `;

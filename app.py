@@ -365,6 +365,37 @@ def extract_statcast_line(live):
             if s: parts.append(f"xBA: {s}")
     return " • ".join(parts)
 
+def extract_scoring_summary(live):
+    """
+    Build a list of scoring plays with inning/half, description, and score after the play.
+    Returns: [{"inning":"Top 3","play":"...", "away":3, "home":1}, ...]
+    """
+    ld = (live.get("liveData") or {})
+    plays = (ld.get("plays") or {})
+    allp = plays.get("allPlays") or []
+    scoring = plays.get("scoringPlays") or []
+    out = []
+    # Build a safe lookup from atBatIndex to play
+    by_index = {}
+    for p in allp:
+        abi = (p.get("about") or {}).get("atBatIndex")
+        if abi is not None:
+            by_index[abi] = p
+    for idx in scoring:
+        p = allp[idx] if isinstance(idx, int) and 0 <= idx < len(allp) else by_index.get(idx, {})
+        if not p:
+            continue
+        about = p.get("about") or {}
+        inn = about.get("inning")
+        top = about.get("isTopInning")
+        half = "Top" if top else "Bot"
+        desc = (p.get("result") or {}).get("description") or ""
+        res = p.get("result") or {}
+        a = res.get("awayScore")
+        h = res.get("homeScore")
+        out.append({"inning": f"{half} {inn}" if inn else half, "play": desc, "away": a, "home": h})
+    return out
+
 # ---- Plate appearance tokens for current batter line ----
 PAREN_CODE_RE = re.compile(r"\(([1-9](?:-[1-9]){0,3})\)")
 def out_air_prefix(event_type):
@@ -767,6 +798,13 @@ def shape_game(live, season, records=None):
         }
     }
 
+
+    # scoring summary (for Score Summary dropdown)
+    try:
+        scoring = extract_scoring_summary(live)
+    except Exception:
+        scoring = []
+    game["scoring"] = {"awayAbbr": game["teams"]["away"]["abbr"], "homeAbbr": game["teams"]["home"]["abbr"], "plays": scoring}
     # linescore columns
     if status == "in_progress":
         game["linescore"] = linescore_blob(ls, force_n=9)
