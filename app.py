@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request
 import requests, time, logging, re
 from datetime import datetime, timezone
 
+# --------- Setup ---------
 try:
     import pytz
     ET_TZ = pytz.timezone("America/New_York")
@@ -12,7 +13,7 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("basenerd")
 
-# --- MLB API ---
+# --------- Constants / API ---------
 STATS = "https://statsapi.mlb.com/api/v1"
 LIVE  = "https://statsapi.mlb.com/api/v1.1"
 SEASON = datetime.now(timezone.utc).year
@@ -26,18 +27,24 @@ DIVISION_NAME = {
     204: "National League East",
     205: "National League Central",
 }
+DIV_ORDER = {
+    "American League": ["American League East","American League Central","American League West"],
+    "National League": ["National League East","National League Central","National League West"],
+}
 TEAM_ABBR = {
     109:"ARI",144:"ATL",110:"BAL",111:"BOS",112:"CHC",145:"CHW",113:"CIN",114:"CLE",115:"COL",116:"DET",
     117:"HOU",118:"KCR",108:"LAA",119:"LAD",146:"MIA",158:"MIL",142:"MIN",121:"NYM",147:"NYY",133:"OAK",
     143:"PHI",134:"PIT",135:"SDP",136:"SEA",137:"SFG",138:"STL",139:"TBR",140:"TEX",141:"TOR",120:"WSH"
 }
 
-_PITCHER_CACHE = {}   # id -> season stats/handedness cache
-_CACHE = {}           # date -> games payload cache
+# simple caches
+_PITCHER_CACHE = {}   # personId -> {ts, data}
+_CACHE = {}           # key -> {ts, ttl, data}
 
-# ---------------- Utilities ----------------
+# --------- HTTP / Time helpers ---------
 def http_json(url, params=None, timeout=20):
-    r = requests.get(url, params=params or {}, timeout=timeout, headers={"User-Agent":"basenerd/1.0"})
+    r = requests.get(url, params=params or {}, timeout=timeout,
+                     headers={"User-Agent":"basenerd/1.0"})
     r.raise_for_status()
     return r.json()
 
@@ -55,7 +62,17 @@ def to_et(iso_z):
     except Exception:
         return ""
 
-# ---------------- Standings ----------------
+def cache_get(key):
+    x = _CACHE.get(key)
+    if not x: return None
+    if time.time() - x["ts"] > x["ttl"]:
+        return None
+    return x["data"]
+
+def cache_set(key, data, ttl):
+    _CACHE[key] = {"ts": time.time(), "ttl": ttl, "data": data}
+
+# --------- Standings helpers ---------
 def normalize_pct(pct_str):
     if pct_str in (None, ""): return 0.0
     try:
@@ -82,9 +99,9 @@ def hardcoded_abbr(team: dict) -> str:
     return (name[:3] or "TBD").upper()
 
 def fetch_standings_safe():
-    """Always return (records, error_str). Never raise."""
     try:
-        data = http_json(f"{STATS}/standings", {"leagueId":"103,104","season":str(SEASON),"standingsTypes":"byDivision"})
+        data = http_json(f"{STATS}/standings", {
+            "leagueId":"103,104","season":str(SEASON),"standingsTypes":"byDivision"})
         recs = data.get("records") or []
         if recs:
             return recs, None
@@ -96,9 +113,9 @@ def fetch_standings_safe():
 
 def simplify_standings(records):
     """
-    -> {"National League":[{"division": "...", "rows":[...]}],
-        "American League":[...]}
-    Rows include: team_name, team_abbr, team_id, w, l, pct, gb, streak, last10, runDiff
+    Division view dict:
+      {"League":[{"division": "...", "rows":[...]}], ...}
+    rows: team_name, team_abbr, team_id, division, w, l, pct, gb, streak, last10, runDiff
     """
     leagues = {"National League": [], "American League": []}
     for block in (records or []):
@@ -117,10 +134,11 @@ def simplify_standings(records):
                     "team_name": team.get("name", "Team"),
                     "team_abbr": hardcoded_abbr(team),
                     "team_id": team.get("id"),
+                    "division": division_name,
                     "w": tr.get("wins", 0),
                     "l": tr.get("losses", 0),
                     "pct": normalize_pct(tr.get("winningPercentage")),
-                    "gb": tr.get("gamesBack") if tr.get("gamesBack") not in (None, "", "0.0", "0", 0) else "—",
+                    "gb": tr.get("gamesBack"),
                     "streak": (tr.get("streak") or {}).get("streakCode", "") or "",
                     "last10": get_last10(tr),
                     "runDiff": tr.get("runDifferential", 0),
@@ -131,11 +149,82 @@ def simplify_standings(records):
         except Exception as ie:
             log.warning("simplify_standings block skipped: %s", ie)
             continue
-    leagues.setdefault("National League", [])
-    leagues.setdefault("American League", [])
+
+    # sort divisions in logical order
+    for lg in leagues:
+        div_order = DIV_ORDER.get(lg)
+        if div_order:
+            leagues[lg].sort(key=lambda d: div_order.index(d["division"]) if d["division"] in div_order else 99)
     return leagues
 
-# ---------------- Schedule / Live ----------------
+def wildcard_from_division(div_data):
+    """
+    Wild Card view per league:
+    {
+      "American League": {
+        "leaders":[{... with division_tag E/C/W} x3],
+        "rows":[{... , wc_rank, wc_gb, badge 'WC1/2/3' or ''}]
+      },
+      "National League": { ... }
+    }
+    """
+    out = {"American League": {"leaders": [], "rows": []},
+           "National League": {"leaders": [], "rows": []}}
+
+    tag_map = {"East":"E", "Central":"C", "West":"W"}
+
+    for league in ("American League","National League"):
+        blocks = div_data.get(league, [])
+        if not blocks:
+            continue
+
+        leaders, pool = [], []
+        for block in blocks:
+            div_name = block["division"]
+            div_rows = list(block["rows"])
+            div_rows.sort(key=lambda r: (r["pct"], r["runDiff"]), reverse=True)
+            if div_rows:
+                top = div_rows[0].copy()
+                short = next((v for k,v in tag_map.items() if k in div_name), "")
+                top["division_tag"] = short
+                leaders.append(top)
+                for r in div_rows[1:]:
+                    pool.append(r.copy())
+
+        leaders.sort(key=lambda r: (r["pct"], r["runDiff"]), reverse=True)
+        pool.sort(key=lambda r: (r["pct"], r["runDiff"]), reverse=True)
+
+        wc_rows = []
+        wc3_ref = None
+        for i, r in enumerate(pool):
+            row = r.copy()
+            row["wc_rank"] = i + 1
+            row["badge"] = f"WC{i+1}" if i < 3 else ""
+            wc_rows.append(row)
+        if len(wc_rows) >= 3:
+            wc3_ref = wc_rows[2]
+
+        def wc_gb_str(row, ref):
+            if not ref:
+                return "—" if row.get("wc_rank", 99) <= 3 else ""
+            if row.get("wc_rank", 99) <= 3:
+                return "—"
+            try:
+                w, l = int(row["w"]), int(row["l"])
+                rw, rl = int(ref["w"]), int(ref["l"])
+                gb = ((rw - w) + (l - rl)) / 2.0
+                s = f"{gb:.1f}"
+                return s[:-2] if s.endswith(".0") else s
+            except Exception:
+                return ""
+
+        for row in wc_rows:
+            row["wc_gb"] = wc_gb_str(row, wc3_ref)
+
+        out[league] = {"leaders": leaders, "rows": wc_rows}
+    return out
+
+# --------- Today’s Games helpers ----------
 def fetch_schedule(date_str):
     js = http_json(f"{STATS}/schedule", {"sportId": 1, "date": date_str})
     dates = js.get("dates") or []
@@ -203,20 +292,16 @@ def linescore_blob(ls, force_n=None):
         home_by += [""] * (force_n - n)
         n = force_n
     totals = {
-        "away": {
-            "R": (ls.get("teams", {}).get("away", {}) or {}).get("runs"),
-            "H": (ls.get("teams", {}).get("away", {}) or {}).get("hits"),
-            "E": (ls.get("teams", {}).get("away", {}) or {}).get("errors"),
-        },
-        "home": {
-            "R": (ls.get("teams", {}).get("home", {}) or {}).get("runs"),
-            "H": (ls.get("teams", {}).get("home", {}) or {}).get("hits"),
-            "E": (ls.get("teams", {}).get("home", {}) or {}).get("errors"),
-        }
+        "away": {"R": (ls.get("teams", {}).get("away", {}) or {}).get("runs"),
+                 "H": (ls.get("teams", {}).get("away", {}) or {}).get("hits"),
+                 "E": (ls.get("teams", {}).get("away", {}) or {}).get("errors")},
+        "home": {"R": (ls.get("teams", {}).get("home", {}) or {}).get("runs"),
+                 "H": (ls.get("teams", {}).get("home", {}) or {}).get("hits"),
+                 "E": (ls.get("teams", {}).get("home", {}) or {}).get("errors")}
     }
     return {"n": max(n, force_n or 0), "away": away_by, "home": home_by, "totals": totals}
 
-# ---------------- Last Play + Statcast ----------------
+# ---- latest play + Statcast (sync to true last play) ----
 def latest_play_from_feed(live):
     ld = live.get("liveData", {}) or {}
     plays = ld.get("plays", {}) or {}
@@ -255,14 +340,9 @@ def extract_statcast_line(live):
     hd = _find_latest_hitdata_from_play(play)
     if not hd:
         return ""
-    ev = hd.get("launchSpeed")
-    la = hd.get("launchAngle")
-    dist = hd.get("totalDistance")
-    xba = (hd.get("estimatedBA")
-           or hd.get("estimatedBa")
-           or hd.get("estimatedBattingAverage")
-           or hd.get("xba")
-           or hd.get("expectedBattingAverage"))
+    ev = hd.get("launchSpeed"); la = hd.get("launchAngle"); dist = hd.get("totalDistance")
+    xba = (hd.get("estimatedBA") or hd.get("estimatedBa") or hd.get("estimatedBattingAverage")
+           or hd.get("xba") or hd.get("expectedBattingAverage"))
     parts = []
     if ev is not None:
         try: parts.append(f"EV: {float(ev):.1f} MPH")
@@ -274,8 +354,7 @@ def extract_statcast_line(live):
         try:
             dval = float(dist)
             parts.append(f"Dist: {int(dval) if abs(dval-int(dval))<1e-9 else round(dval):d}ft")
-        except:
-            pass
+        except: pass
     if xba is not None:
         try:
             x = float(xba)
@@ -283,11 +362,10 @@ def extract_statcast_line(live):
             parts.append(f"xBA: {x:.3f}".replace("0.", "."))
         except:
             s = str(xba).strip()
-            if s:
-                parts.append(f"xBA: {s}")
+            if s: parts.append(f"xBA: {s}")
     return " • ".join(parts)
 
-# ---------------- Plate appearance tokens ----------------
+# ---- Plate appearance tokens for current batter line ----
 PAREN_CODE_RE = re.compile(r"\(([1-9](?:-[1-9]){0,3})\)")
 def out_air_prefix(event_type):
     et = (event_type or "").lower()
@@ -376,7 +454,7 @@ def batter_outcomes(live, batter_id):
         if token: tokens.append(token)
     return ", ".join(tokens)
 
-# ---------------- Box score extraction ----------------
+# ---- Box score extraction ----
 def _name(person):
     return (person or {}).get("fullName") or ""
 
@@ -471,7 +549,7 @@ def extract_pitching_box(box, side):
         })
     return rows
 
-# ---------------- Build game state ----------------
+# ---- Build game state ----
 def team_last_pitcher_line(box, side):
     t = (box.get("teams", {}) or {}).get(side, {}) or {}
     pitchers = t.get("pitchers") or []
@@ -487,8 +565,7 @@ def team_last_pitcher_line(box, side):
 def fmt_avg(v):
     if v in (None, "", "-"): return ""
     try:
-        x = float(v)
-        return f"{x:.3f}".replace("0.", ".")
+        x = float(v); return f"{x:.3f}".replace("0.", ".")
     except Exception:
         s = str(v).strip()
         return s.replace("0.", ".") if s.startswith("0.") else s
@@ -504,7 +581,7 @@ def extract_pregame_lineups(live):
         for pid in order:
             pl = players.get(f"ID{pid}", {})
             pos = ((pl.get("position") or {}).get("abbreviation") or "").upper()
-            if pos == "P":  # omit pitcher from lineup list
+            if pos == "P":
                 continue
             person = pl.get("person") or {}
             season_bat = (pl.get("seasonStats") or {}).get("batting") or {}
@@ -514,7 +591,14 @@ def extract_pregame_lineups(live):
             hr  = season_bat.get("homeRuns") or season_bat.get("hr") or 0
             rbi = season_bat.get("rbi") or season_bat.get("runsBattedIn") or 0
             trip = f"| {avg if avg else ''}/{hr}/{rbi}"
-            lineup.append({"pos": pos, "name": (person.get("fullName") or ""), "trip": trip})
+            # name as "K. Stowers" style (first initial + last)
+            nm = (person.get("fullName") or "")
+            parts = nm.split()
+            if parts:
+                nm_fmt = f"{parts[0][0]}." + (" " + parts[-1] if len(parts) > 1 else "")
+            else:
+                nm_fmt = nm
+            lineup.append({"pos": pos, "name": nm_fmt, "trip": trip})
         if lineup:
             res[side] = lineup[:9]
     return res
@@ -728,7 +812,7 @@ def shape_game(live, season, records=None):
                 if lp:
                     game["teams"][next_pitch_side]["breakPitcher"] = lp
 
-    # final: decisions + possible save
+    # final: decisions + save with total saves
     if status == "final":
         box = state["box"]
         decisions = live.get("liveData", {}).get("decisions", {}) or {}
@@ -790,18 +874,7 @@ def shape_game(live, season, records=None):
 
     return game
 
-# ---------------- Cache helpers ----------------
-def cache_get(key):
-    x = _CACHE.get(key)
-    if not x: return None
-    if time.time() - x["ts"] > x["ttl"]:
-        return None
-    return x["data"]
-
-def cache_set(key, data, ttl):
-    _CACHE[key] = {"ts": time.time(), "ttl": ttl, "data": data}
-
-# ---------------- Routes ----------------
+# --------- Routes ---------
 @app.route("/")
 def home_page():
     return render_template("index.html")
@@ -809,22 +882,15 @@ def home_page():
 @app.route("/standings")
 def standings_page():
     recs, err = fetch_standings_safe()
-    data = simplify_standings(recs)
-    try:
-        data.setdefault("National League", [])
-        data.setdefault("American League", [])
-        return render_template("standings.html", data=data, season=SEASON, error=err)
-    except Exception as e:
-        log.exception("standings render failed")
-        return (
-            "<!doctype html><meta charset='utf-8'>"
-            "<style>body{font-family:system-ui,Arial;margin:20px;color:#111}</style>"
-            "<h1>Standings</h1>"
-            f"<p style='color:#b3261e'>Could not render standings template: {e}</p>"
-            f"<pre style='white-space:pre-wrap;background:#f8f8f8;border:1px solid #eee;padding:10px'>error={err}</pre>",
-            200,
-            {"Content-Type":"text/html; charset=utf-8"}
-        )
+    data_division = simplify_standings(recs)
+    data_wildcard = wildcard_from_division(data_division)
+    return render_template(
+        "standings.html",
+        data_division=data_division,
+        data_wildcard=data_wildcard,
+        season=SEASON,
+        error=err
+    )
 
 @app.route("/debug/standings.json")
 def debug_standings():
@@ -853,7 +919,7 @@ def api_games():
         cache_set(date_str, data, 30)
         return jsonify(data), 200
 
-    # Map records from schedule by gamePk
+    # records map
     record_map = {}
     for g in schedule:
         pk = g.get("gamePk")
