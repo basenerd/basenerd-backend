@@ -30,9 +30,27 @@ def make_session():
 
 SESSION = make_session()
 
-# ------------- Constants / caches -------------
+# ------------- MLB API constants / caches -------------
 STATS = "https://statsapi.mlb.com/api/v1"
 LIVE  = "https://statsapi.mlb.com/api/v1.1"
+
+# Standings config
+SEASON = datetime.utcnow().year
+STANDINGS_URL = f"{STATS}/standings"
+LEAGUE_NAME = {103: "American League", 104: "National League"}
+DIVISION_NAME = {
+    200: "American League West",
+    201: "American League East",
+    202: "American League Central",
+    203: "National League West",
+    204: "National League East",
+    205: "National League Central",
+}
+TEAM_ABBR = {
+    109:"ARI",144:"ATL",110:"BAL",111:"BOS",112:"CHC",145:"CHW",113:"CIN",114:"CLE",115:"COL",116:"DET",
+    117:"HOU",118:"KCR",108:"LAA",119:"LAD",146:"MIA",158:"MIL",142:"MIN",121:"NYM",147:"NYY",133:"OAK",
+    143:"PHI",134:"PIT",135:"SDP",136:"SEA",137:"SFG",138:"STL",139:"TBR",140:"TEX",141:"TOR",120:"WSH"
+}
 
 _PITCHER_CACHE = {}   # id -> cached person stats (for probables/saves W-L/ERA/handedness)
 _CACHE = {}           # date -> cached games payload
@@ -52,31 +70,87 @@ def to_et(iso_z):
     except Exception:
         return ""
 
-def fmt_avg(v):
-    if v in (None, "", "-"):
-        return ""
-    try:
-        x = float(v)
-        return f"{x:.3f}".replace("0.", ".")
-    except Exception:
-        s = str(v).strip()
-        if s.startswith("0."):
-            return s.replace("0.", ".")
-        return s
-
 def fetch_json(url, params=None, timeout=20):
     r = SESSION.get(url, params=params or {}, timeout=timeout)
     r.raise_for_status()
     return r.json()
 
+# ---------- Standings helpers ----------
+def normalize_pct(pct_str):
+    if pct_str in (None, ""):
+        return 0.0
+    try:
+        s = str(pct_str).strip()
+        return float("0" + s) if s.startswith(".") else float(s)
+    except Exception:
+        return 0.0
+
+def get_last10(tr: dict) -> str:
+    recs = (tr.get("records") or {}).get("splitRecords") or []
+    for rec in recs:
+        if rec.get("type") == "lastTen":
+            return f"{rec.get('wins', 0)}-{rec.get('losses', 0)}"
+    return ""
+
+def hardcoded_abbr(team: dict) -> str:
+    tid = team.get("id")
+    if tid in TEAM_ABBR:
+        return TEAM_ABBR[tid]
+    name = (team.get("name") or "").replace(" ", "")
+    return (name[:3] or "TBD").upper()
+
+def fetch_standings():
+    params = {"leagueId":"103,104","season":str(SEASON),"standingsTypes":"byDivision"}
+    data = fetch_json(STANDINGS_URL, params)
+    recs = data.get("records") or []
+    if recs:
+        return recs
+    # fallback if API omits standingsTypes
+    data2 = fetch_json(STANDINGS_URL, {"leagueId":"103,104","season":str(SEASON)})
+    return data2.get("records") or []
+
+def simplify_standings(records):
+    leagues = {"National League": [], "American League": []}
+    for block in (records or []):
+        league_obj = block.get("league") or {}
+        division_obj = block.get("division") or {}
+        league_id = league_obj.get("id")
+        division_id = division_obj.get("id")
+
+        league_name = LEAGUE_NAME.get(league_id, league_obj.get("name") or "League")
+        division_name = DIVISION_NAME.get(division_id, division_obj.get("name") or "Division")
+
+        rows = []
+        for tr in (block.get("teamRecords") or []):
+            team = tr.get("team", {}) or {}
+            rows.append({
+                "team_name": team.get("name", "Team"),
+                "team_abbr": hardcoded_abbr(team),
+                "team_id": team.get("id"),
+                "w": tr.get("wins"),
+                "l": tr.get("losses"),
+                "pct": normalize_pct(tr.get("winningPercentage")),
+                "gb": tr.get("gamesBack"),
+                "streak": (tr.get("streak") or {}).get("streakCode", ""),
+                "last10": get_last10(tr),
+                "runDiff": tr.get("runDifferential"),
+            })
+
+        target = "National League"
+        if league_name in leagues:
+            target = league_name
+        elif league_id == 103:
+            target = "American League"
+        elif league_id == 104:
+            target = "National League"
+        leagues[target].append({"division": division_name, "rows": rows})
+    return leagues
+
+# ---------- Schedule / Live helpers ----------
 def fetch_schedule(date_str):
-    url = f"{STATS}/schedule"
-    params = {"sportId": 1, "date": date_str}
-    js = fetch_json(url, params)
+    js = fetch_json(f"{STATS}/schedule", {"sportId": 1, "date": date_str})
     dates = js.get("dates") or []
-    if dates:
-        return dates[0].get("games", [])
-    return []
+    return dates[0].get("games", []) if dates else []
 
 def fetch_live(game_pk):
     return fetch_json(f"{LIVE}/game/{game_pk}/feed/live")
@@ -86,9 +160,7 @@ def fetch_pitcher_stats(pid, season):
     c = _PITCHER_CACHE.get(pid)
     if c and now - c["ts"] < 6*3600:
         return c["data"]
-    url = f"{STATS}/people/{pid}"
-    params = {"hydrate": f"stats(group=pitching,type=season,season={season})"}
-    data = fetch_json(url, params).get("people", [{}])[0]
+    data = fetch_json(f"{STATS}/people/{pid}", {"hydrate": f"stats(group=pitching,type=season,season={season})"}).get("people", [{}])[0]
     _PITCHER_CACHE[pid] = {"ts": now, "data": data}
     return data
 
@@ -227,24 +299,19 @@ def extract_statcast_line(live):
                 parts.append(f"xBA: {s}")
     return " • ".join(parts)
 
-# ----- Scoring notation for live hitter outcomes -----
+# ----- Plate appearance notation -----
 PAREN_CODE_RE = re.compile(r"\(([1-9](?:-[1-9]){0,3})\)")
-
 def out_air_prefix(event_type):
     et = (event_type or "").lower()
-    if "pop" in et:
-        return "P"
-    if "line" in et:
-        return "L"
+    if "pop" in et: return "P"
+    if "line" in et: return "L"
     return "F"
-
 ABBREV_TO_NUM = {"P":1,"C":2,"1B":3,"2B":4,"3B":5,"SS":6,"LF":7,"CF":8,"RF":9}
 WORD_TO_NUM = {
     "pitcher":1,"catcher":2,"first baseman":3,"first base":3,"second baseman":4,"second base":4,
     "third baseman":5,"third base":5,"shortstop":6,"left fielder":7,"left field":7,
     "center fielder":8,"center field":8,"right fielder":9,"right field":9
 }
-
 def fielder_chain(play):
     credits = play.get("credits") or []
     assists = []; putouts = []
@@ -272,12 +339,10 @@ def fielder_chain(play):
     if m2 and m2.group(1).strip() in WORD_TO_NUM:
         return str(WORD_TO_NUM[m2.group(1).strip()])
     return ""
-
 def play_to_token(play):
     res = (play.get("result") or {})
     et = (res.get("eventType") or "").lower()
     desc = (res.get("description") or "")
-
     if et == "single": return "1B"
     if et == "double": return "2B"
     if et == "triple": return "3B"
@@ -286,45 +351,30 @@ def play_to_token(play):
     if et == "hit_by_pitch": return "HBP"
     if et == "catcher_interf": return "CI"
     if et in ("intent_walk", "intentional_walk"): return "BB"
-
     if et.startswith("strikeout"):
         return "K" if et != "strikeout_double_play" else "KDP"
-
     if et in ("sac_fly", "sac_fly_double_play"):
-        pos = fielder_chain(play)
-        return f"SF{pos}" if pos else "SF"
+        pos = fielder_chain(play); return f"SF{pos}" if pos else "SF"
     if et in ("sac_bunt", "sac_bunt_double_play"):
-        pos = fielder_chain(play)
-        return f"SH{pos}" if pos else "SH"
-
+        pos = fielder_chain(play); return f"SH{pos}" if pos else "SH"
     if "error" in et:
-        chain = fielder_chain(play)
-        return f"E{chain}" if chain else "E"
-
+        chain = fielder_chain(play); return f"E{chain}" if chain else "E"
     if "fielders_choice" in et:
-        chain = fielder_chain(play)
-        return f"FC{chain}" if chain else "FC"
-
-    if et in ("groundout", "force_out", "double_play", "triple_play", "grounded_into_double_play"):
-        chain = fielder_chain(play)
-        return chain or "GO"
-
-    if any(k in et for k in ("flyout", "lineout", "pop_out", "foul_popout")):
+        chain = fielder_chain(play); return f"FC{chain}" if chain else "FC"
+    if et in ("groundout","force_out","double_play","triple_play","grounded_into_double_play"):
+        chain = fielder_chain(play); return chain or "GO"
+    if any(k in et for k in ("flyout","lineout","pop_out","foul_popout")):
         prefix = out_air_prefix(et)
         chain = fielder_chain(play)
-        if chain:
-            return f"{prefix}{chain}"
+        if chain: return f"{prefix}{chain}"
         m2 = re.search(r"\bto ([a-z ]+?)(?:$|,|\.|\s)", desc.lower())
         if m2 and m2.group(1).strip() in WORD_TO_NUM:
             return f"{prefix}{WORD_TO_NUM[m2.group(1).strip()]}"
         return prefix
-
     m = PAREN_CODE_RE.search(desc)
-    if m:
-        return m.group(1)
+    if m: return m.group(1)
     evshort = (res.get("event") or "").upper().replace(" ", "_")
     return evshort[:6] if evshort else ""
-
 def batter_outcomes(live, batter_id):
     if not batter_id:
         return ""
@@ -345,11 +395,10 @@ def batter_outcomes(live, batter_id):
 
 # ----- Box score helpers -----
 def extract_batting_box(box, side):
-    """Return ordered batters with POS, name, AB,R,H,RBI,BB,K."""
     t = (box.get("teams", {}) or {}).get(side, {}) or {}
     order = t.get("battingOrder") or []
     players = t.get("players") or {}
-    starters = []
+    rows = []
     seen = set()
     def statline(pl):
         pos = ((pl.get("position") or {}).get("abbreviation") or "").upper()
@@ -371,19 +420,18 @@ def extract_batting_box(box, side):
         pl = players.get(key)
         if not pl:
             continue
-        starters.append(statline(pl))
+        rows.append(statline(pl))
         seen.add(key)
-    # include late subs/pinch hitters with batting stats
+    # include subs/pinch hitters with batting stats
     for key, pl in players.items():
         if key in seen:
             continue
         bat = (pl.get("stats") or {}).get("batting") or {}
         if any(bat.get(k) for k in ("atBats","hits","runs","rbi","runsBattedIn","baseOnBalls","strikeOuts")):
-            starters.append(statline(pl))
-    return starters
+            rows.append(statline(pl))
+    return rows
 
 def extract_pitching_box(box, side):
-    """Return pitchers with POS, name, IP,H,R,ER,BB,K,HR,P."""
     t = (box.get("teams", {}) or {}).get(side, {}) or {}
     pitchers = t.get("pitchers") or []
     players = t.get("players") or {}
@@ -408,7 +456,7 @@ def extract_pitching_box(box, side):
         })
     return rows
 
-# ------------- State builders -------------
+# ------------- State builders for games -------------
 def team_last_pitcher_line(box, side):
     t = (box.get("teams", {}) or {}).get(side, {}) or {}
     pitchers = t.get("pitchers") or []
@@ -422,6 +470,18 @@ def team_last_pitcher_line(box, side):
     if not name:
         return ""
     return f"P: {name} • IP {st.get('inningsPitched','-')} • P {st.get('numberOfPitches') or st.get('pitchesThrown') or '-'} • ER {st.get('earnedRuns',0)} • K {st.get('strikeOuts',0)} • BB {st.get('baseOnBalls',0)}"
+
+def fmt_avg(v):
+    if v in (None, "", "-"):
+        return ""
+    try:
+        x = float(v)
+        return f"{x:.3f}".replace("0.", ".")
+    except Exception:
+        s = str(v).strip()
+        if s.startswith("0."):
+            return s.replace("0.", ".")
+        return s
 
 def extract_pregame_lineups(live):
     box = (live.get("liveData") or {}).get("boxscore") or {}
@@ -631,7 +691,7 @@ def shape_game(live, season, records=None):
     else:
         game["linescore"] = None
 
-    # Totals at top level for scores
+    # Totals for scores
     if game["linescore"]:
         totals = game["linescore"]["totals"]
         game["teams"]["away"].update({"score": totals["away"]["R"], "hits": totals["away"]["H"], "errors": totals["away"]["E"]})
@@ -695,7 +755,7 @@ def shape_game(live, season, records=None):
             sv_num = save_obj.get("saves") or save_obj.get("saveNumber") or save_obj.get("save")
             if not sv_num and sv_id:
                 try:
-                    person = fetch_pitcher_stats(sv_id, season)
+                    person = fetch_pitcher_stats(sv_id, SEASON)
                     saves = None
                     for s in person.get("stats", []):
                         if s.get("group", {}).get("displayName") == "pitching":
@@ -710,7 +770,7 @@ def shape_game(live, season, records=None):
             if win_side and sv_name:
                 game["teams"][win_side]["savePitcher"] = f"SV: {sv_name} ({sv_num if sv_num is not None else '-'})"
 
-    # 🔹 Box scores (for live and final)
+    # Box scores (for live and final)
     if status in ("in_progress", "final"):
         box = state["box"]
         game["batters"] = {
@@ -739,18 +799,32 @@ def cache_set(key, data, ttl):
     _CACHE[key] = {"ts": time.time(), "ttl": ttl, "data": data}
 
 # ------------- Routes -------------
+@app.route("/")
+def home_page():
+    return render_template("index.html")
+
+@app.route("/standings")
+def standings_page():
+    # Build and pass standings data so the template renders without error
+    try:
+        recs = fetch_standings()
+        data = simplify_standings(recs)
+        if "National League" not in data: data["National League"] = []
+        if "American League" not in data: data["American League"] = []
+        return render_template("standings.html", data=data, season=SEASON)
+    except Exception as e:
+        log.exception("standings fetch failed")
+        safe = {"National League": [], "American League": []}
+        return render_template("standings.html", data=safe, season=SEASON, error=str(e)), 200
+
 @app.route("/todaysgames")
 def todays_games_page():
     return render_template("todaysgames.html")
 
 @app.route("/api/games")
 def api_games():
-    date_str = request.args.get("date")
-    season = request.args.get("season")
-    if not date_str:
-        date_str = datetime.utcnow().strftime("%Y-%m-%d")
-    if not season:
-        season = datetime.utcnow().year
+    date_str = request.args.get("date") or datetime.utcnow().strftime("%Y-%m-%d")
+    season = request.args.get("season") or SEASON
 
     cached = cache_get(date_str)
     if cached:
@@ -764,11 +838,6 @@ def api_games():
         data = {"date": date_str, "games": [], "error": msg}
         cache_set(date_str, data, 30)
         return jsonify(data), 502
-
-    if not schedule:
-        data = {"date": date_str, "games": [], "note": "mlb_schedule_empty"}
-        cache_set(date_str, data, 60)
-        return jsonify(data)
 
     record_map = {}
     for g in schedule:
@@ -800,19 +869,9 @@ def api_games():
     cache_set(date_str, payload, 15 if any_live else 300)
     return jsonify(payload)
 
-# ---- Other pages (keep working) ----
-@app.route("/standings")
-def standings_page():
-    return render_template("standings.html")
-
-@app.route("/")
-def home_page():
-    return render_template("index.html")
-
 @app.route("/ping")
 def ping():
     return "ok", 200
 
-# ------------- Entrypoint -------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
