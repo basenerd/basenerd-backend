@@ -146,6 +146,15 @@
     .scoresum tbody td{ border-bottom:1px solid var(--border); padding:6px; color:#394150; }
     .scoresum .num{ text-align:center; }
 
+
+    /* Score Summary dropdown */
+    details.scoresum{ padding:8px 12px; border-top:1px solid var(--border); background:#fff; }
+    details.scoresum summary{ cursor:pointer; font-weight:700; color:#32425c; margin:4px 0 8px; }
+    .scoresum .wrap{ max-height:220px; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+    .scoresum table{ border-collapse:collapse; width:100%; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11.5px; }
+    .scoresum thead th{ color:#5b6577; font-weight:700; border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; }
+    .scoresum tbody td{ border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; color:#394150; }
+    .scoresum td.play{ text-align:left; font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
 </style>
 </head>
 <body>
@@ -498,6 +507,32 @@
         </div>`;
     }
 
+    
+    function scoringSummaryDropdown(g){
+      const scor = Array.isArray(g.scoring) ? g.scoring : [];
+      const a = g.teams.away, h = g.teams.home;
+      const head = `<thead><tr><th>Inning</th><th class="play">Play</th><th>${a.abbr}</th><th>${h.abbr}</th></tr></thead>`;
+      let body = '';
+      if (scor.length){
+        body = scor.map(s => {
+          const inn = (s.inning!=null)? s.inning : '';
+          const play = (s.play||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          const away = (s.away!=null)? s.away : '';
+          const home = (s.home!=null)? s.home : '';
+          return `<tr><td>${inn}</td><td class="play">${play}</td><td>${away}</td><td>${home}</td></tr>`;
+        }).join('');
+      } else {
+        body = `<tr><td colspan="4" class="play">No scoring plays yet.</td></tr>`;
+      }
+      return `
+        <details class="scoresum">
+          <summary>Score Summary</summary>
+          <div class="wrap">
+            <table>${head}<tbody>${body}</tbody></table>
+          </div>
+        </details>`;
+    }
+
     function card(g){
       const a = g.teams.away, h = g.teams.home;
       const headerLeft = `<div class="when">${g.venue||''}</div>`;
@@ -514,6 +549,7 @@
         ${ g.status==='in_progress' ? renderWinProb(g) : '' }
         ${ scoreSummaryDropdown(g) }
         ${ g.status==='scheduled' ? lineupDetails(g) : '' }
+        ${ scoringSummaryDropdown(g) }
         ${ (g.status!=='scheduled') ? boxscoreDropdown(g) : '' }
       `;
       return el;
