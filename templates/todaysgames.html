@@ -52,6 +52,7 @@
     .right{ text-align:right; font-variant-numeric: tabular-nums; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
     .score{ font-weight:800; font-size:16px; }
 
+    /* diamond bases */
     .diamond{ position:relative; width:26px; height:26px; display:inline-block; margin-left:8px; }
     .diamond .base{ position:absolute; width:10px; height:10px; transform:rotate(45deg); border:1px solid var(--border); background:#fff; }
     .diamond .on{ background:#ffd147; border-color:#ffd147; }
@@ -80,23 +81,21 @@
     /* box score dropdown */
     details.boxscore{ padding:8px 12px 12px 12px; border-top:1px solid var(--border); background:#fff; }
     details.boxscore summary{ cursor:pointer; font-weight:700; color:#32425c; margin:4px 0 8px; }
-    .boxwrap{ display:grid; grid-template-columns:1fr; gap:12px; }
-    .box table{ border-collapse:collapse; width:100%; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11.5px; }
-    .box th, .box td{ padding:4px 6px; text-align:center; border-bottom:1px solid var(--border); }
-    .box thead th{ color:#5b6577; font-weight:600; }
-    .box .teamhdr{ text-align:left; font-weight:700; color:#394150; padding-top:6px; }
-    .batters{ overflow:auto; }
-    .batters table{ width:100%; }
-    .batters th:first-child, .batters td:first-child{ text-align:left; }
-    .batters .pos{ color:#8a94ab; font-weight:700; padding-right:6px; }
-    .batters .name{ text-align:left; }
 
-    /* debug (optional) */
-    details#debug { max-width:1200px; margin:0 auto 24px; padding:8px 12px; color:#32425c; }
-    details#debug summary{ cursor:pointer; font-weight:700; }
-    .debug-box{ border:1px dashed var(--border); border-radius:10px; padding:10px; background:#fff; margin-top:8px; font-size:12px; }
-    .debug-box code{ word-break:break-all; }
-    .debug-note{ color:#5b6577; margin-top:8px; }
+    .boxwrap{ display:grid; grid-template-columns:1fr; gap:12px; }
+
+    /* Shared table look (matching lineup vibe) */
+    .box table{ border-collapse:collapse; width:100%; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11.5px; }
+    .box thead th{ color:#5b6577; font-weight:700; border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; }
+    .box tbody td{ border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; color:#394150; }
+    .box .teamhdr{ text-align:left; font-weight:700; color:#394150; padding-top:2px; }
+
+    /* Keep first column (labels) visually aligned & centered too */
+    .box td.name, .box th.name { text-align:center; font-weight:600; color:#111318; }
+    .box td.pos, .box th.pos { color:#8a94ab; font-weight:700; text-transform:uppercase; }
+
+    .batters, .pitchers { overflow:auto; }
+    .batters table, .pitchers table { width:100%; }
   </style>
 </head>
 <body>
@@ -124,30 +123,12 @@
     <p class="when">Times shown Eastern Time • Source: MLB Stats API</p>
   </div>
 
-  <details id="debug">
-    <summary>Debug</summary>
-    <div class="debug-box">
-      <div>Primary (ET) API: <code id="dbgUrl">—</code></div>
-      <div>Fallback (Local) API: <code id="dbgUrlLocal">—</code></div>
-      <div>Result: <span id="dbgResult">—</span></div>
-      <div>Error: <span id="dbgError">—</span></div>
-      <div class="debug-note">
-        Tip: click the URL to open the JSON directly.
-      </div>
-    </div>
-  </details>
-
   <script>
     const $games = document.getElementById('games');
     const $empty = document.getElementById('empty');
     const $dateLabel = document.getElementById('dateLabel');
     const $updated = document.getElementById('updated');
     const $liveOnly = document.getElementById('liveOnly');
-
-    const $dbgUrl = document.getElementById('dbgUrl');
-    const $dbgUrlLocal = document.getElementById('dbgUrlLocal');
-    const $dbgResult = document.getElementById('dbgResult');
-    const $dbgError = document.getElementById('dbgError');
 
     // ET helpers
     const fmtET = new Intl.DateTimeFormat('en-US', {
@@ -259,7 +240,7 @@
       return `<div class="lastplay"><strong>Last Play:</strong> ${g.lastPlay}</div>${stat}`;
     }
 
-    // Inning-by-inning runs table (used inside dropdown now)
+    // Inning-by-inning runs table (now inside dropdown; no matchup header)
     function linescoreTable(g){
       const ls = g.linescore;
       if (!ls) return '';
@@ -270,18 +251,17 @@
       const aT = ls.totals.away, hT = ls.totals.home;
       return `
         <div class="box">
-          <div class="teamhdr">${g.teams.away.abbr} at ${g.teams.home.abbr}</div>
           <table>
-            <thead><tr><th></th>${headInnings}<th class="totals">R</th><th class="totals">H</th><th class="totals">E</th></tr></thead>
+            <thead><tr><th></th>${headInnings}<th>R</th><th>H</th><th>E</th></tr></thead>
             <tbody>
-              <tr><td class="team">${g.teams.away.abbr}</td>${aCells}<td class="totals">${aT.R ?? ''}</td><td class="totals">${aT.H ?? ''}</td><td class="totals">${aT.E ?? ''}</td></tr>
-              <tr><td class="team">${g.teams.home.abbr}</td>${hCells}<td class="totals">${hT.R ?? ''}</td><td class="totals">${hT.H ?? ''}</td><td class="totals">${hT.E ?? ''}</td></tr>
+              <tr><td class="name">${g.teams.away.abbr}</td>${aCells}<td>${aT.R ?? ''}</td><td>${aT.H ?? ''}</td><td>${aT.E ?? ''}</td></tr>
+              <tr><td class="name">${g.teams.home.abbr}</td>${hCells}<td>${hT.R ?? ''}</td><td>${hT.H ?? ''}</td><td>${hT.E ?? ''}</td></tr>
             </tbody>
           </table>
         </div>`;
     }
 
-    // Batting box score tables
+    // Batting box score table (centered columns, lineup styling)
     function battersTable(teamAbbr, rows){
       if (!rows || !rows.length) return `<div class="batters"><em>No batter stats yet.</em></div>`;
       const trs = rows.map(r => `
@@ -297,11 +277,11 @@
         </tr>
       `).join('');
       return `
-        <div class="batters">
-          <div class="teamhdr">${teamAbbr}</div>
+        <div class="batters box">
+          <div class="teamhdr">${teamAbbr} — Batting</div>
           <table>
             <thead>
-              <tr><th>POS</th><th style="text-align:left">Player</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th></tr>
+              <tr><th class="pos">POS</th><th class="name">Player</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th></tr>
             </thead>
             <tbody>${trs}</tbody>
           </table>
@@ -309,11 +289,43 @@
       `;
     }
 
-    // Box score dropdown content: linescore + both batting tables
+    // Pitching box score table
+    function pitchersTable(teamAbbr, rows){
+      if (!rows || !rows.length) return `<div class="pitchers"><em>No pitching stats yet.</em></div>`;
+      const trs = rows.map(r => `
+        <tr>
+          <td class="pos">${r.pos||'P'}</td>
+          <td class="name">${r.name||''}</td>
+          <td>${r.ip ?? ''}</td>
+          <td>${r.h ?? ''}</td>
+          <td>${r.r ?? ''}</td>
+          <td>${r.er ?? ''}</td>
+          <td>${r.bb ?? ''}</td>
+          <td>${r.k ?? ''}</td>
+          <td>${r.hr ?? ''}</td>
+          <td>${r.p ?? ''}</td>
+        </tr>
+      `).join('');
+      return `
+        <div class="pitchers box">
+          <div class="teamhdr">${teamAbbr} — Pitching</div>
+          <table>
+            <thead>
+              <tr><th class="pos">POS</th><th class="name">Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>HR</th><th>P</th></tr>
+            </thead>
+            <tbody>${trs}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // Box score dropdown content: linescore + batting + pitching
     function boxscoreDropdown(g){
-      if (!g.linescore && !g.batters) return '';
+      if (!g.linescore && !g.batters && !g.pitchers) return '';
       const awayBat = g.batters ? battersTable(g.teams.away.abbr, g.batters.away) : '';
       const homeBat = g.batters ? battersTable(g.teams.home.abbr, g.batters.home) : '';
+      const awayPit = g.pitchers ? pitchersTable(g.teams.away.abbr, g.pitchers.away) : '';
+      const homePit = g.pitchers ? pitchersTable(g.teams.home.abbr, g.pitchers.home) : '';
       const ls = g.linescore ? linescoreTable(g) : '';
       return `
         <details class="boxscore">
@@ -322,36 +334,14 @@
             ${ls}
             ${awayBat}
             ${homeBat}
+            ${awayPit}
+            ${homePit}
           </div>
         </details>
       `;
     }
 
-    // Card builder
-    function card(g){
-      const a = g.teams.away, h = g.teams.home;
-      const headerLeft = `<div class="when">${g.venue||''}</div>`;
-      const headerRight = g.status==='in_progress' ? `${chipFor(g)}${diamondHTML(g)}` : chipFor(g);
-
-      const el = document.createElement('article');
-      el.className = 'game';
-      el.innerHTML = `
-        <header>
-          ${headerLeft}
-          <div>${headerRight}</div>
-        </header>
-        <div class="rows">
-          ${g.status==='scheduled' ? teamRowScheduled('away', a) : g.status==='in_progress' ? teamRowLive('away', a, g) : teamRowFinal('away', a)}
-          ${g.status==='scheduled' ? teamRowScheduled('home', h) : g.status==='in_progress' ? teamRowLive('home', h, g) : teamRowFinal('home', h)}
-        </div>
-        ${ g.status==='in_progress' ? lastPlayHTML(g) : '' }
-        ${ g.status==='scheduled' ? lineupDetails(g) : '' }
-        ${ (g.status!=='scheduled') ? boxscoreDropdown(g) : '' }
-      `;
-      return el;
-    }
-
-    // Scheduled lineups dropdown (unchanged)
+    // Scheduled lineups dropdown (unchanged visuals)
     function lineupDetails(g){
       const lu = g.lineups || {};
       const away = Array.isArray(lu.away) ? lu.away : [];
@@ -390,6 +380,29 @@
         </details>`;
     }
 
+    function card(g){
+      const a = g.teams.away, h = g.teams.home;
+      const headerLeft = `<div class="when">${g.venue||''}</div>`;
+      const headerRight = g.status==='in_progress' ? `${chipFor(g)}${diamondHTML(g)}` : chipFor(g);
+
+      const el = document.createElement('article');
+      el.className = 'game';
+      el.innerHTML = `
+        <header>
+          ${headerLeft}
+          <div>${headerRight}</div>
+        </header>
+        <div class="rows">
+          ${g.status==='scheduled' ? teamRowScheduled('away', a) : g.status==='in_progress' ? teamRowLive('away', a, g) : teamRowFinal('away', a)}
+          ${g.status==='scheduled' ? teamRowScheduled('home', h) : g.status==='in_progress' ? teamRowLive('home', h, g) : teamRowFinal('home', h)}
+        </div>
+        ${ g.status==='in_progress' ? lastPlayHTML(g) : '' }
+        ${ g.status==='scheduled' ? lineupDetails(g) : '' }
+        ${ (g.status!=='scheduled') ? boxscoreDropdown(g) : '' }
+      `;
+      return el;
+    }
+
     function render(data){
       window.__last = data;
       const all = (data.games||[]);
@@ -398,7 +411,6 @@
       if (!filtered.length){
         $empty.style.display = 'block';
         $empty.textContent = $liveOnly.checked ? 'No live games right now.' : 'No games to show for this date.';
-        $dbgResult.textContent = `Games: ${(data.games||[]).length}`;
         return;
       }
       $empty.style.display = 'none';
@@ -406,42 +418,19 @@
       filtered.forEach(g => frag.appendChild(card(g)));
       $games.appendChild(frag);
       $updated.textContent = 'Updated: ' + new Date().toLocaleString();
-      $dbgResult.textContent = `Games: ${(data.games||[]).length}`;
-    }
-
-    function setDebugUrl(el, url){
-      el.textContent = url;
-      el.onclick = () => url && url !== '—' ? window.open(url, '_blank') : null;
-      el.style.cursor = url && url !== '—' ? 'pointer' : 'default';
-      el.style.textDecoration = url && url !== '—' ? 'underline' : 'none';
     }
 
     async function load(){
       if (state.timer) { clearTimeout(state.timer); state.timer = null; }
       const et = dateStrET(state.date);
-      const primaryUrl = '/api/games?date=' + et;
-      setDebugUrl($dbgUrl, location.origin + primaryUrl);
-      $dbgError.textContent = '—';
+      const url = '/api/games?date=' + et;
       try {
-        const data = await fetchJson(primaryUrl);
-        if ((data.games || []).length) {
-          render(data);
-          const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
-          if (anyLive) state.timer = setTimeout(load, 30000);
-          setDebugUrl($dbgUrlLocal, '—');
-          return;
-        }
-        const d = state.date;
-        const localStr = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
-        const fallbackUrl = '/api/games?date=' + localStr;
-        setDebugUrl($dbgUrlLocal, location.origin + fallbackUrl);
-        const dataLocal = await fetchJson(fallbackUrl);
-        render(dataLocal);
-        const anyLive2 = (dataLocal.games||[]).some(g => g.status === 'in_progress');
-        if (anyLive2) state.timer = setTimeout(load, 30000);
+        const data = await fetchJson(url);
+        render(data);
+        const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
+        if (anyLive) state.timer = setTimeout(load, 30000);
       } catch(e){
         $games.innerHTML = '<div class="empty">Error loading games.</div>';
-        $dbgError.textContent = e.message || String(e);
       }
     }
 

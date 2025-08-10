@@ -343,7 +343,7 @@ def batter_outcomes(live, batter_id):
             tokens.append(token)
     return ", ".join(tokens)
 
-# ----- Box score (batters) -----
+# ----- Box score helpers -----
 def extract_batting_box(box, side):
     """Return ordered batters with POS, name, AB,R,H,RBI,BB,K."""
     t = (box.get("teams", {}) or {}).get(side, {}) or {}
@@ -369,18 +369,44 @@ def extract_batting_box(box, side):
     for pid in order:
         key = f"ID{pid}"
         pl = players.get(key)
-        if not pl: 
+        if not pl:
             continue
         starters.append(statline(pl))
         seen.add(key)
-    # add any other batters who aren't in order (pinch hitters/late subs) but have batting stats
+    # include late subs/pinch hitters with batting stats
     for key, pl in players.items():
-        if key in seen: 
+        if key in seen:
             continue
         bat = (pl.get("stats") or {}).get("batting") or {}
         if any(bat.get(k) for k in ("atBats","hits","runs","rbi","runsBattedIn","baseOnBalls","strikeOuts")):
             starters.append(statline(pl))
     return starters
+
+def extract_pitching_box(box, side):
+    """Return pitchers with POS, name, IP,H,R,ER,BB,K,HR,P."""
+    t = (box.get("teams", {}) or {}).get(side, {}) or {}
+    pitchers = t.get("pitchers") or []
+    players = t.get("players") or {}
+    rows = []
+    for pid in pitchers:
+        pl = players.get(f"ID{pid}") or {}
+        pos = ((pl.get("position") or {}).get("abbreviation") or "P").upper()
+        person = pl.get("person") or {}
+        name = person.get("fullName") or ""
+        st = (pl.get("stats") or {}).get("pitching") or {}
+        rows.append({
+            "pos": pos,
+            "name": name,
+            "ip": st.get("inningsPitched", 0),
+            "h": st.get("hits", 0),
+            "r": st.get("runs", 0),
+            "er": st.get("earnedRuns", 0),
+            "bb": st.get("baseOnBalls", 0),
+            "k": st.get("strikeOuts", 0),
+            "hr": st.get("homeRuns", 0),
+            "p": st.get("numberOfPitches") or st.get("pitchesThrown") or 0
+        })
+    return rows
 
 # ------------- State builders -------------
 def team_last_pitcher_line(box, side):
@@ -684,15 +710,20 @@ def shape_game(live, season, records=None):
             if win_side and sv_name:
                 game["teams"][win_side]["savePitcher"] = f"SV: {sv_name} ({sv_num if sv_num is not None else '-'})"
 
-    # 🔹 Batting box score (for live and final)
+    # 🔹 Box scores (for live and final)
     if status in ("in_progress", "final"):
         box = state["box"]
         game["batters"] = {
             "away": extract_batting_box(box, "away"),
             "home": extract_batting_box(box, "home"),
         }
+        game["pitchers"] = {
+            "away": extract_pitching_box(box, "away"),
+            "home": extract_pitching_box(box, "home"),
+        }
     else:
         game["batters"] = None
+        game["pitchers"] = None
 
     return game
 
