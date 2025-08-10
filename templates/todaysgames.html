@@ -386,28 +386,7 @@
     }
 
     
-    function scoreSummaryDropdown(g){
-      const sc = g.scoring || {};
-      const plays = sc.plays || [];
-      const a = sc.awayAbbr || (g.teams && g.teams.away && g.teams.away.abbr) || 'AWY';
-      const h = sc.homeAbbr || (g.teams && g.teams.home && g.teams.home.abbr) || 'HME';
-      const head = `<thead><tr><th>Inning</th><th>Play</th><th class="num">${a}</th><th class="num">${h}</th></tr></thead>`;
-      const body = plays.length ?
-        `<tbody>${plays.map(p => `<tr><td>${p.inning||''}</td><td>${p.play||''}</td><td class="num">${(p.away??'')}</td><td class="num">${(p.home??'')}</td></tr>`).join('')}</tbody>`
-        : `<tbody><tr><td colspan="4" style="color:#5b6577">No scoring plays yet.</td></tr></tbody>`;
-      return `
-        <details class="scoresum" open>
-          <summary>Score Summary</summary>
-          <div class="box">
-            <table>
-              ${head}
-              ${body}
-            </table>
-          </div>
-        </details>`;
-    }
-
-    function boxscoreDropdown(g){
+        function boxscoreDropdown(g){
       if (!g.linescore && !g.batters && !g.pitchers) return '';
       const awayBat = g.batters ? battersTable(g.teams.away.abbr, g.batters.away) : '';
       const homeBat = g.batters ? battersTable(g.teams.home.abbr, g.batters.home) : '';
@@ -539,6 +518,31 @@
       const headerRight = g.status==='in_progress' ? `${chipFor(g)}${diamondHTML(g)}` : chipFor(g);
       const el = document.createElement('article');
       el.className = 'game';
+
+    // --- Score Summary fixups: ensure closed, dedupe, enforce scroll wrapper
+    function fixScoreSummary(cardEl){
+      const sums = cardEl.querySelectorAll('details.scoresum');
+      if (!sums || !sums.length) return;
+      sums.forEach((d,i) => {
+        d.removeAttribute('open'); // closed by default
+        // ensure wrapper exists & scrollable
+        let wrap = d.querySelector('.wrap');
+        if (!wrap){
+          wrap = document.createElement('div');
+          wrap.className = 'wrap';
+          const table = d.querySelector('table');
+          if (table){
+            d.appendChild(wrap);
+            wrap.appendChild(table);
+          }
+        }
+      });
+      if (sums.length > 1){
+        // keep the last one (rendered by current template), remove earlier duplicates
+        for (let i=0; i<sums.length-1; i++){ sums[i].remove(); }
+      }
+    }
+
       el.innerHTML = `
         <header>${headerLeft}<div>${headerRight}</div></header>
         <div class="rows">
@@ -547,11 +551,13 @@
         </div>
         ${ g.status==='in_progress' ? lastPlayHTML(g) : '' }
         ${ g.status==='in_progress' ? renderWinProb(g) : '' }
-        ${ scoreSummaryDropdown(g) }
+        
         ${ g.status==='scheduled' ? lineupDetails(g) : '' }
+        
         ${ scoringSummaryDropdown(g) }
         ${ (g.status!=='scheduled') ? boxscoreDropdown(g) : '' }
       `;
+      fixScoreSummary(el);
       return el;
     }
 
