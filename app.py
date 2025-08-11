@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request, redirect, url_for
+from flask import Flask, render_template, jsonify, request, redirect, url_for, abort
 import requests, time, logging, re
 from datetime import datetime, timezone
 
@@ -885,6 +885,46 @@ def shape_game(live, season, records=None):
     game["scoring"] = extract_scoring_summary(live)
     return game
 
+# ---------- Template header helper (NEW) ----------
+def build_template_game_header(game_pk):
+    """Fetch live feed and return a compact header dict for game.html."""
+    live = fetch_live(game_pk)
+    shaped = shape_game(live, SEASON)
+
+    gd = live.get("gameData", {}) or {}
+    teams = gd.get("teams", {}) or {}
+    home = teams.get("home", {}) or {}
+    away = teams.get("away", {}) or {}
+
+    home_name = home.get("name", "")
+    away_name = away.get("name", "")
+    home_abbr = hardcoded_abbr(home)
+    away_abbr = hardcoded_abbr(away)
+
+    # Build logo paths from your /static/logos/XXX.png convention
+    home_logo = url_for("static", filename=f"logos/{home_abbr}.png")
+    away_logo = url_for("static", filename=f"logos/{away_abbr}.png")
+
+    # Scores (may be None for scheduled)
+    home_score = (shaped.get("teams", {}).get("home", {}) or {}).get("score")
+    away_score = (shaped.get("teams", {}).get("away", {}) or {}).get("score")
+
+    status_text = shaped.get("chip", "")  # ET time for preview, inning chip for live, "Final" for final
+    venue_name = (gd.get("venue") or {}).get("name", "")
+
+    # Game datetime in ET for consistency with rest of site
+    game_dt_iso = (gd.get("datetime") or {}).get("dateTime") or ""
+    game_date = to_et(game_dt_iso)
+
+    return {
+        "id": shaped.get("gamePk") or game_pk,
+        "home": {"name": home_name, "abbr": home_abbr, "logo": home_logo, "score": home_score if home_score is not None else "-"},
+        "away": {"name": away_name, "abbr": away_abbr, "logo": away_logo, "score": away_score if away_score is not None else "-"},
+        "venue": venue_name,
+        "status": status_text,
+        "date": game_date
+    }
+
 # --------- Routes ---------
 @app.route("/")
 def home_page():
@@ -960,7 +1000,16 @@ def api_games():
 # ---- Game detail page + API ----
 @app.route("/game/<int:game_pk>")
 def game_page(game_pk):
-    return render_template("game.html", game_pk=game_pk)
+    """Render game.html with a populated 'game' header for the clicked game."""
+    try:
+        header = build_template_game_header(game_pk)
+        if not header:
+            abort(404)
+        return render_template("game.html", game=header, game_pk=game_pk)
+    except Exception as e:
+        log.exception("game_page header build failed for %s: %s", game_pk, e)
+        # still render page with game_pk so client JS can fetch /api/game/<pk> if needed
+        return render_template("game.html", game=None, game_pk=game_pk)
 
 @app.route("/api/game/<int:game_pk>")
 def api_game_detail(game_pk):
