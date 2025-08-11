@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template, jsonify, request, redirect, url_for, abort
 import requests, time, logging, re
 from datetime import datetime, timezone
@@ -672,7 +673,7 @@ def game_state_and_participants(live, include_records=None):
         outcomes = batter_outcomes(live, batter_id)
         line = (f"{h}-{ab}" if h is not None and ab is not None else "")
         suffix = f" • {outcomes}" if outcomes else ""
-        bat_line = {"name": (bat_obj.get("person") or {}).get("fullName"),
+        bat_line = {"name": (bat_obj.get("person") or {}).get("FullName") if (bat_obj.get("person") or {}).get("FullName") else (bat_obj.get("person") or {}).get("fullName"),
                     "line": (line + suffix).strip(),
                     "side": bat_side}
 
@@ -719,13 +720,11 @@ def game_state_and_participants(live, include_records=None):
 
 # ---- Scoring summary ----
 def extract_scoring_summary(live):
-    """Return list of scoring plays with Top/Bot inning label and score after play."""
     ld = (live.get("liveData") or {})
     plays = (ld.get("plays") or {})
     allp = plays.get("allPlays") or []
     scoring_idxs = plays.get("scoringPlays") or []
 
-    # map atBatIndex -> play
     by_idx = {}
     for p in allp:
         try:
@@ -851,20 +850,6 @@ def shape_game(live, season, records=None):
             sv_id = save_obj.get("id")
             sv_name = save_obj.get("fullName") or ""
             sv_num = save_obj.get("saves") or save_obj.get("saveNumber") or save_obj.get("save")
-            if not sv_num and sv_id:
-                try:
-                    person = fetch_pitcher_stats(sv_id, SEASON)
-                    saves = None
-                    for s in person.get("stats", []):
-                        if s.get("group", {}).get("displayName") == "pitching":
-                            splits = s.get("splits", [])
-                            if splits:
-                                saves = splits[0].get("stat", {}).get("saves")
-                            break
-                    if saves is not None:
-                        sv_num = saves
-                except Exception as ex:
-                    log.warning("save total lookup failed for %s: %s", sv_id, ex)
             if win_side and sv_name:
                 game["teams"][win_side]["savePitcher"] = f"SV: {sv_name} ({sv_num if sv_num is not None else '-'})"
 
@@ -885,9 +870,16 @@ def shape_game(live, season, records=None):
     game["scoring"] = extract_scoring_summary(live)
     return game
 
-# ---------- Template header helper (NEW) ----------
-def build_template_game_header(game_pk):
-    """Fetch live feed and return a compact header dict for game.html."""
+# ---------- Logo URL helper (uses MLB static CDN) ----------
+def mlb_logo_url(team_id: int, variant: str = "team-cap-on-dark") -> str:
+    """Return an SVG logo URL from MLB's static CDN for a given team ID.
+    Valid variants include 'team-cap-on-dark' and (often) 'team-primary-on-light'."""
+    if not team_id:
+        return ""
+    return f"https://www.mlbstatic.com/team-logos/{variant}/{team_id}.svg"
+
+# ---------- Template header builder ----------
+def build_template_game_header(game_pk: int):
     live = fetch_live(game_pk)
     shaped = shape_game(live, SEASON)
 
@@ -896,39 +888,39 @@ def build_template_game_header(game_pk):
     home = teams.get("home", {}) or {}
     away = teams.get("away", {}) or {}
 
-    home_name = home.get("name", "")
-    away_name = away.get("name", "")
-    home_abbr = hardcoded_abbr(home)
-    away_abbr = hardcoded_abbr(away)
+    home_id = home.get("id")
+    away_id = away.get("id")
 
-    # Build logo paths from your /static/logos/XXX.png convention
-    home_logo = url_for("static", filename=f"logos/{home_abbr}.png")
-    away_logo = url_for("static", filename=f"logos/{away_abbr}.png")
+    # Prefer cap logos that work well on light backgrounds; change variant if needed
+    home_logo = mlb_logo_url(home_id, variant="team-cap-on-dark")
+    away_logo = mlb_logo_url(away_id, variant="team-cap-on-dark")
 
-    # Scores (may be None for scheduled)
     home_score = (shaped.get("teams", {}).get("home", {}) or {}).get("score")
     away_score = (shaped.get("teams", {}).get("away", {}) or {}).get("score")
 
-    status_text = shaped.get("chip", "")  # ET time for preview, inning chip for live, "Final" for final
     venue_name = (gd.get("venue") or {}).get("name", "")
-
-    # Game datetime in ET for consistency with rest of site
     game_dt_iso = (gd.get("datetime") or {}).get("dateTime") or ""
-    game_date = to_et(game_dt_iso)
 
     return {
         "id": shaped.get("gamePk") or game_pk,
-        "home": {"name": home_name, "abbr": home_abbr, "logo": home_logo, "score": home_score if home_score is not None else "-"},
-        "away": {"name": away_name, "abbr": away_abbr, "logo": away_logo, "score": away_score if away_score is not None else "-"},
+        "home": {
+            "name": home.get("name",""),
+            "logo": home_logo,
+            "score": home_score if home_score is not None else "-",
+        },
+        "away": {
+            "name": away.get("name",""),
+            "logo": away_logo,
+            "score": away_score if away_score is not None else "-",
+        },
         "venue": venue_name,
-        "status": status_text,
-        "date": game_date
+        "status": shaped.get("chip",""),
+        "date": to_et(game_dt_iso),
     }
 
 # --------- Routes ---------
 @app.route("/")
 def home_page():
-    # Redirect root to today's games so we don't require index.html
     return redirect(url_for('todays_games_page'))
 
 @app.route("/standings")
@@ -940,7 +932,7 @@ def standings_page():
         "standings.html",
         data_division=data_division,
         data_wildcard=data_wildcard,
-        data_wc=data_wildcard,  # alias for older templates
+        data_wc=data_wildcard,
         season=SEASON,
         error=err
     )
@@ -967,7 +959,6 @@ def api_games():
         cache_set(date_str, data, 30)
         return jsonify(data), 200
 
-    # records map
     record_map = {}
     for g in schedule:
         pk = g.get("gamePk")
@@ -1000,15 +991,11 @@ def api_games():
 # ---- Game detail page + API ----
 @app.route("/game/<int:game_pk>")
 def game_page(game_pk):
-    """Render game.html with a populated 'game' header for the clicked game."""
     try:
         header = build_template_game_header(game_pk)
-        if not header:
-            abort(404)
         return render_template("game.html", game=header, game_pk=game_pk)
     except Exception as e:
-        log.exception("game_page header build failed for %s: %s", game_pk, e)
-        # still render page with game_pk so client JS can fetch /api/game/<pk> if needed
+        log.exception("game_page failed: %s", e)
         return render_template("game.html", game=None, game_pk=game_pk)
 
 @app.route("/api/game/<int:game_pk>")
@@ -1017,7 +1004,6 @@ def api_game_detail(game_pk):
     try:
         live = fetch_live(game_pk)
         shaped = shape_game(live, season)
-        # always include scoring (shape_game already does, keep for clarity)
         shaped["scoring"] = extract_scoring_summary(live)
         meta = {
             "venue": ((live.get("gameData") or {}).get("venue") or {}).get("name"),
@@ -1034,7 +1020,6 @@ def api_game_detail(game_pk):
         log.exception("detail fetch failed for %s", game_pk)
         return jsonify({"error": f"detail_error: {e}"}), 200
 
-# Compact play-by-play extractor for the detail API
 def extract_play_by_play(live, limit=150):
     ld = (live.get("liveData") or {})
     allp = (ld.get("plays") or {}).get("allPlays") or []
@@ -1060,5 +1045,4 @@ def ping():
     return "ok", 200
 
 if __name__ == "__main__":
-    # Local dev
     app.run(host="0.0.0.0", port=5000, debug=True)
