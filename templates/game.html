@@ -423,7 +423,6 @@
     }
 
     // ---------- Load & wire up ----------
-    let playsGlobal = [];
     async function load(){
       const res = await fetch(API, {cache:'no-store'});
       const data = await res.json();
