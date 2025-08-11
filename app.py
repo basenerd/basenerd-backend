@@ -1,5 +1,5 @@
 from flask import Flask, render_template, jsonify, request, redirect, url_for, abort
-import requests, time, logging, re
+import requests, time, logging, re, math
 from datetime import datetime, timezone
 
 # --------- Setup ---------
@@ -48,27 +48,27 @@ def http_json(url, params=None, timeout=20):
     r.raise_for_status()
     return r.json()
 
-def to_et(iso_z: str) -> str:
-    """Return 'H:MM AM/PM ET' for a given ISO-8601 UTC timestamp (…Z)."""
+def to_et(iso_z):
+    """Return 'H:MM AM/PM ET' for a given ISO timestamp."""
     if not iso_z:
         return ""
     try:
-        dt = datetime.fromisoformat(iso_z.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
         if ET_TZ:
             dt = dt.astimezone(ET_TZ)
         try:
-            return dt.strftime("%-I:%M %p ET")  # Unix-like
+            return dt.strftime("%-I:%M %p ET")
         except Exception:
-            return dt.strftime("%I:%M %p ET").lstrip("0") + " ET"  # Windows
+            return dt.strftime("%I:%M %p ET").lstrip("0") + " ET"
     except Exception:
         return ""
 
-def iso_to_et_datestr(iso_z: str) -> str:
-    """Return 'YYYY-MM-DD' (Eastern Time calendar date) for a given ISO timestamp."""
+def iso_to_et_datestr(iso_z):
+    """Return YYYY-MM-DD in Eastern Time for a given ISO timestamp."""
     if not iso_z:
         return ""
     try:
-        dt = datetime.fromisoformat(iso_z.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
         if ET_TZ:
             dt = dt.astimezone(ET_TZ)
         return dt.strftime("%Y-%m-%d")
@@ -325,28 +325,14 @@ def extract_last_play(live):
     return (p.get("result") or {}).get("description") or ""
 
 def _find_latest_hitdata_from_play(play):
-    """
-    Prefer the event where the ball was actually put in play (details.isInPlay == True).
-    Fall back to the last event that has hitData.
-    """
     if not play:
         return None
     events = play.get("playEvents") or []
-
-    # 1) Prefer the in-play event (this is where xBA lives when available)
     for ev in reversed(events):
-        det = ev.get("details") or {}
-        if det.get("isInPlay") and ev.get("hitData"):
-            return ev.get("hitData")
-
-    # 2) Otherwise, return the last event that simply has hitData
-    for ev in reversed(events):
-        if ev.get("hitData"):
-            return ev.get("hitData")
-
-    # 3) Some legacy plays might store it directly on the play
+        hd = ev.get("hitData")
+        if hd:
+            return hd
     return play.get("hitData") or None
-
 
 def extract_statcast_line(live):
     play = latest_play_from_feed(live)
@@ -472,6 +458,7 @@ def _name(person):
     return (person or {}).get("fullName") or ""
 
 def extract_batting_box_grouped(box, side):
+    """Create rows with indentation for subs (same battingOrder code)."""
     t = (box.get("teams", {}) or {}).get(side, {}) or {}
     players = t.get("players") or {}
     entries = []
@@ -513,6 +500,7 @@ def extract_batting_box_grouped(box, side):
         rows.append(out)
         seen_keys.add(e["_key"])
 
+    # Any others with counting stats, treat as bench PH/PR and indent
     for key, pl in players.items():
         if key in seen_keys:
             continue
@@ -543,6 +531,7 @@ def extract_pitching_box(box, side):
         person = pl.get("person") or {}
         st = (pl.get("stats") or {}).get("pitching") or {}
         rows.append({
+            "pid": pid,
             "pos": pos,
             "name": person.get("fullName") or "",
             "ip": st.get("inningsPitched", 0),
@@ -746,118 +735,6 @@ def game_state_and_participants(live, include_records=None):
         "chip": chip,
         "box": box
     }
-# ---- Full PBP + Statcast per play ----
-def _coerce_f(v, decimals=None):
-    try:
-        x = float(v)
-        if decimals is None:
-            return x
-        fmt = f"{{:.{decimals}f}}"
-        return float(fmt.format(x))
-    except Exception:
-        return None
-import math
-
-def _gauss(x, mu, sigma):
-    try:
-        z = (float(x) - mu) / float(sigma)
-        return math.exp(-0.5 * z * z)
-    except Exception:
-        return 0.0
-
-def _sig(x):
-    try:
-        return 1.0 / (1.0 + math.exp(-float(x)))
-    except Exception:
-        return 0.5
-
-def estimate_xslg_proxy(ev, la):
-    """
-    Heuristic expected slugging per batted ball:
-      - Uses EV (mph) and LA (deg)
-      - Shapes outcome 'likelihoods' for 1B/2B/3B/HR with smooth curves
-      - Returns expected bases per PA (i.e., xSLG proxy)
-    Notes:
-      • Tuned so barrels (EV≳98 & LA≈26–30) push HR probability.
-      • Gap doubles: EV≳92 & LA≈20–25.
-      • Singles: EV≳85 & LA≈5–15 (liners).
-      • Triples: rare; favors mid‑LA and not-too-extreme EV.
-    """
-    if ev is None or la is None:
-        return None
-    try:
-        ev = float(ev); la = float(la)
-    except Exception:
-        return None
-
-    # Core shapes
-    p_hr = _sig((ev - 98.0) / 2.2) * _gauss(la, 28.0, 6.0)
-    p_2b = _sig((ev - 92.0) / 3.0) * _gauss(la, 22.0, 7.0) * 0.9
-    p_1b = _sig((ev - 85.0) / 3.0) * _gauss(la, 10.0, 8.0) * 0.9
-    # Triples are rare: mid LA, not extreme EV
-    p_3b = (1.0 - _sig((ev - 100.0) / 4.0)) * _gauss(la, 25.0, 9.0) * 0.12
-
-    # Some balls just won't land for hits (popups/grounders); damp everything when LA extreme
-    la_damp = max(0.0, 1.0 - (_gauss(la, -10.0, 6.0) * 0.6 + _gauss(la, 50.0, 8.0) * 0.6))
-    p_hr *= la_damp; p_2b *= la_damp; p_1b *= la_damp; p_3b *= la_damp
-
-    # Normalize softly to max sum 0.95 to leave room for outs
-    s = p_hr + p_3b + p_2b + p_1b
-    if s > 0:
-        scale = min(0.95 / s, 1.0)
-        p_hr *= scale; p_3b *= scale; p_2b *= scale; p_1b *= scale
-
-    # Expected bases per PA = 4*HR + 3*3B + 2*2B + 1*1B
-    x_bases = 4.0 * p_hr + 3.0 * p_3b + 2.0 * p_2b + 1.0 * p_1b
-    # That is the slugging expectation for the PA (since denominator is 1 PA)
-    return round(x_bases, 3)
-
-
-def extract_pbp_with_statcast(live):
-    """Return list of plays with inning, description, and Statcast (EV, LA, Dist, xBA, xSLG/proxy)."""
-    ld = (live.get("liveData") or {})
-    plays = (ld.get("plays") or {})
-    allp = plays.get("allPlays") or []
-
-    out = []
-    for p in allp:
-        about = (p.get("about") or {})
-        res   = (p.get("result") or {})
-        half  = (about.get("halfInning") or "").title()   # "Top" / "Bottom"
-        inning = about.get("inning")
-        desc = res.get("description") or ""
-
-        # Prefer the actual in-play event for Statcast
-        hd = _find_latest_hitdata_from_play(p)
-
-        ev   = _coerce_f((hd or {}).get("launchSpeed"), 1)
-        la   = _coerce_f((hd or {}).get("launchAngle"), 1)
-        dist = _coerce_f((hd or {}).get("totalDistance"), 0)
-        xba  = _coerce_f((hd or {}).get("estimatedBA") or (hd or {}).get("estimatedBattingAverage"), 3)
-        xslg = _coerce_f((hd or {}).get("estimatedSlg") or (hd or {}).get("estimatedSLG"), 3)
-
-        # Fill xSLG with our proxy when not present
-        if xslg is None:
-            xslg = estimate_xslg_proxy(ev, la)
-
-        out.append({
-            "inningLabel": (f"{half} {inning}" if inning else ""),
-            "description": desc,
-            "ev": ev, "la": la, "dist": dist, "xba": xba, "xslg": xslg
-        })
-    return out
-
-# ---- API: full PBP with Statcast ----
-@app.route("/api/game/<int:game_pk>/pbp")
-def api_game_pbp(game_pk):
-    try:
-        live = fetch_live(game_pk)
-        data = extract_pbp_with_statcast(live)
-        return jsonify({"pbp": data})
-    except Exception as e:
-        log.exception("pbp fetch failed for %s", game_pk)
-        return jsonify({"error": f"pbp_error: {e}"}), 200
-
 
 # ---- Scoring summary ----
 def extract_scoring_summary(live):
@@ -893,6 +770,101 @@ def extract_scoring_summary(live):
             "home": home
         }
         out.append(item)
+    return out
+
+# ---- Play-by-play helpers with xBA/xSLG proxies ----
+def _safe_float(x):
+    try:
+        if x is None: return None
+        return float(x)
+    except Exception:
+        return None
+
+def _extract_hitdata(play):
+    """Return hitData dict (if any) from play (search events backwards)."""
+    if not play:
+        return None
+    evs = play.get("playEvents") or []
+    for ev in reversed(evs):
+        hd = ev.get("hitData")
+        if hd:
+            return hd
+    return play.get("hitData") or None
+
+def estimate_xba(ev, la):
+    """Simple proxy centered at 88 mph EV and 12° LA (not production Statcast!)."""
+    ev = _safe_float(ev); la = _safe_float(la)
+    if ev is None or la is None:
+        return None
+    # heuristic “barrel-ish” bump around (88, 12)
+    ev_term = (ev - 88.0) / 12.0
+    la_term = (la - 12.0) / 15.0
+    z = 0.25 + 0.22*ev_term + 0.18*math.exp(-0.5*((la_term)**2))
+    return max(0.02, min(0.90, z))
+
+def estimate_xslg(ev, la):
+    ev = _safe_float(ev); la = _safe_float(la)
+    if ev is None or la is None:
+        return None
+    ev_term = max(0.0, (ev - 85.0) / 15.0)
+    la_bump = math.exp(-0.5*(( (la-20.0)/18.0 )**2))
+    z = 0.35 + 0.45*ev_term*la_bump
+    return max(0.05, min(2.50, z))
+
+def _metric_from_keys(obj, keys):
+    for k in keys:
+        if k in obj and obj[k] is not None:
+            return obj[k]
+    return None
+
+def enrich_play_row(p):
+    about = (p.get("about") or {})
+    res   = (p.get("result") or {})
+    half  = (about.get("halfInning") or "").title()
+    inning = about.get("inning")
+    desc = res.get("description") or ""
+    hd = _extract_hitdata(p) or {}
+
+    ev  = _metric_from_keys(hd, ["launchSpeed","exitVelocity","ev","launch_speed"])
+    la  = _metric_from_keys(hd, ["launchAngle","la","launch_angle"])
+    dist= _metric_from_keys(hd, ["totalDistance","distance","dist"])
+    xba = _metric_from_keys(hd, ["estimatedBA","estimatedBa","estimatedBattingAverage","xba","expectedBattingAverage"])
+    xslg= _metric_from_keys(hd, ["estimatedSlg","estimatedSlug","xslg","expectedSlug"])
+
+    evf = _safe_float(ev)
+    laf = _safe_float(la)
+    distf = _safe_float(dist)
+
+    if xba is None:
+        xba = estimate_xba(evf, laf)
+    if xslg is None:
+        xslg = estimate_xslg(evf, laf)
+
+    def fmt3(x):
+        try:
+            return f"{float(x):.3f}".replace("0.", ".")
+        except Exception:
+            return ""
+
+    row = {
+        "inning": f"{half} {inning}" if inning else "",
+        "desc": desc,
+        "ev": f"{evf:.1f}" if evf is not None else "",
+        "la": f"{laf:.1f}" if laf is not None else "",
+        "dist": f"{int(round(distf))}" if distf is not None else "",
+        "xba": fmt3(xba) if xba is not None else "",
+        "xslg": fmt3(xslg) if xslg is not None else "",
+        "away": res.get("awayScore"),
+        "home": res.get("homeScore"),
+    }
+    return row
+
+def extract_play_by_play(live, limit=300):
+    ld = (live.get("liveData") or {})
+    allp = (ld.get("plays") or {}).get("allPlays") or []
+    out = []
+    for p in allp[-limit:]:
+        out.append(enrich_play_row(p))
     return out
 
 def shape_game(live, season, records=None):
@@ -1033,7 +1005,7 @@ def build_template_game_header(game_pk: int):
     home_id = home.get("id")
     away_id = away.get("id")
 
-    # Keep URLs in case needed elsewhere; template uses team IDs for logos.
+    # We still generate URLs if templates want them
     home_logo = mlb_logo_url(home_id, variant="team-cap-on-dark")
     away_logo = mlb_logo_url(away_id, variant="team-cap-on-dark")
 
@@ -1043,7 +1015,7 @@ def build_template_game_header(game_pk: int):
     venue_name = (gd.get("venue") or {}).get("name", "")
     game_dt_iso = (gd.get("datetime") or {}).get("dateTime") or ""
 
-    # Pull team records from schedule on the Eastern Time date for this game
+    # Pull team records from schedule on the ET date for this game
     away_rec_str = ""
     home_rec_str = ""
     try:
@@ -1172,40 +1144,31 @@ def api_game_detail(game_pk):
         live = fetch_live(game_pk)
         shaped = shape_game(live, season)
         shaped["scoring"] = extract_scoring_summary(live)
+
+        # Provide full play-by-play with EV/LA/Dist/xBA/xSLG proxies
+        plays = extract_play_by_play(live=live, limit=500)
+
+        # decisions (winner/loser/save) for pitching badges
+        decisions = (live.get("liveData", {}) or {}).get("decisions", {}) or {}
         meta = {
             "venue": ((live.get("gameData") or {}).get("venue") or {}).get("name"),
             "startET": to_et(((live.get("gameData") or {}).get("datetime") or {}).get("dateTime")),
             "weather": (live.get("gameData") or {}).get("weather") or {},
             "status": (live.get("gameData") or {}).get("status") or {},
+            "decisions": {
+                "winnerId": (decisions.get("winner") or {}).get("id"),
+                "loserId": (decisions.get("loser") or {}).get("id"),
+                "saveId": (decisions.get("save") or {}).get("id"),
+            }
         }
         return jsonify({
             "game": shaped,
-            "plays": extract_play_by_play(live=live),
+            "plays": plays,
             "meta": meta
         })
     except Exception as e:
         log.exception("detail fetch failed for %s", game_pk)
         return jsonify({"error": f"detail_error: {e}"}), 200
-
-def extract_play_by_play(live, limit=150):
-    ld = (live.get("liveData") or {})
-    allp = (ld.get("plays") or {}).get("allPlays") or []
-    out = []
-    for p in allp[-limit:]:
-        about = (p.get("about") or {})
-        res   = (p.get("result") or {})
-        count = (p.get("count") or {})
-        half  = (about.get("halfInning") or "").title()
-        out.append({
-            "inning": f"{half} {about.get('inning')}" if about.get("inning") else "",
-            "desc": res.get("description") or "",
-            "balls": count.get("balls"),
-            "strikes": count.get("strikes"),
-            "outs": count.get("outs"),
-            "away": res.get("awayScore"),
-            "home": res.get("homeScore"),
-        })
-    return out
 
 @app.route("/ping")
 def ping():
