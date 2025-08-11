@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, jsonify, request, redirect, url_for, abort
 import requests, time, logging, re
 from datetime import datetime, timezone
@@ -49,66 +48,33 @@ def http_json(url, params=None, timeout=20):
     r.raise_for_status()
     return r.json()
 
-
-def to_et(iso_z):
-    """Return ET time like '7:05 PM ET' from an ISO timestamp."""
+def to_et(iso_z: str) -> str:
+    """Return 'H:MM AM/PM ET' for a given ISO-8601 UTC timestamp (…Z)."""
     if not iso_z:
         return ""
     try:
-        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
+        dt = datetime.fromisoformat(iso_z.replace("Z", "+00:00"))
         if ET_TZ:
             dt = dt.astimezone(ET_TZ)
         try:
-            return dt.strftime("%-I:%M %p ET")
+            return dt.strftime("%-I:%M %p ET")  # Unix-like
         except Exception:
-            # Windows-compatible: no %-I, drop leading zero manually
-            return dt.strftime("%I:%M %p ET").lstrip("0") + " ET"
+            return dt.strftime("%I:%M %p ET").lstrip("0") + " ET"  # Windows
     except Exception:
         return ""
 
-def iso_to_et_datestr(iso_z):
-    """Return YYYY-MM-DD in Eastern Time for a given ISO timestamp."""
+def iso_to_et_datestr(iso_z: str) -> str:
+    """Return 'YYYY-MM-DD' (Eastern Time calendar date) for a given ISO timestamp."""
     if not iso_z:
         return ""
     try:
-        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
+        dt = datetime.fromisoformat(iso_z.replace("Z", "+00:00"))
         if ET_TZ:
             dt = dt.astimezone(ET_TZ)
         return dt.strftime("%Y-%m-%d")
     except Exception:
         try:
             return iso_z.split("T", 1)[0]
-        except Exception:
-            return ""
-    try:
-        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
-        if ET_TZ:
-            dt = dt.astimezone(ET_TZ)
-        try:
-            return dt.strftime("%-I:%M %p ET")
-        except Exception:
-            return dt.strftime("%I:%M %p ET").lstrip("0") + " ET"
-    except Exception:
-        return ""
-
-def format_date_et(iso_z):
-    """Return a friendly ET date like 'Mon, Aug 11, 2025' from an ISO timestamp."""
-    if not iso_z:
-        return ""
-    try:
-        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
-        if ET_TZ:
-            dt = dt.astimezone(ET_TZ)
-        try:
-            return dt.strftime("%a, %b %-d, %Y")
-        except Exception:
-            # Windows-compatible (no %-d)
-            return dt.strftime("%a, %b %d, %Y").replace(" 0", " ")
-    except Exception:
-        try:
-            ymd = iso_z.split("T",1)[0]
-            y, m, d = ymd.split("-")
-            return f"{m}/{d}/{y}"
         except Exception:
             return ""
 
@@ -928,7 +894,6 @@ def mlb_logo_url(team_id: int, variant: str = "team-cap-on-dark") -> str:
     return f"https://www.mlbstatic.com/team-logos/{variant}/{team_id}.svg"
 
 # ---------- Template header builder ----------
-
 def build_template_game_header(game_pk: int):
     """Builds a compact header context for game.html, including team IDs and records."""
     live = fetch_live(game_pk)
@@ -942,8 +907,7 @@ def build_template_game_header(game_pk: int):
     home_id = home.get("id")
     away_id = away.get("id")
 
-    # Prefer cap logos that work well on light backgrounds; template now uses IDs directly,
-    # but we keep these in case other templates use the URLs.
+    # Keep URLs in case needed elsewhere; template uses team IDs for logos.
     home_logo = mlb_logo_url(home_id, variant="team-cap-on-dark")
     away_logo = mlb_logo_url(away_id, variant="team-cap-on-dark")
 
@@ -953,14 +917,13 @@ def build_template_game_header(game_pk: int):
     venue_name = (gd.get("venue") or {}).get("name", "")
     game_dt_iso = (gd.get("datetime") or {}).get("dateTime") or ""
 
-    # --- Pull team records from schedule on the Eastern Time date for this game ---
+    # Pull team records from schedule on the Eastern Time date for this game
     away_rec_str = ""
     home_rec_str = ""
     try:
         date_et = iso_to_et_datestr(game_dt_iso) or ""
         if date_et:
             sched = fetch_schedule(date_et)
-            # find this gamePk
             for g in sched:
                 if g.get("gamePk") == (shaped.get("gamePk") or game_pk):
                     a = (g.get("teams") or {}).get("away", {}) or {}
@@ -972,8 +935,7 @@ def build_template_game_header(game_pk: int):
                     away_rec_str = f"{aw}-{al}" if aw is not None and al is not None else ""
                     home_rec_str = f"{hw}-{hl}" if hw is not None and hl is not None else ""
                     break
-    except Exception as _e:
-        # keep records blank if anything goes wrong
+    except Exception:
         pass
 
     return {
@@ -994,8 +956,9 @@ def build_template_game_header(game_pk: int):
         },
         "venue": venue_name,
         "status": shaped.get("chip",""),
-        "date": format_date_et(game_dt_iso),
+        "date": to_et(game_dt_iso),
     }
+
 # --------- Routes ---------
 @app.route("/")
 def home_page():
