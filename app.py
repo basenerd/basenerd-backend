@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, redirect, url_for
 import requests, time, logging, re
 from datetime import datetime, timezone
 
@@ -112,11 +112,6 @@ def fetch_standings_safe():
         return [], f"standings_error: {e}"
 
 def simplify_standings(records):
-    """
-    Division view dict:
-      {"League":[{"division": "...", "rows":[...]}], ...}
-    rows: team_name, team_abbr, team_id, division, w, l, pct, gb, streak, last10, runDiff
-    """
     leagues = {"National League": [], "American League": []}
     for block in (records or []):
         try:
@@ -150,7 +145,6 @@ def simplify_standings(records):
             log.warning("simplify_standings block skipped: %s", ie)
             continue
 
-    # sort divisions in logical order
     for lg in leagues:
         div_order = DIV_ORDER.get(lg)
         if div_order:
@@ -158,19 +152,8 @@ def simplify_standings(records):
     return leagues
 
 def wildcard_from_division(div_data):
-    """
-    Wild Card view per league:
-    {
-      "American League": {
-        "leaders":[{... with division_tag E/C/W} x3],
-        "rows":[{... , wc_rank, wc_gb, badge 'WC1/2/3' or ''}]
-      },
-      "National League": { ... }
-    }
-    """
     out = {"American League": {"leaders": [], "rows": []},
            "National League": {"leaders": [], "rows": []}}
-
     tag_map = {"East":"E", "Central":"C", "West":"W"}
 
     for league in ("American League","National League"):
@@ -301,7 +284,7 @@ def linescore_blob(ls, force_n=None):
     }
     return {"n": max(n, force_n or 0), "away": away_by, "home": home_by, "totals": totals}
 
-# ---- latest play + Statcast (sync to true last play) ----
+# ---- latest play + Statcast ----
 def latest_play_from_feed(live):
     ld = live.get("liveData", {}) or {}
     plays = ld.get("plays", {}) or {}
@@ -365,7 +348,7 @@ def extract_statcast_line(live):
             if s: parts.append(f"xBA: {s}")
     return " • ".join(parts)
 
-# ---- Plate appearance tokens for current batter line ----
+# ---- Plate appearance tokens ----
 PAREN_CODE_RE = re.compile(r"\(([1-9](?:-[1-9]){0,3})\)")
 def out_air_prefix(event_type):
     et = (event_type or "").lower()
@@ -459,10 +442,6 @@ def _name(person):
     return (person or {}).get("fullName") or ""
 
 def extract_batting_box_grouped(box, side):
-    """
-    Return batting rows grouped by official battingOrder so subs appear under the starter.
-    Each row: pos, name, ab, r, h, rbi, bb, k, orderCode, indent
-    """
     t = (box.get("teams", {}) or {}).get(side, {}) or {}
     players = t.get("players") or {}
     entries = []
@@ -472,7 +451,7 @@ def extract_batting_box_grouped(box, side):
         if not bo:
             continue
         try:
-            order_code = int(bo)  # e.g., 101, 202, 903 (order*100 + slot)
+            order_code = int(bo)
         except Exception:
             continue
         pos = ((pl.get("position") or {}).get("abbreviation") or "").upper()
@@ -504,7 +483,6 @@ def extract_batting_box_grouped(box, side):
         rows.append(out)
         seen_keys.add(e["_key"])
 
-    # players with batting stats but no battingOrder (rare)
     for key, pl in players.items():
         if key in seen_keys:
             continue
@@ -806,7 +784,6 @@ def shape_game(live, season, records=None):
         }
     }
 
-    # linescore columns
     if status == "in_progress":
         game["linescore"] = linescore_blob(ls, force_n=9)
     elif status == "final":
@@ -815,7 +792,6 @@ def shape_game(live, season, records=None):
     else:
         game["linescore"] = None
 
-    # totals -> big score numbers
     if game["linescore"]:
         totals = game["linescore"]["totals"]
         game["teams"]["away"].update({"score": totals["away"]["R"], "hits": totals["away"]["H"], "errors": totals["away"]["E"]})
@@ -824,7 +800,6 @@ def shape_game(live, season, records=None):
         game["teams"]["away"]["score"] = None
         game["teams"]["home"]["score"] = None
 
-    # scheduled: probables + pregame lineups
     if status == "scheduled":
         prob = get_probables(gd, season)
         for side in ("away","home"):
@@ -834,14 +809,12 @@ def shape_game(live, season, records=None):
         except Exception:
             game["lineups"] = {}
 
-    # live: current pitcher/batter + break pitcher
     if status == "in_progress":
         pit = state["pitcher"]; bat = state["batter"]
         if pit and pit.get("side") in ("home","away"):
             game["teams"][pit["side"]]["currentPitcher"] = f"P: {pit['name']} • IP {pit.get('ip','-')} • P {pit.get('p','-')} • ER {pit.get('er',0)} • K {pit.get('k',0)} • BB {pit.get('bb',0)}"
         if bat and bat.get("side") in ("home","away"):
             game["teams"][bat["side"]]["currentBatter"] = f"B: {bat['name']} • {bat.get('line','')}"
-        # between-innings: show pitcher line for the team about to pitch
         next_pitch_side = None
         if game["inBreak"]:
             if game["dueUpSide"] == "home": next_pitch_side = "away"
@@ -851,7 +824,6 @@ def shape_game(live, season, records=None):
                 if lp:
                     game["teams"][next_pitch_side]["breakPitcher"] = lp
 
-    # final: decisions + save with total saves
     if status == "final":
         box = state["box"]
         decisions = live.get("liveData", {}).get("decisions", {}) or {}
@@ -896,7 +868,6 @@ def shape_game(live, season, records=None):
             if win_side and sv_name:
                 game["teams"][win_side]["savePitcher"] = f"SV: {sv_name} ({sv_num if sv_num is not None else '-'})"
 
-    # box score (grouped batting + pitching)
     if status in ("in_progress", "final"):
         box = state["box"]
         game["batters"] = {
@@ -911,15 +882,14 @@ def shape_game(live, season, records=None):
         game["batters"] = None
         game["pitchers"] = None
 
-    # scoring summary (always present for live & final; empty list for scheduled)
     game["scoring"] = extract_scoring_summary(live)
-
     return game
 
 # --------- Routes ---------
 @app.route("/")
 def home_page():
-    return render_template("index.html")
+    # Redirect root to today's games so we don't require index.html
+    return redirect(url_for('todays_games_page'))
 
 @app.route("/standings")
 def standings_page():
@@ -934,11 +904,6 @@ def standings_page():
         season=SEASON,
         error=err
     )
-
-@app.route("/debug/standings.json")
-def debug_standings():
-    recs, err = fetch_standings_safe()
-    return jsonify({"error": err, "records_count": len(recs), "records": recs})
 
 @app.route("/todaysgames")
 def todays_games_page():
@@ -992,14 +957,54 @@ def api_games():
     cache_set(date_str, payload, 15 if any_live else 300)
     return jsonify(payload)
 
-@app.route("/debug/games")
-def debug_games():
-    date_str = request.args.get("date") or datetime.utcnow().strftime("%Y-%m-%d")
+# ---- Game detail page + API ----
+@app.route("/game/<int:game_pk>")
+def game_page(game_pk):
+    return render_template("game.html", game_pk=game_pk)
+
+@app.route("/api/game/<int:game_pk>")
+def api_game_detail(game_pk):
+    season = request.args.get("season") or SEASON
     try:
-        schedule = fetch_schedule(date_str)
-        return jsonify({"date": date_str, "count": len(schedule), "keys": [g.get("gamePk") for g in schedule]})
+        live = fetch_live(game_pk)
+        shaped = shape_game(live, season)
+        # always include scoring (shape_game already does, keep for clarity)
+        shaped["scoring"] = extract_scoring_summary(live)
+        meta = {
+            "venue": ((live.get("gameData") or {}).get("venue") or {}).get("name"),
+            "startET": to_et(((live.get("gameData") or {}).get("datetime") or {}).get("dateTime")),
+            "weather": (live.get("gameData") or {}).get("weather") or {},
+            "status": (live.get("gameData") or {}).get("status") or {},
+        }
+        return jsonify({
+            "game": shaped,
+            "plays": extract_play_by_play(live=live),
+            "meta": meta
+        })
     except Exception as e:
-        return jsonify({"date": date_str, "error": str(e)}), 200
+        log.exception("detail fetch failed for %s", game_pk)
+        return jsonify({"error": f"detail_error: {e}"}), 200
+
+# Compact play-by-play extractor for the detail API
+def extract_play_by_play(live, limit=150):
+    ld = (live.get("liveData") or {})
+    allp = (ld.get("plays") or {}).get("allPlays") or []
+    out = []
+    for p in allp[-limit:]:
+        about = (p.get("about") or {})
+        res   = (p.get("result") or {})
+        count = (p.get("count") or {})
+        half  = (about.get("halfInning") or "").title()
+        out.append({
+            "inning": f"{half} {about.get('inning')}" if about.get("inning") else "",
+            "desc": res.get("description") or "",
+            "balls": count.get("balls"),
+            "strikes": count.get("strikes"),
+            "outs": count.get("outs"),
+            "away": res.get("awayScore"),
+            "home": res.get("homeScore"),
+        })
+    return out
 
 @app.route("/ping")
 def ping():

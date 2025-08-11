@@ -144,6 +144,13 @@
     .scoresum thead th{ color:#5b6577; font-weight:700; border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; }
     .scoresum tbody td{ border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; color:#394150; }
     .scoresum td.play{ text-align:left; font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+
+    /* Details link (varies by status) */
+    .details-btn{
+      font-size:11px; font-weight:700; margin-left:8px; text-decoration:none;
+      color:#0b5cab; border:1px solid var(--border); padding:2px 8px; border-radius:8px; background:#fff;
+    }
+    .details-btn:hover{ background:#f1f5fb; }
   </style>
 </head>
 <body>
@@ -291,7 +298,7 @@
       return `<div class="lastplay"><strong>Last Play:</strong> ${g.lastPlay}</div>${stat}`;
     }
 
-    // Name shortener: "F. Lastname"
+    // Name shortener
     function fmtShortName(full){
       if(!full) return '';
       const parts = String(full).trim().split(/\s+/);
@@ -321,7 +328,7 @@
         </div>`;
     }
 
-    // Batting box (indent from backend flag)
+    // Batting box
     function battersTable(teamAbbr, rows){
       if (!rows || !rows.length) return `<div class="batters"><em>No batter stats yet.</em></div>`;
       const trs = rows.map(r => {
@@ -350,7 +357,7 @@
         </div>`;
     }
 
-    // Pitching box (indent relievers)
+    // Pitching box
     function pitchersTable(teamAbbr, rows){
       if (!rows || !rows.length) return `<div class="pitchers"><em>No pitching stats yet.</em></div>`;
       const trs = rows.map(r => `
@@ -437,18 +444,16 @@
     function teamColor(team){ return TEAM_COLORS[team && team.id] || "#6b7a94"; }
 
     // --- Simple live win probability (heuristic) ---
-    // Returns {home: 0..1, away: 1-home}
     function computeWinProb(g){
       const a = g.teams.away, h = g.teams.home;
       const aR = Number.isFinite(+a.score) ? +a.score : 0;
       const hR = Number.isFinite(+h.score) ? +h.score : 0;
-      const diff = hR - aR; // positive: home leading
-      // Game progress from 0 to 1 (approx): inning and half-inning
+      const diff = hR - aR;
       const inn = g.inning || 1;
-      const half = g.isTop ? 0 : 0.5; // top = first half, bottom = second half
-      const progress = Math.min(((inn - 1) + half) / 9, 1); // extras clamp to 1
-      const kBase = 0.85, kProg = 1.35; // tuning constants
-      const homeEdge = 0.05; // ~5% baseline home edge early
+      const half = g.isTop ? 0 : 0.5;
+      const progress = Math.min(((inn - 1) + half) / 9, 1);
+      const kBase = 0.85, kProg = 1.35;
+      const homeEdge = 0.05;
       const x = (kBase + kProg * progress) * diff + (homeEdge * (1 - progress));
       const sig = 1 / (1 + Math.exp(-x));
       const home = Math.min(Math.max(sig, 0.01), 0.99);
@@ -500,10 +505,18 @@
         </details>`;
     }
 
+    // Link label varies by status
+    function linkLabel(status){
+      if (status === 'final') return 'Game Report';
+      if (status === 'in_progress') return 'Live Game Details';
+      return 'Game Preview';
+    }
+
     function card(g){
       const a = g.teams.away, h = g.teams.home;
       const headerLeft = `<div class="when">${g.venue||''}</div>`;
-      const headerRight = g.status==='in_progress' ? `${chipFor(g)}${diamondHTML(g)}` : chipFor(g);
+      const detailLink = `<a class="details-btn" href="/game/${g.gamePk}" title="${linkLabel(g.status)}">${linkLabel(g.status)} ›</a>`;
+      const headerRight = g.status==='in_progress' ? `${chipFor(g)}${diamondHTML(g)} ${detailLink}` : `${chipFor(g)} ${detailLink}`;
       const el = document.createElement('article');
       el.className = 'game';
       el.innerHTML = `
@@ -545,7 +558,7 @@
       if (state.timer) { clearTimeout(state.timer); state.timer = null; }
       const et = dateStrET(state.date);
       try {
-        const data = await fetchJson(API_GAMES + '?date=' + et);
+        const data = await fetchJson("{{ url_for('api_games') }}" + '?date=' + et);
         render(data);
         const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
         if (anyLive) state.timer = setTimeout(load, 30000);
