@@ -56,6 +56,15 @@
     }
     .card-body{ padding:10px 12px; background:#fff; }
 
+    /* Decisions line (above linescore) */
+    .decisions-line{
+      margin: 6px 2px 10px;
+      color:#32425c;
+      font-weight:700;
+      font-size:13px;
+      text-align:center;
+    }
+
     /* Inning-by-inning box (bold R/H/E) */
     .linescore-wrap{ display:flex; justify-content:center; }
     .linescore{ width: min(760px, 100%); margin: 0 auto; }
@@ -82,15 +91,21 @@
       content:""; position:absolute; left:6px; top:50%; width:8px; height:0; border-top:1px solid var(--border); transform:translateY(-50%);
     }
 
-    /* Pitching badges (will render if IDs are provided in data) */
+    /* Pitching badges (requires IDs from API to map reliably) */
     .pbadge { background:#f1f3f6; color:#667085; border:1px solid var(--border); border-radius:6px; padding:1px 4px; font-size:10px; font-weight:700; margin-left:6px; }
 
-    /* Play-by-Play */
-    .pbp table{ border-collapse:collapse; width:100%; font-family: var(--mono); font-size:12px; }
-    .pbp thead th{ color:#5b6577; font-weight:700; border-bottom:1px solid var(--border); padding:6px; text-align:left; }
-    .pbp tbody td{ border-bottom:1px solid var(--border); padding:6px; color:#394150; }
-    .pbp td.desc{ font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial; font-size:12.5px; }
-    .pbp td.num{ text-align:right; }
+    /* PBP as dropdowns */
+    details.inning { border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:#fff; }
+    details.inning + details.inning{ margin-top:8px; }
+    details.inning summary{
+      cursor:pointer; font-weight:700; color:#32425c;
+      outline:none; user-select:none;
+    }
+    .pbp-inning table{ border-collapse:collapse; width:100%; font-family: var(--mono); font-size:12px; margin-top:8px; }
+    .pbp-inning thead th{ color:#5b6577; font-weight:700; border-bottom:1px solid var(--border); padding:6px; text-align:left; }
+    .pbp-inning tbody td{ border-bottom:1px solid var(--border); padding:6px; color:#394150; }
+    .pbp-inning td.desc{ font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial; font-size:12.5px; }
+    .pbp-inning td.num{ text-align:right; }
 
     .muted{ color:var(--muted); }
     .error{ color:#b42318; background:#fff1f1; border:1px solid #ffd5d5; padding:10px; border-radius:10px; }
@@ -142,6 +157,9 @@
     <div class="card"><div class="card-body">Loading game header…</div></div>
     {% endif %}
 
+    <!-- Decisions line -->
+    <div id="decisionsLine" class="decisions-line" style="display:none;"></div>
+
     <!-- Inning-by-inning -->
     <section class="section card">
       <div class="card-body">
@@ -183,10 +201,10 @@
       </div>
     </section>
 
-    <!-- Play by Play -->
+    <!-- Play by Play (dropdowns per inning) -->
     <section class="section card">
       <header>Play by Play</header>
-      <div class="card-body pbp" id="pbpWrap">
+      <div class="card-body" id="pbpByInningWrap">
         <div class="muted">Loading play-by-play…</div>
       </div>
     </section>
@@ -333,6 +351,56 @@
       }
     }
 
+    // Decisions line renderer (best-effort with current API)
+    function renderDecisions(game, meta){
+      const el = document.getElementById('decisionsLine');
+      try{
+        if (!game || game.status !== 'final'){
+          el.style.display = 'none';
+          return;
+        }
+        // Try to pull from team-level strings we already have
+        const home = (game.teams||{}).home || {};
+        const away = (game.teams||{}).away || {};
+
+        const pick = (t, prefix) => {
+          const keys = ['finalPitcher','savePitcher'];
+          for (const k of keys){
+            const v = t[k];
+            if (v && v.startsWith(prefix+': ')) return v.slice(prefix.length+2); // after "W: "
+          }
+          return '';
+        };
+        const wLine = pick(home, 'W') || pick(away, 'W'); // winner belongs to winning team side
+        const lLine = pick(home, 'L') || pick(away, 'L');
+        // Save string typically "SV: Name (27)"
+        let svRaw = (home.savePitcher || away.savePitcher || '');
+        let svName = '', svCount = '';
+        if (svRaw){
+          // svRaw like "SV: Edwin Díaz (27)"
+          const s = svRaw.replace(/^SV:\s*/,'').trim();
+          const m = s.match(/^(.+?)\s*\((\d+)\)/);
+          if (m){ svName = m[1].trim(); svCount = m[2]; } else { svName = s; }
+        }
+
+        // Build display — without W-L/ERA until backend supplies them
+        const parts = [];
+        if (wLine){ parts.push(`W: ${wLine.split(' • ')[0]}`); }
+        if (lLine){ parts.push(`L: ${lLine.split(' • ')[0]}`); }
+        if (svName){ parts.push(`SV: ${svName}${svCount?` (${svCount})`:''}`); }
+
+        if (parts.length){
+          el.textContent = parts.join(' • ');
+          el.style.display = 'block';
+        } else {
+          el.style.display = 'none';
+        }
+      }catch(e){
+        el.style.display = 'none';
+        console.error(e);
+      }
+    }
+
     // Separate renderers so cards line up by row
     function renderBattingRow(g){
       const awayWrap = document.getElementById('awayBatBox');
@@ -386,16 +454,34 @@
       }
     }
 
-    function renderPBP(plays){
-      const wrap = document.getElementById('pbpWrap');
+    // PBP grouped by inning with dropdowns
+    function renderPBPByInning(plays){
+      const wrap = document.getElementById('pbpByInningWrap');
       if (!Array.isArray(plays) || !plays.length){
         wrap.innerHTML = `<div class="muted">No plays yet.</div>`;
         return;
       }
-      const head = `
+
+      // Group plays by numeric inning, keep Top/Bot in desc col
+      const byInn = new Map();
+      let maxInn = 0;
+
+      for (const p of plays){
+        // p.inning like "Top 3" or "Bot 7"
+        const label = p.inning || '';
+        const m = String(label).match(/(\d+)/);
+        const innNum = m ? parseInt(m[1], 10) : 0;
+        maxInn = Math.max(maxInn, innNum);
+        if (!byInn.has(innNum)) byInn.set(innNum, []);
+        byInn.get(innNum).push(p);
+      }
+
+      // Build details for innings 1..maxInn (handle extras too)
+      const frags = [];
+      const headRow = `
         <thead>
           <tr>
-            <th style="width:90px;">Inning</th>
+            <th style="width:110px;">Half</th>
             <th>Play</th>
             <th style="width:84px; text-align:right;">EV</th>
             <th style="width:84px; text-align:right;">LA</th>
@@ -404,24 +490,46 @@
             <th style="width:84px; text-align:right;">xSLG</th>
           </tr>
         </thead>`;
-      const rows = plays.map(p => {
-        const evBg = colorForEV(p.ev);
-        const xbaBg = colorForXBA(p.xba);
-        const la = (p.la || p.la === 0) ? p.la : '';
-        const dist = (p.dist || p.dist === 0) ? p.dist : '';
-        const xslg = (p.xslg || p.xslg === 0) ? p.xslg : '';
-        return `
-          <tr>
-            <td>${p.inning || ''}</td>
-            <td class="desc">${(p.desc||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>
-            <td class="num colorcell" style="${evBg ? `background:${evBg};` : ''}">${fmtNum(p.ev)}</td>
-            <td class="num">${fmtNum(la)}</td>
-            <td class="num">${fmtNum(dist)}</td>
-            <td class="num colorcell" style="${xbaBg ? `background:${xbaBg};` : ''}">${fmtNum(p.xba)}</td>
-            <td class="num">${fmtNum(xslg)}</td>
-          </tr>`;
-      }).join('');
-      wrap.innerHTML = `<table>${head}<tbody>${rows}</tbody></table>`;
+
+      for (let inn=1; inn<=Math.max(9, maxInn); inn++){
+        const arr = byInn.get(inn) || [];
+        const rows = arr.map(p => {
+          const half = (p.inning||'').split(/\s+/)[0] || '';
+          const evBg = colorForEV(p.ev);
+          const xbaBg = colorForXBA(p.xba);
+          const la = (p.la || p.la === 0) ? p.la : '';
+          const dist = (p.dist || p.dist === 0) ? p.dist : '';
+          const xslg = (p.xslg || p.xslg === 0) ? p.xslg : '';
+
+          return `
+            <tr>
+              <td>${half}</td>
+              <td class="desc">${(p.desc||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>
+              <td class="num colorcell" style="${evBg ? `background:${evBg};` : ''}">${fmtNum(p.ev)}</td>
+              <td class="num">${fmtNum(la)}</td>
+              <td class="num">${fmtNum(dist)}</td>
+              <td class="num colorcell" style="${xbaBg ? `background:${xbaBg};` : ''}">${fmtNum(p.xba)}</td>
+              <td class="num">${fmtNum(xslg)}</td>
+            </tr>`;
+        }).join('');
+
+        const table = `
+          <div class="pbp-inning">
+            <table>
+              ${headRow}
+              <tbody>${rows || ''}</tbody>
+            </table>
+          </div>`;
+
+        frags.push(`
+          <details class="inning"${inn===1 ? ' open': ''}>
+            <summary>Inning ${inn}${inn>9 ? ' (Extras)' : ''}</summary>
+            ${rows ? table : `<div class="muted" style="margin-top:6px;">No plays recorded.</div>`}
+          </details>
+        `);
+      }
+
+      wrap.innerHTML = frags.join('');
     }
 
     async function load(){
@@ -442,6 +550,9 @@
           const st = document.getElementById('gameStatus');
           if (st) st.textContent = data.game.chip || '';
 
+          // Decisions line (best effort with current API fields)
+          renderDecisions(data.game, data.meta || {});
+
           // Linescore
           renderLinescore(data.game);
 
@@ -449,8 +560,8 @@
           renderBattingRow(data.game);
           renderPitchingRow(data.game, data.meta || {});
 
-          // PBP
-          renderPBP(data.plays || []);
+          // PBP grouped by inning
+          renderPBPByInning(data.plays || []);
         } else if (data && data.error){
           document.getElementById('linescore').innerHTML = `<div class="error">${data.error}</div>`;
         }

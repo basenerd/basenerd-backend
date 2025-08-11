@@ -1,5 +1,5 @@
 from flask import Flask, render_template, jsonify, request, redirect, url_for, abort
-import requests, time, logging, re, math
+import requests, time, logging, re
 from datetime import datetime, timezone
 
 # --------- Setup ---------
@@ -49,7 +49,7 @@ def http_json(url, params=None, timeout=20):
     return r.json()
 
 def to_et(iso_z):
-    """Return 'H:MM AM/PM ET' for a given ISO timestamp."""
+    """Return local ET like '7:05 PM ET' from an ISO timestamp."""
     if not iso_z:
         return ""
     try:
@@ -260,6 +260,23 @@ def probable_line_from_person(person):
     if era: parts.append(era)
     return " • ".join([p for p in parts if p])
 
+def wl_era_from_person(person):
+    """Return (w, l, era_str) from a hydrated person object (pitching season)."""
+    w = l = None
+    era_str = ""
+    for s in person.get("stats", []):
+        if s.get("group", {}).get("displayName") == "pitching":
+            splits = s.get("splits", [])
+            if splits:
+                st = splits[0].get("stat", {})
+                w = st.get("wins")
+                l = st.get("losses")
+                era = st.get("era")
+                if era is not None:
+                    era_str = str(era)
+            break
+    return w, l, era_str
+
 def get_probables(gameData, season):
     out = {"away": "", "home": ""}
     pp = gameData.get("probablePitchers") or {}
@@ -458,7 +475,6 @@ def _name(person):
     return (person or {}).get("fullName") or ""
 
 def extract_batting_box_grouped(box, side):
-    """Create rows with indentation for subs (same battingOrder code)."""
     t = (box.get("teams", {}) or {}).get(side, {}) or {}
     players = t.get("players") or {}
     entries = []
@@ -500,7 +516,6 @@ def extract_batting_box_grouped(box, side):
         rows.append(out)
         seen_keys.add(e["_key"])
 
-    # Any others with counting stats, treat as bench PH/PR and indent
     for key, pl in players.items():
         if key in seen_keys:
             continue
@@ -772,101 +787,6 @@ def extract_scoring_summary(live):
         out.append(item)
     return out
 
-# ---- Play-by-play helpers with xBA/xSLG proxies ----
-def _safe_float(x):
-    try:
-        if x is None: return None
-        return float(x)
-    except Exception:
-        return None
-
-def _extract_hitdata(play):
-    """Return hitData dict (if any) from play (search events backwards)."""
-    if not play:
-        return None
-    evs = play.get("playEvents") or []
-    for ev in reversed(evs):
-        hd = ev.get("hitData")
-        if hd:
-            return hd
-    return play.get("hitData") or None
-
-def estimate_xba(ev, la):
-    """Simple proxy centered at 88 mph EV and 12° LA (not production Statcast!)."""
-    ev = _safe_float(ev); la = _safe_float(la)
-    if ev is None or la is None:
-        return None
-    # heuristic “barrel-ish” bump around (88, 12)
-    ev_term = (ev - 88.0) / 12.0
-    la_term = (la - 12.0) / 15.0
-    z = 0.25 + 0.22*ev_term + 0.18*math.exp(-0.5*((la_term)**2))
-    return max(0.02, min(0.90, z))
-
-def estimate_xslg(ev, la):
-    ev = _safe_float(ev); la = _safe_float(la)
-    if ev is None or la is None:
-        return None
-    ev_term = max(0.0, (ev - 85.0) / 15.0)
-    la_bump = math.exp(-0.5*(( (la-20.0)/18.0 )**2))
-    z = 0.35 + 0.45*ev_term*la_bump
-    return max(0.05, min(2.50, z))
-
-def _metric_from_keys(obj, keys):
-    for k in keys:
-        if k in obj and obj[k] is not None:
-            return obj[k]
-    return None
-
-def enrich_play_row(p):
-    about = (p.get("about") or {})
-    res   = (p.get("result") or {})
-    half  = (about.get("halfInning") or "").title()
-    inning = about.get("inning")
-    desc = res.get("description") or ""
-    hd = _extract_hitdata(p) or {}
-
-    ev  = _metric_from_keys(hd, ["launchSpeed","exitVelocity","ev","launch_speed"])
-    la  = _metric_from_keys(hd, ["launchAngle","la","launch_angle"])
-    dist= _metric_from_keys(hd, ["totalDistance","distance","dist"])
-    xba = _metric_from_keys(hd, ["estimatedBA","estimatedBa","estimatedBattingAverage","xba","expectedBattingAverage"])
-    xslg= _metric_from_keys(hd, ["estimatedSlg","estimatedSlug","xslg","expectedSlug"])
-
-    evf = _safe_float(ev)
-    laf = _safe_float(la)
-    distf = _safe_float(dist)
-
-    if xba is None:
-        xba = estimate_xba(evf, laf)
-    if xslg is None:
-        xslg = estimate_xslg(evf, laf)
-
-    def fmt3(x):
-        try:
-            return f"{float(x):.3f}".replace("0.", ".")
-        except Exception:
-            return ""
-
-    row = {
-        "inning": f"{half} {inning}" if inning else "",
-        "desc": desc,
-        "ev": f"{evf:.1f}" if evf is not None else "",
-        "la": f"{laf:.1f}" if laf is not None else "",
-        "dist": f"{int(round(distf))}" if distf is not None else "",
-        "xba": fmt3(xba) if xba is not None else "",
-        "xslg": fmt3(xslg) if xslg is not None else "",
-        "away": res.get("awayScore"),
-        "home": res.get("homeScore"),
-    }
-    return row
-
-def extract_play_by_play(live, limit=300):
-    ld = (live.get("liveData") or {})
-    allp = (ld.get("plays") or {}).get("allPlays") or []
-    out = []
-    for p in allp[-limit:]:
-        out.append(enrich_play_row(p))
-    return out
-
 def shape_game(live, season, records=None):
     gd = live.get("gameData", {}) or {}
     teams = gd.get("teams", {}) or {}
@@ -1005,7 +925,6 @@ def build_template_game_header(game_pk: int):
     home_id = home.get("id")
     away_id = away.get("id")
 
-    # We still generate URLs if templates want them
     home_logo = mlb_logo_url(home_id, variant="team-cap-on-dark")
     away_logo = mlb_logo_url(away_id, variant="team-cap-on-dark")
 
@@ -1015,7 +934,7 @@ def build_template_game_header(game_pk: int):
     venue_name = (gd.get("venue") or {}).get("name", "")
     game_dt_iso = (gd.get("datetime") or {}).get("dateTime") or ""
 
-    # Pull team records from schedule on the ET date for this game
+    # --- Pull team records from schedule on the Eastern Time date for this game ---
     away_rec_str = ""
     home_rec_str = ""
     try:
@@ -1055,6 +974,61 @@ def build_template_game_header(game_pk: int):
         "venue": venue_name,
         "status": shaped.get("chip",""),
         "date": to_et(game_dt_iso),
+    }
+
+# ---------- Decisions (W/L/SV) text ----------
+def build_decisions_meta(live, season):
+    """Return {winnerId, loserId, saveId, text} where text is 'W: Name (W-L, ERA) • L: Name (W-L, ERA) • SV: Name (N)'."""
+    dec = (live.get("liveData") or {}).get("decisions") or {}
+    win = dec.get("winner") or {}
+    lose = dec.get("loser") or {}
+    save = dec.get("save") or {}
+
+    win_id = win.get("id")
+    lose_id = lose.get("id")
+    save_id = save.get("id")
+
+    parts = []
+
+    def segment_for(pid, label, extra=None):
+        if not pid:
+            return None
+        person = fetch_pitcher_stats(pid, season)
+        name = (person.get("fullName") or "").strip()
+        w, l, era = wl_era_from_person(person)
+        if name and (w is not None) and (l is not None) and era:
+            seg = f"{label}: {name} ({w}-{l}, {era} ERA)"
+        elif name and (w is not None) and (l is not None):
+            seg = f"{label}: {name} ({w}-{l})"
+        elif name:
+            seg = f"{label}: {name}"
+        else:
+            return None
+        if extra:
+            seg = seg + f" {extra}"
+        return seg
+
+    wseg = segment_for(win_id, "W")
+    lseg = segment_for(lose_id, "L")
+
+    sseg = None
+    if save_id:
+        s_person = fetch_pitcher_stats(save_id, season)
+        s_name = (s_person.get("fullName") or "").strip()
+        s_cnt = save.get("saves") or save.get("saveNumber") or save.get("save")
+        if s_name:
+            sseg = f"SV: {s_name}" + (f" ({s_cnt})" if s_cnt is not None else "")
+
+    if wseg: parts.append(wseg)
+    if lseg: parts.append(lseg)
+    if sseg: parts.append(sseg)
+
+    text = " • ".join(parts) if parts else ""
+    return {
+        "winnerId": win_id,
+        "loserId": lose_id,
+        "saveId": save_id,
+        "text": text
     }
 
 # --------- Routes ---------
@@ -1127,6 +1101,50 @@ def api_games():
     cache_set(date_str, payload, 15 if any_live else 300)
     return jsonify(payload)
 
+# ---- Play-by-play extraction (with EV/LA/Dist/xBA best-effort) ----
+def extract_play_by_play(live, limit=300):
+    ld = (live.get("liveData") or {})
+    allp = (ld.get("plays") or {}).get("allPlays") or []
+    out = []
+    for p in allp[-limit:]:
+        about = (p.get("about") or {})
+        res   = (p.get("result") or {})
+        count = (p.get("count") or {})
+        half  = (about.get("halfInning") or "").title()
+        inning_label = f"{half} {about.get('inning')}" if about.get("inning") else ""
+        # Statcast (best available)
+        hd = _find_latest_hitdata_from_play(p) or {}
+        ev = hd.get("launchSpeed")
+        la = hd.get("launchAngle")
+        dist = hd.get("totalDistance")
+        xba = (hd.get("estimatedBA") or hd.get("estimatedBa") or hd.get("estimatedBattingAverage")
+               or hd.get("xba") or hd.get("expectedBattingAverage"))
+        try:
+            # normalize xBA to decimal if needed (e.g., 52 -> .520)
+            if xba is not None:
+                xv = float(xba)
+                if xv > 1.0:
+                    xv = xv / 100.0
+                xba = f"{xv:.3f}"
+        except Exception:
+            pass
+
+        out.append({
+            "inning": inning_label,
+            "desc": res.get("description") or "",
+            "balls": count.get("balls"),
+            "strikes": count.get("strikes"),
+            "outs": count.get("outs"),
+            "away": res.get("awayScore"),
+            "home": res.get("homeScore"),
+            "ev": None if ev is None else (f"{float(ev):.1f}" if isinstance(ev,(int,float,str)) else ev),
+            "la": None if la is None else (f"{float(la):.1f}" if isinstance(la,(int,float,str)) else la),
+            "dist": None if dist is None else (f"{float(dist):.0f}" if isinstance(dist,(int,float,str)) else dist),
+            "xba": xba,
+            "xslg": None,  # (proxy optional; omitted for now)
+        })
+    return out
+
 # ---- Game detail page + API ----
 @app.route("/game/<int:game_pk>")
 def game_page(game_pk):
@@ -1145,25 +1163,25 @@ def api_game_detail(game_pk):
         shaped = shape_game(live, season)
         shaped["scoring"] = extract_scoring_summary(live)
 
-        # Provide full play-by-play with EV/LA/Dist/xBA/xSLG proxies
-        plays = extract_play_by_play(live=live, limit=500)
+        # Decisions (W/L/SV) meta including IDs for badge mapping
+        decisions_meta = build_decisions_meta(live, season)
 
-        # decisions (winner/loser/save) for pitching badges
-        decisions = (live.get("liveData", {}) or {}).get("decisions", {}) or {}
         meta = {
             "venue": ((live.get("gameData") or {}).get("venue") or {}).get("name"),
             "startET": to_et(((live.get("gameData") or {}).get("datetime") or {}).get("dateTime")),
             "weather": (live.get("gameData") or {}).get("weather") or {},
             "status": (live.get("gameData") or {}).get("status") or {},
             "decisions": {
-                "winnerId": (decisions.get("winner") or {}).get("id"),
-                "loserId": (decisions.get("loser") or {}).get("id"),
-                "saveId": (decisions.get("save") or {}).get("id"),
-            }
+                "winnerId": decisions_meta.get("winnerId"),
+                "loserId": decisions_meta.get("loserId"),
+                "saveId": decisions_meta.get("saveId"),
+            },
+            "decisionsText": decisions_meta.get("text", "")
         }
+
         return jsonify({
             "game": shaped,
-            "plays": plays,
+            "plays": extract_play_by_play(live=live),
             "meta": meta
         })
     except Exception as e:
