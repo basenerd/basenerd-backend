@@ -77,13 +77,8 @@
 
     /* Detailed player box score */
     .boxwrap{ display:grid; gap:12px; padding:10px; background:#fff; }
-
-    .two-up{
-      display:grid; grid-template-columns:1fr 1fr; gap:12px;
-    }
-    @media(max-width:900px){
-      .two-up{ grid-template-columns:1fr; }
-    }
+    .two-up{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media(max-width:900px){ .two-up{ grid-template-columns:1fr; } }
 
     .teamhdr{
       text-align:left; font-weight:700; color:#394150;
@@ -101,10 +96,20 @@
     .batters tbody td, .pitchers tbody td{
       border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; color:#394150;
     }
-    .batters td.name, .batters th.name, .pitchers td.name, .pitchers th.name{
-      text-align:left; font-weight:600; color:#111318; font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+
+    /* smaller player names to save space */
+    .batters td.name, .batters th.name,
+    .pitchers td.name, .pitchers th.name{
+      text-align:left;
+      font-weight:600;
+      color:#111318;
+      font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      font-size:11.5px; /* smaller */
     }
-    .batters td.pos, .pitchers td.pos, .batters th.pos, .pitchers th.pos{ color:#8a94ab; font-weight:700; text-transform:uppercase; text-align:left; }
+
+    .batters td.pos, .pitchers td.pos, .batters th.pos, .pitchers th.pos{
+      color:#8a94ab; font-weight:700; text-transform:uppercase; text-align:left;
+    }
     .indent .name { padding-left:16px; position:relative; }
     .indent .name::before{
       content:"";
@@ -199,7 +204,7 @@
         return parts[parts.length-1].replace(/[^\w'-]/g,'');
       }
 
-      /* --- Extract decision names (W/L/SV) from final lines we already expose --- */
+      /* Extract decision names (W/L/SV) by last name */
       function decisionsFromGame(g){
         let w='', l='', sv='';
         const sides = ['home', 'away'];
