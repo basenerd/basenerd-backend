@@ -494,136 +494,9 @@ def game_page(game_pk: int):
     return render_template("game.html", game=shaped, game_pk=game_pk)
 
 # -------------------- APIs --------------------
-@app.route("/api/games")
-def api_games():
-    d = request.args.get("date")
-    if not d:
-        dt = datetime.utcnow().replace(tzinfo=timezone.utc)
-        if ET_TZ: dt = dt.astimezone(ET_TZ)
-        d = dt.strftime("%Y-%m-%d")
-
-    js = fetch_schedule(d)
-    out = []
-
-    for date_obj in js.get("dates", []):
-        for g in date_obj.get("games", []):
-            game_pk = g.get("gamePk")
-            detailed = (g.get("status") or {}).get("detailedState") or ""
-            status = _norm_status(detailed)
-            venue = (g.get("venue") or {}).get("name")
-            base = {
-                "gamePk": game_pk,
-                "status": status,
-                "chip": to_et_str(g.get("gameDate")) if status == "scheduled" else "",
-                "venue": venue,
-                "teams": {
-                    "home": {
-                        "id": (g.get("teams") or {}).get("home", {}).get("team", {}).get("id"),
-                        "name": (g.get("teams") or {}).get("home", {}).get("team", {}).get("name"),
-                        "abbr": _abbr((g.get("teams") or {}).get("home", {}).get("team", {}).get("id"), (g.get("teams") or {}).get("home", {}).get("team", {}).get("abbreviation","")),
-                        "score": (g.get("teams") or {}).get("home", {}).get("score"),
-                        "record": _fmt_record((g.get("teams") or {}).get("home", {}).get("leagueRecord") or {}),
-                    },
-                    "away": {
-                        "id": (g.get("teams") or {}).get("away", {}).get("team", {}).get("id"),
-                        "name": (g.get("teams") or {}).get("away", {}).get("team", {}).get("name"),
-                        "abbr": _abbr((g.get("teams") or {}).get("away", {}).get("team", {}).get("id"), (g.get("teams") or {}).get("away", {}).get("team", {}).get("abbreviation","")),
-                        "score": (g.get("teams") or {}).get("away", {}).get("score"),
-                        "record": _fmt_record((g.get("teams") or {}).get("away", {}).get("leagueRecord") or {}),
-                    },
-                },
-                "inBreak": False,
-                "bases": {"first": False, "second": False, "third": False},
-                "dueUp": "",
-                "dueUpSide": "",
-                "lastPlay": "",
-                "statcast": "",
-            }
-
-            if status in ("in_progress", "final"):
-                try:
-                    live = fetch_live(game_pk)
-                    ld = (live.get("liveData") or {})
-                    ls = (ld.get("linescore") or {})
-                    gd = (live.get("gameData") or {})
-
-                    base["chip"] = ((ls.get("inningState") or "") + (" " + str(ls.get("currentInning")) if ls.get("currentInning") else "")).strip() or base["chip"]
-
-                    tms = base["teams"]
-                    ls_teams = (ls.get("teams") or {})
-                    tms["home"]["score"] = (ls_teams.get("home") or {}).get("runs")
-                    tms["away"]["score"] = (ls_teams.get("away") or {}).get("runs")
-
-                    for side in ("home","away"):
-                        t = (gd.get("teams") or {}).get(side) or {}
-                        rec = t.get("leagueRecord") or {}
-                        w = rec.get("wins"); l = rec.get("losses")
-                        if w is not None and l is not None:
-                            tms[side]["record"] = f"{w}-{l}"
-
-                    base["bases"] = {
-                        "first":  bool((ls.get("offense") or {}).get("first")),
-                        "second": bool((ls.get("offense") or {}).get("second")),
-                        "third":  bool((ls.get("offense") or {}).get("third")),
-                    }
-                    base["inBreak"] = bool(ls.get("isTopInning") is not None and (ld.get("plays") or {}).get("currentPlay") is None)
-
-                    next_ab = (ls.get("offense") or {}).get("batter") or {}
-                    if next_ab:
-                        base["dueUp"] = next_ab.get("fullName") or ""
-                        base["dueUpSide"] = "away" if ls.get("isTopInning") else "home"
-
-                    cur = (ld.get("plays") or {}).get("currentPlay") or {}
-                    base["lastPlay"] = (cur.get("result") or {}).get("description") or ""
-                    base["statcast"] = extract_statcast_line(live) or ""
-                    base["linescore"] = _shape_linescore(ls)
-
-                    try:
-                        box = fetch_box(game_pk)
-                        base["batters"] = {"away": _box_batting(box, "away"), "home": _box_batting(box, "home")}
-                        base["pitchers"] = {"away": _box_pitching(box, "away"), "home": _box_pitching(box, "home")}
-                    except Exception:
-                        pass
-
-                    base["scoring"] = _scoring_summary(live=live)
-
-                    _, dec_text = _decisions(live)
-                    if status == "final" and dec_text:
-                        base["teams"]["home"]["finalPitcher"] = dec_text
-
-                except Exception as e:
-                    log.warning("live hydrate failed for %s: %s", game_pk, e)
-
-            if status == "scheduled":
-                tms = g.get("teams") or {}
-                for side in ("away","home"):
-                    p = (tms.get(side) or {}).get("probablePitcher") or {}
-                    name = p.get("fullName")
-                    if name:
-                        base["teams"][side]["probable"] = name
-
-            out.append(base)
-
-    return jsonify({"date": d, "games": out})
-
-@app.route("/api/standings")
-def api_standings():
-    season = request.args.get("season", type=int)
-    js = fetch_standings(season)
-    return jsonify(js)
-
 @app.route("/api/game/<int:game_pk>")
 def api_game(game_pk: int):
-    """
-    Returns JSON used by game.html:
-      game: header info, linescore, batters/pitchers
-      plays: PBP list with EV/LA/Dist/xBA/pitches/bip
-      meta: decisions and text
-
-    Now with schedule-based fallback if live/box fetch fails.
-    """
     def fetch_sched_by_gamepk(pk: int) -> dict:
-        """Fetch minimal schedule info for a single gamePk."""
         try:
             js = http_json(f"{MLB_API}/schedule", params={"gamePk": pk, "language": "en"})
             for d in js.get("dates", []):
@@ -635,11 +508,10 @@ def api_game(game_pk: int):
         return {}
 
     try:
-        # Main happy path
         live = fetch_live(game_pk)
         box = fetch_box(game_pk)
 
-        shaped = _shape_header(live)
+        shaped = _shape_header(live)  # normalized status/chip/teams/date
         shaped["linescore"] = _shape_linescore((live.get("liveData") or {}).get("linescore"))
         shaped["batters"] = {"away": _box_batting(box, "away"), "home": _box_batting(box, "home")}
         shaped["pitchers"] = {"away": _box_pitching(box, "away"), "home": _box_pitching(box, "home")}
@@ -647,70 +519,78 @@ def api_game(game_pk: int):
         meta = {"decisions": dec_ids, "decisionsText": dec_text}
         plays = extract_play_by_play(live=live)
 
-        payload = {"game": shaped, "plays": plays, "meta": meta}
-        log.info("=== /api/game/%s payload ===", game_pk)
-        log.info(payload)
-        return jsonify(payload)
+        return jsonify({"game": shaped, "plays": plays, "meta": meta})
 
     except Exception as e:
-        # Fallback path using schedule data
-        log.exception("detail fetch failed for %s", game_pk)
         g = fetch_sched_by_gamepk(game_pk)
         teams = (g.get("teams") or {})
         home = (teams.get("home") or {}).get("team", {}) or {}
         away = (teams.get("away") or {}).get("team", {}) or {}
         date_iso = g.get("gameDate")
 
-        payload = {
-            "game": {
-                "status": "scheduled",
-                "chip": to_et_str(date_iso),
-                "venue": (g.get("venue") or {}).get("name", ""),
-                "date": to_et_str(date_iso),
-                "statcast": "",
-                "teams": {
-                    "home": {
-                        "id": home.get("id"),
-                        "name": home.get("name"),
-                        "abbr": _abbr(home.get("id"), home.get("abbreviation", "")),
-                        "score": None
-                    },
-                    "away": {
-                        "id": away.get("id"),
-                        "name": away.get("name"),
-                        "abbr": _abbr(away.get("id"), away.get("abbreviation", "")),
-                        "score": None
-                    },
-                },
-                "linescore": {"n": 0, "away": [], "home": [], "totals": {"away": {}, "home": {}}},
-                "batters": {"away": [], "home": []},
-                "pitchers": {"away": [], "home": []},
+        shaped = {
+            "status": "scheduled",
+            "chip": to_et_str(date_iso),
+            "venue": (g.get("venue") or {}).get("name",""),
+            "date": to_et_str(date_iso),
+            "statcast": "",
+            "teams": {
+                "home": {"id": home.get("id"), "name": home.get("name"), "abbr": _abbr(home.get("id"), home.get("abbreviation","")), "score": None},
+                "away": {"id": away.get("id"), "name": away.get("name"), "abbr": _abbr(away.get("id"), away.get("abbreviation","")), "score": None},
             },
-            "plays": [],
-            "meta": {"decisions": {}, "decisionsText": ""},
-            "error": str(e),
+            "linescore": {"n": 0, "away": [], "home": [], "totals": {"away": {}, "home": {}}},
+            "batters": {"away": [], "home": []},
+            "pitchers": {"away": [], "home": []},
         }
+        shaped["home"] = {**shaped["teams"]["home"], "record": _fmt_record((teams.get("home") or {}).get("leagueRecord") or {})}
+        shaped["away"] = {**shaped["teams"]["away"], "record": _fmt_record((teams.get("away") or {}).get("leagueRecord") or {})}
 
-        # Add shorthand home/away dicts used by some templates/JS
-        payload["game"]["home"] = {
-            **payload["game"]["teams"]["home"],
-            "record": _fmt_record((teams.get("home") or {}).get("leagueRecord") or {})
+        return jsonify({"game": shaped, "plays": [], "meta": {"decisions": {}, "decisionsText": ""}, "error": str(e)}), 200
+
+@app.route("/api/standings")
+def api_standings():
+    season = request.args.get("season", type=int)
+    js = fetch_standings(season)
+    return jsonify(js)
+
+@app.route("/game/<int:game_pk>")
+def game_page(game_pk: int):
+    def fetch_sched_by_gamepk(pk: int) -> dict:
+        try:
+            js = http_json(f"{MLB_API}/schedule", params={"gamePk": pk, "language": "en"})
+            for d in js.get("dates", []):
+                for g in d.get("games", []):
+                    if g.get("gamePk") == pk:
+                        return g
+        except Exception:
+            pass
+        return {}
+
+    try:
+        live = fetch_live(game_pk)  # may 404
+        shaped = _shape_header(live)
+    except Exception:
+        g = fetch_sched_by_gamepk(game_pk)
+        teams = (g.get("teams") or {})
+        home = (teams.get("home") or {}).get("team", {}) or {}
+        away = (teams.get("away") or {}).get("team", {}) or {}
+        date_iso = g.get("gameDate")
+        shaped = {
+            "status": "scheduled",
+            "chip": to_et_str(date_iso),
+            "venue": (g.get("venue") or {}).get("name",""),
+            "date": to_et_str(date_iso),
+            "statcast": "",
+            "teams": {
+                "home": {"id": home.get("id"), "name": home.get("name"), "abbr": _abbr(home.get("id"), home.get("abbreviation","")), "score": None},
+                "away": {"id": away.get("id"), "name": away.get("name"), "abbr": _abbr(away.get("id"), away.get("abbreviation","")), "score": None},
+            },
         }
-        payload["game"]["away"] = {
-            **payload["game"]["teams"]["away"],
-            "record": _fmt_record((teams.get("away") or {}).get("leagueRecord") or {})
-        }
+        # convenience fields used in Jinja
+        shaped["home"] = {**shaped["teams"]["home"], "record": _fmt_record((teams.get("home") or {}).get("leagueRecord") or {})}
+        shaped["away"] = {**shaped["teams"]["away"], "record": _fmt_record((teams.get("away") or {}).get("leagueRecord") or {})}
 
-        log.info("=== /api/game/%s payload (sched-fallback) ===", game_pk)
-        log.info(payload)
-        return jsonify(payload), 200
-
-
-
-# -------------------- Health --------------------
-@app.route("/ping")
-def ping():
-    return "ok", 200
+    return render_template("game.html", game=shaped, game_pk=game_pk)
 
 # -------------------- Scoring summary helper --------------------
 def _scoring_summary(live: dict) -> List[dict]:
