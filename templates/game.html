@@ -79,7 +79,7 @@
     .mini-row{ display:grid; grid-template-columns:auto 1fr auto; gap:6px; font-size:12px; color:#394150; }
     .mini-table{ width:100%; border-collapse:collapse; margin-top:8px; }
     .mini-table th, .mini-table td{ border-bottom:1px solid var(--border); padding:4px 6px; font-size:12px; text-align:center; }
-    .plots{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .plots{ display:grid; grid-template-columns:1fr; gap:14px; } /* one plot now */
     .plot-card{ border:1px solid var(--border); border-radius:10px; padding:8px; }
     .note{ color:#8a94ab; font-size:11px; margin-top:6px; }
   </style>
@@ -261,30 +261,6 @@
     }
     function normEV(ev){ const v=parseFloat(ev); if (isNaN(v)) return null; return clamp01((v-60)/(115-60)); }
     function normXBA(x){ let v=(typeof x==='string'&&x.startsWith('.'))? parseFloat('0'+x) : parseFloat(x); if(isNaN(v)) return null; if(v>1) v=v/100; return clamp01(v); }
-
-    /* New helpers: robust xBA display, one‑decimal numbers, full pitch names */
-    function fmtXBA(x){
-      if (x == null || x === '') return '—';
-      let v = (typeof x === 'string' && x.trim().startsWith('.')) ? parseFloat('0'+x) : parseFloat(x);
-      if (Number.isNaN(v)) return '—';
-      if (v > 1) v = v/100;                 // handle 237 or 23.7 style
-      return v.toFixed(3).replace(/^0/, '.');
-    }
-    function fmt1(x){
-      if (x == null || x === '') return '—';
-      const v = parseFloat(x);
-      return Number.isNaN(v) ? '—' : v.toFixed(1);
-    }
-    const PITCH_NAMES = {
-      "FF":"Four-Seam Fastball","FA":"Fastball","FT":"Two-Seam Fastball","SI":"Sinker","FC":"Cutter",
-      "SL":"Slider","ST":"Sweeper","CH":"Changeup","CU":"Curveball","KC":"Knuckle Curve","KN":"Knuckleball",
-      "FS":"Splitter","FO":"Forkball","EP":"Eephus","SC":"Screwball","PO":"Pitchout","IN":"Intentional Ball",
-      "AB":"Automatic Ball","UN":"Unknown"
-    };
-    function fullPitchName(code){
-      const c = String(code||'').toUpperCase();
-      return PITCH_NAMES[c] || c;
-    }
     function tdWithGrad(val, normFn){
       const display = (val==null || val==='') ? '—' : val;
       const n = normFn(val);
@@ -305,10 +281,10 @@
           <tr class="pbp-row" data-row="${idx}" style="cursor:pointer">
             <td class="center">${r.inning || ''}</td>
             <td>${r.desc || ''}</td>
-            ${tdWithGrad(fmt1(r.ev), normEV)}
+            ${tdWithGrad(r.ev||'', normEV)}
             <td class="center">${r.la ? r.la + '°' : '—'}</td>
             <td class="center">${r.dist ? r.dist + ' ft' : '—'}</td>
-            ${tdWithGrad(fmtXBA(r.xba), normXBA)}
+            ${tdWithGrad(r.xba||'', normXBA)}
           </tr>
           <tr class="expander" data-exp="${idx}" style="display:none">
             <td colspan="6">
@@ -318,11 +294,6 @@
                     <div class="mini-title">Strike Zone</div>
                     <div id="sz-${idx}"></div>
                     <div class="note">Green = ball • Red = strike/foul • Blue = in play</div>
-                  </div>
-                  <div class="plot-card">
-                    <div class="mini-title">Ball in Play</div>
-                    <div id="fld-${idx}"></div>
-                    <div class="note">Dot = reported contact location</div>
                   </div>
                 </div>
                 <div>
@@ -352,249 +323,92 @@
     }
 
     // ---------- Charts ----------
-    /* Fixed strike zone: uniform scale, centered, margins, 3×3 grid */
-    function drawStrikeZone(el, pitches) {
-      const w = 220, h = 240, pad = 10;
+    function drawStrikeZone(el, pitches){
+      const w=220, h=240, pad=10;
+      const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+      svg.setAttribute("width", w); svg.setAttribute("height", h);
+      svg.style.background = "#ffffff";
+      const g = document.createElementNS(svg.namespaceURI,"g");
+      svg.appendChild(g);
 
-      // Average top/bottom with safe fallbacks
-      const tops = [], bots = [];
-      (pitches || []).forEach(p => {
-        if (p.sz_top != null) tops.push(+p.sz_top);
-        if (p.sz_bot != null) bots.push(+p.sz_bot);
+      // Map px [-1.5,1.5] -> [pad, w-pad]; pz [0,5] -> [h-pad, pad]
+      const xMap = x => pad + ((x+1.5)/(3.0))*(w-2*pad);
+      const yMap = z => h-pad - ((z-0)/(5.0))*(h-2*pad);
+
+      // Zone edges (average first available)
+      let tops = [], bots = [];
+      pitches.forEach(p => {
+        if (p.sz_top!=null) tops.push(Number(p.sz_top));
+        if (p.sz_bot!=null) bots.push(Number(p.sz_bot));
       });
       const zTop = tops.length ? tops.reduce((a,b)=>a+b)/tops.length : 3.5;
       const zBot = bots.length ? bots.reduce((a,b)=>a+b)/bots.length : 1.5;
 
-      // Plate width ≈ 1.66 ft (±0.83)
-      const halfWidth = 0.83;
-      const zoneWft = halfWidth * 2;
-      const zoneHft = Math.max(1, zTop - zBot);
-
-      // Margins so outside pitches fit
-      const marginXft = 1.5, marginYft = 1.5;
-
-      // Uniform feet→px scale (keeps aspect correct)
-      const usableW = w - 2*pad, usableH = h - 2*pad;
-      const scale = Math.min(
-        usableW / (zoneWft + 2*marginXft),
-        usableH / (zoneHft + 2*marginYft)
-      );
-
-      // Center on midpoint of the zone
-      const cx = w/2;
-      const mid = (zTop + zBot) / 2;
-      const cy = h/2;
-
-      const xMap = x => cx + x * scale;           // feet → px
-      const yMap = z => cy - (z - mid) * scale;   // feet → px
-
-      const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
-      svg.setAttribute("width", w); svg.setAttribute("height", h);
-      const g = document.createElementNS(svg.namespaceURI,"g");
-      svg.appendChild(g);
-
-      // Zone rectangle
-      const zx = xMap(-halfWidth), zw = zoneWft * scale;
-      const zy = yMap(zTop),       zh = zoneHft * scale;
-
+      // Draw zone rectangle (plate half-width ≈ 0.83 ft)
+      const zLeft = xMap(-0.83), zRight = xMap(0.83), zTopY = yMap(zTop), zBotY = yMap(zBot);
       const rect = document.createElementNS(svg.namespaceURI,"rect");
-      rect.setAttribute("x", zx); rect.setAttribute("y", zy);
-      rect.setAttribute("width", zw); rect.setAttribute("height", zh);
-      rect.setAttribute("fill", "rgba(148,163,184,0.08)");
-      rect.setAttribute("stroke", "#94a3b8");
-      rect.setAttribute("stroke-width", "2");
+      rect.setAttribute("x", zLeft); rect.setAttribute("y", zTopY);
+      rect.setAttribute("width", zRight - zLeft); rect.setAttribute("height", zBotY - zTopY);
+      rect.setAttribute("fill","none"); rect.setAttribute("stroke","#94a3b8"); rect.setAttribute("stroke-width","2");
       g.appendChild(rect);
 
       // 3×3 grid
       for (let i=1;i<=2;i++){
         const v = document.createElementNS(svg.namespaceURI,"line");
-        v.setAttribute("x1", zx + (zw/3)*i); v.setAttribute("y1", zy);
-        v.setAttribute("x2", zx + (zw/3)*i); v.setAttribute("y2", zy + zh);
+        v.setAttribute("x1", zLeft + ((zRight - zLeft)/3)*i); v.setAttribute("y1", zTopY);
+        v.setAttribute("x2", zLeft + ((zRight - zLeft)/3)*i); v.setAttribute("y2", zBotY);
         v.setAttribute("stroke", "#cbd5e1"); g.appendChild(v);
 
         const hline = document.createElementNS(svg.namespaceURI,"line");
-        hline.setAttribute("x1", zx); hline.setAttribute("y1", zy + (zh/3)*i);
-        hline.setAttribute("x2", zx + zw); hline.setAttribute("y2", zy + (zh/3)*i);
+        hline.setAttribute("x1", zLeft); hline.setAttribute("y1", zTopY + ((zBotY - zTopY)/3)*i);
+        hline.setAttribute("x2", zRight); hline.setAttribute("y2", zTopY + ((zBotY - zTopY)/3)*i);
         hline.setAttribute("stroke", "#cbd5e1"); g.appendChild(hline);
       }
 
-      // Pitches (color logic unchanged)
-      (pitches || []).forEach(p => {
-        if (p.px == null || p.pz == null) return;
-        const code = String(p.code||'').toUpperCase();
+      // Pitches with sequence numbers
+      pitches.forEach((p,i)=>{
+        if (p.px==null || p.pz==null) return;
+        const code = (p.code||"").toUpperCase();
         let color = "var(--strike)";
         if (p.inPlay) color = "var(--inplay)"; else if (code === "B") color = "var(--ball)";
-        const dot = document.createElementNS(svg.namespaceURI,"circle");
-        dot.setAttribute("cx", xMap(+p.px));
-        dot.setAttribute("cy", yMap(+p.pz));
-        dot.setAttribute("r", 5);
-        dot.setAttribute("fill", color);
-        dot.setAttribute("stroke", "#111318");
-        dot.setAttribute("stroke-width", "0.5");
-        g.appendChild(dot);
-      });
 
-      // Border
-      const border = document.createElementNS(svg.namespaceURI,"rect");
-      border.setAttribute("x", 0.5); border.setAttribute("y", 0.5);
-      border.setAttribute("width", w-1); border.setAttribute("height", h-1);
-      border.setAttribute("fill", "none"); border.setAttribute("stroke", "#e5e7eb");
-      g.appendChild(border);
+        const cx = xMap(Number(p.px));
+        const cy = yMap(Number(p.pz));
+
+        const circ = document.createElementNS(svg.namespaceURI,"circle");
+        circ.setAttribute("cx", cx);
+        circ.setAttribute("cy", cy);
+        circ.setAttribute("r", 5);
+        circ.setAttribute("fill", color);
+        circ.setAttribute("opacity", "0.95");
+        circ.setAttribute("stroke", "#111318");
+        circ.setAttribute("stroke-width", "0.5");
+        g.appendChild(circ);
+
+        // overlay pitch number
+        const label = document.createElementNS(svg.namespaceURI,"text");
+        label.setAttribute("x", cx);
+        label.setAttribute("y", cy + 0.5); /* slight visual centering */
+        label.setAttribute("text-anchor", "middle");
+        label.setAttribute("dominant-baseline", "middle");
+        label.setAttribute("font-size", "8.5");
+        label.setAttribute("font-weight", "700");
+        label.setAttribute("fill", "#ffffff");
+        label.setAttribute("stroke", "#111318");
+        label.setAttribute("stroke-width", "0.6");
+        label.textContent = String(i+1);
+        g.appendChild(label);
+      });
 
       el.innerHTML = ""; el.appendChild(svg);
     }
-
-    /* Field: 90′ diamond + arcs + foul lines, uniform feet→px scale */
-    function drawField(el, bip){
-  const w = 240, h = 240, pad = 10;
-
-  // Real dimensions (feet)
-  const BASE = 90;           // base-to-base
-  const INFIELD_RADIUS = 95; // infield dirt/grass arc radius
-  const WARNING_TRACK = 360; // warning track radius (approx)
-  const FENCE = 380;         // fence radius (approx CF)
-  const MOUND = 60.5;
-
-  // Feet→px scale; put home at bottom-center
-  const usableW = w - 2*pad, usableH = h - 2*pad;
-  const maxXFeet = FENCE;                  // left to right is ±FENCE
-  const maxYFeet = FENCE;                  // bottom (home) to top is FENCE
-  const scale = Math.min(usableW / (2*maxXFeet), usableH / maxYFeet);
-
-  const cx = w/2, cy = h - pad;            // home plate at (0,0)
-  const sx = xf => cx + xf * scale;
-  const sy = yf => cy - yf * scale;
-
-  const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
-  svg.setAttribute("width", w); svg.setAttribute("height", h);
-  const g = document.createElementNS(svg.namespaceURI,"g");
-  svg.appendChild(g);
-
-  // Helper to draw an arc (home-centered, foul pole to foul pole)
-  function arcPath(r){
-    const rpx = r*scale;
-    return `M ${sx(-r)},${sy(0)} A ${rpx},${rpx} 0 0 1 ${sx(r)},${sy(0)}`;
-  }
-
-  // Outfield grass (subtle green fill)
-  const of = document.createElementNS(svg.namespaceURI,"path");
-  of.setAttribute("d", arcPath(FENCE));
-  of.setAttribute("fill","none");
-  of.setAttribute("stroke","#0a0"); // very subtle line
-  of.setAttribute("stroke-opacity","0.08");
-  of.setAttribute("stroke-width","40"); // thick stroke to give a soft fill feel
-  g.appendChild(of);
-
-  // Warning track (slightly darker ring inside fence)
-  const wt = document.createElementNS(svg.namespaceURI,"path");
-  wt.setAttribute("d", arcPath(WARNING_TRACK));
-  wt.setAttribute("fill","none");
-  wt.setAttribute("stroke","#a36f2b");
-  wt.setAttribute("stroke-opacity","0.15");
-  wt.setAttribute("stroke-width","12");
-  g.appendChild(wt);
-
-  // Infield dirt circle
-  const infield = document.createElementNS(svg.namespaceURI,"path");
-  infield.setAttribute("d", arcPath(INFIELD_RADIUS));
-  infield.setAttribute("fill","none");
-  infield.setAttribute("stroke","#a36f2b");
-  infield.setAttribute("stroke-opacity","0.22");
-  infield.setAttribute("stroke-width","18");
-  g.appendChild(infield);
-
-  // Foul lines (home to foul poles)
-  const fl = document.createElementNS(svg.namespaceURI,"line");
-  fl.setAttribute("x1", sx(0)); fl.setAttribute("y1", sy(0));
-  fl.setAttribute("x2", sx(-FENCE)); fl.setAttribute("y2", sy(0));
-  fl.setAttribute("stroke","#111"); fl.setAttribute("stroke-opacity","0.35");
-  const fr = document.createElementNS(svg.namespaceURI,"line");
-  fr.setAttribute("x1", sx(0)); fr.setAttribute("y1", sy(0));
-  fr.setAttribute("x2", sx(FENCE)); fr.setAttribute("y2", sy(0));
-  fr.setAttribute("stroke","#111"); fr.setAttribute("stroke-opacity","0.35");
-  g.appendChild(fl); g.appendChild(fr);
-
-  // Fence arc line
-  const fence = document.createElementNS(svg.namespaceURI,"path");
-  fence.setAttribute("d", arcPath(FENCE));
-  fence.setAttribute("fill","none");
-  fence.setAttribute("stroke","#111");
-  fence.setAttribute("stroke-width","1.2");
-  fence.setAttribute("stroke-opacity","0.55");
-  g.appendChild(fence);
-
-  // Base coordinates (square 90' diamond)
-  const H  = [  0,   0];
-  const B1 = [ BASE,  0];
-  const B2 = [ BASE, BASE];
-  const B3 = [  0,  BASE];
-
-  // Basepaths (diamond outline from 2B→1B→Home→3B)
-  const pathPts = [B2, B1, H, B3].map(([x,y]) => `${sx(x)},${sy(y)}`).join(" ");
-  const bp = document.createElementNS(svg.namespaceURI,"polygon");
-  bp.setAttribute("points", pathPts);
-  bp.setAttribute("fill","none");
-  bp.setAttribute("stroke","#7c3f10");     // dirt line
-  bp.setAttribute("stroke-opacity","0.6");
-  g.appendChild(bp);
-
-  // Bases (squares) + home (pentagon-ish simplified as square/diamond)
-  function drawBase([x,y]){
-    const r = 3.5;
-    const b = document.createElementNS(svg.namespaceURI,"rect");
-    b.setAttribute("x", sx(x)-r); b.setAttribute("y", sy(y)-r);
-    b.setAttribute("width", 2*r); b.setAttribute("height", 2*r);
-    b.setAttribute("fill", "#fff"); b.setAttribute("stroke", "#111"); b.setAttribute("stroke-opacity","0.7");
-    g.appendChild(b);
-  }
-  drawBase(B1); drawBase(B2); drawBase(B3);
-
-  // Home plate (diamond)
-  const hp = document.createElementNS(svg.namespaceURI,"rect");
-  hp.setAttribute("x", sx(H[0])-3); hp.setAttribute("y", sy(H[1])-3);
-  hp.setAttribute("width", 6); hp.setAttribute("height", 6);
-  hp.setAttribute("transform", `rotate(45 ${sx(H[0])} ${sy(H[1])})`);
-  hp.setAttribute("fill", "#fff"); hp.setAttribute("stroke", "#111"); hp.setAttribute("stroke-opacity","0.7");
-  g.appendChild(hp);
-
-  // Pitcher’s mound at 60.5′ along home→2B diagonal (x=y=MOUND/√2)
-  const m = MOUND / Math.sqrt(2);
-  const mound = document.createElementNS(svg.namespaceURI,"circle");
-  mound.setAttribute("cx", sx(m)); mound.setAttribute("cy", sy(m));
-  mound.setAttribute("r", 3.5);
-  mound.setAttribute("fill","#d6d3d1");
-  mound.setAttribute("stroke","#111"); mound.setAttribute("stroke-opacity","0.4");
-  g.appendChild(mound);
-
-  // Ball-in-play dot (StatsAPI ~0..250 mapped into feet)
-  const bx = Number(bip?.x), by = Number(bip?.y);
-  if (!Number.isNaN(bx) && !Number.isNaN(by)){
-    const xf = (bx/250) * (2*FENCE) - FENCE;  // [-FENCE, +FENCE]
-    const yf = (by/250) * FENCE;              // [0, FENCE]
-    const dot = document.createElementNS(svg.namespaceURI,"circle");
-    dot.setAttribute("cx", sx(xf)); dot.setAttribute("cy", sy(yf));
-    dot.setAttribute("r", 4.5); dot.setAttribute("fill","var(--inplay)");
-    dot.setAttribute("stroke","#111"); dot.setAttribute("stroke-width","0.6");
-    g.appendChild(dot);
-  }
-
-  // Containment border
-  const border = document.createElementNS(svg.namespaceURI,"rect");
-  border.setAttribute("x", 0.5); border.setAttribute("y", 0.5);
-  border.setAttribute("width", w-1); border.setAttribute("height", h-1);
-  border.setAttribute("fill", "none"); border.setAttribute("stroke", "#e5e7eb");
-  g.appendChild(border);
-
-  el.innerHTML = ""; el.appendChild(svg);
-}
-
 
     function fillPitchMiniTable(el, pitches){
       el.innerHTML = (pitches||[]).map((p,i)=>`
         <tr>
           <td>${i+1}</td>
-          <td>${fullPitchName(p.type)}</td>
-          <td>${fmt1(p.velo)}</td>
+          <td>${p.type || ''}</td>
+          <td>${p.velo != null ? Math.round(p.velo) : '—'}</td>
           <td>${p.result || ''}</td>
         </tr>
       `).join('') || `<tr><td colspan="4" class="when">No pitch data</td></tr>`;
@@ -602,14 +416,14 @@
 
     function renderDetails(idx){
       const play = playsGlobal[idx] || {};
-      // Charts
+      // Chart
       drawStrikeZone($(`sz-${idx}`), play.pitches || []);
-      drawField($(`fld-${idx}`), play.bip || {});
       // Table
       fillPitchMiniTable($(`ptbl-${idx}`), play.pitches || []);
     }
 
     // ---------- Load & wire up ----------
+    let playsGlobal = [];
     async function load(){
       const res = await fetch(API, {cache:'no-store'});
       const data = await res.json();
