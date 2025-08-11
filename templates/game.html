@@ -262,7 +262,7 @@
     function normEV(ev){ const v=parseFloat(ev); if (isNaN(v)) return null; return clamp01((v-60)/(115-60)); }
     function normXBA(x){ let v=(typeof x==='string'&&x.startsWith('.'))? parseFloat('0'+x) : parseFloat(x); if(isNaN(v)) return null; if(v>1) v=v/100; return clamp01(v); }
 
-    /* NEW helpers: robust xBA display, 1‑decimal numbers, and full pitch names */
+    /* New helpers: robust xBA display, one‑decimal numbers, full pitch names */
     function fmtXBA(x){
       if (x == null || x === '') return '—';
       let v = (typeof x === 'string' && x.trim().startsWith('.')) ? parseFloat('0'+x) : parseFloat(x);
@@ -285,7 +285,6 @@
       const c = String(code||'').toUpperCase();
       return PITCH_NAMES[c] || c;
     }
-
     function tdWithGrad(val, normFn){
       const display = (val==null || val==='') ? '—' : val;
       const n = normFn(val);
@@ -353,7 +352,7 @@
     }
 
     // ---------- Charts ----------
-    /* FIXED strike zone: uniform feet→px scale, centered, margins, 3×3 grid */
+    /* Fixed strike zone: uniform scale, centered, margins, 3×3 grid */
     function drawStrikeZone(el, pitches) {
       const w = 220, h = 240, pad = 10;
 
@@ -371,17 +370,17 @@
       const zoneWft = halfWidth * 2;
       const zoneHft = Math.max(1, zTop - zBot);
 
-      // Margins so balls outside are visible
+      // Margins so outside pitches fit
       const marginXft = 1.5, marginYft = 1.5;
 
-      // Single uniform scale for both axes
+      // Uniform feet→px scale (keeps aspect correct)
       const usableW = w - 2*pad, usableH = h - 2*pad;
       const scale = Math.min(
         usableW / (zoneWft + 2*marginXft),
         usableH / (zoneHft + 2*marginYft)
       );
 
-      // Center zone around its vertical midpoint
+      // Center on midpoint of the zone
       const cx = w/2;
       const mid = (zTop + zBot) / 2;
       const cy = h/2;
@@ -419,7 +418,7 @@
         hline.setAttribute("stroke", "#cbd5e1"); g.appendChild(hline);
       }
 
-      // Pitches
+      // Pitches (color logic unchanged)
       (pitches || []).forEach(p => {
         if (p.px == null || p.pz == null) return;
         const code = String(p.code||'').toUpperCase();
@@ -445,7 +444,7 @@
       el.innerHTML = ""; el.appendChild(svg);
     }
 
-    /* Improved field: real diamond, infield/outfield arcs, foul lines; 90′ scale */
+    /* Field: 90′ diamond + arcs + foul lines, uniform feet→px scale */
     function drawField(el, bip){
       const w = 240, h = 240, pad = 10;
 
@@ -609,8 +608,7 @@
       fillBatTable('batAway', (g.batters && g.batters.away) || []);
       fillBatTable('batHome', (g.batters && g.batters.home) || []);
       fillPitTable('pitAway', (g.pitchers && g.pitchers.away) || [], meta.decisions);
-      fillPitTable('pitHome', (g.pitchers && g.p
-itchers.home) || [], meta.decisions);
+      fillPitTable('pitHome', (g.pitchers && g.pitchers.home) || [], meta.decisions);
 
       // PBP
       renderPBPTable(plays);
