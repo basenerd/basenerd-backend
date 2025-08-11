@@ -775,6 +775,7 @@ def game_state_and_participants(live, include_records=None):
         "box": box
     }
 
+
 def shape_game(live, season, records=None):
     gd = live.get("gameData", {}) or {}
     teams = gd.get("teams", {}) or {}
@@ -800,8 +801,9 @@ def shape_game(live, season, records=None):
             "home": {"id": home.get("id"), "abbr": home.get("abbreviation") or home.get("clubName"), "record": state["records"].get("home","")},
             "away": {"id": away.get("id"), "abbr": away.get("abbreviation") or away.get("clubName"), "record": state["records"].get("away","")},
         }
-    game["scoring"] = extract_scoring_summary(live)
     }
+    # attach scoring summary for all non-scheduled states; safe for scheduled too (will be empty)
+    game["scoring"] = extract_scoring_summary(live)
 
     # linescore columns
     if status == "in_progress":
@@ -835,9 +837,9 @@ def shape_game(live, season, records=None):
     if status == "in_progress":
         pit = state["pitcher"]; bat = state["batter"]
         if pit and pit.get("side") in ("home","away"):
-            game["teams"][pit["side"]]["currentPitcher"] = f"P: {pit['name']} • IP {pit.get('ip','-')} • P {pit.get('p','-')} • ER {pit.get('er',0)} • K {pit.get('k',0)} • BB {pit.get('bb',0)}"
+            game["teams"][pit["side"]]["currentPitcher"] = f"P: {pit['name']} \u2022 IP {pit.get('ip','-')} \u2022 P {pit.get('p','-')} \u2022 ER {pit.get('er',0)} \u2022 K {pit.get('k',0)} \u2022 BB {pit.get('bb',0)}"
         if bat and bat.get("side") in ("home","away"):
-            game["teams"][bat["side"]]["currentBatter"] = f"B: {bat['name']} • {bat.get('line','')}"
+            game["teams"][bat["side"]]["currentBatter"] = f"B: {bat['name']} \u2022 {bat.get('line','')}"
         # between-innings: show pitcher line for the team about to pitch
         next_pitch_side = None
         if game["inBreak"]:
@@ -864,7 +866,7 @@ def shape_game(live, season, records=None):
                 if p:
                     st = (p.get("stats") or {}).get("pitching") or {}
                     name = (p.get("person") or {}).get("fullName") or ""
-                    return side, f"{name} • IP {st.get('inningsPitched','-')} • P {st.get('numberOfPitches') or st.get('pitchesThrown') or '-'} • ER {st.get('earnedRuns',0)} • K {st.get('strikeOuts',0)} • BB {st.get('baseOnBalls',0)}"
+                    return side, f"{name} \u2022 IP {st.get('inningsPitched','-')} \u2022 P {st.get('numberOfPitches') or st.get('pitchesThrown') or '-'} \u2022 ER {st.get('earnedRuns',0)} \u2022 K {st.get('strikeOuts',0)} \u2022 BB {st.get('baseOnBalls',0)}"
             return "", ""
 
         win_side, win_line = pitcher_line_for(win_id)
@@ -924,6 +926,7 @@ def standings_page():
         "standings.html",
         data_division=data_division,
         data_wildcard=data_wildcard,
+        data_wc=data_wildcard,
         season=SEASON,
         error=err
     )
