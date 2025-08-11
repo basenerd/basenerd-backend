@@ -727,91 +727,67 @@ def api_game(game_pk: int):
       game: header info, linescore, batters/pitchers
       plays: PBP list with EV/LA/Dist/xBA/pitches/bip
       meta: decisions and text
-
-    Robust:
-      - Try live + box (happy path)
-      - Fallback to box + linescore + playByPlay + schedule for completed games
     """
-    # Happy path: live + box
     try:
         live = fetch_live(game_pk)
         box = fetch_box(game_pk)
 
-        shaped = _shape_header(live)
+        shaped = _shape_header(live)  # has status/chip/teams/date/etc.
         shaped["linescore"] = _shape_linescore((live.get("liveData") or {}).get("linescore"))
-        shaped["batters"] = {"away": _box_batting(box, "away"), "home": _box_batting(box, "home")}
-        shaped["pitchers"] = {"away": _box_pitching(box, "away"), "home": _box_pitching(box, "home")}
+        shaped["batters"] = {
+            "away": _box_batting(box, "away"),
+            "home": _box_batting(box, "home"),
+        }
+        shaped["pitchers"] = {
+            "away": _box_pitching(box, "away"),
+            "home": _box_pitching(box, "home"),
+        }
         dec_ids, dec_text = _decisions(live)
         meta = {"decisions": dec_ids, "decisionsText": dec_text}
-        plays = extract_play_by_play(live=live)
 
-        return jsonify({"game": shaped, "plays": plays, "meta": meta})
+        return jsonify({
+            "game": shaped,
+            "plays": extract_play_by_play(live=live),
+            "meta": meta
+        })
 
-    except Exception:
-        # Fallback: often the live feed 404s for completed games; use other endpoints
-        g = fetch_sched_by_gamepk(game_pk)
-        status = _norm_status_from_sched(g)
-        teams = (g.get("teams") or {})
-        home_t = (teams.get("home") or {}).get("team", {}) or {}
-        away_t = (teams.get("away") or {}).get("team", {}) or {}
-        date_iso = g.get("gameDate")
+    except Exception as e:
+        # Defensive fallback: return the full object shape so the page can still render
+        log.exception("detail fetch failed for %s", game_pk)
 
         shaped = {
-            "status": status,
-            "chip": to_et_str(date_iso),
-            "venue": (g.get("venue") or {}).get("name", ""),
-            "date": to_et_str(date_iso),
+            "status": "",
+            "chip": "",
+            "venue": "",
+            "date": "",
             "statcast": "",
             "teams": {
-                "home": {"id": home_t.get("id"), "name": home_t.get("name"), "abbr": _abbr(home_t.get("id"), home_t.get("abbreviation","")), "score": None},
-                "away": {"id": away_t.get("id"), "name": away_t.get("name"), "abbr": _abbr(away_t.get("id"), away_t.get("abbreviation","")), "score": None},
+                "home": {"id": None, "name": "", "abbr": "", "score": None},
+                "away": {"id": None, "name": "", "abbr": "", "score": None},
             },
-            "linescore": {"n": 0, "away": [], "home": [], "totals": {"away": {}, "home": {}}},
+            "linescore": {},
             "batters": {"away": [], "home": []},
             "pitchers": {"away": [], "home": []},
         }
 
-        # Boxscore (scores + batting/pitching tables)
-        try:
-            box = fetch_box(game_pk)
-            shaped["batters"] = {"away": _box_batting(box, "away"), "home": _box_batting(box, "home")}
-            shaped["pitchers"] = {"away": _box_pitching(box, "away"), "home": _box_pitching(box, "home")}
-            bx_teams = (box.get("teams") or {})
-            for side in ("home","away"):
-                runs = (bx_teams.get(side) or {}).get("teamStats", {}).get("batting", {}).get("runs")
-                if runs is None:
-                    runs = (bx_teams.get(side) or {}).get("teamStats", {}).get("pitching", {}).get("runs")
-                if runs is not None:
-                    shaped["teams"][side]["score"] = runs
-        except Exception:
-            pass
-
-        # Linescore (per-inning + totals)
-        try:
-            ls = fetch_linescore(game_pk)
-            shaped["linescore"] = _shape_linescore(ls)
-            if shaped["teams"]["home"]["score"] is None:
-                shaped["teams"]["home"]["score"] = (ls.get("teams") or {}).get("home", {}).get("runs")
-            if shaped["teams"]["away"]["score"] is None:
-                shaped["teams"]["away"]["score"] = (ls.get("teams") or {}).get("away", {}).get("runs")
-        except Exception:
-            pass
-
-        # Play-by-play for finals (via /playByPlay)
+        # Try to pull at least PBP for finals and include gamePk so xBA works
         plays = []
         try:
-            pbp = fetch_pbp(game_pk)               # {'allPlays': [...], 'scoringPlays': [...]}
-            fake_live = {"liveData": {"plays": pbp, "linescore": {}}}
+            pbp = fetch_pbp(game_pk)  # {'allPlays': [...], 'scoringPlays': [...]}
+            fake_live = {
+                "gameData": {"gamePk": game_pk},  # <-- ensures extract_play_by_play sees gamePk
+                "liveData": {"plays": pbp, "linescore": {}}
+            }
             plays = extract_play_by_play(fake_live)
         except Exception:
             pass
 
-        # Records for Jinja convenience
-        shaped["home"] = {**shaped["teams"]["home"], "record": _fmt_record((teams.get("home") or {}).get("leagueRecord") or {})}
-        shaped["away"] = {**shaped["teams"]["away"], "record": _fmt_record((teams.get("away") or {}).get("leagueRecord") or {})}
-
-        meta = {"decisions": {}, "decisionsText": ""}
-        return jsonify({"game": shaped, "plays": plays, "meta": meta, "fallback": True}), 200
+        return jsonify({
+            "game": shaped,
+            "plays": plays,
+            "meta": {"decisions": {}, "decisionsText": ""},
+            "error": f"detail_error: {e}"
+        })
 
 # -------------------- Scoring summary helper --------------------
 def _scoring_summary(live: dict) -> List[dict]:
