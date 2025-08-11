@@ -732,6 +732,58 @@ def game_state_and_participants(live, include_records=None):
         "chip": chip,
         "box": box
     }
+# ---- Full PBP + Statcast per play ----
+def _coerce_f(v, decimals=None):
+    try:
+        x = float(v)
+        if decimals is None:
+            return x
+        fmt = f"{{:.{decimals}f}}"
+        return float(fmt.format(x))
+    except Exception:
+        return None
+
+def extract_pbp_with_statcast(live):
+    """Return list of plays with inning, description, and Statcast (EV, LA, Dist, xBA, xSLG)."""
+    ld = (live.get("liveData") or {})
+    plays = (ld.get("plays") or {})
+    allp = plays.get("allPlays") or []
+
+    out = []
+    for p in allp:
+        about = (p.get("about") or {})
+        res   = (p.get("result") or {})
+        half  = (about.get("halfInning") or "").title()   # "Top" / "Bottom"
+        inning = about.get("inning")
+        desc = res.get("description") or ""
+
+        # Try to find the most relevant hitData (ball in play). Fallback to last event with hitData.
+        hd = _find_latest_hitdata_from_play(p)
+
+        ev   = _coerce_f((hd or {}).get("launchSpeed"), 1)
+        la   = _coerce_f((hd or {}).get("launchAngle"), 1)
+        dist = _coerce_f((hd or {}).get("totalDistance"), 0)
+        xba  = _coerce_f((hd or {}).get("estimatedBA") or (hd or {}).get("estimatedBattingAverage"), 3)
+        xslg = _coerce_f((hd or {}).get("estimatedSlg") or (hd or {}).get("estimatedSLG"), 3)
+
+        out.append({
+            "inningLabel": (f"{half} {inning}" if inning else ""),
+            "description": desc,
+            "ev": ev, "la": la, "dist": dist, "xba": xba, "xslg": xslg
+        })
+    return out
+
+# ---- API: full PBP with Statcast ----
+@app.route("/api/game/<int:game_pk>/pbp")
+def api_game_pbp(game_pk):
+    try:
+        live = fetch_live(game_pk)
+        data = extract_pbp_with_statcast(live)
+        return jsonify({"pbp": data})
+    except Exception as e:
+        log.exception("pbp fetch failed for %s", game_pk)
+        return jsonify({"error": f"pbp_error: {e}"}), 200
+
 
 # ---- Scoring summary ----
 def extract_scoring_summary(live):
