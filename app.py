@@ -325,14 +325,28 @@ def extract_last_play(live):
     return (p.get("result") or {}).get("description") or ""
 
 def _find_latest_hitdata_from_play(play):
+    """
+    Prefer the event where the ball was actually put in play (details.isInPlay == True).
+    Fall back to the last event that has hitData.
+    """
     if not play:
         return None
     events = play.get("playEvents") or []
+
+    # 1) Prefer the in-play event (this is where xBA lives when available)
     for ev in reversed(events):
-        hd = ev.get("hitData")
-        if hd:
-            return hd
+        det = ev.get("details") or {}
+        if det.get("isInPlay") and ev.get("hitData"):
+            return ev.get("hitData")
+
+    # 2) Otherwise, return the last event that simply has hitData
+    for ev in reversed(events):
+        if ev.get("hitData"):
+            return ev.get("hitData")
+
+    # 3) Some legacy plays might store it directly on the play
     return play.get("hitData") or None
+
 
 def extract_statcast_line(live):
     play = latest_play_from_feed(live)
@@ -742,9 +756,65 @@ def _coerce_f(v, decimals=None):
         return float(fmt.format(x))
     except Exception:
         return None
+import math
+
+def _gauss(x, mu, sigma):
+    try:
+        z = (float(x) - mu) / float(sigma)
+        return math.exp(-0.5 * z * z)
+    except Exception:
+        return 0.0
+
+def _sig(x):
+    try:
+        return 1.0 / (1.0 + math.exp(-float(x)))
+    except Exception:
+        return 0.5
+
+def estimate_xslg_proxy(ev, la):
+    """
+    Heuristic expected slugging per batted ball:
+      - Uses EV (mph) and LA (deg)
+      - Shapes outcome 'likelihoods' for 1B/2B/3B/HR with smooth curves
+      - Returns expected bases per PA (i.e., xSLG proxy)
+    Notes:
+      • Tuned so barrels (EV≳98 & LA≈26–30) push HR probability.
+      • Gap doubles: EV≳92 & LA≈20–25.
+      • Singles: EV≳85 & LA≈5–15 (liners).
+      • Triples: rare; favors mid‑LA and not-too-extreme EV.
+    """
+    if ev is None or la is None:
+        return None
+    try:
+        ev = float(ev); la = float(la)
+    except Exception:
+        return None
+
+    # Core shapes
+    p_hr = _sig((ev - 98.0) / 2.2) * _gauss(la, 28.0, 6.0)
+    p_2b = _sig((ev - 92.0) / 3.0) * _gauss(la, 22.0, 7.0) * 0.9
+    p_1b = _sig((ev - 85.0) / 3.0) * _gauss(la, 10.0, 8.0) * 0.9
+    # Triples are rare: mid LA, not extreme EV
+    p_3b = (1.0 - _sig((ev - 100.0) / 4.0)) * _gauss(la, 25.0, 9.0) * 0.12
+
+    # Some balls just won't land for hits (popups/grounders); damp everything when LA extreme
+    la_damp = max(0.0, 1.0 - (_gauss(la, -10.0, 6.0) * 0.6 + _gauss(la, 50.0, 8.0) * 0.6))
+    p_hr *= la_damp; p_2b *= la_damp; p_1b *= la_damp; p_3b *= la_damp
+
+    # Normalize softly to max sum 0.95 to leave room for outs
+    s = p_hr + p_3b + p_2b + p_1b
+    if s > 0:
+        scale = min(0.95 / s, 1.0)
+        p_hr *= scale; p_3b *= scale; p_2b *= scale; p_1b *= scale
+
+    # Expected bases per PA = 4*HR + 3*3B + 2*2B + 1*1B
+    x_bases = 4.0 * p_hr + 3.0 * p_3b + 2.0 * p_2b + 1.0 * p_1b
+    # That is the slugging expectation for the PA (since denominator is 1 PA)
+    return round(x_bases, 3)
+
 
 def extract_pbp_with_statcast(live):
-    """Return list of plays with inning, description, and Statcast (EV, LA, Dist, xBA, xSLG)."""
+    """Return list of plays with inning, description, and Statcast (EV, LA, Dist, xBA, xSLG/proxy)."""
     ld = (live.get("liveData") or {})
     plays = (ld.get("plays") or {})
     allp = plays.get("allPlays") or []
@@ -757,7 +827,7 @@ def extract_pbp_with_statcast(live):
         inning = about.get("inning")
         desc = res.get("description") or ""
 
-        # Try to find the most relevant hitData (ball in play). Fallback to last event with hitData.
+        # Prefer the actual in-play event for Statcast
         hd = _find_latest_hitdata_from_play(p)
 
         ev   = _coerce_f((hd or {}).get("launchSpeed"), 1)
@@ -765,6 +835,10 @@ def extract_pbp_with_statcast(live):
         dist = _coerce_f((hd or {}).get("totalDistance"), 0)
         xba  = _coerce_f((hd or {}).get("estimatedBA") or (hd or {}).get("estimatedBattingAverage"), 3)
         xslg = _coerce_f((hd or {}).get("estimatedSlg") or (hd or {}).get("estimatedSLG"), 3)
+
+        # Fill xSLG with our proxy when not present
+        if xslg is None:
+            xslg = estimate_xslg_proxy(ev, la)
 
         out.append({
             "inningLabel": (f"{half} {inning}" if inning else ""),
