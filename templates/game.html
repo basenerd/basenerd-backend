@@ -18,21 +18,24 @@
     .game-header{
       display:grid;
       grid-template-columns: 1fr minmax(240px, 360px) 1fr;
-      gap: 28px;
+      gap: 36px;
       align-items:center;
       padding:18px 20px;
       border-bottom:2px solid var(--border);
       background:linear-gradient(180deg,#fff,#f6f9ff);
     }
     .team{
-      display:flex; flex-direction:column; align-items:center; gap:4px;
+      display:grid; justify-items:center; gap:4px;
     }
-    .team-row{
-      display:flex; align-items:center; gap:12px;
+    .team.away{
+      grid-template-rows: auto auto auto auto; /* logo, record, name, score */
     }
-    .team.away .team-row{ flex-direction:row; }
-    .team.home .team-row{ flex-direction:row-reverse; }
-    .team .logo{ width:96px; height:96px; object-fit:contain; }
+    .team.home{
+      grid-template-rows: auto auto auto auto; /* score, logo, record, name */
+    }
+    .team .logo{
+      width:96px; height:96px; object-fit:contain;
+    }
     .team .record{
       font-size:0.95rem;
       font-weight:500;
@@ -81,15 +84,15 @@
 
   {% if game %}
   <div class="game-header">
+    <!-- Away -->
     <div class="team away">
-      <div class="team-row">
-        <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.away.id }}.svg" alt="{{ game.away.name }} logo" />
-        <div class="score">{{ game.away.score }}</div>
-      </div>
+      <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.away.id }}.svg" alt="{{ game.away.name }} logo" />
       <div class="record">{{ game.away.record }}</div>
       <div class="name">{{ game.away.name }}</div>
+      <div class="score">{{ game.away.score }}</div>
     </div>
 
+    <!-- Center info -->
     <div class="center-info">
       <div class="date">{{ game.date }}</div>
       {% set chip_class = 'live' if 'Top' in game.status or 'Bot' in game.status or 'MID' in game.status or 'END' in game.status else ('final' if game.status=='Final' else 'upcoming') %}
@@ -97,16 +100,16 @@
       <div class="venue">{{ game.venue }}</div>
     </div>
 
+    <!-- Home -->
     <div class="team home">
-      <div class="team-row">
-        <div class="score">{{ game.home.score }}</div>
-        <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.home.id }}.svg" alt="{{ game.home.name }} logo" />
-      </div>
+      <div class="score">{{ game.home.score }}</div>
+      <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.home.id }}.svg" alt="{{ game.home.name }} logo" />
       <div class="record">{{ game.home.record }}</div>
       <div class="name">{{ game.home.name }}</div>
     </div>
   </div>
 
+  <!-- Inning-by-inning box score -->
   <div class="section">
     <div class="ibox" id="ibox" aria-live="polite" aria-busy="true">
       <div class="wrap" id="iboxWrap"></div>
