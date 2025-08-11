@@ -219,25 +219,57 @@
           </table>`;
       }
 
-      /* ---------- Detailed player box score (two-up like todaysgames) ---------- */
+      /* ---------- Detailed player box score (two-up with sub indentation) ---------- */
       function battersTable(teamAbbr, rows){
-        if (!rows || !rows.length) return `
-          <div class="batters">
-            <div class="teamhdr">${esc(teamAbbr)} — Batting</div>
-            <div style="padding:10px">No batter stats yet.</div>
-          </div>`;
-        const trs = rows.map(r => `
-          <tr ${r.indent ? 'class="indent"' : ''}>
-            <td class="pos">${esc(r.pos||'')}</td>
-            <td class="name">${esc(shortName(r.name)||'')}</td>
-            <td>${r.ab ?? ''}</td>
-            <td>${r.r ?? ''}</td>
-            <td>${r.h ?? ''}</td>
-            <td>${r.rbi ?? ''}</td>
-            <td>${r.bb ?? ''}</td>
-            <td>${r.k ?? ''}</td>
-          </tr>
-        `).join('');
+        if (!rows || !rows.length) {
+          return `
+            <div class="batters">
+              <div class="teamhdr">${esc(teamAbbr)} — Batting</div>
+              <div style="padding:10px">No batter stats yet.</div>
+            </div>`;
+        }
+
+        // Prefer orderCode to detect subs grouped under lineup spot; fallback to position
+        const enriched = rows.map((r, i) => ({...r, _idx: i}));
+        enriched.sort((a,b) => {
+          const ao = (a.orderCode ?? 9999), bo = (b.orderCode ?? 9999);
+          if (ao !== bo) return ao - bo;
+          return a._idx - b._idx;
+        });
+
+        let htmlRows = '';
+        let lastOrder = null;
+        let lastPos = null;
+
+        for (const r of enriched) {
+          const curOrder = (r.orderCode ?? null);
+          let indent = false;
+
+          if (curOrder != null) {
+            // Indent if same lineup slot appears again (sub for that spot)
+            indent = (lastOrder != null && curOrder === lastOrder);
+          } else {
+            // Fallback: indent if same defensive position repeats consecutively
+            indent = (lastPos != null && r.pos && r.pos === lastPos);
+          }
+
+          htmlRows += `
+            <tr ${indent ? 'class="indent"' : ''}>
+              <td class="pos">${esc(r.pos||'')}</td>
+              <td class="name">${esc(shortName(r.name)||'')}</td>
+              <td>${r.ab ?? ''}</td>
+              <td>${r.r ?? ''}</td>
+              <td>${r.h ?? ''}</td>
+              <td>${r.rbi ?? ''}</td>
+              <td>${r.bb ?? ''}</td>
+              <td>${r.k ?? ''}</td>
+            </tr>
+          `;
+
+          lastOrder = curOrder != null ? curOrder : lastOrder;
+          lastPos = r.pos || lastPos;
+        }
+
         return `
           <div class="batters">
             <div class="teamhdr">${esc(teamAbbr)} — Batting</div>
@@ -245,17 +277,19 @@
               <thead>
                 <tr><th class="pos">POS</th><th class="name">Player</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th></tr>
               </thead>
-              <tbody>${trs}</tbody>
+              <tbody>${htmlRows}</tbody>
             </table>
           </div>`;
       }
 
       function pitchersTable(teamAbbr, rows){
-        if (!rows || !rows.length) return `
-          <div class="pitchers">
-            <div class="teamhdr">${esc(teamAbbr)} — Pitching</div>
-            <div style="padding:10px">No pitching stats yet.</div>
-          </div>`;
+        if (!rows || !rows.length) {
+          return `
+            <div class="pitchers">
+              <div class="teamhdr">${esc(teamAbbr)} — Pitching</div>
+              <div style="padding:10px">No pitching stats yet.</div>
+            </div>`;
+        }
         const trs = rows.map(r => `
           <tr ${r.indent ? 'class="indent"' : ''}>
             <td class="pos">${esc(r.pos||'P')}</td>
