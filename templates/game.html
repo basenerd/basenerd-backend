@@ -22,8 +22,8 @@
     /* Header spacing: halfway between previous two */
     .game-header{
       display:grid;
-      grid-template-columns: 1fr minmax(240px, 360px) 1fr; /* slightly narrower center */
-      gap: 36px; /* tighter than 48 so teams sit a bit farther from center than last time */
+      grid-template-columns: 1fr minmax(240px, 360px) 1fr;
+      gap: 36px;
       align-items:center;
       padding:18px 20px;
       border-bottom:2px solid var(--border);
@@ -73,7 +73,7 @@
       text-align:left; font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial;
       color:#111318; font-weight:700;
     }
-    /* Make R/H/E/L columns pop */
+    /* Make R/H/E columns pop */
     .ibox td.rhe, .ibox th.rhe{ font-weight:800; }
     .placeholder{ padding:16px; color:#6b7280; text-align:center; }
   </style>
@@ -108,7 +108,7 @@
     <div class="placeholder">Loading game header...</div>
   {% endif %}
 
-  <!-- Inning-by-inning box (title removed) -->
+  <!-- Inning-by-inning box (no title) -->
   <div class="section">
     <div class="ibox" id="ibox" aria-live="polite" aria-busy="true">
       <div class="wrap" id="iboxWrap"></div>
@@ -127,18 +127,11 @@
         const ls = g.linescore; if (!ls) return '';
         const n = ls.n || 9;
 
-        // table head: 1..n + R/H/E/L
         const headInnings = Array.from({length:n}, (_,i)=>`<th>${i+1}</th>`).join('');
-
-        // per-inning cells
         const aCells = Array.from({length:n}, (_,i)=>`<td>${esc(ls.away[i] ?? '')}</td>`).join('');
         const hCells = Array.from({length:n}, (_,i)=>`<td>${esc(ls.home[i] ?? '')}</td>`).join('');
 
-        // totals + LOB from API (now correct via opponent pitching LOB)
         const aT = ls.totals.away || {}, hT = ls.totals.home || {};
-        const aL = (g.teams && g.teams.away) ? (g.teams.away.lob ?? '') : '';
-        const hL = (g.teams && g.teams.home) ? (g.teams.home.lob ?? '') : '';
-
         const aLbl = g.teams?.away?.abbr || 'AWY';
         const hLbl = g.teams?.home?.abbr || 'HOM';
 
@@ -148,7 +141,7 @@
               <tr>
                 <th class="name"></th>
                 ${headInnings}
-                <th class="rhe">R</th><th class="rhe">H</th><th class="rhe">E</th><th class="rhe">L</th>
+                <th class="rhe">R</th><th class="rhe">H</th><th class="rhe">E</th>
               </tr>
             </thead>
             <tbody>
@@ -158,7 +151,6 @@
                 <td class="rhe">${aT.R ?? ''}</td>
                 <td class="rhe">${aT.H ?? ''}</td>
                 <td class="rhe">${aT.E ?? ''}</td>
-                <td class="rhe">${esc(aL)}</td>
               </tr>
               <tr>
                 <td class="name">${esc(hLbl)}</td>
@@ -166,7 +158,6 @@
                 <td class="rhe">${hT.R ?? ''}</td>
                 <td class="rhe">${hT.H ?? ''}</td>
                 <td class="rhe">${hT.E ?? ''}</td>
-                <td class="rhe">${esc(hL)}</td>
               </tr>
             </tbody>
           </table>`;
