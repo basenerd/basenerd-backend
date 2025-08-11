@@ -27,9 +27,11 @@
     .chip.live{ background:var(--chip-live); } .chip.upcoming{ background:var(--chip-upcoming); }
     .status{ font-size:13px; font-weight:700; color:#0b0e13; }
     .venue{ font-size:12px; color:#6b7280; }
+
+    /* Team names/records line */
     .team-under{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:-6px 0 10px; }
-    .team-name{ font-size:15px; font-weight:700; }
-    .record{ font-size:12.5px; color:#6b7280; }
+    .team-name{ font-size:15px; font-weight:700; text-align:center; }
+    .record{ font-size:12.5px; color:#6b7280; text-align:center; }
 
     /* Cards & order */
     .card{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; }
@@ -58,7 +60,7 @@
     .indent .name::before{ content:""; position:absolute; left:6px; top:50%; width:8px; height:0; border-top:1px solid var(--border); transform:translateY(-50%); }
     .badge-gray{ display:inline-block; margin-left:6px; padding:2px 6px; border-radius:6px; background:var(--badge); color:var(--badge-text); font-size:11px; font-weight:700; }
 
-    /* PBP table with full-cell gradients */
+    /* PBP table with full-cell gradients (EV, xBA) */
     .pbp-card{ margin-top:14px; }
     .pbp-table{ width:100%; border-collapse:collapse }
     .pbp-table th{ background:linear-gradient(180deg,#fff,#f6f9ff); font-weight:700; position:sticky; top:0; }
@@ -85,15 +87,15 @@
       <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.home.id }}.svg" alt="{{ game.home.name }} logo">
     </div>
 
-    <!-- Team names/records under logos -->
+    <!-- Team names/records under logos (centered under each name) -->
     <div class="team-under">
       <div>
-        <div class="team-name" style="text-align:left">{{ game.away.name }}</div>
-        <div class="record" style="text-align:left">{{ game.away.record }}</div>
+        <div class="team-name">{{ game.away.name }}</div>
+        <div class="record">{{ game.away.record }}</div>
       </div>
       <div>
-        <div class="team-name" style="text-align:right">{{ game.home.name }}</div>
-        <div class="record" style="text-align:right">{{ game.home.record }}</div>
+        <div class="team-name">{{ game.home.name }}</div>
+        <div class="record">{{ game.home.record }}</div>
       </div>
     </div>
     {% else %}
@@ -113,7 +115,7 @@
       </div>
     </div>
 
-    <!-- Box scores, two columns; each side has Batting and Pitching in separate cards, styled like todaysgames -->
+    <!-- Box scores: two columns; each side has Batting and Pitching in separate cards (matching todaysgames) -->
     <div class="boxes-grid">
       <!-- Visiting (left) -->
       <div class="boxcol" id="visCol">
@@ -165,10 +167,9 @@
               <th class="center" style="width:70px">LA</th>
               <th class="center" style="width:80px">Dist</th>
               <th class="center" style="width:90px">xBA</th>
-              <th class="center" style="width:90px">xSLG</th>
             </tr>
           </thead>
-          <tbody id="pbpBody"><tr><td class="when" colspan="7">Loading…</td></tr></tbody>
+          <tbody id="pbpBody"><tr><td class="when" colspan="6">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -237,7 +238,7 @@
       }).join('');
     }
 
-    // ---- Gradient helpers (blue -> white -> red) for full cell ----
+    // ---- Gradient helpers (blue -> white -> red) for full cell (EV, xBA) ----
     function clamp01(x){ return Math.max(0, Math.min(1, x)); }
     function lerp(a,b,t){ return a + (b-a)*t; }
     function mixColor(c1, c2, t){ return [Math.round(lerp(c1[0], c2[0], t)), Math.round(lerp(c1[1], c2[1], t)), Math.round(lerp(c1[2], c2[2], t))]; }
@@ -250,7 +251,6 @@
     }
     function normEV(ev){ const v=parseFloat(ev); if (isNaN(v)) return null; return clamp01((v-60)/(115-60)); }
     function normXBA(x){ let v=(typeof x==='string'&&x.startsWith('.'))? parseFloat('0'+x) : parseFloat(x); if(isNaN(v)) return null; if(v>1) v=v/100; return clamp01(v); }
-    function normXSLG(x){ const v=parseFloat(x); if(isNaN(v)) return null; return clamp01(v/4.0); }
 
     function tdWithGrad(val, normFn){
       const display = (val==null || val==='') ? '—' : val;
@@ -260,10 +260,10 @@
       return `<td class="center" style="background:${bg}; color:${fg}">${display}</td>`;
     }
 
-    // PBP table
+    // PBP table (no xSLG column)
     function renderPBPTable(list){
       const body = $('pbpBody');
-      if(!Array.isArray(list) || !list.length){ body.innerHTML = '<tr><td class="when" colspan="7">—</td></tr>'; return; }
+      if(!Array.isArray(list) || !list.length){ body.innerHTML = '<tr><td class="when" colspan="6">—</td></tr>'; return; }
       body.innerHTML = list.map(r=>{
         const inning = r.inning || '';
         const desc = r.desc || '';
@@ -274,7 +274,6 @@
           <td class="center">${r.la ? r.la + '°' : '—'}</td>
           <td class="center">${r.dist ? r.dist + ' ft' : '—'}</td>
           ${tdWithGrad(r.xba||'', normXBA)}
-          ${tdWithGrad(r.xslg||'', normXSLG)}
         </tr>`;
       }).join('');
     }
@@ -304,7 +303,7 @@
         $('homeScore').textContent = (g.teams.home && g.teams.home.score!=null) ? g.teams.home.score : '-';
       }
 
-      // Abbreviations on linescore headers
+      // Linescore with team abbreviations
       const awayAbbr = g.teams?.away?.abbr || 'AWY';
       const homeAbbr = g.teams?.home?.abbr || 'HME';
       $('linescoreBox').innerHTML = linescoreTable(g.linescore || {}, awayAbbr, homeAbbr);
@@ -321,14 +320,14 @@
       fillPitTable('pitAway', (g.pitchers && g.pitchers.away) || [], meta.decisions);
       fillPitTable('pitHome', (g.pitchers && g.pitchers.home) || [], meta.decisions);
 
-      // PBP with full-cell gradients, no MPH label
+      // PBP with full-cell gradients (EV, xBA), no MPH label and no xSLG column
       renderPBPTable(plays);
     }
 
     load().catch(e=>{
       console.error(e);
       $('linescoreBox').innerHTML = '<em class="when">Could not load inning-by-inning.</em>';
-      $('pbpBody').innerHTML = '<tr><td class="when" colspan="7">—</td></tr>';
+      $('pbpBody').innerHTML = '<tr><td class="when" colspan="6">—</td></tr>';
       $('decisionsLine').textContent = '—';
     });
   </script>
