@@ -24,40 +24,26 @@
       border-bottom:2px solid var(--border);
       background:linear-gradient(180deg,#fff,#f6f9ff);
     }
-    .team {
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      gap:4px;
-    }
-    .team-top {
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .team.away .team-top {
-      flex-direction:row; /* logo then score */
-    }
-    .team.home .team-top {
-      flex-direction:row-reverse; /* score then logo */
-    }
-    .team .logo{
-      width:96px; height:96px; object-fit:contain;
-    }
-    .team .score{
+
+    /* Team blocks */
+    .team { display:flex; flex-direction:column; align-items:center; gap:6px; }
+    .team-top{ display:flex; align-items:center; gap:10px; }
+    .team.away .team-top{ flex-direction:row; } /* logo | score */
+    .team.home .team-top{ flex-direction:row; } /* score | logo (DOM order) */
+
+    .logo{ width:96px; height:96px; object-fit:contain; }
+    .score{
       font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
       font-variant-numeric: tabular-nums;
       font-size:64px; line-height:1; font-weight:800;
     }
-    .team .record{
-      font-size:0.95rem;
-      font-weight:500;
-      text-align:center;
+    .record{
+      font-size:0.95rem; font-weight:500; text-align:center;
+      margin-top:-2px;
     }
-    .team .name{
-      font-size:15px; font-weight:700;
-      text-align:center;
-    }
+    .name{ font-size:15px; font-weight:700; text-align:center; }
+
+    /* Center column */
     .center-info{ display:grid; justify-items:center; text-align:center; gap:4px; }
     .center-info .date{ font-size:12px; color:#374151; }
     .center-info .status{ font-size:13px; font-weight:700; }
@@ -66,6 +52,8 @@
     .chip.live{ background:var(--chip-live); }
     .chip.final{ background:var(--chip-final); }
     .chip.upcoming{ background:var(--chip-upcoming); }
+
+    /* Box score card */
     .section{ max-width:640px; margin:16px auto; padding:0 12px; }
     .ibox{ background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
     .ibox .wrap{ overflow:auto; background:#fff; }
@@ -85,6 +73,7 @@
       color:#111318; font-weight:700;
     }
     .ibox td.rhe, .ibox th.rhe{ font-weight:800; }
+
     .placeholder{ padding:16px; color:#6b7280; text-align:center; }
   </style>
 </head>
@@ -92,7 +81,7 @@
 
   {% if game %}
   <div class="game-header">
-    <!-- Away -->
+    <!-- Away: logo | score (inside) -->
     <div class="team away">
       <div class="team-top">
         <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.away.id }}.svg" alt="{{ game.away.name }} logo" />
@@ -110,7 +99,7 @@
       <div class="venue">{{ game.venue }}</div>
     </div>
 
-    <!-- Home -->
+    <!-- Home: score | logo (inside) -->
     <div class="team home">
       <div class="team-top">
         <div class="score">{{ game.home.score }}</div>
@@ -121,7 +110,7 @@
     </div>
   </div>
 
-  <!-- Inning-by-inning box score -->
+  <!-- Inning-by-inning box score (via API) -->
   <div class="section">
     <div class="ibox" id="ibox" aria-live="polite" aria-busy="true">
       <div class="wrap" id="iboxWrap"></div>
