@@ -67,6 +67,60 @@ def fetch_savant_gf(game_pk: int):
     cache_set(key, data, ttl=20)
     return data
 
+def shape_game(live: dict, season: int):
+    """
+    Minimal shaper for the pieces the templates expect:
+      - chip (inningState + currentInning)
+      - teams.home/away: id, name, abbr, score
+      - gamePk (for lookups)
+    """
+    ld = (live.get("liveData") or {})
+    gd = (live.get("gameData") or {})
+
+    ls = ld.get("linescore") or {}
+    teams_gd = gd.get("teams") or {}
+    home = teams_gd.get("home") or {}
+    away = teams_gd.get("away") or {}
+
+    # scoreboard chip
+    chip = ((ls.get("inningState") or "") + (" " + str(ls.get("currentInning")) if ls.get("currentInning") else "")).strip()
+
+    # scores
+    ls_teams = (ls.get("teams") or {})
+    h_score = (ls_teams.get("home") or {}).get("runs")
+    a_score = (ls_teams.get("away") or {}).get("runs")
+
+    # abbr fallback
+    def _abbr(team_obj):
+        tid = team_obj.get("id")
+        fallback = team_obj.get("abbreviation") or (team_obj.get("teamName") or "")[:3].upper()
+        try:
+            # you already have TEAM_ABBR in this file
+            return TEAM_ABBR.get(tid, fallback)
+        except Exception:
+            return fallback
+
+    shaped = {
+        "gamePk": gd.get("gamePk") or ld.get("gamePk") or (gd.get("game") or {}).get("pk") or (ld.get("game") or {}).get("pk"),
+        "chip": chip,
+        "teams": {
+            "home": {
+                "id": home.get("id"),
+                "name": home.get("name") or home.get("teamName"),
+                "abbr": _abbr(home),
+                "score": h_score,
+            },
+            "away": {
+                "id": away.get("id"),
+                "name": away.get("name") or away.get("teamName"),
+                "abbr": _abbr(away),
+                "score": a_score,
+            },
+        },
+    }
+    return shaped
+
+
 def _savant_pick(d, keys):
     for k in keys:
         if k in d and d[k] is not None:
