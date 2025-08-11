@@ -640,34 +640,48 @@ def api_standings():
 
 @app.route("/api/game/<int:game_pk>")
 def api_game(game_pk: int):
+    """
+    Returns JSON used by game.html:
+      game: header info, linescore, batters/pitchers
+      plays: PBP list with EV/LA/Dist/xBA/pitches/bip
+      meta: decisions and text
+    """
+    def _empty_payload():
+        return {
+            "game": {
+                "status": "",
+                "chip": "",
+                "venue": "",
+                "date": "",
+                "statcast": "",
+                "teams": {"home": {"abbr":"HME"}, "away": {"abbr":"AWY"}},
+                "home": {"id": 0, "name": "Home", "score": "-", "record": ""},
+                "away": {"id": 0, "name": "Away", "score": "-", "record": ""},
+                "linescore": {"n": 0, "away": [], "home": [], "totals": {"away": {}, "home": {}}},
+                "batters": {"away": [], "home": []},
+                "pitchers": {"away": [], "home": []},
+            },
+            "plays": [],
+            "meta": {"decisions": {}, "decisionsText": ""}
+        }
+
     try:
         live = fetch_live(game_pk)
         box = fetch_box(game_pk)
+
         shaped = _shape_header(live)
         shaped["linescore"] = _shape_linescore((live.get("liveData") or {}).get("linescore"))
-        shaped["batters"] = {
-            "away": _box_batting(box, "away"),
-            "home": _box_batting(box, "home"),
-        }
-        shaped["pitchers"] = {
-            "away": _box_pitching(box, "away"),
-            "home": _box_pitching(box, "home"),
-        }
+        shaped["batters"] = {"away": _box_batting(box, "away"), "home": _box_batting(box, "home")}
+        shaped["pitchers"] = {"away": _box_pitching(box, "away"), "home": _box_pitching(box, "home")}
         dec_ids, dec_text = _decisions(live)
         meta = {"decisions": dec_ids, "decisionsText": dec_text}
-        return jsonify({
-            "game": shaped,
-            "plays": extract_play_by_play(live=live),
-            "meta": meta
-        })
+
+        return jsonify({"game": shaped, "plays": extract_play_by_play(live=live), "meta": meta})
+
     except Exception as e:
         log.exception("detail fetch failed for %s", game_pk)
-        # Return a safe skeleton so game.html still renders without crashing
-        return jsonify({
-            "game": {"teams":{"home":{},"away":{}}, "chip":"", "venue":"", "date":"", "statcast":"", "linescore": {}},
-            "plays": [],
-            "meta": {"decisions": {}, "decisionsText": ""}
-        }), 200
+        # Always return the full shape so game.html can render gracefully
+        return jsonify(_empty_payload()), 200
 
 # -------------------- Health --------------------
 @app.route("/ping")
