@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, jsonify, request, redirect, url_for, abort
 import requests, time, logging, re
 from datetime import datetime, timezone
@@ -870,15 +869,7 @@ def shape_game(live, season, records=None):
     game["scoring"] = extract_scoring_summary(live)
     return game
 
-# ---------- Logo URL helper (uses MLB static CDN) ----------
-def mlb_logo_url(team_id: int, variant: str = "team-cap-on-dark") -> str:
-    """Return an SVG logo URL from MLB's static CDN for a given team ID.
-    Valid variants include 'team-cap-on-dark' and (often) 'team-primary-on-light'."""
-    if not team_id:
-        return ""
-    return f"https://www.mlbstatic.com/team-logos/{variant}/{team_id}.svg"
-
-# ---------- Template header builder ----------
+# ---------- Template header builder (IDs only; logos handled in templates) ----------
 def build_template_game_header(game_pk: int):
     live = fetch_live(game_pk)
     shaped = shape_game(live, SEASON)
@@ -891,10 +882,6 @@ def build_template_game_header(game_pk: int):
     home_id = home.get("id")
     away_id = away.get("id")
 
-    # Prefer cap logos that work well on light backgrounds; change variant if needed
-    home_logo = mlb_logo_url(home_id, variant="team-cap-on-dark")
-    away_logo = mlb_logo_url(away_id, variant="team-cap-on-dark")
-
     home_score = (shaped.get("teams", {}).get("home", {}) or {}).get("score")
     away_score = (shaped.get("teams", {}).get("away", {}) or {}).get("score")
 
@@ -904,13 +891,13 @@ def build_template_game_header(game_pk: int):
     return {
         "id": shaped.get("gamePk") or game_pk,
         "home": {
+            "id": home_id,                 # <-- used by game.html for logo src
             "name": home.get("name",""),
-            "logo": home_logo,
             "score": home_score if home_score is not None else "-",
         },
         "away": {
+            "id": away_id,                 # <-- used by game.html for logo src
             "name": away.get("name",""),
-            "logo": away_logo,
             "score": away_score if away_score is not None else "-",
         },
         "venue": venue_name,
