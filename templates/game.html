@@ -446,105 +446,148 @@
 
     /* Field: 90′ diamond + arcs + foul lines, uniform feet→px scale */
     function drawField(el, bip){
-      const w = 240, h = 240, pad = 10;
+  const w = 240, h = 240, pad = 10;
 
-      // Real dimensions (feet)
-      const BASE = 90;        // base-to-base
-      const INFIELD_ARC = 95; // infield grass arc radius
-      const FENCE = 380;      // outfield arc radius (approx center)
-      const MOUND = 60.5;     // mound distance from home
+  // Real dimensions (feet)
+  const BASE = 90;           // base-to-base
+  const INFIELD_RADIUS = 95; // infield dirt/grass arc radius
+  const WARNING_TRACK = 360; // warning track radius (approx)
+  const FENCE = 380;         // fence radius (approx CF)
+  const MOUND = 60.5;
 
-      // Uniform feet→px scale; home at bottom-center
-      const usableW = w - 2*pad, usableH = h - 2*pad;
-      const scale = Math.min(usableW / (2*FENCE), usableH / (FENCE + 20));
-      const cx = w/2, cy = h - pad;
-      const sx = xf => cx + xf * scale;  // feet → px
-      const sy = yf => cy - yf * scale;
+  // Feet→px scale; put home at bottom-center
+  const usableW = w - 2*pad, usableH = h - 2*pad;
+  const maxXFeet = FENCE;                  // left to right is ±FENCE
+  const maxYFeet = FENCE;                  // bottom (home) to top is FENCE
+  const scale = Math.min(usableW / (2*maxXFeet), usableH / maxYFeet);
 
-      const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
-      svg.setAttribute("width", w); svg.setAttribute("height", h);
-      const g = document.createElementNS(svg.namespaceURI,"g");
-      svg.appendChild(g);
+  const cx = w/2, cy = h - pad;            // home plate at (0,0)
+  const sx = xf => cx + xf * scale;
+  const sy = yf => cy - yf * scale;
 
-      // Outfield fence arc (foul pole to foul pole)
-      const xL = -FENCE, yL = 0, xR = FENCE, yR = 0;
-      const fence = document.createElementNS(svg.namespaceURI,"path");
-      fence.setAttribute("d", `M ${sx(xL)},${sy(yL)} A ${FENCE*scale},${FENCE*scale} 0 0 1 ${sx(xR)},${sy(yR)}`);
-      fence.setAttribute("fill","none"); fence.setAttribute("stroke","#111"); fence.setAttribute("stroke-width","1.5");
-      g.appendChild(fence);
+  const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+  svg.setAttribute("width", w); svg.setAttribute("height", h);
+  const g = document.createElementNS(svg.namespaceURI,"g");
+  svg.appendChild(g);
 
-      // Foul lines
-      const fl = document.createElementNS(svg.namespaceURI,"line");
-      fl.setAttribute("x1", sx(0)); fl.setAttribute("y1", sy(0));
-      fl.setAttribute("x2", sx(xL)); fl.setAttribute("y2", sy(yL));
-      fl.setAttribute("stroke","#111");
-      const fr = document.createElementNS(svg.namespaceURI,"line");
-      fr.setAttribute("x1", sx(0)); fr.setAttribute("y1", sy(0));
-      fr.setAttribute("x2", sx(xR)); fr.setAttribute("y2", sy(yR));
-      fr.setAttribute("stroke","#111");
-      g.appendChild(fl); g.appendChild(fr);
+  // Helper to draw an arc (home-centered, foul pole to foul pole)
+  function arcPath(r){
+    const rpx = r*scale;
+    return `M ${sx(-r)},${sy(0)} A ${rpx},${rpx} 0 0 1 ${sx(r)},${sy(0)}`;
+  }
 
-      // Infield arc
-      const inArc = document.createElementNS(svg.namespaceURI,"path");
-      inArc.setAttribute("d", `M ${sx(-INFIELD_ARC)},${sy(0)} A ${INFIELD_ARC*scale},${INFIELD_ARC*scale} 0 0 1 ${sx(INFIELD_ARC)},${sy(0)}`);
-      inArc.setAttribute("fill","none"); inArc.setAttribute("stroke","#111"); inArc.setAttribute("stroke-width","1");
-      g.appendChild(inArc);
+  // Outfield grass (subtle green fill)
+  const of = document.createElementNS(svg.namespaceURI,"path");
+  of.setAttribute("d", arcPath(FENCE));
+  of.setAttribute("fill","none");
+  of.setAttribute("stroke","#0a0"); // very subtle line
+  of.setAttribute("stroke-opacity","0.08");
+  of.setAttribute("stroke-width","40"); // thick stroke to give a soft fill feel
+  g.appendChild(of);
 
-      // Bases (square 90' diamond)
-      const H  = [  0,   0];
-      const B1 = [ BASE,  0];
-      const B2 = [ BASE, BASE];
-      const B3 = [  0,  BASE];
+  // Warning track (slightly darker ring inside fence)
+  const wt = document.createElementNS(svg.namespaceURI,"path");
+  wt.setAttribute("d", arcPath(WARNING_TRACK));
+  wt.setAttribute("fill","none");
+  wt.setAttribute("stroke","#a36f2b");
+  wt.setAttribute("stroke-opacity","0.15");
+  wt.setAttribute("stroke-width","12");
+  g.appendChild(wt);
 
-      // Basepaths (diamond outline)
-      const diamond = [B2, B1, H, B3].map(([x,y]) => `${sx(x)},${sy(y)}`).join(" ");
-      const poly = document.createElementNS(svg.namespaceURI,"polygon");
-      poly.setAttribute("points", diamond);
-      poly.setAttribute("fill","none"); poly.setAttribute("stroke","#111");
-      g.appendChild(poly);
+  // Infield dirt circle
+  const infield = document.createElementNS(svg.namespaceURI,"path");
+  infield.setAttribute("d", arcPath(INFIELD_RADIUS));
+  infield.setAttribute("fill","none");
+  infield.setAttribute("stroke","#a36f2b");
+  infield.setAttribute("stroke-opacity","0.22");
+  infield.setAttribute("stroke-width","18");
+  g.appendChild(infield);
 
-      // Home plate (circle) + bases (squares)
-      const home = document.createElementNS(svg.namespaceURI,"circle");
-      home.setAttribute("cx", sx(H[0])); home.setAttribute("cy", sy(H[1]));
-      home.setAttribute("r", 3); home.setAttribute("fill","#fff"); home.setAttribute("stroke","#111");
-      g.appendChild(home);
-      [[...B1], [...B2], [...B3]].forEach(([x,y]) => {
-        const r = 3.5;
-        const b = document.createElementNS(svg.namespaceURI,"rect");
-        b.setAttribute("x", sx(x)-r); b.setAttribute("y", sy(y)-r);
-        b.setAttribute("width", 2*r); b.setAttribute("height", 2*r);
-        b.setAttribute("fill", "#fff"); b.setAttribute("stroke", "#111");
-        g.appendChild(b);
-      });
+  // Foul lines (home to foul poles)
+  const fl = document.createElementNS(svg.namespaceURI,"line");
+  fl.setAttribute("x1", sx(0)); fl.setAttribute("y1", sy(0));
+  fl.setAttribute("x2", sx(-FENCE)); fl.setAttribute("y2", sy(0));
+  fl.setAttribute("stroke","#111"); fl.setAttribute("stroke-opacity","0.35");
+  const fr = document.createElementNS(svg.namespaceURI,"line");
+  fr.setAttribute("x1", sx(0)); fr.setAttribute("y1", sy(0));
+  fr.setAttribute("x2", sx(FENCE)); fr.setAttribute("y2", sy(0));
+  fr.setAttribute("stroke","#111"); fr.setAttribute("stroke-opacity","0.35");
+  g.appendChild(fl); g.appendChild(fr);
 
-      // Mound at 60.5' along home→2B diagonal (x=y=MOUND/√2)
-      const m = MOUND / Math.sqrt(2);
-      const mound = document.createElementNS(svg.namespaceURI,"circle");
-      mound.setAttribute("cx", sx(m)); mound.setAttribute("cy", sy(m));
-      mound.setAttribute("r", 3); mound.setAttribute("fill","#fff"); mound.setAttribute("stroke","#111");
-      g.appendChild(mound);
+  // Fence arc line
+  const fence = document.createElementNS(svg.namespaceURI,"path");
+  fence.setAttribute("d", arcPath(FENCE));
+  fence.setAttribute("fill","none");
+  fence.setAttribute("stroke","#111");
+  fence.setAttribute("stroke-width","1.2");
+  fence.setAttribute("stroke-opacity","0.55");
+  g.appendChild(fence);
 
-      // Ball-in-play dot (StatsAPI 0..250 coords mapped into feet)
-      const bx = Number(bip?.x), by = Number(bip?.y);
-      if (!Number.isNaN(bx) && !Number.isNaN(by)){
-        const xf = (bx/250) * (2*FENCE) - FENCE;  // [-FENCE, +FENCE]
-        const yf = (by/250) * FENCE;              // [0, FENCE]
-        const dot = document.createElementNS(svg.namespaceURI,"circle");
-        dot.setAttribute("cx", sx(xf)); dot.setAttribute("cy", sy(yf));
-        dot.setAttribute("r", 4.5); dot.setAttribute("fill","var(--inplay)");
-        dot.setAttribute("stroke","#111"); dot.setAttribute("stroke-width","0.6");
-        g.appendChild(dot);
-      }
+  // Base coordinates (square 90' diamond)
+  const H  = [  0,   0];
+  const B1 = [ BASE,  0];
+  const B2 = [ BASE, BASE];
+  const B3 = [  0,  BASE];
 
-      // Border
-      const border = document.createElementNS(svg.namespaceURI,"rect");
-      border.setAttribute("x", 0.5); border.setAttribute("y", 0.5);
-      border.setAttribute("width", w-1); border.setAttribute("height", h-1);
-      border.setAttribute("fill", "none"); border.setAttribute("stroke", "#e5e7eb");
-      g.appendChild(border);
+  // Basepaths (diamond outline from 2B→1B→Home→3B)
+  const pathPts = [B2, B1, H, B3].map(([x,y]) => `${sx(x)},${sy(y)}`).join(" ");
+  const bp = document.createElementNS(svg.namespaceURI,"polygon");
+  bp.setAttribute("points", pathPts);
+  bp.setAttribute("fill","none");
+  bp.setAttribute("stroke","#7c3f10");     // dirt line
+  bp.setAttribute("stroke-opacity","0.6");
+  g.appendChild(bp);
 
-      el.innerHTML = ""; el.appendChild(svg);
-    }
+  // Bases (squares) + home (pentagon-ish simplified as square/diamond)
+  function drawBase([x,y]){
+    const r = 3.5;
+    const b = document.createElementNS(svg.namespaceURI,"rect");
+    b.setAttribute("x", sx(x)-r); b.setAttribute("y", sy(y)-r);
+    b.setAttribute("width", 2*r); b.setAttribute("height", 2*r);
+    b.setAttribute("fill", "#fff"); b.setAttribute("stroke", "#111"); b.setAttribute("stroke-opacity","0.7");
+    g.appendChild(b);
+  }
+  drawBase(B1); drawBase(B2); drawBase(B3);
+
+  // Home plate (diamond)
+  const hp = document.createElementNS(svg.namespaceURI,"rect");
+  hp.setAttribute("x", sx(H[0])-3); hp.setAttribute("y", sy(H[1])-3);
+  hp.setAttribute("width", 6); hp.setAttribute("height", 6);
+  hp.setAttribute("transform", `rotate(45 ${sx(H[0])} ${sy(H[1])})`);
+  hp.setAttribute("fill", "#fff"); hp.setAttribute("stroke", "#111"); hp.setAttribute("stroke-opacity","0.7");
+  g.appendChild(hp);
+
+  // Pitcher’s mound at 60.5′ along home→2B diagonal (x=y=MOUND/√2)
+  const m = MOUND / Math.sqrt(2);
+  const mound = document.createElementNS(svg.namespaceURI,"circle");
+  mound.setAttribute("cx", sx(m)); mound.setAttribute("cy", sy(m));
+  mound.setAttribute("r", 3.5);
+  mound.setAttribute("fill","#d6d3d1");
+  mound.setAttribute("stroke","#111"); mound.setAttribute("stroke-opacity","0.4");
+  g.appendChild(mound);
+
+  // Ball-in-play dot (StatsAPI ~0..250 mapped into feet)
+  const bx = Number(bip?.x), by = Number(bip?.y);
+  if (!Number.isNaN(bx) && !Number.isNaN(by)){
+    const xf = (bx/250) * (2*FENCE) - FENCE;  // [-FENCE, +FENCE]
+    const yf = (by/250) * FENCE;              // [0, FENCE]
+    const dot = document.createElementNS(svg.namespaceURI,"circle");
+    dot.setAttribute("cx", sx(xf)); dot.setAttribute("cy", sy(yf));
+    dot.setAttribute("r", 4.5); dot.setAttribute("fill","var(--inplay)");
+    dot.setAttribute("stroke","#111"); dot.setAttribute("stroke-width","0.6");
+    g.appendChild(dot);
+  }
+
+  // Containment border
+  const border = document.createElementNS(svg.namespaceURI,"rect");
+  border.setAttribute("x", 0.5); border.setAttribute("y", 0.5);
+  border.setAttribute("width", w-1); border.setAttribute("height", h-1);
+  border.setAttribute("fill", "none"); border.setAttribute("stroke", "#e5e7eb");
+  g.appendChild(border);
+
+  el.innerHTML = ""; el.appendChild(svg);
+}
+
 
     function fillPitchMiniTable(el, pitches){
       el.innerHTML = (pitches||[]).map((p,i)=>`
