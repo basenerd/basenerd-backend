@@ -207,7 +207,12 @@
     document.getElementById('todayBtn').onclick = () => setDate(new Date());
     $liveOnly.addEventListener('change', () => render(window.__last || {games:[]}));
 
-    async function fetchJson(url){ const res = await fetch(url, {cache:'no-store'}); if(!res.ok) throw new Error(`HTTP ${res.status}`); return await res.json(); }`); return await res.json(); }
+    const API_GAMES = "{{ url_for('api_games') }}";
+    async function fetchJson(url){
+      const res = await fetch(url, { cache: 'no-store' });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    }
 
     function chipFor(g){
       if (g.status === 'in_progress') return `<span class="chip live">${g.chip}</span>`;
@@ -441,7 +446,7 @@
       if (state.timer) { clearTimeout(state.timer); state.timer = null; }
       const et = dateStrET(state.date);
       try {
-        const data = await fetchJson('/api/games?date=' + et);
+        const data = await fetchJson(API_GAMES + '?date=' + et);
         render(data);
         const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
         if (anyLive) state.timer = setTimeout(load, 30000);
