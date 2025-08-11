@@ -367,41 +367,6 @@ def extract_statcast_line(live):
 
 # ---- Plate appearance tokens for current batter line ----
 PAREN_CODE_RE = re.compile(r"\(([1-9](?:-[1-9]){0,3})\)")
-def extract_scoring_summary(live):
-    """Return scoring plays with inning label, description, and score after play."""
-    try:
-        ld = live.get("liveData") or {}
-        plays = ld.get("plays") or {}
-        allp = plays.get("allPlays") or []
-        scoring_idxs = plays.get("scoringPlays") or []
-        # Map atBatIndex to play
-        by_idx = {}
-        for p in allp:
-            abidx = (p.get("about") or {}).get("atBatIndex")
-            if abidx is not None:
-                by_idx[abidx] = p
-        out = []
-        for idx in scoring_idxs:
-            p = by_idx.get(idx) or {}
-            about = (p.get("about") or {})
-            res = (p.get("result") or {})
-            inn = about.get("inning")
-            half = about.get("halfInning")
-            inning_label = f"{('Top' if str(half).lower().startswith('t') else 'Bot') if half else ''} {inn}".strip()
-            desc = res.get("description") or ""
-            away = res.get("awayScore")
-            home = res.get("homeScore")
-            # Fallback: if scores missing, try to derive from linescore totals up to this play (skipped for speed)
-            out.append({
-                "inning": inning_label or inn,
-                "play": desc,
-                "away": away,
-                "home": home
-            })
-        return out
-    except Exception:
-        return []
-
 def out_air_prefix(event_type):
     et = (event_type or "").lower()
     if "pop" in et: return "P"
@@ -551,7 +516,7 @@ def extract_batting_box_grouped(box, side):
                 "ab": bat.get("atBats", 0),
                 "r": bat.get("runs", 0),
                 "h": bat.get("hits", 0),
-                "rbi": bat.get("rbi") or bat.get("runsBattedIn", 0),
+                "rbi": bat.get("rbi") or bat.get("runsBattedIn") or 0,
                 "bb": bat.get("baseOnBalls", 0),
                 "k": bat.get("strikeOuts", 0),
                 "orderCode": 9999,
@@ -626,7 +591,6 @@ def extract_pregame_lineups(live):
             hr  = season_bat.get("homeRuns") or season_bat.get("hr") or 0
             rbi = season_bat.get("rbi") or season_bat.get("runsBattedIn") or 0
             trip = f"| {avg if avg else ''}/{hr}/{rbi}"
-            # name as "K. Stowers" style (first initial + last)
             nm = (person.get("fullName") or "")
             parts = nm.split()
             if parts:
@@ -775,6 +739,43 @@ def game_state_and_participants(live, include_records=None):
         "box": box
     }
 
+# ---- Scoring summary ----
+def extract_scoring_summary(live):
+    """Return list of scoring plays with Top/Bot inning label and score after play."""
+    ld = (live.get("liveData") or {})
+    plays = (ld.get("plays") or {})
+    allp = plays.get("allPlays") or []
+    scoring_idxs = plays.get("scoringPlays") or []
+
+    # map atBatIndex -> play
+    by_idx = {}
+    for p in allp:
+        try:
+            idx = (p.get("about") or {}).get("atBatIndex")
+            if idx is not None:
+                by_idx[idx] = p
+        except Exception:
+            continue
+
+    out = []
+    for idx in scoring_idxs:
+        p = by_idx.get(idx) or {}
+        about = (p.get("about") or {})
+        res = (p.get("result") or {})
+        half = (about.get("halfInning") or "").strip().lower()
+        half_lbl = "Top" if half == "top" else ("Bot" if half == "bottom" else "")
+        inning = about.get("inning")
+        desc = res.get("description") or ""
+        away = res.get("awayScore")
+        home = res.get("homeScore")
+        item = {
+            "inning": f"{half_lbl} {inning}" if inning else "",
+            "play": desc,
+            "away": away,
+            "home": home
+        }
+        out.append(item)
+    return out
 
 def shape_game(live, season, records=None):
     gd = live.get("gameData", {}) or {}
@@ -797,13 +798,13 @@ def shape_game(live, season, records=None):
         "dueUpSide": state["dueUpSide"],
         "dueUp": state["dueUp"],
         "inBreak": state["inningState"] in ("Middle","End"),
+        "inning": state["inning"],
+        "isTop": state["isTop"],
         "teams": {
             "home": {"id": home.get("id"), "abbr": home.get("abbreviation") or home.get("clubName"), "record": state["records"].get("home","")},
             "away": {"id": away.get("id"), "abbr": away.get("abbreviation") or away.get("clubName"), "record": state["records"].get("away","")},
         }
     }
-    # attach scoring summary for all non-scheduled states; safe for scheduled too (will be empty)
-    game["scoring"] = extract_scoring_summary(live)
 
     # linescore columns
     if status == "in_progress":
@@ -837,9 +838,9 @@ def shape_game(live, season, records=None):
     if status == "in_progress":
         pit = state["pitcher"]; bat = state["batter"]
         if pit and pit.get("side") in ("home","away"):
-            game["teams"][pit["side"]]["currentPitcher"] = f"P: {pit['name']} \u2022 IP {pit.get('ip','-')} \u2022 P {pit.get('p','-')} \u2022 ER {pit.get('er',0)} \u2022 K {pit.get('k',0)} \u2022 BB {pit.get('bb',0)}"
+            game["teams"][pit["side"]]["currentPitcher"] = f"P: {pit['name']} • IP {pit.get('ip','-')} • P {pit.get('p','-')} • ER {pit.get('er',0)} • K {pit.get('k',0)} • BB {pit.get('bb',0)}"
         if bat and bat.get("side") in ("home","away"):
-            game["teams"][bat["side"]]["currentBatter"] = f"B: {bat['name']} \u2022 {bat.get('line','')}"
+            game["teams"][bat["side"]]["currentBatter"] = f"B: {bat['name']} • {bat.get('line','')}"
         # between-innings: show pitcher line for the team about to pitch
         next_pitch_side = None
         if game["inBreak"]:
@@ -866,7 +867,7 @@ def shape_game(live, season, records=None):
                 if p:
                     st = (p.get("stats") or {}).get("pitching") or {}
                     name = (p.get("person") or {}).get("fullName") or ""
-                    return side, f"{name} \u2022 IP {st.get('inningsPitched','-')} \u2022 P {st.get('numberOfPitches') or st.get('pitchesThrown') or '-'} \u2022 ER {st.get('earnedRuns',0)} \u2022 K {st.get('strikeOuts',0)} \u2022 BB {st.get('baseOnBalls',0)}"
+                    return side, f"{name} • IP {st.get('inningsPitched','-')} • P {st.get('numberOfPitches') or st.get('pitchesThrown') or '-'} • ER {st.get('earnedRuns',0)} • K {st.get('strikeOuts',0)} • BB {st.get('baseOnBalls',0)}"
             return "", ""
 
         win_side, win_line = pitcher_line_for(win_id)
@@ -910,6 +911,9 @@ def shape_game(live, season, records=None):
         game["batters"] = None
         game["pitchers"] = None
 
+    # scoring summary (always present for live & final; empty list for scheduled)
+    game["scoring"] = extract_scoring_summary(live)
+
     return game
 
 # --------- Routes ---------
@@ -926,7 +930,7 @@ def standings_page():
         "standings.html",
         data_division=data_division,
         data_wildcard=data_wildcard,
-        data_wc=data_wildcard,
+        data_wc=data_wildcard,  # alias for older templates
         season=SEASON,
         error=err
     )
@@ -987,6 +991,15 @@ def api_games():
     payload = {"date": date_str, "games": games}
     cache_set(date_str, payload, 15 if any_live else 300)
     return jsonify(payload)
+
+@app.route("/debug/games")
+def debug_games():
+    date_str = request.args.get("date") or datetime.utcnow().strftime("%Y-%m-%d")
+    try:
+        schedule = fetch_schedule(date_str)
+        return jsonify({"date": date_str, "count": len(schedule), "keys": [g.get("gamePk") for g in schedule]})
+    except Exception as e:
+        return jsonify({"date": date_str, "error": str(e)}), 200
 
 @app.route("/ping")
 def ping():
