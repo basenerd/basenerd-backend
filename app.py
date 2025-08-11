@@ -65,6 +65,19 @@ def fetch_savant_gf(game_pk: int):
     cache_set(key, data, ttl=20)
     return data
 
+def fetch_sched_by_gamepk(game_pk: int) -> dict:
+    """Fetch minimal schedule info for a single gamePk."""
+    try:
+        js = http_json(f"{MLB_API}/schedule", params={"gamePk": game_pk, "language":"en"})
+        for d in js.get("dates", []):
+            for g in d.get("games", []):
+                if g.get("gamePk") == game_pk:
+                    return g
+    except Exception:
+        pass
+    return {}
+
+
 def _savant_pick(d, keys):
     for k in keys:
         if k in d and d[k] is not None:
@@ -602,28 +615,27 @@ def api_standings():
 @app.route("/api/game/<int:game_pk>")
 def api_game(game_pk: int):
     """
-    Debug version: logs outgoing payload for game.html
+    Returns JSON used by game.html:
+      game: header info, linescore, batters/pitchers
+      plays: PBP list with EV/LA/Dist/xBA/pitches/bip
+      meta: decisions and text
+
+    Now with schedule-based fallback if live/box fetch fails.
     """
-    def _empty_payload():
-        return {
-            "game": {
-                "status": "scheduled",
-                "chip": "",
-                "venue": "",
-                "date": "",
-                "statcast": "",
-                "teams": {"home": {"abbr": "HME"}, "away": {"abbr": "AWY"}},
-                "home": {"id": 0, "name": "Home", "score": "-", "record": ""},
-                "away": {"id": 0, "name": "Away", "score": "-", "record": ""},
-                "linescore": {"n": 0, "away": [], "home": [], "totals": {"away": {}, "home": {}}},
-                "batters": {"away": [], "home": []},
-                "pitchers": {"away": [], "home": []},
-            },
-            "plays": [],
-            "meta": {"decisions": {}, "decisionsText": ""}
-        }
+    def fetch_sched_by_gamepk(pk: int) -> dict:
+        """Fetch minimal schedule info for a single gamePk."""
+        try:
+            js = http_json(f"{MLB_API}/schedule", params={"gamePk": pk, "language": "en"})
+            for d in js.get("dates", []):
+                for g in d.get("games", []):
+                    if g.get("gamePk") == pk:
+                        return g
+        except Exception:
+            pass
+        return {}
 
     try:
+        # Main happy path
         live = fetch_live(game_pk)
         box = fetch_box(game_pk)
 
@@ -636,23 +648,64 @@ def api_game(game_pk: int):
         plays = extract_play_by_play(live=live)
 
         payload = {"game": shaped, "plays": plays, "meta": meta}
-
-        # DEBUG log
         log.info("=== /api/game/%s payload ===", game_pk)
         log.info(payload)
-
         return jsonify(payload)
 
     except Exception as e:
+        # Fallback path using schedule data
         log.exception("detail fetch failed for %s", game_pk)
-        payload = _empty_payload()
-        payload["error"] = str(e)
+        g = fetch_sched_by_gamepk(game_pk)
+        teams = (g.get("teams") or {})
+        home = (teams.get("home") or {}).get("team", {}) or {}
+        away = (teams.get("away") or {}).get("team", {}) or {}
+        date_iso = g.get("gameDate")
 
-        # DEBUG log
-        log.info("=== /api/game/%s payload (error) ===", game_pk)
+        payload = {
+            "game": {
+                "status": "scheduled",
+                "chip": to_et_str(date_iso),
+                "venue": (g.get("venue") or {}).get("name", ""),
+                "date": to_et_str(date_iso),
+                "statcast": "",
+                "teams": {
+                    "home": {
+                        "id": home.get("id"),
+                        "name": home.get("name"),
+                        "abbr": _abbr(home.get("id"), home.get("abbreviation", "")),
+                        "score": None
+                    },
+                    "away": {
+                        "id": away.get("id"),
+                        "name": away.get("name"),
+                        "abbr": _abbr(away.get("id"), away.get("abbreviation", "")),
+                        "score": None
+                    },
+                },
+                "linescore": {"n": 0, "away": [], "home": [], "totals": {"away": {}, "home": {}}},
+                "batters": {"away": [], "home": []},
+                "pitchers": {"away": [], "home": []},
+            },
+            "plays": [],
+            "meta": {"decisions": {}, "decisionsText": ""},
+            "error": str(e),
+        }
+
+        # Add shorthand home/away dicts used by some templates/JS
+        payload["game"]["home"] = {
+            **payload["game"]["teams"]["home"],
+            "record": _fmt_record((teams.get("home") or {}).get("leagueRecord") or {})
+        }
+        payload["game"]["away"] = {
+            **payload["game"]["teams"]["away"],
+            "record": _fmt_record((teams.get("away") or {}).get("leagueRecord") or {})
+        }
+
+        log.info("=== /api/game/%s payload (sched-fallback) ===", game_pk)
         log.info(payload)
-
         return jsonify(payload), 200
+
+
 
 # -------------------- Health --------------------
 @app.route("/ping")
