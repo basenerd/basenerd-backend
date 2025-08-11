@@ -9,12 +9,16 @@
     :root{
       --bg:#ffffff; --card:#ffffff; --muted:#5b6577; --text:#111318;
       --border:#e2e8f0; --chip-live:#e21d48; --chip-final:#32425c; --chip-upcoming:#6b7a94;
+      --row:#fafbfc; --rowAlt:#f4f6f9;
     }
     *{ box-sizing:border-box }
     body{
       margin:0; background:var(--bg); color:var(--text);
       font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      font-size:14px;
     }
+
+    /* Header */
     .game-header{
       display:grid;
       grid-template-columns: 1fr minmax(240px, 360px) 1fr;
@@ -26,8 +30,8 @@
     }
     .team { display:flex; flex-direction:column; align-items:center; gap:6px; }
     .team-top{ display:flex; align-items:center; gap:10px; }
-    .team.away .team-top{ flex-direction:row; }  /* logo | score */
-    .team.home .team-top{ flex-direction:row; }  /* score | logo (DOM order) */
+    .team.away .team-top{ flex-direction:row; }     /* Away: logo | score (inside) */
+    .team.home .team-top{ flex-direction:row; }     /* Home: score | logo (inside) */
 
     .logo{ width:96px; height:96px; object-fit:contain; }
     .score{
@@ -47,9 +51,12 @@
     .chip.final{ background:var(--chip-final); }
     .chip.upcoming{ background:var(--chip-upcoming); }
 
-    .section{ max-width:640px; margin:16px auto; padding:0 12px; }
-    .ibox{ background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    /* Sections */
+    .section{ max-width:860px; margin:18px auto; padding:0 12px; }
+    .ibox, .box { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
     .ibox .wrap{ overflow:auto; background:#fff; }
+
+    /* Inning-by-inning table (same feel as todaysgames) */
     .ibox table{
       border-collapse:collapse; width:100%;
       font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:13px;
@@ -67,6 +74,32 @@
     }
     .ibox td.rhe, .ibox th.rhe{ font-weight:800; }
     .placeholder{ padding:16px; color:#6b7280; text-align:center; }
+
+    /* Detailed player box score (borrowed from todaysgames styles) */
+    .boxwrap{ display:grid; grid-template-columns:1fr; gap:12px; padding:10px 10px 12px 10px; background:#fff; }
+    .teamhdr{ text-align:left; font-weight:700; color:#394150; padding:6px 6px; border-bottom:1px solid var(--border); }
+    .batters, .pitchers { overflow:auto; background:#fff; border:1px solid var(--border); border-radius:10px; }
+    .batters table, .pitchers table{
+      width:100%; border-collapse:collapse; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:12.5px;
+    }
+    .batters thead th, .pitchers thead th{
+      color:#5b6577; font-weight:700; border-bottom:1px solid var(--border); padding:6px 6px; text-align:center;
+    }
+    .batters tbody td, .pitchers tbody td{
+      border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; color:#394150;
+    }
+    .batters td.name, .batters th.name, .pitchers td.name, .pitchers th.name{
+      text-align:left; font-weight:600; color:#111318; font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    }
+    .batters td.pos, .pitchers td.pos, .batters th.pos, .pitchers th.pos{ color:#8a94ab; font-weight:700; text-transform:uppercase; text-align:left; }
+    .indent .name { padding-left:16px; position:relative; }
+    .indent .name::before{
+      content:"";
+      position:absolute; left:6px; top:50%;
+      width:8px; height:0;
+      border-top:1px solid var(--border);
+      transform:translateY(-50%);
+    }
   </style>
 </head>
 <body>
@@ -102,21 +135,39 @@
     </div>
   </div>
 
-  <!-- Inning-by-inning box score (via API) -->
+  <!-- Inning-by-inning + Detailed player box score -->
   <div class="section">
+    <!-- Inning-by-inning -->
     <div class="ibox" id="ibox" aria-live="polite" aria-busy="true">
       <div class="wrap" id="iboxWrap"></div>
+    </div>
+
+    <!-- Detailed player box score -->
+    <div class="box" id="playerBox" style="margin-top:12px;">
+      <div class="boxwrap" id="playerBoxWrap">
+        <!-- Filled by JS -->
+      </div>
     </div>
   </div>
 
   <script>
     (async function(){
       const gamePk = {{ game_pk|int }};
-      const $wrap = document.getElementById('iboxWrap');
+      const $iboxWrap = document.getElementById('iboxWrap');
       const $ibox = document.getElementById('ibox');
+      const $pwrap = document.getElementById('playerBoxWrap');
 
       function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      function shortName(full){
+        if(!full) return '';
+        const parts = String(full).trim().split(/\s+/);
+        if(parts.length === 1) return parts[0];
+        const last = parts.pop(); const first = parts.shift();
+        const initial = first ? first[0].toUpperCase() + '.' : '';
+        return `${initial} ${last}`;
+      }
 
+      /* ---------- Inning-by-inning  ---------- */
       function linescoreTable(g){
         const ls = g.linescore; if (!ls) return '';
         const n = ls.n || 9;
@@ -155,16 +206,93 @@
           </table>`;
       }
 
+      /* ---------- Detailed player box score (same as todaysgames) ---------- */
+      function battersTable(teamAbbr, rows){
+        if (!rows || !rows.length) return `<div class="batters"><div class="teamhdr">${esc(teamAbbr)} — Batting</div><div style="padding:10px">No batter stats yet.</div></div>`;
+        const trs = rows.map(r => `
+          <tr ${r.indent ? 'class="indent"' : ''}>
+            <td class="pos">${esc(r.pos||'')}</td>
+            <td class="name">${esc(shortName(r.name)||'')}</td>
+            <td>${r.ab ?? ''}</td>
+            <td>${r.r ?? ''}</td>
+            <td>${r.h ?? ''}</td>
+            <td>${r.rbi ?? ''}</td>
+            <td>${r.bb ?? ''}</td>
+            <td>${r.k ?? ''}</td>
+          </tr>
+        `).join('');
+        return `
+          <div class="batters">
+            <div class="teamhdr">${esc(teamAbbr)} — Batting</div>
+            <table>
+              <thead>
+                <tr><th class="pos">POS</th><th class="name">Player</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th></tr>
+              </thead>
+              <tbody>${trs}</tbody>
+            </table>
+          </div>`;
+      }
+
+      function pitchersTable(teamAbbr, rows){
+        if (!rows || !rows.length) return `<div class="pitchers"><div class="teamhdr">${esc(teamAbbr)} — Pitching</div><div style="padding:10px">No pitching stats yet.</div></div>`;
+        const trs = rows.map(r => `
+          <tr ${r.indent ? 'class="indent"' : ''}>
+            <td class="pos">${esc(r.pos||'P')}</td>
+            <td class="name">${esc(shortName(r.name)||'')}</td>
+            <td>${r.ip ?? ''}</td>
+            <td>${r.h ?? ''}</td>
+            <td>${r.r ?? ''}</td>
+            <td>${r.er ?? ''}</td>
+            <td>${r.bb ?? ''}</td>
+            <td>${r.k ?? ''}</td>
+            <td>${r.hr ?? ''}</td>
+            <td>${r.p ?? ''}</td>
+          </tr>
+        `).join('');
+        return `
+          <div class="pitchers">
+            <div class="teamhdr">${esc(teamAbbr)} — Pitching</div>
+            <table>
+              <thead>
+                <tr><th class="pos">POS</th><th class="name">Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>HR</th><th>P</th></tr>
+              </thead>
+              <tbody>${trs}</tbody>
+            </table>
+          </div>`;
+      }
+
       try{
         const res = await fetch("/api/game/" + gamePk, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const g = data.game || {};
-        const html = (g && g.linescore) ? linescoreTable(g) : '<div class="placeholder">Inning-by-inning will appear at first pitch.</div>';
-        $wrap.innerHTML = html;
+
+        // Inning-by-inning
+        const iboxHTML = (g && g.linescore)
+          ? linescoreTable(g)
+          : '<div class="placeholder">Inning-by-inning will appear at first pitch.</div>';
+        $iboxWrap.innerHTML = iboxHTML;
+
+        // Detailed player box score
+        const awayAbbr = g?.teams?.away?.abbr || 'AWY';
+        const homeAbbr = g?.teams?.home?.abbr || 'HOM';
+        const awayBat = g?.batters?.away || [];
+        const homeBat = g?.batters?.home || [];
+        const awayPit = g?.pitchers?.away || [];
+        const homePit = g?.pitchers?.home || [];
+
+        const playerHTML = `
+          ${battersTable(awayAbbr, awayBat)}
+          ${battersTable(homeAbbr, homeBat)}
+          ${pitchersTable(awayAbbr, awayPit)}
+          ${pitchersTable(homeAbbr, homePit)}
+        `;
+        $pwrap.innerHTML = playerHTML;
+
       }catch(err){
         console.error(err);
-        $wrap.innerHTML = '<div class="placeholder">Could not load inning-by-inning data.</div>';
+        $iboxWrap.innerHTML = '<div class="placeholder">Could not load inning-by-inning data.</div>';
+        $pwrap.innerHTML = '<div class="placeholder">Could not load player box score.</div>';
       }finally{
         $ibox.setAttribute('aria-busy','false');
       }
