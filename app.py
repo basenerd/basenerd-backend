@@ -668,6 +668,7 @@ def api_game(game_pk: int):
             "plays": extract_play_by_play(live=live),
             "meta": meta
         })
+
     except Exception as e:
         # Defensive fallback: return the full object shape so the page can still render
         log.exception("detail fetch failed for %s", game_pk)
@@ -686,7 +687,7 @@ def api_game(game_pk: int):
             "batters": {"away": [], "home": []},
             "pitchers": {"away": [], "home": []},
         }
-            return jsonify({
+        return jsonify({
             "game": shaped,
             "plays": [],
             "meta": {"decisions": {}, "decisionsText": ""},
