@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template, jsonify, request, redirect, url_for, abort
 import requests, time, logging, re
 from datetime import datetime, timezone
@@ -51,6 +52,22 @@ def http_json(url, params=None, timeout=20):
 def to_et(iso_z):
     if not iso_z:
         return ""
+
+
+def iso_to_et_datestr(iso_z):
+    """Return YYYY-MM-DD in Eastern Time for a given ISO timestamp."""
+    if not iso_z:
+        return ""
+    try:
+        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
+        if ET_TZ:
+            dt = dt.astimezone(ET_TZ)
+        return dt.strftime("%Y-%m-%d")
+    except Exception:
+        try:
+            return iso_z.split("T", 1)[0]
+        except Exception:
+            return ""
     try:
         dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
         if ET_TZ:
@@ -753,27 +770,6 @@ def extract_scoring_summary(live):
         out.append(item)
     return out
 
-# --- LOB helper ---
-def extract_lob(box, side):
-    """
-    Return team LOB using opponent's pitching LOB
-    (this aligns with official box scores). Falls back to
-    team batting LOB if opponent pitching LOB is missing.
-    """
-    try:
-        teams = (box.get("teams") or {})
-        opp = "away" if side == "home" else "home"
-        opp_pitch_lob = ((teams.get(opp) or {}).get("teamStats") or {}) \
-                            .get("pitching", {}).get("leftOnBase")
-        if opp_pitch_lob is not None:
-            return opp_pitch_lob
-        # Fallback (can be inflated in some feeds)
-        return ((teams.get(side) or {}).get("teamStats") or {}) \
-                   .get("batting", {}).get("leftOnBase")
-    except Exception:
-        return None
-
-
 def shape_game(live, season, records=None):
     gd = live.get("gameData", {}) or {}
     teams = gd.get("teams", {}) or {}
@@ -782,7 +778,6 @@ def shape_game(live, season, records=None):
 
     state = game_state_and_participants(live, include_records=records)
     ls = state["linescore"]
-    box = state["box"]
 
     status = "scheduled" if state["abstract"] == "PREVIEW" else ("in_progress" if state["abstract"] == "LIVE" else "final")
     game = {
@@ -820,11 +815,6 @@ def shape_game(live, season, records=None):
         game["teams"]["away"]["score"] = None
         game["teams"]["home"]["score"] = None
 
-    # LOB when box is present (in_progress/final)
-    if status in ("in_progress", "final") and box:
-        game["teams"]["away"]["lob"] = extract_lob(box, "away")
-        game["teams"]["home"]["lob"] = extract_lob(box, "home")
-
     if status == "scheduled":
         prob = get_probables(gd, season)
         for side in ("away","home"):
@@ -850,6 +840,7 @@ def shape_game(live, season, records=None):
                     game["teams"][next_pitch_side]["breakPitcher"] = lp
 
     if status == "final":
+        box = state["box"]
         decisions = live.get("liveData", {}).get("decisions", {}) or {}
         win_id = (decisions.get("winner") or {}).get("id")
         lose_id = (decisions.get("loser") or {}).get("id")
@@ -879,6 +870,7 @@ def shape_game(live, season, records=None):
                 game["teams"][win_side]["savePitcher"] = f"SV: {sv_name} ({sv_num if sv_num is not None else '-'})"
 
     if status in ("in_progress", "final"):
+        box = state["box"]
         game["batters"] = {
             "away": extract_batting_box_grouped(box, "away"),
             "home": extract_batting_box_grouped(box, "home"),
@@ -894,8 +886,18 @@ def shape_game(live, season, records=None):
     game["scoring"] = extract_scoring_summary(live)
     return game
 
-# ---------- Template header builder (IDs only; logos handled in templates) ----------
+# ---------- Logo URL helper (uses MLB static CDN) ----------
+def mlb_logo_url(team_id: int, variant: str = "team-cap-on-dark") -> str:
+    """Return an SVG logo URL from MLB's static CDN for a given team ID.
+    Valid variants include 'team-cap-on-dark' and (often) 'team-primary-on-light'."""
+    if not team_id:
+        return ""
+    return f"https://www.mlbstatic.com/team-logos/{variant}/{team_id}.svg"
+
+# ---------- Template header builder ----------
+
 def build_template_game_header(game_pk: int):
+    """Builds a compact header context for game.html, including team IDs and records."""
     live = fetch_live(game_pk)
     shaped = shape_game(live, SEASON)
 
@@ -907,29 +909,60 @@ def build_template_game_header(game_pk: int):
     home_id = home.get("id")
     away_id = away.get("id")
 
+    # Prefer cap logos that work well on light backgrounds; template now uses IDs directly,
+    # but we keep these in case other templates use the URLs.
+    home_logo = mlb_logo_url(home_id, variant="team-cap-on-dark")
+    away_logo = mlb_logo_url(away_id, variant="team-cap-on-dark")
+
     home_score = (shaped.get("teams", {}).get("home", {}) or {}).get("score")
     away_score = (shaped.get("teams", {}).get("away", {}) or {}).get("score")
 
     venue_name = (gd.get("venue") or {}).get("name", "")
     game_dt_iso = (gd.get("datetime") or {}).get("dateTime") or ""
 
+    # --- Pull team records from schedule on the Eastern Time date for this game ---
+    away_rec_str = ""
+    home_rec_str = ""
+    try:
+        date_et = iso_to_et_datestr(game_dt_iso) or ""
+        if date_et:
+            sched = fetch_schedule(date_et)
+            # find this gamePk
+            for g in sched:
+                if g.get("gamePk") == (shaped.get("gamePk") or game_pk):
+                    a = (g.get("teams") or {}).get("away", {}) or {}
+                    h = (g.get("teams") or {}).get("home", {}) or {}
+                    a_lr = (a.get("leagueRecord") or {})
+                    h_lr = (h.get("leagueRecord") or {})
+                    aw = a_lr.get("wins"); al = a_lr.get("losses")
+                    hw = h_lr.get("wins"); hl = h_lr.get("losses")
+                    away_rec_str = f"{aw}-{al}" if aw is not None and al is not None else ""
+                    home_rec_str = f"{hw}-{hl}" if hw is not None and hl is not None else ""
+                    break
+    except Exception as _e:
+        # keep records blank if anything goes wrong
+        pass
+
     return {
         "id": shaped.get("gamePk") or game_pk,
         "home": {
             "id": home_id,
             "name": home.get("name",""),
+            "logo": home_logo,
             "score": home_score if home_score is not None else "-",
+            "record": home_rec_str
         },
         "away": {
             "id": away_id,
             "name": away.get("name",""),
+            "logo": away_logo,
             "score": away_score if away_score is not None else "-",
+            "record": away_rec_str
         },
         "venue": venue_name,
         "status": shaped.get("chip",""),
         "date": to_et(game_dt_iso),
     }
-
 # --------- Routes ---------
 @app.route("/")
 def home_page():
