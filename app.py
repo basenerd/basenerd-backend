@@ -49,10 +49,22 @@ def http_json(url, params=None, timeout=20):
     r.raise_for_status()
     return r.json()
 
+
 def to_et(iso_z):
+    """Return ET time like '7:05 PM ET' from an ISO timestamp."""
     if not iso_z:
         return ""
-
+    try:
+        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
+        if ET_TZ:
+            dt = dt.astimezone(ET_TZ)
+        try:
+            return dt.strftime("%-I:%M %p ET")
+        except Exception:
+            # Windows-compatible: no %-I, drop leading zero manually
+            return dt.strftime("%I:%M %p ET").lstrip("0") + " ET"
+    except Exception:
+        return ""
 
 def iso_to_et_datestr(iso_z):
     """Return YYYY-MM-DD in Eastern Time for a given ISO timestamp."""
@@ -78,6 +90,27 @@ def iso_to_et_datestr(iso_z):
             return dt.strftime("%I:%M %p ET").lstrip("0") + " ET"
     except Exception:
         return ""
+
+def format_date_et(iso_z):
+    """Return a friendly ET date like 'Mon, Aug 11, 2025' from an ISO timestamp."""
+    if not iso_z:
+        return ""
+    try:
+        dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
+        if ET_TZ:
+            dt = dt.astimezone(ET_TZ)
+        try:
+            return dt.strftime("%a, %b %-d, %Y")
+        except Exception:
+            # Windows-compatible (no %-d)
+            return dt.strftime("%a, %b %d, %Y").replace(" 0", " ")
+    except Exception:
+        try:
+            ymd = iso_z.split("T",1)[0]
+            y, m, d = ymd.split("-")
+            return f"{m}/{d}/{y}"
+        except Exception:
+            return ""
 
 def cache_get(key):
     x = _CACHE.get(key)
@@ -961,7 +994,7 @@ def build_template_game_header(game_pk: int):
         },
         "venue": venue_name,
         "status": shaped.get("chip",""),
-        "date": to_et(game_dt_iso),
+        "date": format_date_et(game_dt_iso),
     }
 # --------- Routes ---------
 @app.route("/")
