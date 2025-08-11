@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>{{ game.away.name }} @ {{ game.home.name }} — Game Report</title>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+...amily=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
   <style>
     :root{
       --bg:#ffffff; --card:#ffffff; --muted:#5b6577; --text:#111318; --accent:#0b5cab;
@@ -22,306 +22,257 @@
     /* Header */
     .header{ display:grid; grid-template-columns:auto auto 1fr auto auto; align-items:center; gap:16px; margin-bottom:14px; }
     .logo{ width:84px; height:84px; object-fit:contain; }
-    .big-score{ font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace; font-weight:800; font-size:46px; line-height:1; min-width:46px; text-align:center; }
+    .big-score{ font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace; font-weight:700; font-size:46px; line-height:1; min-width:46px; text-align:center; }
     .center-info{ display:flex; flex-direction:column; align-items:center; gap:6px; }
-    .chip{ display:inline-flex; align-items:center; justify-content:center; padding:6px 10px; border-radius:999px; font-weight:700; letter-spacing:.4px; color:#fff; text-transform:uppercase; font-size:12px; background:var(--chip-final); }
+    .chip{ display:inline-flex; align-items:center; justify-content:center; height:24px; padding:0 8px; border-radius:12px; color:#fff; letter-spacing:.04em; text-transform:uppercase; font-size:12px; background:var(--chip-final); }
     .chip.live{ background:var(--chip-live); } .chip.upcoming{ background:var(--chip-upcoming); }
     .status{ font-size:13px; font-weight:700; color:#0b0e13; }
     .venue{ font-size:12px; color:#6b7280; }
 
     /* Team names/records (centered) */
-    .team-under{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:-6px 0 10px; }
-    .team-name{ font-size:15px; font-weight:700; text-align:center; }
-    .record{ font-size:12.5px; color:#6b7280; text-align:center; }
+    .team-under{ display:grid; grid-template-columns:1fr 1fr; align-items:center; text-align:center; gap:6px; margin-bottom:16px; }
+    .team-under .name{ font-size:18px; font-weight:700; }
+    .team-under .rec{ font-size:12px; color:#6b7280; }
 
-    /* Cards & order */
-    .card{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; }
-    .stack{ display:grid; gap:14px; margin-bottom:14px; }
+    /* Sections grid */
+    .grid{ display:grid; grid-template-columns:1.15fr .85fr; gap:16px; }
+    @media (max-width: 980px){ .grid{ grid-template-columns:1fr } }
 
-    /* Decisions (center, no title) */
-    .decisions-center{ text-align:center; font-size:13px; color:#111318; }
+    .card{ background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .card .hd{ padding:10px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .card .hd h3{ margin:0; font-size:14px; letter-spacing:.02em; text-transform:uppercase; color:#374151; }
+    .card .bd{ padding:10px 12px; }
 
     /* Linescore */
-    .linescore{ overflow:auto }
-    table{ border-collapse:collapse; width:100% }
-    th,td{ padding:6px 8px; border-bottom:1px solid var(--border); text-align:center; font-size:13px }
-    thead th{ background:linear-gradient(180deg,#fff,#f6f9ff); font-weight:700 }
+    .ls-table{ width:100%; border-collapse:collapse; font-size:13px; }
+    .ls-table th, .ls-table td{ padding:6px 6px; border-bottom:1px solid var(--border); text-align:center; }
+    .ls-table thead th{ color:#6b7280; font-weight:600; }
+    .ls-team{ display:flex; align-items:center; gap:6px; justify-content:flex-start; font-weight:700; }
+    .ls-team .abbr{ font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace; font-weight:700; }
 
-    /* Box scores like todaysgames */
-    .boxes-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    @media (max-width:980px){ .header{grid-template-columns:1fr; justify-items:center} .team-under{display:none} .boxes-grid{ grid-template-columns:1fr; } }
-    .boxcol{ display:grid; gap:14px; }
-    .box table{ border-collapse:collapse; width:100%; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:11.5px; }
-    .box thead th{ color:#5b6577; font-weight:700; border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; background:linear-gradient(180deg,#fff,#f6f9ff); }
-    .box tbody td{ border-bottom:1px solid var(--border); padding:6px 6px; text-align:center; color:#394150; }
-    .box .teamhdr{ text-align:left; font-weight:700; color:#394150; padding-top:2px; }
-    .box td.name, .box th.name { text-align:left; font-weight:normal; color:#111318; }
-    .box td.pos, .box th.pos { color:#8a94ab; font-weight:700; text-transform:uppercase; }
-    .indent .name { padding-left:16px; position:relative; }
-    .indent .name::before{ content:""; position:absolute; left:6px; top:50%; width:8px; height:0; border-top:1px solid var(--border); transform:translateY(-50%); }
-    .badge-gray{ display:inline-block; margin-left:6px; padding:2px 6px; border-radius:6px; background:var(--badge); color:var(--badge-text); font-size:11px; font-weight:700; }
+    /* Box tables */
+    .mini-title{ font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em; margin:0 0 8px; }
+    .mini-wrap{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width: 980px){ .mini-wrap{ grid-template-columns:1fr } }
+    .mini-table{ width:100%; border-collapse:collapse; font-size:13px; }
+    .mini-table th, .mini-table td{ padding:6px 6px; border-bottom:1px solid var(--border); text-align:center; }
+    .mini-table thead th{ color:#6b7280; font-weight:600; }
+    .mini-table .pos, .mini-table .name{ text-align:left; }
+    .when{ color:#6b7280; font-style:italic; text-align:center; }
 
-    /* PBP table (full-cell gradients for EV, xBA) */
-    .pbp-card{ margin-top:14px; }
-    .pbp-table{ width:100%; border-collapse:collapse }
-    .pbp-table th{ background:linear-gradient(180deg,#fff,#f6f9ff); font-weight:700; position:sticky; top:0; }
-    .pbp-table th, .pbp-table td{ padding:6px 8px; border-bottom:1px solid var(--border); font-size:12.5px; text-align:left }
-    .center{ text-align:center }
-    .when{ color:var(--muted); font-size:13px }
+    /* PBP */
+    .pbp-table{ width:100%; border-collapse:collapse; font-size:13px; }
+    .pbp-table th, .pbp-table td{ padding:8px 8px; border-bottom:1px solid var(--border); }
+    .pbp-table thead th{ color:#6b7280; font-weight:600; text-transform:uppercase; letter-spacing:.04em; font-size:12px; }
+    .pbp-row{ background: #fff; }
+    .pbp-row.alt{ background:#fafafa; }
+    .pbp-play{ display:flex; align-items:center; gap:8px; }
+    .badge{ display:inline-flex; align-items:center; justify-content:center; padding:0 6px; height:20px; font-size:11px; border-radius:10px; background:var(--badge); color:var(--badge-text); }
 
-    /* Full-cell gradient helpers (blue->white->red) */
-    .gradcell{ color:#0b0e13; } /* color will flip to white if background is dark */
+    .toggle{ cursor:pointer; color:var(--accent); font-weight:600; }
+    .plots{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; }
+    .plot-box{ border:1px solid var(--border); border-radius:8px; padding:8px; }
 
-    /* Expander row */
-    .expander{ background:#fff; }
-    .expand-wrap{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    .mini-title{ font-size:12px; font-weight:700; color:#394150; margin-bottom:6px; }
-    .mini-row{ display:grid; grid-template-columns:auto 1fr auto; gap:6px; font-size:12px; color:#394150; }
-    .mini-table{ width:100%; border-collapse:collapse; margin-top:8px; }
-    .mini-table th, .mini-table td{ border-bottom:1px solid var(--border); padding:4px 6px; font-size:12px; text-align:center; }
-    .plots{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    .plot-card{ border:1px solid var(--border); border-radius:10px; padding:8px; }
-    .note{ color:#8a94ab; font-size:11px; margin-top:6px; }
+    /* Pitch-by-pitch visuals inherit site fonts & add labels */
+    .plots, .plots .mini-title, .plots .note,
+    .mini-table, .mini-table thead th, .mini-table tbody td,
+    .pbp-table { font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+    svg text.pitch-label { font-size: 10px; font-weight: 700; text-anchor: middle; dominant-baseline: central;
+      fill: #ffffff; paint-order: stroke; stroke: #111318; stroke-width: 1px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-
     <!-- Header -->
-    {% if game %}
     <div class="header">
-      <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.away.id }}.svg" alt="{{ game.away.name }} logo">
-      <div class="big-score" id="awayScore">{{ game.away.score }}</div>
+      <img class="logo" src="https://midfield.mlbstatic.com/v1/team/{{ game.teams.away.id }}/logo" alt="{{ game.away.abbr }}">
+      <div class="big-score">{{ game.teams.away.score if game.teams.away.score is not none else '-' }}</div>
       <div class="center-info">
-        <div class="chip" id="statusChip">{{ game.status }}</div>
-        <div class="status">{{ game.status }}</div>
-        <div class="venue">{{ game.venue }} • {{ game.date }}</div>
-        <div class="when" id="statcastLine">Loading latest play…</div>
+        <div class="chip {{ 'live' if game.status=='in_progress' else ('upcoming' if game.status=='scheduled' else '') }}">
+          {{ 'LIVE' if game.status=='in_progress' else ('Scheduled' if game.status=='scheduled' else 'Final') }}
+        </div>
+        <div class="status">{{ game.chip or game.date }}</div>
+        <div class="venue">{{ game.venue }}</div>
       </div>
-      <div class="big-score" id="homeScore">{{ game.home.score }}</div>
-      <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.home.id }}.svg" alt="{{ game.home.name }} logo">
+      <div class="big-score">{{ game.teams.home.score if game.teams.home.score is not none else '-' }}</div>
+      <img class="logo" src="https://midfield.mlbstatic.com/v1/team/{{ game.teams.home.id }}/logo" alt="{{ game.home.abbr }}">
     </div>
 
-    <!-- Team names/records under logos (centered) -->
     <div class="team-under">
       <div>
-        <div class="team-name">{{ game.away.name }}</div>
-        <div class="record">{{ game.away.record }}</div>
+        <div class="name">{{ game.teams.away.name }}</div>
+        <div class="rec">{{ game.away.record }}</div>
       </div>
       <div>
-        <div class="team-name">{{ game.home.name }}</div>
-        <div class="record">{{ game.home.record }}</div>
+        <div class="name">{{ game.teams.home.name }}</div>
+        <div class="rec">{{ game.home.record }}</div>
       </div>
     </div>
-    {% else %}
-    <p class="when">Could not load game header.</p>
-    {% endif %}
 
-    <!-- Decisions + Linescore -->
-    <div class="stack">
+    <div class="grid">
+      <!-- Left: Linescore + PBP -->
       <div class="card">
-        <div id="decisionsLine" class="decisions-center">Loading…</div>
+        <div class="hd"><h3>Linescore</h3></div>
+        <div class="bd" id="linescore">
+          <!-- filled by JS -->
+        </div>
+        <div class="hd"><h3>Play by Play</h3></div>
+        <div class="bd">
+          <table class="pbp-table" id="pbp">
+            <thead>
+              <tr>
+                <th>Inning</th>
+                <th>Count</th>
+                <th>Play</th>
+                <th class="right">Score</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="pbpBody">
+              <!-- rows -->
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      <!-- Right: Box -->
       <div class="card">
-        <div class="linescore">
-          <table id="linescoreBox"></table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Box scores (two columns, todaysgames style) -->
-    <div class="boxes-grid">
-      <div class="boxcol" id="visCol">
-        <div class="card box">
-          <div class="teamhdr" id="hdrAwayBat">Away — Batting</div>
-          <table>
-            <thead><tr><th class="pos">POS</th><th class="name">Player</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th></tr></thead>
-            <tbody id="batAway"></tbody>
+        <div class="hd"><h3>Box Score</h3></div>
+        <div class="bd">
+          <div class="mini-title">{{ game.teams.away.abbr }} Batting</div>
+          <table class="mini-table" id="batAway">
+            <thead><tr><th class="pos">Pos</th><th class="name">Player</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th></tr></thead>
+            <tbody></tbody>
           </table>
-        </div>
-        <div class="card box">
-          <div class="teamhdr" id="hdrAwayPit">Away — Pitching</div>
-          <table>
-            <thead><tr><th class="pos">POS</th><th class="name">Player</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>HR</th><th>P</th></tr></thead>
-            <tbody id="pitAway"></tbody>
+          <div style="height:10px"></div>
+          <div class="mini-title">{{ game.teams.home.abbr }} Batting</div>
+          <table class="mini-table" id="batHome">
+            <thead><tr><th class="pos">Pos</th><th class="name">Player</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th></tr></thead>
+            <tbody></tbody>
           </table>
-        </div>
-      </div>
-
-      <div class="boxcol" id="homeCol">
-        <div class="card box">
-          <div class="teamhdr" id="hdrHomeBat">Home — Batting</div>
-          <table>
-            <thead><tr><th class="pos">POS</th><th class="name">Player</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th></tr></thead>
-            <tbody id="batHome"></tbody>
+          <div style="height:12px"></div>
+          <div class="mini-title">{{ game.teams.away.abbr }} Pitching</div>
+          <table class="mini-table" id="pitAway">
+            <thead><tr><th> </th><th class="name">Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>HR</th><th>P</th></tr></thead>
+            <tbody></tbody>
           </table>
-        </div>
-        <div class="card box">
-          <div class="teamhdr" id="hdrHomePit">Home — Pitching</div>
-          <table>
-            <thead><tr><th class="pos">POS</th><th class="name">Player</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>HR</th><th>P</th></tr></thead>
-            <tbody id="pitHome"></tbody>
+          <div style="height:10px"></div>
+          <div class="mini-title">{{ game.teams.home.abbr }} Pitching</div>
+          <table class="mini-table" id="pitHome">
+            <thead><tr><th> </th><th class="name">Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>HR</th><th>P</th></tr></thead>
+            <tbody></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- Play by Play -->
-    <div class="card pbp-card">
-      <h3>Play by Play</h3>
-      <div style="overflow:auto">
-        <table class="pbp-table" id="pbpTable">
-          <thead>
-            <tr>
-              <th style="width:76px">Inning</th>
-              <th>Play</th>
-              <th class="center" style="width:90px">EV</th>
-              <th class="center" style="width:70px">LA</th>
-              <th class="center" style="width:80px">Dist</th>
-              <th class="center" style="width:90px">xBA</th>
-            </tr>
-          </thead>
-          <tbody id="pbpBody"><tr><td class="when" colspan="6">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
+    <div style="height:24px"></div>
   </div>
 
   <script>
-    const gamePk = {{ game_pk }};
-    const API = `/api/game/${gamePk}`;
-    const $ = (id) => document.getElementById(id);
+    const $ = id => document.getElementById(id);
 
-    // ---------- Linescore (team abbreviations) ----------
-    const th = (s) => `<th>${s}</th>`;
-    const td = (s) => `<td>${s ?? ''}</td>`;
-    function linescoreTable(ls, awayAbbr, homeAbbr){
-      if(!ls || !ls.n){ return '<tr><td class="when">—</td></tr>'; }
-      const n = ls.n;
-      let thead = '<thead><tr><th></th>'; for(let i=1;i<=n;i++) thead += th(i);
-      thead += th('R')+th('H')+th('E')+'</tr></thead>';
-      function row(label, arr, totals){
-        let cells = `<td style="font-weight:700">${label}</td>`;
-        for(let i=0;i<n;i++) cells += td(arr[i] ?? '');
-        cells += td(`<b>${(totals||{}).R ?? ''}</b>`) + td((totals||{}).H ?? '') + td((totals||{}).E ?? '');
-        return `<tr>${cells}</tr>`;
-      }
-      const away = ls.away || [], home = ls.home || [];
-      const ta = (ls.totals||{}).away || {}, thm = (ls.totals||{}).home || {};
-      return thead + `<tbody>${row(awayAbbr, away, ta)}${row(homeAbbr, home, thm)}</tbody>`;
-    }
-
-    // ---------- Box score helpers (todaysgames style) ----------
-    function fmtShortName(nm){
-      if (!nm) return '';
-      const parts = nm.split(' ');
-      return parts.length>1 ? `${parts[0][0]}. ${parts.slice(1).join(' ')}` : nm;
-    }
-    function fillBatTable(tbodyId, rows){
-      const el = $(tbodyId);
-      if(!rows || !rows.length){ el.innerHTML = `<tr><td class="when" colspan="8">—</td></tr>`; return; }
-      el.innerHTML = rows.map(r => `
-        <tr ${r.indent ? 'class="indent"' : ''}>
-          <td class="pos">${r.pos||''}</td>
-          <td class="name">${fmtShortName(r.name)||''}</td>
-          <td>${r.ab ?? ''}</td><td>${r.r ?? ''}</td><td>${r.h ?? ''}</td><td>${r.rbi ?? ''}</td><td>${r.bb ?? ''}</td><td>${r.k ?? ''}</td>
-        </tr>`).join('');
-    }
-    function fillPitTable(tbodyId, rows, decisions){
-      const el = $(tbodyId);
-      if(!rows || !rows.length){ el.innerHTML = `<tr><td class="when" colspan="10">—</td></tr>`; return; }
-      const W = decisions?.winnerId, L = decisions?.loserId, S = decisions?.saveId;
-      el.innerHTML = rows.map(r => {
-        let name = fmtShortName(r.name)||'';
-        let tags = '';
-        if (r.pid === W) tags += `<span class="badge-gray">W</span>`;
-        if (r.pid === L) tags += `<span class="badge-gray">L</span>`;
-        if (r.pid === S) tags += `<span class="badge-gray">SV</span>`;
-        if (tags) name += ' ' + tags;
-        return `
-          <tr ${r.indent ? 'class="indent"' : ''}>
-            <td class="pos">${r.pos||'P'}</td>
-            <td class="name">${name}</td>
-            <td>${r.ip ?? ''}</td><td>${r.h ?? ''}</td><td>${r.r ?? ''}</td><td>${r.er ?? ''}</td><td>${r.bb ?? ''}</td><td>${r.k ?? ''}</td><td>${r.hr ?? ''}</td><td>${r.p ?? ''}</td>
-          </tr>`;
-      }).join('');
-    }
-
-    // ---------- Full-cell gradients (EV, xBA) ----------
-    function clamp01(x){ return Math.max(0, Math.min(1, x)); }
-    function lerp(a,b,t){ return a + (b-a)*t; }
-    function mixColor(c1, c2, t){ return [Math.round(lerp(c1[0], c2[0], t)), Math.round(lerp(c1[1], c2[1], t)), Math.round(lerp(c1[2], c2[2], t))]; }
-    const BLUE=[30,58,138], WHITE=[255,255,255], RED=[185,28,28];
-    function blueWhiteRed(t){ t=clamp01(t); const c = (t<=.5)? mixColor(BLUE,WHITE,t/.5) : mixColor(WHITE,RED,(t-.5)/.5); return `rgb(${c[0]},${c[1]},${c[2]})`; }
-    function textColorFor(rgbStr){
-      const m = rgbStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/); if(!m) return '#0b0e13';
-      const r=+m[1], g=+m[2], b=+m[3]; const L = 0.2126*r+0.7152*g+0.0722*b;
-      return L < 150 ? '#ffffff' : '#0b0e13';
-    }
-    function normEV(ev){ const v=parseFloat(ev); if (isNaN(v)) return null; return clamp01((v-60)/(115-60)); }
-    function normXBA(x){ let v=(typeof x==='string'&&x.startsWith('.'))? parseFloat('0'+x) : parseFloat(x); if(isNaN(v)) return null; if(v>1) v=v/100; return clamp01(v); }
-    function tdWithGrad(val, normFn){
-      const display = (val==null || val==='') ? '—' : val;
-      const n = normFn(val);
-      if (n==null){ return `<td class="center gradcell">${display}</td>`; }
-      const bg = blueWhiteRed(n), fg = textColorFor(bg);
-      return `<td class="center gradcell" style="background:${bg}; color:${fg}">${display}</td>`;
-    }
-
-    // ---------- PBP with expanders ----------
+    const gamePk = {{ game_pk|int }};
     let playsGlobal = [];
 
-    function renderPBPTable(list){
-      const body = $('pbpBody');
-      if(!Array.isArray(list) || !list.length){ body.innerHTML = '<tr><td class="when" colspan="6">—</td></tr>'; return; }
+    async function loadGame(){
+      const res = await fetch(`/api/game/${gamePk}`);
+      const data = await res.json();
 
-      body.innerHTML = list.map((r, idx)=>{
-        const base = `
-          <tr class="pbp-row" data-row="${idx}" style="cursor:pointer">
-            <td class="center">${r.inning || ''}</td>
-            <td>${r.desc || ''}</td>
-            ${tdWithGrad(r.ev||'', normEV)}
-            <td class="center">${r.la ? r.la + '°' : '—'}</td>
-            <td class="center">${r.dist ? r.dist + ' ft' : '—'}</td>
-            ${tdWithGrad(r.xba||'', normXBA)}
-          </tr>
-          <tr class="expander" data-exp="${idx}" style="display:none">
-            <td colspan="6">
-              <div class="expand-wrap">
-                <div class="plots">
-                  <div class="plot-card">
-                    <div class="mini-title">Strike Zone</div>
-                    <div id="sz-${idx}"></div>
-                    <div class="note">Green = ball • Red = strike/foul • Blue = in play</div>
-                  </div>
-                  <div class="plot-card">
-                    <div class="mini-title">Ball in Play</div>
-                    <div id="fld-${idx}"></div>
-                    <div class="note">Dot = reported contact location</div>
-                  </div>
-                </div>
-                <div>
-                  <div class="mini-title">Pitch-by-Pitch</div>
-                  <table class="mini-table">
-                    <thead><tr><th>#</th><th>Type</th><th>Velo</th><th>Result</th></tr></thead>
-                    <tbody id="ptbl-${idx}"></tbody>
-                  </table>
-                </div>
-              </div>
-            </td>
-          </tr>
-        `;
-        return base;
-      }).join('');
+      // Linescore
+      renderLinescore(data.game.linescore || {}, data.game.teams);
 
-      // Click to toggle + render charts
-      body.querySelectorAll('tr.pbp-row').forEach(tr=>{
-        tr.addEventListener('click', ()=>{
-          const idx = Number(tr.getAttribute('data-row'));
-          const ex = body.querySelector(`tr[data-exp="${idx}"]`);
-          const open = ex.style.display !== 'none';
-          ex.style.display = open ? 'none' : '';
+      // Box
+      fillBattingTable($('batAway').querySelector('tbody'), data.game.batters?.away || []);
+      fillBattingTable($('batHome').querySelector('tbody'), data.game.batters?.home || []);
+      fillPitchingTable($('pitAway').querySelector('tbody'), data.game.pitchers?.away || []);
+      fillPitchingTable($('pitHome').querySelector('tbody'), data.game.pitchers?.home || []);
+
+      // PBP
+      playsGlobal = data.plays || [];
+      renderPBP(playsGlobal);
+    }
+
+    function renderLinescore(ls, teams){
+      if(!ls || !ls.n){
+        $('linescore').innerHTML = `<div class="when">No linescore yet.</div>`;
+        return;
+      }
+      const cols = Array.from({length:ls.n}, (_,i)=> `<th>${i+1}</th>`).join('');
+      const away = (ls.away||[]).map(v=>`<td>${v ?? ''}</td>`).join('');
+      const home = (ls.home||[]).map(v=>`<td>${v ?? ''}</td>`).join('');
+      const totA = ls.totals?.away || {}, totH = ls.totals?.home || {};
+      $('linescore').innerHTML = `
+        <table class="ls-table">
+          <thead>
+            <tr><th class="ls-team">Team</th>${cols}<th>R</th><th>H</th><th>E</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="ls-team"><span class="abbr">${teams.away.abbr}</span></td>${away}<td>${totA.R ?? ''}</td><td>${totA.H ?? ''}</td><td>${totA.E ?? ''}</td></tr>
+            <tr><td class="ls-team"><span class="abbr">${teams.home.abbr}</span></td>${home}<td>${totH.R ?? ''}</td><td>${totH.H ?? ''}</td><td>${totH.E ?? ''}</td></tr>
+          </tbody>
+        </table>
+      `;
+    }
+
+    function fillBattingTable(el, rows){
+      el.innerHTML = rows.map(r=>`
+        <tr>
+          <td class="pos">${r.pos||''}</td>
+          <td class="name">${r.name||''}</td>
+          <td>${r.ab ?? ''}</td><td>${r.r ?? ''}</td><td>${r.h ?? ''}</td><td>${r.rbi ?? ''}</td><td>${r.bb ?? ''}</td><td>${r.k ?? ''}</td>
+        </tr>
+      `).join('') || `<tr><td colspan="8" class="when">No batting stats</td></tr>`;
+    }
+    function fillPitchingTable(el, rows){
+      el.innerHTML = rows.map((r,i)=>`
+        <tr>
+          <td>${i+1}</td>
+          <td class="name">${r.name||''}</td>
+          <td>${r.ip ?? ''}</td><td>${r.h ?? ''}</td><td>${r.r ?? ''}</td><td>${r.er ?? ''}</td><td>${r.bb ?? ''}</td><td>${r.k ?? ''}</td><td>${r.hr ?? ''}</td><td>${r.p ?? ''}</td>
+        </tr>
+      `).join('') || `<tr><td colspan="10" class="when">No pitching stats</td></tr>`;
+    }
+
+    function renderPBP(plays){
+      const tbody = $('pbpBody');
+      if(!plays.length){
+        tbody.innerHTML = `<tr><td colspan="5" class="when">No play-by-play yet.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = plays.map((p, idx)=>`
+        <tr class="pbp-row ${idx%2 ? 'alt' : ''}">
+          <td><span class="badge">${p.inning||''}</span></td>
+          <td>${p.balls ?? 0}-${p.strikes ?? 0}, ${p.outs ?? 0} out</td>
+          <td class="pbp-play">${p.desc || ''}</td>
+          <td class="right">${p.away ?? ''}–${p.home ?? ''}</td>
+          <td><span class="toggle" data-idx="${idx}">details ▾</span></td>
+        </tr>
+        <tr id="drow-${idx}" style="display:none;">
+          <td colspan="5">
+            <div class="plots">
+              <div class="plot-box"><div class="mini-title">Strike Zone</div><div id="sz-${idx}"></div></div>
+              <div class="plot-box"><div class="mini-title">Contact Location</div><div id="fld-${idx}"></div></div>
+            </div>
+            <div style="height:8px"></div>
+            <div class="plot-box">
+              <div class="mini-title">Pitch-by-pitch</div>
+              <table class="mini-table">
+                <thead><tr><th>#</th><th>Type</th><th>Velo</th><th>Result</th></tr></thead>
+                <tbody id="ptb-${idx}"></tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      // toggles + first render on open
+      tbody.querySelectorAll('.toggle').forEach(t => {
+        t.addEventListener('click', e=>{
+          const idx = Number(t.dataset.idx);
+          const row = $('drow-'+idx);
+          const open = row.style.display !== 'none';
+          row.style.display = open ? 'none' : '';
           if (!open) renderDetails(idx);
         });
       });
@@ -329,102 +280,160 @@
 
     // ---------- Charts ----------
     function drawStrikeZone(el, pitches){
-      const w=220, h=240, pad=10;
-      const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
-      svg.setAttribute("width", w); svg.setAttribute("height", h);
-      svg.style.background = "#ffffff";
-      // axes box
-      const g = document.createElementNS(svg.namespaceURI,"g");
-      svg.appendChild(g);
+  const w=220, h=240, pad=12;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+  svg.setAttribute("width", w); svg.setAttribute("height", h);
+  svg.style.background = "#fff";
 
-      // Map px [-1.5,1.5] -> [pad, w-pad]; pz [0,5] -> [h-pad, pad]
-      const xMap = x => pad + ((x+1.5)/(3.0))*(w-2*pad);
-      const yMap = z => h-pad - ((z-0)/(5.0))*(h-2*pad);
+  const g = document.createElementNS(svg.namespaceURI,"g");
+  svg.appendChild(g);
 
-      // Zone edges (average first available)
-      let tops = [], bots = [];
-      pitches.forEach(p => {
-        if (p.sz_top!=null) tops.push(Number(p.sz_top));
-        if (p.sz_bot!=null) bots.push(Number(p.sz_bot));
-      });
-      const zTop = tops.length ? tops.reduce((a,b)=>a+b)/tops.length : 3.5;
-      const zBot = bots.length ? bots.reduce((a,b)=>a+b)/bots.length : 1.5;
+  const xMap = x => pad + ((x+1.5)/3.0)*(w-2*pad);
+  const yMap = z => h-pad - ((z-0)/5.0)*(h-2*pad);
 
-      // Draw zone (plate width ≈ 0.83 ft half-width)
-      const left = x => xMap(x);
-      const right = x => xMap(x);
-      const zLeft = left(-0.83), zRight = right(0.83), zTopY = yMap(zTop), zBotY = yMap(zBot);
-      const rect = document.createElementNS(svg.namespaceURI,"rect");
-      rect.setAttribute("x", zLeft); rect.setAttribute("y", zTopY);
-      rect.setAttribute("width", zRight - zLeft); rect.setAttribute("height", zBotY - zTopY);
-      rect.setAttribute("fill","none"); rect.setAttribute("stroke","#94a3b8"); rect.setAttribute("stroke-width","2");
-      g.appendChild(rect);
+  let tops = [], bots = [];
+  (pitches||[]).forEach(p => {
+    if (p.sz_top!=null) tops.push(Number(p.sz_top));
+    if (p.sz_bot!=null) bots.push(Number(p.sz_bot));
+  });
+  const zTop = tops.length ? tops.reduce((a,b)=>a+b)/tops.length : 3.5;
+  const zBot = bots.length ? bots.reduce((a,b)=>a+b)/bots.length : 1.5;
 
-      // Pitches
-      pitches.forEach((p,i)=>{
-        if (p.px==null || p.pz==null) return;
-        let color = "var(--strike)";
-        const code = (p.code||"").toUpperCase();
-        if (p.inPlay) color = "var(--inplay)";
-        else if (code === "B") color = "var(--ball)";
-        const circ = document.createElementNS(svg.namespaceURI,"circle");
-        circ.setAttribute("cx", xMap(Number(p.px)));
-        circ.setAttribute("cy", yMap(Number(p.pz)));
-        circ.setAttribute("r", 5);
-        circ.setAttribute("fill", color);
-        circ.setAttribute("opacity", "0.9");
-        circ.setAttribute("stroke", "#111318");
-        circ.setAttribute("stroke-width", "0.5");
-        g.appendChild(circ);
-      });
+  const zLeftX  = xMap(-0.83);
+  const zRightX = xMap( 0.83);
+  const zTopY   = yMap(zTop);
+  const zBotY   = yMap(zBot);
 
-      el.innerHTML = ""; el.appendChild(svg);
-    }
+  const rect = document.createElementNS(svg.namespaceURI,"rect");
+  rect.setAttribute("x", zLeftX);
+  rect.setAttribute("y", Math.min(zTopY, zBotY));
+  rect.setAttribute("width", Math.abs(zRightX - zLeftX));
+  rect.setAttribute("height", Math.abs(zBotY - zTopY));
+  rect.setAttribute("fill","rgba(148,163,184,0.08)");
+  rect.setAttribute("stroke","#94a3b8");
+  rect.setAttribute("stroke-width","2");
+  g.appendChild(rect);
+
+  const border = document.createElementNS(svg.namespaceURI,"rect");
+  border.setAttribute("x", 0.5); border.setAttribute("y", 0.5);
+  border.setAttribute("width", w-1); border.setAttribute("height", h-1);
+  border.setAttribute("fill","none"); border.setAttribute("stroke","#e5e7eb");
+  g.appendChild(border);
+
+  (pitches||[]).forEach((p,i)=>{
+    if (p.px==null || p.pz==null) return;
+    const code = (p.code||"").toUpperCase();
+    let color = "var(--strike)";
+    if (p.inPlay) color = "var(--inplay)";
+    else if (code === "B") color = "var(--ball)";
+
+    const cx = xMap(Number(p.px));
+    const cy = yMap(Number(p.pz));
+
+    const circ = document.createElementNS(svg.namespaceURI,"circle");
+    circ.setAttribute("cx", cx);
+    circ.setAttribute("cy", cy);
+    circ.setAttribute("r", 7);
+    circ.setAttribute("fill", color);
+    circ.setAttribute("opacity", "0.95");
+    circ.setAttribute("stroke", "#111318");
+    circ.setAttribute("stroke-width", "0.6");
+    g.appendChild(circ);
+
+    const label = document.createElementNS(svg.namespaceURI,"text");
+    label.setAttribute("x", cx);
+    label.setAttribute("y", cy);
+    label.setAttribute("class", "pitch-label");
+    label.textContent = String(i+1);
+    g.appendChild(label);
+  });
+
+  el.innerHTML = ""; el.appendChild(svg);
+}
 
     function drawField(el, bip){
-      const w=240, h=240, pad=10;
-      const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
-      svg.setAttribute("width", w); svg.setAttribute("height", h);
-      const g = document.createElementNS(svg.namespaceURI,"g");
-      svg.appendChild(g);
+  const w=260, h=260, pad=12;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+  svg.setAttribute("width", w); svg.setAttribute("height", h);
 
-      // Simple diamond
-      const cx=w/2, cy=h*0.75, rad=80;
-      const pts = [
-        [cx, cy-rad],        // CF
-        [cx+rad, cy],        // RF
-        [cx, cy+rad],        // Home
-        [cx-rad, cy],        // LF
-      ];
-      const poly = document.createElementNS(svg.namespaceURI,"polygon");
-      poly.setAttribute("points", pts.map(p=>p.join(",")).join(" "));
-      poly.setAttribute("fill","#f1f5f9"); poly.setAttribute("stroke","#94a3b8");
-      g.appendChild(poly);
+  const g = document.createElementNS(svg.namespaceURI,"g");
+  svg.appendChild(g);
 
-      // Foul lines
-      const l1 = document.createElementNS(svg.namespaceURI,"line");
-      l1.setAttribute("x1", cx); l1.setAttribute("y1", cy+rad);
-      l1.setAttribute("x2", cx-rad*1.2); l1.setAttribute("y2", cy);
-      l1.setAttribute("stroke","#cbd5e1"); g.appendChild(l1);
-      const l2 = document.createElementNS(svg.namespaceURI,"line");
-      l2.setAttribute("x1", cx); l2.setAttribute("y1", cy+rad);
-      l2.setAttribute("x2", cx+rad*1.2); l2.setAttribute("y2", cy);
-      l2.setAttribute("stroke","#cbd5e1"); g.appendChild(l2);
+  const mapX = v => pad + (Number(v)/250)*(w-2*pad);
+  const mapY = v => pad + (Number(v)/250)*(h-2*pad);
 
-      // Ball-in-play dot (StatsAPI coordX/coordY ~ 0..250)
-      const bx = Number(bip?.x), by = Number(bip?.y);
-      if (!Number.isNaN(bx) && !Number.isNaN(by)){
-        const sx = (bx/250) * (w-2*pad) + pad;
-        const sy = (by/250) * (h-2*pad) + pad;
-        const dot = document.createElementNS(svg.namespaceURI,"circle");
-        dot.setAttribute("cx", sx); dot.setAttribute("cy", sy);
-        dot.setAttribute("r", 5); dot.setAttribute("fill","var(--inplay)");
-        dot.setAttribute("stroke","#111318"); dot.setAttribute("stroke-width","0.5");
-        g.appendChild(dot);
-      }
+  const cx = w/2, cy = h*0.75;
 
-      el.innerHTML = ""; el.appendChild(svg);
-    }
+  const fenceR = 105;
+  const fence = document.createElementNS(svg.namespaceURI,"path");
+  const a1 = Math.PI*0.15, a2 = Math.PI*0.85;
+  const x1 = cx + fenceR*Math.cos(a2), y1 = cy - fenceR*Math.sin(a2);
+  const x2 = cx + fenceR*Math.cos(a1), y2 = cy - fenceR*Math.sin(a1);
+  fence.setAttribute("d", `M ${x1},${y1} A ${fenceR},${fenceR} 0 0 1 ${x2},${y2}`);
+  fence.setAttribute("fill","none"); fence.setAttribute("stroke","#94a3b8"); fence.setAttribute("stroke-width","2");
+  g.appendChild(fence);
+
+  const fl1 = document.createElementNS(svg.namespaceURI,"line");
+  fl1.setAttribute("x1", cx); fl1.setAttribute("y1", cy);
+  fl1.setAttribute("x2", cx - fenceR*Math.cos(a1)); fl1.setAttribute("y2", cy - fenceR*Math.sin(a1));
+  fl1.setAttribute("stroke","#cbd5e1");
+  const fl2 = document.createElementNS(svg.namespaceURI,"line");
+  fl2.setAttribute("x1", cx); fl2.setAttribute("y1", cy);
+  fl2.setAttribute("x2", cx + fenceR*Math.cos(a1)); fl2.setAttribute("y2", cy - fenceR*Math.sin(a1));
+  fl2.setAttribute("stroke","#cbd5e1");
+  g.appendChild(fl1); g.appendChild(fl2);
+
+  const dirt = document.createElementNS(svg.namespaceURI,"circle");
+  dirt.setAttribute("cx", cx); dirt.setAttribute("cy", cy);
+  dirt.setAttribute("r", 45);
+  dirt.setAttribute("fill", "#f3e7d3"); dirt.setAttribute("stroke", "#e7d6b9");
+  g.appendChild(dirt);
+
+  const rad = 38;
+  const diamond = [
+    [cx, cy-rad],
+    [cx+rad, cy],
+    [cx, cy+rad],
+    [cx-rad, cy],
+  ];
+  const poly = document.createElementNS(svg.namespaceURI,"polygon");
+  poly.setAttribute("points", diamond.map(p=>p.join(",")).join(" "));
+  poly.setAttribute("fill","#e9f0f7"); poly.setAttribute("stroke","#94a3b8");
+  g.appendChild(poly);
+
+  const baseSize = 6;
+  [
+    [cx, cy+rad], [cx+rad, cy], [cx, cy-rad], [cx-rad, cy],
+  ].forEach(([bx,by])=>{
+    const b = document.createElementNS(svg.namespaceURI,"rect");
+    b.setAttribute("x", bx-baseSize/2); b.setAttribute("y", by-baseSize/2);
+    b.setAttribute("width", baseSize); b.setAttribute("height", baseSize);
+    b.setAttribute("fill", "#fff"); b.setAttribute("stroke", "#94a3b8");
+    g.appendChild(b);
+  });
+
+  const mound = document.createElementNS(svg.namespaceURI,"circle");
+  mound.setAttribute("cx", cx); mound.setAttribute("cy", cy - rad/2);
+  mound.setAttribute("r", 5); mound.setAttribute("fill", "#d0c4aa"); mound.setAttribute("stroke", "#b29f7a");
+  g.appendChild(mound);
+
+  const bx = Number(bip?.x), by = Number(bip?.y);
+  if (!Number.isNaN(bx) && !Number.isNaN(by)){
+    const dot = document.createElementNS(svg.namespaceURI,"circle");
+    dot.setAttribute("cx", mapX(bx)); dot.setAttribute("cy", mapY(by));
+    dot.setAttribute("r", 5); dot.setAttribute("fill","var(--inplay)");
+    dot.setAttribute("stroke","#111318"); dot.setAttribute("stroke-width","0.5");
+    g.appendChild(dot);
+  }
+
+  const border = document.createElementNS(svg.namespaceURI,"rect");
+  border.setAttribute("x", 0.5); border.setAttribute("y", 0.5);
+  border.setAttribute("width", w-1); border.setAttribute("height", h-1);
+  border.setAttribute("fill","none"); border.setAttribute("stroke","#e5e7eb");
+  g.appendChild(border);
+
+  el.innerHTML = ""; el.appendChild(svg);
+}
 
     function fillPitchMiniTable(el, pitches){
       el.innerHTML = (pitches||[]).map((p,i)=>`
@@ -442,64 +451,12 @@
       // Charts
       drawStrikeZone($(`sz-${idx}`), play.pitches || []);
       drawField($(`fld-${idx}`), play.bip || {});
-      // Table
-      fillPitchMiniTable($(`ptbl-${idx}`), play.pitches || []);
+
+      // Mini pitch table
+      fillPitchMiniTable($(`ptb-${idx}`), play.pitches || []);
     }
 
-    // ---------- Load & wire up ----------
-    async function load(){
-      const res = await fetch(API, {cache:'no-store'});
-      const data = await res.json();
-      const g = data.game || {}; const meta = data.meta || {}; const plays = Array.isArray(data.plays) ? data.plays : [];
-      playsGlobal = plays;
-
-      // Decisions
-      $('decisionsLine').textContent = meta.decisionsText || '—';
-
-      // Chip/status
-      const chip = $('statusChip');
-      if (chip){
-        chip.textContent = g.chip || '';
-        chip.classList.remove('live','upcoming');
-        const L = (g.chip||'').toLowerCase();
-        if ((g.status||'').toLowerCase()==='in_progress' || L.includes('top') || L.includes('bot')) chip.classList.add('live');
-        else if ((g.status||'').toLowerCase()==='scheduled') chip.classList.add('upcoming');
-      }
-
-      // Header line + scores
-      $('statcastLine').textContent = g.statcast || '—';
-      if (g.teams){
-        $('awayScore').textContent = (g.teams.away && g.teams.away.score!=null) ? g.teams.away.score : '-';
-        $('homeScore').textContent = (g.teams.home && g.teams.home.score!=null) ? g.teams.home.score : '-';
-      }
-
-      // Linescore with team abbreviations
-      const awayAbbr = g.teams?.away?.abbr || 'AWY';
-      const homeAbbr = g.teams?.home?.abbr || 'HME';
-      $('linescoreBox').innerHTML = linescoreTable(g.linescore || {}, awayAbbr, homeAbbr);
-
-      // Box headers
-      $('hdrAwayBat').textContent = `${awayAbbr} — Batting`;
-      $('hdrAwayPit').textContent = `${awayAbbr} — Pitching`;
-      $('hdrHomeBat').textContent = `${homeAbbr} — Batting`;
-      $('hdrHomePit').textContent = `${homeAbbr} — Pitching`;
-
-      // Boxes
-      fillBatTable('batAway', (g.batters && g.batters.away) || []);
-      fillBatTable('batHome', (g.batters && g.batters.home) || []);
-      fillPitTable('pitAway', (g.pitchers && g.pitchers.away) || [], meta.decisions);
-      fillPitTable('pitHome', (g.pitchers && g.pitchers.home) || [], meta.decisions);
-
-      // PBP
-      renderPBPTable(plays);
-    }
-
-    load().catch(e=>{
-      console.error(e);
-      $('linescoreBox').innerHTML = '<em class="when">Could not load inning-by-inning.</em>';
-      $('pbpBody').innerHTML = '<tr><td class="when" colspan="6">—</td></tr>';
-      $('decisionsLine').textContent = '—';
-    });
+    window.addEventListener('DOMContentLoaded', loadGame);
   </script>
 </body>
 </html>
