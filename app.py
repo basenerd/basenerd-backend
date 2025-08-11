@@ -522,28 +522,80 @@ def api_standings():
     return jsonify(js)
 
 @app.route("/api/game/<int:game_pk>")
-def api_game(game_pk: int):
+def api_game_detail(game_pk: int):
     """
-    Returns JSON used by game.html:
-      game: header info, linescore, batters/pitchers
-      plays: PBP list with EV/LA/Dist/xBA/pitches/bip
-      meta: decisions and text
+    Returns the exact shape game.html expects:
+      game: {
+        teams: { home:{id,name,abbr,score}, away:{...} },
+        linescore: { n, away[], home[], totals{away{R,H,E}, home{...}} },
+        batters: { away:[...], home:[...] },
+        pitchers:{ away:[...], home:[...] },
+        ...plus whatever shape_game already adds (chip, abstract, etc.)
+      }
+      plays: extract_play_by_play(...)
+      meta: { decisions:{...}, decisionsText:"..." }
     """
     try:
         live = fetch_live(game_pk)
-        box = fetch_box(game_pk)
-        shaped = _shape_header(live)
-        shaped["linescore"] = _shape_linescore((live.get("liveData") or {}).get("linescore"))
+        ld = (live.get("liveData") or {})
+        gd = (live.get("gameData") or {})
+
+        # keep your existing summary bits (inning, chip, last play, etc.)
+        shaped = shape_game(live, SEASON)
+
+        # ---- TEAMS block with abbr + score (used by game.html) ----
+        teams = (gd.get("teams") or {})
+        h = teams.get("home") or {}
+        a = teams.get("away") or {}
+
+        ls_raw = ld.get("linescore") or {}
+        ls_teams = (ls_raw.get("teams") or {})
+        h_score = (ls_teams.get("home") or {}).get("runs")
+        a_score = (ls_teams.get("away") or {}).get("runs")
+
+        def _abbr(team_id, fallback=""):
+            return TEAM_ABBR.get(team_id, fallback or "")
+
+        shaped["teams"] = {
+            "home": {
+                "id": h.get("id"),
+                "name": h.get("name") or h.get("teamName"),
+                "abbr": _abbr(h.get("id"), h.get("abbreviation", "")),
+                "score": h_score,
+            },
+            "away": {
+                "id": a.get("id"),
+                "name": a.get("name") or a.get("teamName"),
+                "abbr": _abbr(a.get("id"), a.get("abbreviation", "")),
+                "score": a_score,
+            }
+        }
+
+        # ---- Linescore in the compact shape the UI renders ----
+        shaped["linescore"] = linescore_blob(ls_raw)
+
+        # ---- Box tables (built from liveData.boxscore) ----
+        box = ld.get("boxscore") or {}
         shaped["batters"] = {
-            "away": _box_batting(box, "away"),
-            "home": _box_batting(box, "home"),
+            "away": extract_batting_box_grouped(box, "away"),
+            "home": extract_batting_box_grouped(box, "home"),
         }
         shaped["pitchers"] = {
-            "away": _box_pitching(box, "away"),
-            "home": _box_pitching(box, "home"),
+            "away": extract_pitching_box(box, "away"),
+            "home": extract_pitching_box(box, "home"),
         }
-        dec_ids, dec_text = _decisions(live)
-        meta = {"decisions": dec_ids, "decisionsText": dec_text}
+
+        # ---- Decisions meta (IDs + pretty line) ----
+        dec = build_decisions_meta(live, SEASON)
+        meta = {
+            "decisions": {
+                "winnerId": dec.get("winnerId"),
+                "loserId":  dec.get("loserId"),
+                "saveId":   dec.get("saveId"),
+            },
+            "decisionsText": dec.get("text", "")
+        }
+
         return jsonify({
             "game": shaped,
             "plays": extract_play_by_play(live=live),
