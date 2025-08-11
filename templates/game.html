@@ -56,4 +56,348 @@
     thead th{ background:#f7f8fb; font-weight:700 }
 
     /* Box scores: two columns, visiting left, home right; separate cards for batting/pitching */
-    .boxes-grid{ display:grid; g
+    .boxes-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    @media (max-width:980px){ .header{grid-template-columns:1fr; justify-items:center}
+                               .team-under{display:none}
+                               .boxes-grid{ grid-template-columns:1fr; } }
+    .boxcol{ display:grid; gap:14px; }
+
+    .tbl th{ background:#f7f8fb }
+    .tbl tr:nth-child(even){ background:var(--rowAlt) }
+    .tbl tr:nth-child(odd){ background:var(--row) }
+    .tbl td, .tbl th{ font-size:12.5px; padding:6px 8px; text-align:center }
+
+    /* PBP table with gradient columns */
+    .pbp-card{ margin-top:14px; }
+    .pbp-table{ width:100%; border-collapse:collapse }
+    .pbp-table th{ background:#f7f8fb; font-weight:700; position:sticky; top:0; }
+    .pbp-table th, .pbp-table td{ padding:6px 8px; border-bottom:1px solid var(--border); font-size:12.5px; text-align:left }
+    .pbp-table td.center, .pbp-table th.center{ text-align:center }
+    .grad{ border-radius:6px; padding:3px 6px; display:inline-block; min-width:54px; text-align:center; }
+
+    /* Gray badges for W/L/SV next to pitchers */
+    .badge-gray{ display:inline-block; margin-left:6px; padding:2px 6px; border-radius:6px;
+                 background:var(--badge); color:var(--badge-text); font-size:11px; font-weight:700; }
+
+    .when{ color:var(--muted); font-size:13px }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Header -->
+    {% if game %}
+    <div class="header">
+      <!-- Away logo -->
+      <div class="team-block">
+        <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.away.id }}.svg" alt="{{ game.away.name }} logo">
+      </div>
+
+      <!-- Away score (moved toward center) -->
+      <div class="big-score" id="awayScore">{{ game.away.score }}</div>
+
+      <!-- Center info -->
+      <div class="center-info">
+        <div class="chip" id="statusChip">{{ game.status }}</div>
+        <div class="status">{{ game.status }}</div>
+        <div class="venue">{{ game.venue }} • {{ game.date }}</div>
+        <div class="when" id="statcastLine">Loading latest play…</div>
+      </div>
+
+      <!-- Home score (moved toward center) -->
+      <div class="big-score" id="homeScore">{{ game.home.score }}</div>
+
+      <!-- Home logo -->
+      <div class="team-block">
+        <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.home.id }}.svg" alt="{{ game.home.name }} logo">
+      </div>
+    </div>
+
+    <!-- Team names/records under logos (kept like your original) -->
+    <div class="team-under" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:-6px 0 10px;">
+      <div>
+        <div class="team-name" style="text-align:left">{{ game.away.name }}</div>
+        <div class="record" style="text-align:left">{{ game.away.record }}</div>
+      </div>
+      <div>
+        <div class="team-name" style="text-align:right">{{ game.home.name }}</div>
+        <div class="record" style="text-align:right">{{ game.home.record }}</div>
+      </div>
+    </div>
+    {% else %}
+    <p class="when">Could not load game header.</p>
+    {% endif %}
+
+    <!-- Decisions + Linescore -->
+    <div class="stack">
+      <div class="card">
+        <h3>Decisions</h3>
+        <div id="decisionsLine" class="when">Loading…</div>
+      </div>
+
+      <div class="card">
+        <h3>Linescore</h3>
+        <div class="linescore">
+          <table id="linescoreBox"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Box scores, side by side columns; each side has Batting and Pitching in separate cards -->
+    <div class="boxes-grid">
+      <!-- Visiting (left) -->
+      <div class="boxcol" id="visCol">
+        <div class="card">
+          <h3>Batting — <span id="abbrAway1">Away</span></h3>
+          <table class="tbl" id="batAway"></table>
+        </div>
+        <div class="card">
+          <h3>Pitching — <span id="abbrAway2">Away</span></h3>
+          <table class="tbl" id="pitAway"></table>
+        </div>
+      </div>
+
+      <!-- Home (right) -->
+      <div class="boxcol" id="homeCol">
+        <div class="card">
+          <h3>Batting — <span id="abbrHome1">Home</span></h3>
+          <table class="tbl" id="batHome"></table>
+        </div>
+        <div class="card">
+          <h3>Pitching — <span id="abbrHome2">Home</span></h3>
+          <table class="tbl" id="pitHome"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Play by Play (columns + gradients for EV, xBA, xSLG) -->
+    <div class="card pbp-card">
+      <h3>Play by Play</h3>
+      <div style="overflow:auto">
+        <table class="pbp-table" id="pbpTable">
+          <thead>
+            <tr>
+              <th style="width:76px">Inning</th>
+              <th>Play</th>
+              <th class="center" style="width:90px">EV</th>
+              <th class="center" style="width:70px">LA</th>
+              <th class="center" style="width:80px">Dist</th>
+              <th class="center" style="width:90px">xBA</th>
+              <th class="center" style="width:90px">xSLG</th>
+            </tr>
+          </thead>
+          <tbody id="pbpBody"><tr><td class="when" colspan="7">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const gamePk = {{ game_pk }};
+    const API = `/api/game/${gamePk}`;
+
+    const $ = (id) => document.getElementById(id);
+    const th = (s) => `<th>${s}</th>`;
+    const td = (s) => `<td>${s ?? ''}</td>`;
+
+    function linescoreTable(ls, awayAbbr, homeAbbr){
+      if(!ls || !ls.n){ return '<tr><td class="when">—</td></tr>'; }
+      const n = ls.n;
+      let thead = '<thead><tr><th></th>';
+      for(let i=1;i<=n;i++) thead += th(i);
+      thead += th('R')+th('H')+th('E')+'</tr></thead>';
+
+      function row(label, arr, totals){
+        let cells = `<td style="font-weight:700">${label}</td>`;
+        for(let i=0;i<n;i++) cells += td(arr[i] ?? '');
+        cells += td(`<b>${(totals||{}).R ?? ''}</b>`) + td((totals||{}).H ?? '') + td((totals||{}).E ?? '');
+        return `<tr>${cells}</tr>`;
+      }
+      const away = ls.away || [], home = ls.home || [];
+      const ta = (ls.totals||{}).away || {}, thm = (ls.totals||{}).home || {};
+      return thead + `<tbody>${row(awayAbbr, away, ta)}${row(homeAbbr, home, thm)}</tbody>`;
+    }
+
+    function batTable(abbr, rows){
+      if(!rows || !rows.length) return '<tr><td class="when">—</td></tr>';
+      const head = `
+        <thead><tr>
+          ${th(abbr)}${th('POS')}${th('AB')}${th('R')}${th('H')}${th('RBI')}${th('BB')}${th('K')}
+        </tr></thead>`;
+      const body = rows.map(r => `
+        <tr>
+          ${td(r.name)}${td(r.pos)}${td(r.ab)}${td(r.r)}${td(r.h)}${td(r.rbi)}${td(r.bb)}${td(r.k)}
+        </tr>`).join('');
+      return head + '<tbody>' + body + '</tbody>';
+    }
+
+    function pitTable(abbr, rows, decisions){
+      if(!rows || !rows.length) return '<tr><td class="when">—</td></tr>';
+      const W = decisions?.winnerId, L = decisions?.loserId, S = decisions?.saveId;
+      const head = `
+        <thead><tr>
+          ${th(abbr)}${th('IP')}${th('H')}${th('R')}${th('ER')}${th('BB')}${th('K')}${th('HR')}${th('P')}
+        </tr></thead>`;
+      const body = rows.map(r => {
+        let name = r.name || '';
+        let tags = '';
+        if (r.pid === W) tags += `<span class="badge-gray">W</span>`;
+        if (r.pid === L) tags += `<span class="badge-gray">L</span>`;
+        if (r.pid === S) tags += `<span class="badge-gray">SV</span>`;
+        return `
+          <tr>
+            ${td(name + (tags ? ' ' + tags : ''))}${td(r.ip)}${td(r.h)}${td(r.r)}${td(r.er)}${td(r.bb)}${td(r.k)}${td(r.hr)}${td(r.p)}
+          </tr>`;
+      }).join('');
+      return head + '<tbody>' + body + '</tbody>';
+    }
+
+    // ---- Gradient helpers (blue -> white -> red) ----
+    function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+    function lerp(a,b,t){ return a + (b-a)*t; }
+    function mixColor(c1, c2, t){
+      return [
+        Math.round(lerp(c1[0], c2[0], t)),
+        Math.round(lerp(c1[1], c2[1], t)),
+        Math.round(lerp(c1[2], c2[2], t))
+      ];
+    }
+    // colors
+    const BLUE = [30,58,138];   // tailwind indigo-900-ish
+    const WHITE = [255,255,255];
+    const RED = [185,28,28];    // red-700-ish
+
+    // Map a normalized 0..1 value to blue->white->red
+    function blueWhiteRed(t){
+      t = clamp01(t);
+      if (t <= 0.5){
+        const c = mixColor(BLUE, WHITE, t/0.5);
+        return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+      } else {
+        const c = mixColor(WHITE, RED, (t-0.5)/0.5);
+        return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+      }
+    }
+
+    // Normalizers
+    function normEV(ev){ // mph ~ 60..115
+      const v = parseFloat(ev);
+      if (isNaN(v)) return null;
+      return clamp01((v - 60) / (115 - 60));
+    }
+    function normXBA(x){ // 0..1
+      let v = (typeof x === 'string' && x.startsWith('.')) ? parseFloat('0'+x) : parseFloat(x);
+      if (isNaN(v)) return null;
+      if (v > 1) v = v/100; // just in case
+      return clamp01(v);
+    }
+    function normXSLG(x){ // 0..4
+      const v = parseFloat(x);
+      if (isNaN(v)) return null;
+      return clamp01(v / 4.0);
+    }
+
+    function gradCell(val, normFn, label){
+      const n = normFn(val);
+      const display = (val==null || val==='') ? '—' : val;
+      if (n==null) return `<span class="grad">${display}</span>`;
+      const bg = blueWhiteRed(n);
+      return `<span class="grad" style="background:${bg}">${display}</span>`;
+    }
+
+    // ---- PBP render (columns + gradients for EV, xBA, xSLG) ----
+    function renderPBPTable(list){
+      const body = $('pbpBody');
+      if(!Array.isArray(list) || !list.length){
+        body.innerHTML = '<tr><td class="when" colspan="7">—</td></tr>';
+        return;
+      }
+      body.innerHTML = list.map(r=>{
+        const inning = r.inning || '';
+        const desc = r.desc || '';
+        const ev = r.ev ? `${r.ev}` : '';
+        const la = r.la ? `${r.la}` : '';
+        const dist = r.dist ? `${r.dist}` : '';
+        const xba = r.xba || '';
+        const xslg = r.xslg || '';
+
+        return `<tr>
+          <td class="center">${inning}</td>
+          <td>${desc}</td>
+          <td class="center">${gradCell(ev, normEV, 'EV')} mph</td>
+          <td class="center">${la ? la + '°' : '—'}</td>
+          <td class="center">${dist ? dist + ' ft' : '—'}</td>
+          <td class="center">${gradCell(xba, normXBA, 'xBA')}</td>
+          <td class="center">${gradCell(xslg, normXSLG, 'xSLG')}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function load(){
+      const res = await fetch(API, {cache:'no-store'});
+      const data = await res.json();
+      if (data.error){
+        $('linescoreBox').innerHTML = '<em class="when">Could not load inning-by-inning.</em>';
+        $('decisionsLine').textContent = '—';
+        $('pbpBody').innerHTML = '<tr><td class="when" colspan="7">—</td></tr>';
+        return;
+      }
+
+      const g = data.game || {};
+      const meta = data.meta || {};
+      const plays = Array.isArray(data.plays) ? data.plays : [];
+
+      // Decisions card
+      $('decisionsLine').textContent = meta.decisionsText || '—';
+
+      // chip text
+      const chip = $('statusChip');
+      if (chip){
+        chip.textContent = g.chip || '';
+        chip.classList.remove('live','upcoming');
+        const chipLower = (g.chip||'').toLowerCase();
+        if ((g.status||'').toLowerCase()==='in_progress' || chipLower.includes('top') || chipLower.includes('bot')){
+          chip.classList.add('live');
+        } else if ((g.status||'').toLowerCase()==='scheduled'){
+          chip.classList.add('upcoming');
+        }
+      }
+
+      // header statcast line
+      $('statcastLine').textContent = g.statcast || '—';
+
+      // scores (now outside logos toward center)
+      if (g.teams){
+        $('awayScore').textContent = (g.teams.away && g.teams.away.score!=null) ? g.teams.away.score : '-';
+        $('homeScore').textContent = (g.teams.home && g.teams.home.score!=null) ? g.teams.home.score : '-';
+      }
+
+      // abbreviations
+      const awayAbbr = g.teams?.away?.abbr || 'AWY';
+      const homeAbbr = g.teams?.home?.abbr || 'HME';
+      $('abbrAway1') && ($('abbrAway1').textContent = awayAbbr);
+      $('abbrAway2') && ($('abbrAway2').textContent = awayAbbr);
+      $('abbrHome1') && ($('abbrHome1').textContent = homeAbbr);
+      $('abbrHome2') && ($('abbrHome2').textContent = homeAbbr);
+
+      // linescore
+      $('linescoreBox').innerHTML = linescoreTable(g.linescore || {}, awayAbbr, homeAbbr);
+
+      // batting / pitching (with W/L/SV badges)
+      const pitA = (g.pitchers && g.pitchers.away) || [];
+      const pitH = (g.pitchers && g.pitchers.home) || [];
+      const batA = (g.batters && g.batters.away) || [];
+      const batH = (g.batters && g.batters.home) || [];
+      $('batAway').innerHTML = batTable(awayAbbr, batA);
+      $('batHome').innerHTML = batTable(homeAbbr, batH);
+      $('pitAway').innerHTML = pitTable(awayAbbr, pitA, meta.decisions);
+      $('pitHome').innerHTML = pitTable(homeAbbr, pitH, meta.decisions);
+
+      // PBP (columns + gradients)
+      renderPBPTable(plays);
+    }
+
+    load().catch(console.error);
+  </script>
+</body>
+</html>
