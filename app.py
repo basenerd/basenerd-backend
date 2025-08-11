@@ -924,26 +924,27 @@ def build_template_game_header(game_pk: int):
     except Exception:
         pass
 
-    return {
+        return {
         "id": shaped.get("gamePk") or game_pk,
         "home": {
             "id": home_id,
-            "name": home.get("name",""),
+            "name": home.get("name","") or (home.get("teamName") or ""),
             "logo": home_logo,
             "score": home_score if home_score is not None else "-",
             "record": home_rec_str
         },
         "away": {
             "id": away_id,
-            "name": away.get("name",""),
+            "name": away.get("name","") or (away.get("teamName") or ""),
             "logo": away_logo,
-            "score": away_score if home_score is not None else "-",
+            "score": away_score if away_score is not None else "-",
             "record": away_rec_str
         },
-        "venue": venue_name,
-        "status": shaped.get("chip",""),
-        "date": to_et(game_dt_iso),
+        "venue": venue_name or "",
+        "status": shaped.get("chip","") or "",
+        "date": to_et(game_dt_iso) or "",
     }
+
 
 # ---------- Decisions (W/L/SV) text ----------
 def build_decisions_meta(live, season):
