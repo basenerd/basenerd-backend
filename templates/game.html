@@ -39,7 +39,7 @@
       font-variant-numeric: tabular-nums;
       font-size:64px; line-height:1; font-weight:800;
     }
-    .record{ font-size:0.95rem; font-weight:500; text-align:center; margin-top:-2px; }
+    .record{ font-size:1.0rem; font-weight:600; text-align:center; margin-top:-2px; }
     .name{ font-size:15px; font-weight:700; text-align:center; }
 
     .center-info{ display:grid; justify-items:center; text-align:center; gap:4px; }
@@ -75,10 +75,23 @@
     .ibox td.rhe, .ibox th.rhe{ font-weight:800; }
     .placeholder{ padding:16px; color:#6b7280; text-align:center; }
 
-    /* Detailed player box score (borrowed from todaysgames styles) */
-    .boxwrap{ display:grid; grid-template-columns:1fr; gap:12px; padding:10px 10px 12px 10px; background:#fff; }
-    .teamhdr{ text-align:left; font-weight:700; color:#394150; padding:6px 6px; border-bottom:1px solid var(--border); }
-    .batters, .pitchers { overflow:auto; background:#fff; border:1px solid var(--border); border-radius:10px; }
+    /* Detailed player box score */
+    .boxwrap{ display:grid; gap:12px; padding:10px; background:#fff; }
+
+    .two-up{
+      display:grid; grid-template-columns:1fr 1fr; gap:12px;
+    }
+    @media(max-width:900px){
+      .two-up{ grid-template-columns:1fr; }
+    }
+
+    .teamhdr{
+      text-align:left; font-weight:700; color:#394150;
+      padding:6px 6px; border-bottom:1px solid var(--border);
+    }
+    .batters, .pitchers {
+      overflow:auto; background:#fff; border:1px solid var(--border); border-radius:10px;
+    }
     .batters table, .pitchers table{
       width:100%; border-collapse:collapse; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:12.5px;
     }
@@ -142,7 +155,7 @@
       <div class="wrap" id="iboxWrap"></div>
     </div>
 
-    <!-- Detailed player box score -->
+    <!-- Detailed player box score (two-up layout) -->
     <div class="box" id="playerBox" style="margin-top:12px;">
       <div class="boxwrap" id="playerBoxWrap">
         <!-- Filled by JS -->
@@ -206,9 +219,13 @@
           </table>`;
       }
 
-      /* ---------- Detailed player box score (same as todaysgames) ---------- */
+      /* ---------- Detailed player box score (two-up like todaysgames) ---------- */
       function battersTable(teamAbbr, rows){
-        if (!rows || !rows.length) return `<div class="batters"><div class="teamhdr">${esc(teamAbbr)} — Batting</div><div style="padding:10px">No batter stats yet.</div></div>`;
+        if (!rows || !rows.length) return `
+          <div class="batters">
+            <div class="teamhdr">${esc(teamAbbr)} — Batting</div>
+            <div style="padding:10px">No batter stats yet.</div>
+          </div>`;
         const trs = rows.map(r => `
           <tr ${r.indent ? 'class="indent"' : ''}>
             <td class="pos">${esc(r.pos||'')}</td>
@@ -234,7 +251,11 @@
       }
 
       function pitchersTable(teamAbbr, rows){
-        if (!rows || !rows.length) return `<div class="pitchers"><div class="teamhdr">${esc(teamAbbr)} — Pitching</div><div style="padding:10px">No pitching stats yet.</div></div>`;
+        if (!rows || !rows.length) return `
+          <div class="pitchers">
+            <div class="teamhdr">${esc(teamAbbr)} — Pitching</div>
+            <div style="padding:10px">No pitching stats yet.</div>
+          </div>`;
         const trs = rows.map(r => `
           <tr ${r.indent ? 'class="indent"' : ''}>
             <td class="pos">${esc(r.pos||'P')}</td>
@@ -273,7 +294,7 @@
           : '<div class="placeholder">Inning-by-inning will appear at first pitch.</div>';
         $iboxWrap.innerHTML = iboxHTML;
 
-        // Detailed player box score
+        // Detailed player box score (two columns for batting, two columns for pitching)
         const awayAbbr = g?.teams?.away?.abbr || 'AWY';
         const homeAbbr = g?.teams?.home?.abbr || 'HOM';
         const awayBat = g?.batters?.away || [];
@@ -282,10 +303,14 @@
         const homePit = g?.pitchers?.home || [];
 
         const playerHTML = `
-          ${battersTable(awayAbbr, awayBat)}
-          ${battersTable(homeAbbr, homeBat)}
-          ${pitchersTable(awayAbbr, awayPit)}
-          ${pitchersTable(homeAbbr, homePit)}
+          <div class="two-up">
+            ${battersTable(awayAbbr, awayBat)}
+            ${battersTable(homeAbbr, homeBat)}
+          </div>
+          <div class="two-up">
+            ${pitchersTable(awayAbbr, awayPit)}
+            ${pitchersTable(homeAbbr, homePit)}
+          </div>
         `;
         $pwrap.innerHTML = playerHTML;
 
