@@ -686,11 +686,12 @@ def api_game(game_pk: int):
             "batters": {"away": [], "home": []},
             "pitchers": {"away": [], "home": []},
         }
-        return jsonify({
+            return jsonify({
             "game": shaped,
             "plays": [],
             "meta": {"decisions": {}, "decisionsText": ""},
-            "error": f"detail_error: {e_
+            "error": f"detail_error: {e}"
+        }), 200
 
 # -------------------- Health --------------------
 @app.route("/ping")
