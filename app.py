@@ -753,6 +753,15 @@ def extract_scoring_summary(live):
         out.append(item)
     return out
 
+# --- LOB helper ---
+def extract_lob(box, side):
+    """Return team LOB from boxscore teamStats.batting.leftOnBase"""
+    try:
+        return ((box.get("teams") or {}).get(side, {}) or {}).get("teamStats", {}) \
+               .get("batting", {}).get("leftOnBase")
+    except Exception:
+        return None
+
 def shape_game(live, season, records=None):
     gd = live.get("gameData", {}) or {}
     teams = gd.get("teams", {}) or {}
@@ -761,6 +770,7 @@ def shape_game(live, season, records=None):
 
     state = game_state_and_participants(live, include_records=records)
     ls = state["linescore"]
+    box = state["box"]
 
     status = "scheduled" if state["abstract"] == "PREVIEW" else ("in_progress" if state["abstract"] == "LIVE" else "final")
     game = {
@@ -798,6 +808,11 @@ def shape_game(live, season, records=None):
         game["teams"]["away"]["score"] = None
         game["teams"]["home"]["score"] = None
 
+    # LOB when box is present (in_progress/final)
+    if status in ("in_progress", "final") and box:
+        game["teams"]["away"]["lob"] = extract_lob(box, "away")
+        game["teams"]["home"]["lob"] = extract_lob(box, "home")
+
     if status == "scheduled":
         prob = get_probables(gd, season)
         for side in ("away","home"):
@@ -823,7 +838,6 @@ def shape_game(live, season, records=None):
                     game["teams"][next_pitch_side]["breakPitcher"] = lp
 
     if status == "final":
-        box = state["box"]
         decisions = live.get("liveData", {}).get("decisions", {}) or {}
         win_id = (decisions.get("winner") or {}).get("id")
         lose_id = (decisions.get("loser") or {}).get("id")
@@ -853,7 +867,6 @@ def shape_game(live, season, records=None):
                 game["teams"][win_side]["savePitcher"] = f"SV: {sv_name} ({sv_num if sv_num is not None else '-'})"
 
     if status in ("in_progress", "final"):
-        box = state["box"]
         game["batters"] = {
             "away": extract_batting_box_grouped(box, "away"),
             "home": extract_batting_box_grouped(box, "home"),
@@ -891,12 +904,12 @@ def build_template_game_header(game_pk: int):
     return {
         "id": shaped.get("gamePk") or game_pk,
         "home": {
-            "id": home_id,                 # <-- used by game.html for logo src
+            "id": home_id,
             "name": home.get("name",""),
             "score": home_score if home_score is not None else "-",
         },
         "away": {
-            "id": away_id,                 # <-- used by game.html for logo src
+            "id": away_id,
             "name": away.get("name",""),
             "score": away_score if away_score is not None else "-",
         },
