@@ -56,7 +56,7 @@
     .ibox, .box { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
     .ibox .wrap{ overflow:auto; background:#fff; }
 
-    /* Inning-by-inning table (same feel as todaysgames) */
+    /* Inning-by-inning */
     .ibox table{
       border-collapse:collapse; width:100%;
       font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-size:13px;
@@ -112,6 +112,20 @@
       width:8px; height:0;
       border-top:1px solid var(--border);
       transform:translateY(-50%);
+    }
+
+    /* Decision badges */
+    .badge{
+      display:inline-block;
+      font-size:10px;
+      font-weight:700;
+      color:#6b7280;
+      border:1px solid var(--border);
+      background:#f8fafc;
+      padding:1px 6px;
+      border-radius:999px;
+      margin-left:6px;
+      vertical-align:middle;
     }
   </style>
 </head>
@@ -179,8 +193,43 @@
         const initial = first ? first[0].toUpperCase() + '.' : '';
         return `${initial} ${last}`;
       }
+      function lastName(full){
+        if(!full) return '';
+        const parts = String(full).trim().split(/\s+/);
+        return parts[parts.length-1].replace(/[^\w'-]/g,'');
+      }
 
-      /* ---------- Inning-by-inning  ---------- */
+      /* --- Extract decision names (W/L/SV) from final lines we already expose --- */
+      function decisionsFromGame(g){
+        let w='', l='', sv='';
+        const sides = ['home', 'away'];
+        for (const side of sides){
+          const t = g?.teams?.[side] || {};
+          const winStr = t.finalPitcher || '';
+          const loseStr = t.finalPitcher || '';
+          const saveStr = t.savePitcher || '';
+
+          if (/^W:\s*/.test(winStr)) {
+            const m = winStr.replace(/^W:\s*/,'').match(/^([^•(]+?)(?:\s*[•(]|$)/);
+            if (m) w = m[1].trim();
+          }
+          if (/^L:\s*/.test(loseStr)) {
+            const m = loseStr.replace(/^L:\s*/,'').match(/^([^•(]+?)(?:\s*[•(]|$)/);
+            if (m) l = m[1].trim();
+          }
+          if (/^SV:\s*/.test(saveStr)) {
+            const m = saveStr.replace(/^SV:\s*/,'').match(/^([^()]+?)(?:\s*\(|$)/);
+            if (m) sv = m[1].trim();
+          }
+        }
+        return {
+          wLast: lastName(w),
+          lLast: lastName(l),
+          svLast: lastName(sv)
+        };
+      }
+
+      /* ---------- Inning-by-inning ---------- */
       function linescoreTable(g){
         const ls = g.linescore; if (!ls) return '';
         const n = ls.n || 9;
@@ -219,7 +268,7 @@
           </table>`;
       }
 
-      /* ---------- Detailed player box score (two-up with sub indentation) ---------- */
+      /* ---------- Batters (two-up; with sub indentation) ---------- */
       function battersTable(teamAbbr, rows){
         if (!rows || !rows.length) {
           return `
@@ -228,8 +277,6 @@
               <div style="padding:10px">No batter stats yet.</div>
             </div>`;
         }
-
-        // Prefer orderCode to detect subs grouped under lineup spot; fallback to position
         const enriched = rows.map((r, i) => ({...r, _idx: i}));
         enriched.sort((a,b) => {
           const ao = (a.orderCode ?? 9999), bo = (b.orderCode ?? 9999);
@@ -238,20 +285,13 @@
         });
 
         let htmlRows = '';
-        let lastOrder = null;
-        let lastPos = null;
+        let lastOrder = null, lastPos = null;
 
         for (const r of enriched) {
           const curOrder = (r.orderCode ?? null);
-          let indent = false;
-
-          if (curOrder != null) {
-            // Indent if same lineup slot appears again (sub for that spot)
-            indent = (lastOrder != null && curOrder === lastOrder);
-          } else {
-            // Fallback: indent if same defensive position repeats consecutively
-            indent = (lastPos != null && r.pos && r.pos === lastPos);
-          }
+          const indent = (curOrder != null)
+            ? (lastOrder != null && curOrder === lastOrder)
+            : (lastPos != null && r.pos && r.pos === lastPos);
 
           htmlRows += `
             <tr ${indent ? 'class="indent"' : ''}>
@@ -265,7 +305,6 @@
               <td>${r.k ?? ''}</td>
             </tr>
           `;
-
           lastOrder = curOrder != null ? curOrder : lastOrder;
           lastPos = r.pos || lastPos;
         }
@@ -282,7 +321,8 @@
           </div>`;
       }
 
-      function pitchersTable(teamAbbr, rows){
+      /* ---------- Pitchers (two-up; with decision badges) ---------- */
+      function pitchersTable(teamAbbr, rows, badges){
         if (!rows || !rows.length) {
           return `
             <div class="pitchers">
@@ -290,20 +330,29 @@
               <div style="padding:10px">No pitching stats yet.</div>
             </div>`;
         }
-        const trs = rows.map(r => `
-          <tr ${r.indent ? 'class="indent"' : ''}>
-            <td class="pos">${esc(r.pos||'P')}</td>
-            <td class="name">${esc(shortName(r.name)||'')}</td>
-            <td>${r.ip ?? ''}</td>
-            <td>${r.h ?? ''}</td>
-            <td>${r.r ?? ''}</td>
-            <td>${r.er ?? ''}</td>
-            <td>${r.bb ?? ''}</td>
-            <td>${r.k ?? ''}</td>
-            <td>${r.hr ?? ''}</td>
-            <td>${r.p ?? ''}</td>
-          </tr>
-        `).join('');
+        const trs = rows.map(r => {
+          const lname = lastName(r.name||'').toLowerCase();
+          let badge = '';
+          if (lname && badges){
+            if (badges.wLast && lname === badges.wLast.toLowerCase()) badge = '<span class="badge">W</span>';
+            else if (badges.lLast && lname === badges.lLast.toLowerCase()) badge = '<span class="badge">L</span>';
+            else if (badges.svLast && lname === badges.svLast.toLowerCase()) badge = '<span class="badge">SV</span>';
+          }
+          return `
+            <tr ${r.indent ? 'class="indent"' : ''}>
+              <td class="pos">${esc(r.pos||'P')}</td>
+              <td class="name">${esc(shortName(r.name)||'')}${badge}</td>
+              <td>${r.ip ?? ''}</td>
+              <td>${r.h ?? ''}</td>
+              <td>${r.r ?? ''}</td>
+              <td>${r.er ?? ''}</td>
+              <td>${r.bb ?? ''}</td>
+              <td>${r.k ?? ''}</td>
+              <td>${r.hr ?? ''}</td>
+              <td>${r.p ?? ''}</td>
+            </tr>
+          `;
+        }).join('');
         return `
           <div class="pitchers">
             <div class="teamhdr">${esc(teamAbbr)} — Pitching</div>
@@ -336,14 +385,16 @@
         const awayPit = g?.pitchers?.away || [];
         const homePit = g?.pitchers?.home || [];
 
+        const badges = decisionsFromGame(g);
+
         const playerHTML = `
           <div class="two-up">
             ${battersTable(awayAbbr, awayBat)}
             ${battersTable(homeAbbr, homeBat)}
           </div>
           <div class="two-up">
-            ${pitchersTable(awayAbbr, awayPit)}
-            ${pitchersTable(homeAbbr, homePit)}
+            ${pitchersTable(awayAbbr, awayPit, badges)}
+            ${pitchersTable(homeAbbr, homePit, badges)}
           </div>
         `;
         $pwrap.innerHTML = playerHTML;
