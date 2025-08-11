@@ -24,27 +24,35 @@
       border-bottom:2px solid var(--border);
       background:linear-gradient(180deg,#fff,#f6f9ff);
     }
-    .team{
-      display:grid; justify-items:center; gap:4px;
+    .team {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:4px;
     }
-    .team.away{
-      grid-template-rows: auto auto auto auto; /* logo, record, name, score */
+    .team-top {
+      display:flex;
+      align-items:center;
+      gap:10px;
     }
-    .team.home{
-      grid-template-rows: auto auto auto auto; /* score, logo, record, name */
+    .team.away .team-top {
+      flex-direction:row; /* logo then score */
+    }
+    .team.home .team-top {
+      flex-direction:row-reverse; /* score then logo */
     }
     .team .logo{
       width:96px; height:96px; object-fit:contain;
-    }
-    .team .record{
-      font-size:0.95rem;
-      font-weight:500;
-      text-align:center;
     }
     .team .score{
       font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
       font-variant-numeric: tabular-nums;
       font-size:64px; line-height:1; font-weight:800;
+    }
+    .team .record{
+      font-size:0.95rem;
+      font-weight:500;
+      text-align:center;
     }
     .team .name{
       font-size:15px; font-weight:700;
@@ -86,10 +94,12 @@
   <div class="game-header">
     <!-- Away -->
     <div class="team away">
-      <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.away.id }}.svg" alt="{{ game.away.name }} logo" />
+      <div class="team-top">
+        <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.away.id }}.svg" alt="{{ game.away.name }} logo" />
+        <div class="score">{{ game.away.score }}</div>
+      </div>
       <div class="record">{{ game.away.record }}</div>
       <div class="name">{{ game.away.name }}</div>
-      <div class="score">{{ game.away.score }}</div>
     </div>
 
     <!-- Center info -->
@@ -102,8 +112,10 @@
 
     <!-- Home -->
     <div class="team home">
-      <div class="score">{{ game.home.score }}</div>
-      <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.home.id }}.svg" alt="{{ game.home.name }} logo" />
+      <div class="team-top">
+        <div class="score">{{ game.home.score }}</div>
+        <img class="logo" src="https://www.mlbstatic.com/team-logos/{{ game.home.id }}.svg" alt="{{ game.home.name }} logo" />
+      </div>
       <div class="record">{{ game.home.record }}</div>
       <div class="name">{{ game.home.name }}</div>
     </div>
