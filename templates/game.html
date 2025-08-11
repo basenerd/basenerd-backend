@@ -65,7 +65,7 @@
     .linescore td.name{ text-align:left; font-weight:700; color:#111318; font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
     .linescore th.rhe, .linescore td.rhe{ font-weight:800; }
 
-    /* Team-oriented two columns: Away (left) / Home (right) */
+    /* Two column rows */
     .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     @media(max-width:900px){ .two-col{ grid-template-columns:1fr; } }
 
@@ -82,7 +82,7 @@
       content:""; position:absolute; left:6px; top:50%; width:8px; height:0; border-top:1px solid var(--border); transform:translateY(-50%);
     }
 
-    /* Pitching badges */
+    /* Pitching badges (will render if IDs are provided in data) */
     .pbadge { background:#f1f3f6; color:#667085; border:1px solid var(--border); border-radius:6px; padding:1px 4px; font-size:10px; font-weight:700; margin-left:6px; }
 
     /* Play-by-Play */
@@ -95,8 +95,8 @@
     .muted{ color:var(--muted); }
     .error{ color:#b42318; background:#fff1f1; border:1px solid #ffd5d5; padding:10px; border-radius:10px; }
 
-    /* Fill whole cell when colored */
-    .colorcell{ color:#111318; } /* keep text readable; tweak if needed */
+    /* Full-cell color fill for EV / xBA */
+    .colorcell{ color:#111318; }
   </style>
 </head>
 <body>
@@ -151,18 +151,34 @@
       </div>
     </section>
 
-    <!-- Team-oriented condensed boxes: Away (left) / Home (right) -->
+    <!-- Batting row: Away (left) / Home (right) -->
     <section class="section two-col">
       <div class="card">
-        <header id="awayBoxTitle">Away Box</header>
-        <div class="card-body" id="awayBox">
-          <div class="muted">Loading away box…</div>
+        <header id="awayBatTitle">Away — Batting</header>
+        <div class="card-body" id="awayBatBox">
+          <div class="muted">Loading away batting…</div>
         </div>
       </div>
       <div class="card">
-        <header id="homeBoxTitle">Home Box</header>
-        <div class="card-body" id="homeBox">
-          <div class="muted">Loading home box…</div>
+        <header id="homeBatTitle">Home — Batting</header>
+        <div class="card-body" id="homeBatBox">
+          <div class="muted">Loading home batting…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pitching row: Away (left) / Home (right) -->
+    <section class="section two-col">
+      <div class="card">
+        <header id="awayPitTitle">Away — Pitching</header>
+        <div class="card-body" id="awayPitBox">
+          <div class="muted">Loading away pitching…</div>
+        </div>
+      </div>
+      <div class="card">
+        <header id="homePitTitle">Home — Pitching</header>
+        <div class="card-body" id="homePitBox">
+          <div class="muted">Loading home pitching…</div>
         </div>
       </div>
     </section>
@@ -317,19 +333,40 @@
       }
     }
 
-    // Team-oriented render: Away column = away batting + away pitching; Home column = home batting + home pitching
-    function renderBoxes(g, meta){
-      const awayWrap = document.getElementById('awayBox');
-      const homeWrap = document.getElementById('homeBox');
-      const awayTitle = document.getElementById('awayBoxTitle');
-      const homeTitle = document.getElementById('homeBoxTitle');
-
+    // Separate renderers so cards line up by row
+    function renderBattingRow(g){
+      const awayWrap = document.getElementById('awayBatBox');
+      const homeWrap = document.getElementById('homeBatBox');
+      const awayTitle = document.getElementById('awayBatTitle');
+      const homeTitle = document.getElementById('homeBatTitle');
       try{
         const awayAbbr = teamAbbr(g, 'away');
         const homeAbbr = teamAbbr(g, 'home');
+        if (awayTitle) awayTitle.textContent = `${awayAbbr} — Batting`;
+        if (homeTitle) homeTitle.textContent = `${homeAbbr} — Batting`;
 
-        if (awayTitle) awayTitle.textContent = `${awayAbbr} — Box`;
-        if (homeTitle) homeTitle.textContent = `${homeAbbr} — Box`;
+        const awayHTML = g.batters ? battersTable(awayAbbr, g.batters.away) : '';
+        const homeHTML = g.batters ? battersTable(homeAbbr, g.batters.home) : '';
+
+        awayWrap.innerHTML = awayHTML || `<div class="muted">No away batting yet.</div>`;
+        homeWrap.innerHTML = homeHTML || `<div class="muted">No home batting yet.</div>`;
+      }catch(err){
+        awayWrap.innerHTML = `<div class="error">Could not load away batting.</div>`;
+        homeWrap.innerHTML = `<div class="error">Could not load home batting.</div>`;
+        console.error(err);
+      }
+    }
+
+    function renderPitchingRow(g, meta){
+      const awayWrap = document.getElementById('awayPitBox');
+      const homeWrap = document.getElementById('homePitBox');
+      const awayTitle = document.getElementById('awayPitTitle');
+      const homeTitle = document.getElementById('homePitTitle');
+      try{
+        const awayAbbr = teamAbbr(g, 'away');
+        const homeAbbr = teamAbbr(g, 'home');
+        if (awayTitle) awayTitle.textContent = `${awayAbbr} — Pitching`;
+        if (homeTitle) homeTitle.textContent = `${homeAbbr} — Pitching`;
 
         const badges = {
           winId: (meta.decisions||{}).winnerId || null,
@@ -337,19 +374,14 @@
           saveId: (meta.decisions||{}).saveId || null
         };
 
-        const awayHTML =
-          (g.batters ? battersTable(awayAbbr, g.batters.away) : '') +
-          (g.pitchers ? pitchersTable(awayAbbr, g.pitchers.away, badges) : '');
+        const awayHTML = g.pitchers ? pitchersTable(awayAbbr, g.pitchers.away, badges) : '';
+        const homeHTML = g.pitchers ? pitchersTable(homeAbbr, g.pitchers.home, badges) : '';
 
-        const homeHTML =
-          (g.batters ? battersTable(homeAbbr, g.batters.home) : '') +
-          (g.pitchers ? pitchersTable(homeAbbr, g.pitchers.home, badges) : '');
-
-        awayWrap.innerHTML = awayHTML || `<div class="muted">No away stats yet.</div>`;
-        homeWrap.innerHTML = homeHTML || `<div class="muted">No home stats yet.</div>`;
+        awayWrap.innerHTML = awayHTML || `<div class="muted">No away pitching yet.</div>`;
+        homeWrap.innerHTML = homeHTML || `<div class="muted">No home pitching yet.</div>`;
       }catch(err){
-        awayWrap.innerHTML = `<div class="error">Could not load team boxes.</div>`;
-        homeWrap.innerHTML = `<div class="error">Could not load team boxes.</div>`;
+        awayWrap.innerHTML = `<div class="error">Could not load away pitching.</div>`;
+        homeWrap.innerHTML = `<div class="error">Could not load home pitching.</div>`;
         console.error(err);
       }
     }
@@ -378,8 +410,6 @@
         const la = (p.la || p.la === 0) ? p.la : '';
         const dist = (p.dist || p.dist === 0) ? p.dist : '';
         const xslg = (p.xslg || p.xslg === 0) ? p.xslg : '';
-
-        // Full-cell background fill on EV and xBA
         return `
           <tr>
             <td>${p.inning || ''}</td>
@@ -400,7 +430,7 @@
         if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
         if (data && data.game){
-          // Update header scores if changed
+          // Header scores
           const a = (data.game.teams||{}).away || {};
           const h = (data.game.teams||{}).home || {};
           const awayS = document.getElementById('awayScoreTop');
@@ -408,15 +438,16 @@
           if (awayS) awayS.textContent = (a.score != null ? a.score : '-');
           if (homeS) homeS.textContent = (h.score != null ? h.score : '-');
 
-          // Update center status text
+          // Status chip text
           const st = document.getElementById('gameStatus');
           if (st) st.textContent = data.game.chip || '';
 
           // Linescore
           renderLinescore(data.game);
 
-          // Team boxes
-          renderBoxes(data.game, data.meta || {});
+          // Boxes (separate rows)
+          renderBattingRow(data.game);
+          renderPitchingRow(data.game, data.meta || {});
 
           // PBP
           renderPBP(data.plays || []);
