@@ -755,12 +755,24 @@ def extract_scoring_summary(live):
 
 # --- LOB helper ---
 def extract_lob(box, side):
-    """Return team LOB from boxscore teamStats.batting.leftOnBase"""
+    """
+    Return team LOB using opponent's pitching LOB
+    (this aligns with official box scores). Falls back to
+    team batting LOB if opponent pitching LOB is missing.
+    """
     try:
-        return ((box.get("teams") or {}).get(side, {}) or {}).get("teamStats", {}) \
-               .get("batting", {}).get("leftOnBase")
+        teams = (box.get("teams") or {})
+        opp = "away" if side == "home" else "home"
+        opp_pitch_lob = ((teams.get(opp) or {}).get("teamStats") or {}) \
+                            .get("pitching", {}).get("leftOnBase")
+        if opp_pitch_lob is not None:
+            return opp_pitch_lob
+        # Fallback (can be inflated in some feeds)
+        return ((teams.get(side) or {}).get("teamStats") or {}) \
+                   .get("batting", {}).get("leftOnBase")
     except Exception:
         return None
+
 
 def shape_game(live, season, records=None):
     gd = live.get("gameData", {}) or {}
