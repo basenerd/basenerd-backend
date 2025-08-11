@@ -261,6 +261,14 @@
     }
     function normEV(ev){ const v=parseFloat(ev); if (isNaN(v)) return null; return clamp01((v-60)/(115-60)); }
     function normXBA(x){ let v=(typeof x==='string'&&x.startsWith('.'))? parseFloat('0'+x) : parseFloat(x); if(isNaN(v)) return null; if(v>1) v=v/100; return clamp01(v); }
+    /* NEW: robust xBA display formatter so cell always shows ".xxx" when present */
+    function fmtXBA(x){
+      if (x == null || x === '') return '—';
+      let v = (typeof x === 'string' && x.trim().startsWith('.')) ? parseFloat('0'+x) : parseFloat(x);
+      if (Number.isNaN(v)) return '—';
+      if (v > 1) v = v/100;                   // handle 237 or 23.7
+      return v.toFixed(3).replace(/^0/, '.'); // ".xxx"
+    }
     function tdWithGrad(val, normFn){
       const display = (val==null || val==='') ? '—' : val;
       const n = normFn(val);
@@ -284,7 +292,7 @@
             ${tdWithGrad(r.ev||'', normEV)}
             <td class="center">${r.la ? r.la + '°' : '—'}</td>
             <td class="center">${r.dist ? r.dist + ' ft' : '—'}</td>
-            ${tdWithGrad(r.xba||'', normXBA)}
+            ${tdWithGrad(fmtXBA(r.xba), normXBA)}
           </tr>
           <tr class="expander" data-exp="${idx}" style="display:none">
             <td colspan="6">
@@ -328,100 +336,201 @@
     }
 
     // ---------- Charts ----------
-    function drawStrikeZone(el, pitches){
-      const w=220, h=240, pad=10;
-      const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
-      svg.setAttribute("width", w); svg.setAttribute("height", h);
-      svg.style.background = "#ffffff";
-      // axes box
-      const g = document.createElementNS(svg.namespaceURI,"g");
-      svg.appendChild(g);
+    /* REPLACED: drawStrikeZone with correct scaling + margins + 3x3 grid */
+    function drawStrikeZone(el, pitches) {
+      const w = 220, h = 240, pad = 10;
 
-      // Map px [-1.5,1.5] -> [pad, w-pad]; pz [0,5] -> [h-pad, pad]
-      const xMap = x => pad + ((x+1.5)/(3.0))*(w-2*pad);
-      const yMap = z => h-pad - ((z-0)/(5.0))*(h-2*pad);
-
-      // Zone edges (average first available)
+      // Average sz_top/sz_bot (fallbacks)
       let tops = [], bots = [];
-      pitches.forEach(p => {
-        if (p.sz_top!=null) tops.push(Number(p.sz_top));
-        if (p.sz_bot!=null) bots.push(Number(p.sz_bot));
+      (pitches || []).forEach(p => {
+        if (p.sz_top != null) tops.push(+p.sz_top);
+        if (p.sz_bot != null) bots.push(+p.sz_bot);
       });
       const zTop = tops.length ? tops.reduce((a,b)=>a+b)/tops.length : 3.5;
       const zBot = bots.length ? bots.reduce((a,b)=>a+b)/bots.length : 1.5;
 
-      // Draw zone (plate width ≈ 0.83 ft half-width)
-      const left = x => xMap(x);
-      const right = x => xMap(x);
-      const zLeft = left(-0.83), zRight = right(0.83), zTopY = yMap(zTop), zBotY = yMap(zBot);
-      const rect = document.createElementNS(svg.namespaceURI,"rect");
-      rect.setAttribute("x", zLeft); rect.setAttribute("y", zTopY);
-      rect.setAttribute("width", zRight - zLeft); rect.setAttribute("height", zBotY - zTopY);
-      rect.setAttribute("fill","none"); rect.setAttribute("stroke","#94a3b8"); rect.setAttribute("stroke-width","2");
+      // Plate width ≈ 1.66 ft (±0.83)
+      const halfWidth = 0.83;
+      const zoneWft = halfWidth * 2;
+      const zoneHft = Math.max(1, zTop - zBot);
+
+      // Margins (feet) so outside pitches are visible
+      const marginXft = 1.5, marginYft = 1.5;
+
+      // One uniform scale (feet→px) so aspect ratio is correct
+      const usableW = w - 2*pad, usableH = h - 2*pad;
+      const scale = Math.min(
+        usableW / (zoneWft + 2*marginXft),
+        usableH / (zoneHft + 2*marginYft)
+      );
+
+      // Center the zone around its vertical midpoint
+      const cx = w/2;
+      const zMid = (zTop + zBot) / 2;
+      const cy = h/2;
+
+      const xMap = x => cx + x * scale;            // feet → px
+      const yMap = z => cy - (z - zMid) * scale;   // feet → px
+
+      // SVG
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("width", w); svg.setAttribute("height", h);
+      const g = document.createElementNS(svg.namespaceURI, "g");
+      svg.appendChild(g);
+
+      // Zone rectangle
+      const zx = xMap(-halfWidth), zw = zoneWft * scale;
+      const zy = yMap(zTop),       zh = zoneHft * scale;
+
+      const rect = document.createElementNS(svg.namespaceURI, "rect");
+      rect.setAttribute("x", zx); rect.setAttribute("y", zy);
+      rect.setAttribute("width", zw); rect.setAttribute("height", zh);
+      rect.setAttribute("fill", "rgba(148,163,184,0.08)");
+      rect.setAttribute("stroke", "#94a3b8");
+      rect.setAttribute("stroke-width", "2");
       g.appendChild(rect);
 
-      // Pitches
-      pitches.forEach((p,i)=>{
-        if (p.px==null || p.pz==null) return;
+      // 3×3 grid inside the zone
+      for (let i = 1; i <= 2; i++) {
+        const v = document.createElementNS(svg.namespaceURI, "line");
+        v.setAttribute("x1", zx + (zw/3)*i); v.setAttribute("y1", zy);
+        v.setAttribute("x2", zx + (zw/3)*i); v.setAttribute("y2", zy + zh);
+        v.setAttribute("stroke", "#cbd5e1"); g.appendChild(v);
+
+        const hline = document.createElementNS(svg.namespaceURI, "line");
+        hline.setAttribute("x1", zx); hline.setAttribute("y1", zy + (zh/3)*i);
+        hline.setAttribute("x2", zx + zw); hline.setAttribute("y2", zy + (zh/3)*i);
+        hline.setAttribute("stroke", "#cbd5e1"); g.appendChild(hline);
+      }
+
+      // Pitches (colors unchanged)
+      (pitches || []).forEach(p => {
+        if (p.px == null || p.pz == null) return;
+        const code = (p.code || "").toUpperCase();
         let color = "var(--strike)";
-        const code = (p.code||"").toUpperCase();
-        if (p.inPlay) color = "var(--inplay)";
-        else if (code === "B") color = "var(--ball)";
-        const circ = document.createElementNS(svg.namespaceURI,"circle");
-        circ.setAttribute("cx", xMap(Number(p.px)));
-        circ.setAttribute("cy", yMap(Number(p.pz)));
-        circ.setAttribute("r", 5);
-        circ.setAttribute("fill", color);
-        circ.setAttribute("opacity", "0.9");
-        circ.setAttribute("stroke", "#111318");
-        circ.setAttribute("stroke-width", "0.5");
-        g.appendChild(circ);
+        if (p.inPlay) color = "var(--inplay)"; else if (code === "B") color = "var(--ball)";
+
+        const c = document.createElementNS(svg.namespaceURI, "circle");
+        c.setAttribute("cx", xMap(+p.px));
+        c.setAttribute("cy", yMap(+p.pz));
+        c.setAttribute("r", 5);
+        c.setAttribute("fill", color);
+        c.setAttribute("opacity", "0.9");
+        c.setAttribute("stroke", "#111318");
+        c.setAttribute("stroke-width", "0.5");
+        g.appendChild(c);
       });
+
+      // Containment border
+      const border = document.createElementNS(svg.namespaceURI, "rect");
+      border.setAttribute("x", 0.5); border.setAttribute("y", 0.5);
+      border.setAttribute("width", w-1); border.setAttribute("height", h-1);
+      border.setAttribute("fill", "none"); border.setAttribute("stroke", "#e5e7eb");
+      g.appendChild(border);
 
       el.innerHTML = ""; el.appendChild(svg);
     }
 
+    /* REPLACED: drawField — matches reference & scaled from 90-ft bases */
     function drawField(el, bip){
-      const w=240, h=240, pad=10;
+      const w = 240, h = 240, pad = 10;
+
+      // Real dimensions (feet)
+      const BASE = 90;          // base-to-base
+      const INFIELD_ARC = 95;   // infield grass arc radius
+      const FENCE = 380;        // outfield arc radius (center-ish)
+      const MOUND = 60.5;       // mound distance from home
+
+      // Uniform feet→px scale; home at bottom-center
+      const usableW = w - 2*pad, usableH = h - 2*pad;
+      const scale = Math.min(usableW / (2*FENCE), usableH / (FENCE + 20));
+      const cx = w/2, cy = h - pad;
+      const sx = xf => cx + xf * scale;    // feet → px
+      const sy = yf => cy - yf * scale;
+
       const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
       svg.setAttribute("width", w); svg.setAttribute("height", h);
       const g = document.createElementNS(svg.namespaceURI,"g");
       svg.appendChild(g);
 
-      // Simple diamond
-      const cx=w/2, cy=h*0.75, rad=80;
-      const pts = [
-        [cx, cy-rad],        // CF
-        [cx+rad, cy],        // RF
-        [cx, cy+rad],        // Home
-        [cx-rad, cy],        // LF
-      ];
-      const poly = document.createElementNS(svg.namespaceURI,"polygon");
-      poly.setAttribute("points", pts.map(p=>p.join(",")).join(" "));
-      poly.setAttribute("fill","#f1f5f9"); poly.setAttribute("stroke","#94a3b8");
-      g.appendChild(poly);
+      // Outfield fence arc (foul pole to foul pole)
+      const xL = -FENCE, yL = 0;
+      const xR =  FENCE, yR = 0;
+      const fence = document.createElementNS(svg.namespaceURI,"path");
+      fence.setAttribute("d", `M ${sx(xL)},${sy(yL)} A ${FENCE*scale},${FENCE*scale} 0 0 1 ${sx(xR)},${sy(yR)}`);
+      fence.setAttribute("fill","none"); fence.setAttribute("stroke","#111"); fence.setAttribute("stroke-width","1.5");
+      g.appendChild(fence);
 
       // Foul lines
-      const l1 = document.createElementNS(svg.namespaceURI,"line");
-      l1.setAttribute("x1", cx); l1.setAttribute("y1", cy+rad);
-      l1.setAttribute("x2", cx-rad*1.2); l1.setAttribute("y2", cy);
-      l1.setAttribute("stroke","#cbd5e1"); g.appendChild(l1);
-      const l2 = document.createElementNS(svg.namespaceURI,"line");
-      l2.setAttribute("x1", cx); l2.setAttribute("y1", cy+rad);
-      l2.setAttribute("x2", cx+rad*1.2); l2.setAttribute("y2", cy);
-      l2.setAttribute("stroke","#cbd5e1"); g.appendChild(l2);
+      const fl = document.createElementNS(svg.namespaceURI,"line");
+      fl.setAttribute("x1", sx(0)); fl.setAttribute("y1", sy(0));
+      fl.setAttribute("x2", sx(xL)); fl.setAttribute("y2", sy(yL));
+      fl.setAttribute("stroke","#111");
+      const fr = document.createElementNS(svg.namespaceURI,"line");
+      fr.setAttribute("x1", sx(0)); fr.setAttribute("y1", sy(0));
+      fr.setAttribute("x2", sx(xR)); fr.setAttribute("y2", sy(yR));
+      fr.setAttribute("stroke","#111");
+      g.appendChild(fl); g.appendChild(fr);
 
-      // Ball-in-play dot (StatsAPI coordX/coordY ~ 0..250)
+      // Infield arc (95')
+      const inArc = document.createElementNS(svg.namespaceURI,"path");
+      inArc.setAttribute("d", `M ${sx(-INFIELD_ARC)},${sy(0)} A ${INFIELD_ARC*scale},${INFIELD_ARC*scale} 0 0 1 ${sx(INFIELD_ARC)},${sy(0)}`);
+      inArc.setAttribute("fill","none"); inArc.setAttribute("stroke","#111"); inArc.setAttribute("stroke-width","1");
+      g.appendChild(inArc);
+
+      // Bases (square 90' diamond)
+      const H  = [  0,   0];
+      const B1 = [ BASE,  0];
+      const B2 = [ BASE, BASE];
+      const B3 = [  0,  BASE];
+
+      // Basepaths (diamond outline)
+      const diamond = [B2, B1, H, B3].map(([x,y]) => `${sx(x)},${sy(y)}`).join(" ");
+      const poly = document.createElementNS(svg.namespaceURI,"polygon");
+      poly.setAttribute("points", diamond);
+      poly.setAttribute("fill","none"); poly.setAttribute("stroke","#111");
+      g.appendChild(poly);
+
+      // Home plate (simple circle) and 1B/2B/3B squares
+      const home = document.createElementNS(svg.namespaceURI,"circle");
+      home.setAttribute("cx", sx(H[0])); home.setAttribute("cy", sy(H[1]));
+      home.setAttribute("r", 3); home.setAttribute("fill","#fff"); home.setAttribute("stroke","#111");
+      g.appendChild(home);
+
+      [[...B1], [...B2], [...B3]].forEach(([x,y]) => {
+        const r = 3.5;
+        const b = document.createElementNS(svg.namespaceURI,"rect");
+        b.setAttribute("x", sx(x)-r); b.setAttribute("y", sy(y)-r);
+        b.setAttribute("width", 2*r); b.setAttribute("height", 2*r);
+        b.setAttribute("fill", "#fff"); b.setAttribute("stroke", "#111");
+        g.appendChild(b);
+      });
+
+      // Mound at 60.5' on home→2B diagonal (x=y=MOUND/√2)
+      const m = MOUND / Math.sqrt(2);
+      const mound = document.createElementNS(svg.namespaceURI,"circle");
+      mound.setAttribute("cx", sx(m)); mound.setAttribute("cy", sy(m));
+      mound.setAttribute("r", 3); mound.setAttribute("fill","#fff"); mound.setAttribute("stroke","#111");
+      g.appendChild(mound);
+
+      // Ball-in-play dot (if your coords are 0..250, map into feet)
       const bx = Number(bip?.x), by = Number(bip?.y);
-      if (!Number.isNaN(bx) && !Number.isNaN(by)){
-        const sx = (bx/250) * (w-2*pad) + pad;
-        const sy = (by/250) * (h-2*pad) + pad;
+      if (!Number.isNaN(bx) && !Number.isNaN(by)) {
+        const xf = (bx/250) * (2*FENCE) - FENCE;  // [-FENCE, +FENCE]
+        const yf = (by/250) * FENCE;              // [0, FENCE]
         const dot = document.createElementNS(svg.namespaceURI,"circle");
-        dot.setAttribute("cx", sx); dot.setAttribute("cy", sy);
-        dot.setAttribute("r", 5); dot.setAttribute("fill","var(--inplay)");
-        dot.setAttribute("stroke","#111318"); dot.setAttribute("stroke-width","0.5");
+        dot.setAttribute("cx", sx(xf)); dot.setAttribute("cy", sy(yf));
+        dot.setAttribute("r", 4.5); dot.setAttribute("fill","var(--inplay)");
+        dot.setAttribute("stroke","#111"); dot.setAttribute("stroke-width","0.6");
         g.appendChild(dot);
       }
+
+      // Containment border
+      const border = document.createElementNS(svg.namespaceURI,"rect");
+      border.setAttribute("x", 0.5); border.setAttribute("y", 0.5);
+      border.setAttribute("width", w-1); border.setAttribute("height", h-1);
+      border.setAttribute("fill", "none"); border.setAttribute("stroke", "#e5e7eb");
+      g.appendChild(border);
 
       el.innerHTML = ""; el.appendChild(svg);
     }
