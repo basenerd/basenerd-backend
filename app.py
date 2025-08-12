@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template, jsonify, request
 import requests, logging
 from datetime import datetime, timezone, date
@@ -108,7 +109,7 @@ def extract_statcast_line(live: dict) -> str:
     except Exception: pass
     try:
         xba = hd.get("estimatedBAUsingSpeedAngle")
-        if xba is not None: parts.append(f"xBA: {float(xba):.3f}".replace("0.","."))
+        if xba is not None: parts.append(f"xBA: {float(xba):.3f}".replace("0.", "."))
     except Exception: pass
     try:
         xslg = hd.get("estimatedSLGUsingSpeedAngle")
@@ -324,7 +325,7 @@ def api_games():
                 # Enrich live/final
                 if status != "scheduled":
                     try:
-                        live = fetch_live(game_pk) or {}
+                        live = fetch_live(game_pk) or {}                
                     except Exception as e:
                         log.warning("live fetch failed for %s: %s", game_pk, e)
                         live = {}
