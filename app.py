@@ -295,7 +295,7 @@ def _shape_pbp(live: dict | None, pbp: dict | None) -> list[dict]:
         out.append({
             "inning": inning_label,
             "desc": res.get("description") or "",
-            "ev": ev, "la": la, "dist": dist, "xba": xba,
+            "ev": ev, "la": la, "dist": dist, "xba": xba, "xBA": xba,
             "pitches": pitch_list,
         })
 
