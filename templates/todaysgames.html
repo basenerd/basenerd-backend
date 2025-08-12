@@ -4,7 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Today's Games • Basenerd</title>
+
+  <!-- Fonts (restored) -->
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+
   <style>
     :root{
       --bg:#ffffff; --card:#ffffff; --muted:#5b6577; --text:#111318; --accent:#0b5cab;
@@ -13,242 +16,470 @@
       --chip-live:#e21d48; --chip-final:#32425c; --chip-upcoming:#6b7a94;
       --subtle:#8a94ab;
     }
-
     *{box-sizing:border-box}
-    body{ margin:0; background:var(--bg); color:var(--text);
-          font-family:"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-          font-size:13.5px; }
-    a{color:var(--accent); text-decoration:none}
-    a:hover{text-decoration:underline}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family:"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      font-size:13.5px;
+    }
+    a{ color:var(--accent); text-decoration:none }
+    a:hover{ text-decoration:underline }
 
     /* Header */
-    header{ display:flex; align-items:center; gap:10px; padding:12px 16px;
-            border-bottom:2px solid var(--border); position:sticky; top:0; z-index:10; background:var(--header-bg); }
-    header img{height:32px}
-    header h1{margin:0; font-size:17px; letter-spacing:.2px; font-weight:600; color:var(--header-text)}
-    .toolbar{ display:flex; gap:8px; align-items:center; margin-left:auto; }
-    input[type="date"]{ padding:6px 8px; border:1px solid var(--border); border-radius:10px; background:#fff; color:var(--text) }
+    header{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:2px solid var(--border); position:sticky; top:0; z-index:10; background:var(--header-bg); }
+    header img{ height:32px }
+    header h1{ margin:0; font-size:17px; letter-spacing:.2px; font-weight:600; color:var(--header-text) }
 
-    /* Layout */
-    main{ max-width:1100px; margin:20px auto; padding:0 16px; display:grid; gap:12px; }
-    .card{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px;
-           box-shadow:0 8px 20px rgba(0,0,0,.05); }
-    .row{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; }
+    /* Drawer + hamburger (restored) */
+    .hamburger{ display:inline-flex; flex-direction:column; gap:4px; background:#fff; border:1px solid var(--border); cursor:pointer; padding:8px; border-radius:10px; }
+    .hamburger span{ display:block; width:20px; height:2px; background:#394150; transition:transform .2s, opacity .2s; }
+    .hamburger[aria-expanded="true"] span:nth-child(1){ transform:translateY(6px) rotate(45deg); }
+    .hamburger[aria-expanded="true"] span:nth-child(2){ opacity:0; }
+    .hamburger[aria-expanded="true"] span:nth-child(3){ transform:translateY(-6px) rotate(-45deg); }
+
+    .drawer{
+      position:fixed; inset:0 auto 0 0; width:270px; transform:translateX(-100%);
+      background:var(--card); border-right:1px solid var(--border); box-shadow:0 10px 30px rgba(0,0,0,.08);
+      transition:transform .2s ease; z-index:1000; padding:16px;
+    }
+    .drawer.open{ transform:translateX(0) }
+    .drawer h2{ margin:0 0 10px; font-size:16px; }
+    .drawer nav a{ display:block; padding:8px 6px; border-radius:8px; color:#273041 }
+    .drawer nav a:hover{ background:#f4f6f9 }
+    .drawer-backdrop{
+      position:fixed; inset:0; background:rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:900;
+    }
+    .drawer-backdrop.show{ opacity:1; pointer-events:auto; }
+
+    /* Toolbar under header */
+    .toolbar{ display:flex; gap:10px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--border); background:#fff; }
+    .toolbar .liveonly{ display:flex; align-items:center; gap:6px; color:#394150; }
+    .toolbar .date{ margin-left:auto; display:flex; gap:12px; align-items:center; color:#5b6577; font-size:12.5px; }
+    .toolbar .date .label{ font-weight:600; color:#2b3345 }
+
+    /* Main grid */
+    .wrap{ max-width:1100px; margin:0 auto; padding:16px; }
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media(max-width:900px){ .grid{ grid-template-columns:1fr } }
+
+    .card{ background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:0 8px 20px rgba(0,0,0,.05); }
+    .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:#fff; }
+
+    .teams{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; width:100%; }
     .team{ display:flex; align-items:center; gap:10px; }
-    .team.right{ justify-self:end; flex-direction:row-reverse }
+    .team.right{ flex-direction:row-reverse }
     .team .meta{ display:flex; flex-direction:column; gap:2px; }
     .team .name{ font-weight:600; line-height:1.1 }
     .team .sub{ color:var(--muted); font-size:12px; }
-    .team .score{ font-variant-numeric:tabular-nums; font-weight:600; }
+    .score{ font-weight:800; font-size:16px; }
 
-    /* Chip / inning badge */
-    .chip{ font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-           font-size:12px; padding:4px 8px; border-radius:999px; }
-    .chip.live{ background:#fde4ea; color:#7d0a23; border:1px solid #fac2d0 }
-    .chip.final{ background:#e6ebf2; color:#1f2d44; border:1px solid #cfd8e6 }
-    .chip.upcoming{ background:#eef0f3; color:#3a465a; border:1px solid #d9e0ea }
+    /* Chips */
+    .chips{ display:flex; align-items:center; gap:6px; }
+    .chip{ font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #d9e0ea; background:#eef0f3; color:#3a465a }
+    .chip.live{ background:#fde4ea; color:#7d0a23; border-color:#fac2d0 }
+    .chip.final{ background:#e6ebf2; color:#1f2d44; border-color:#cfd8e6 }
+    .chip.upcoming{ background:#eef0f3; color:#3a465a; border-color:#d9e0ea }
 
-    /* Content sections */
-    .sections{ display:grid; grid-template-columns:1fr; gap:6px; margin-top:8px; }
-    .section{ background:linear-gradient(180deg,#fff, #fafbfc); border:1px solid var(--border); border-radius:12px; padding:10px; }
-    .section h3{ margin:0 0 6px 0; font-size:13px; color:#2a3241 }
-    .muted{ color:var(--muted) }
-    .small{ font-size:12px }
+    /* diamond bases (restored) */
+    .diamond{ position:relative; width:26px; height:26px; display:inline-block; margin-left:8px; }
+    .diamond .base{ position:absolute; width:10px; height:10px; transform:rotate(45deg); border:1px solid var(--border); background:#fff; }
+    .diamond .on{ background:#ffd147; border-color:#ffd147; }
+    .diamond .b2{ top:0; left:50%; transform:translate(-50%, 0) rotate(45deg); }
+    .diamond .b1{ top:50%; right:0; transform:translate(0, -50%) rotate(45deg); }
+    .diamond .b3{ top:50%; left:0; transform:translate(0, -50%) rotate(45deg); }
 
-    /* Bases diamond */
-    .diamond{ width:70px; height:70px; position:relative; }
-    .base{ position:absolute; width:12px; height:12px; border:2px solid #475569; transform:rotate(45deg); background:#fff; }
-    .b1{ right:6px; top:50%; transform:translateY(-50%) rotate(45deg); }
-    .b2{ top:6px; left:50%; transform:translateX(-50%) rotate(45deg); }
-    .b3{ left:6px; top:50%; transform:translateY(-50%) rotate(45deg); }
-    .base.on{ background:#22c55e; border-color:#1b9e4b; }
+    .lastplay{ padding:8px 12px; border-top:1px solid var(--border); background:#fff; font-size:11.5px; color:#394150; }
+    .lastplay strong{ color:#5b6577; margin-right:4px; }
+    .statcast{ padding:0 12px 8px 12px; font-size:11.5px; color:#394150; }
 
-    /* Details / dropdown */
-    details{ margin-top:6px; border-top:1px dashed var(--border); padding-top:8px; }
-    summary{ cursor:pointer; color:#243042; font-weight:600 }
-    table{ width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
-    th, td{ border:1px solid var(--border); padding:6px 8px; text-align:left; }
-    th{ background:#f7f9fc; }
-    .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .empty{ padding:20px; text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:12px; }
+    .empty{ color:var(--muted); border:1px dashed var(--border); border-radius:12px; padding:18px; text-align:center; background:#fff; }
 
-    /* Badges row under header */
-    .badges{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:center; }
+    /* lineup dropdown (restored) */
+    details.lineups{ padding:8px 12px 12px 12px; border-top:1px solid var(--border); background:#fff; }
+    details.lineups summary{ cursor:pointer; font-weight:700; color:#32425c; margin:4px 0 8px; }
+    .lineup-flex{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .lineup h4{ margin:0 0 6px; font-size:12px; color:#5b6577; }
+    .lineup .entry{ display:flex; gap:4px; align-items:baseline; font-size:12px; color:#394150; }
+    .lineup .pos{ color:#8a94ab; min-width:26px; text-transform:uppercase; }
+    .lineup .name{ font-weight:600; }
+    .lineup .trip{ color:#5b6577; }
+    .lineup .list{ display:flex; flex-direction:column; gap:4px; margin:0; padding:0; }
+    @media(max-width:600px){ .lineup-flex{ grid-template-columns:1fr; } }
+
+    /* box score dropdown (restored) */
+    details.boxscore{ padding:8px 12px 12px 12px; border-top:1px solid var(--border); background:#fff; }
+    details.boxscore summary{ cursor:pointer; font-weight:700; color:#32425c; margin:4px 0 8px; }
+    .box{ overflow:auto; }
+    .box table{ border-collapse:collapse; width:100%; font-size:12.5px; }
+    .box th, .box td{ border:1px solid var(--border); padding:6px 8px; text-align:left; }
+    .box th{ background:#f7f9fc }
+    .box td.name{ font-weight:700 }
+    .batters table, .pitchers table{ border-collapse:collapse; width:100%; font-size:12.5px; margin-top:8px; }
+    .batters th, .batters td, .pitchers th, .pitchers td{ border:1px solid var(--border); padding:6px 8px; text-align:left; }
+    .batters th, .pitchers th{ background:#f7f9fc }
+    .indent td:first-child{ padding-left:18px }
+
+    /* Win Prob (restored) */
+    .wp-wrap{ border-top:1px solid var(--border); background:#fff; padding:10px 12px; }
+    .wp-title{ font-weight:700; color:#32425c; margin-bottom:8px; }
+    .wp-bar{ display:flex; height:14px; border-radius:8px; overflow:hidden; background:#eef0f3; border:1px solid var(--border) }
+    .wp-seg{ height:100% }
+    .wp-labels{ display:flex; justify-content:space-between; margin-top:6px; color:#394150; font-size:12px; }
+
+    /* Scoring summary (restored) */
+    details.scoring{ padding:8px 12px 12px 12px; border-top:1px solid var(--border); background:#fff; }
+    details.scoring summary{ cursor:pointer; font-weight:700; color:#32425c; margin:4px 0 8px; }
+    .scoring table{ border-collapse:collapse; width:100%; font-size:12.5px; }
+    .scoring th, .scoring td{ border:1px solid var(--border); padding:6px 8px; text-align:left; }
+    .scoring th{ background:#f7f9fc }
   </style>
 </head>
 <body>
   <header>
+    <button class="hamburger" aria-expanded="false" aria-controls="site-drawer" aria-label="Open navigation">
+      <span></span><span></span><span></span>
+    </button>
     <img alt="Basenerd" src="https://upload.wikimedia.org/wikipedia/commons/7/79/Baseball.svg">
     <h1>Today's Games</h1>
-    <div class="toolbar">
-      <input id="date" type="date" />
-    </div>
   </header>
 
-  <main id="games">
-    <div class="empty">Loading games…</div>
-  </main>
+  <div class="drawer" id="site-drawer" aria-hidden="true" tabindex="-1">
+    <h2>Basenerd</h2>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/todaysgames">Today's Games</a>
+      <a href="/standings">Standings</a>
+    </nav>
+  </div>
+  <div class="drawer-backdrop"></div>
+
+  <div class="toolbar">
+    <label class="liveonly"><input id="liveOnly" type="checkbox" /> Live only</label>
+    <div class="date">
+      <span class="label" id="dateLabel">—</span>
+      <span id="updated">Updated —</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div id="games" class="grid"></div>
+    <div id="empty" class="empty" style="display:none">No games to show for this date.</div>
+    <p class="when">Times shown Eastern Time • Source: MLB Stats API</p>
+  </div>
 
   <script>
-    const $date = document.getElementById('date');
-    const $games = document.getElementById('games');
+    // Drawer behavior (restored)
+    (function(){
+      const btn = document.querySelector('.hamburger');
+      const drawer = document.getElementById('site-drawer');
+      const backdrop = document.querySelector('.drawer-backdrop');
+      function openDrawer(){
+        drawer.classList.add('open');
+        backdrop.classList.add('show');
+        drawer.setAttribute('aria-hidden','false');
+        btn.setAttribute('aria-expanded','true');
+        document.body.style.overflow='hidden';
+      }
+      function closeDrawer(){
+        drawer.classList.remove('open');
+        backdrop.classList.remove('show');
+        drawer.setAttribute('aria-hidden','true');
+        btn.setAttribute('aria-expanded','false');
+        document.body.style.overflow='';
+      }
+      btn?.addEventListener('click', () => { (btn.getAttribute('aria-expanded') === 'true') ? closeDrawer() : openDrawer(); });
+      backdrop?.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeDrawer(); });
+    })();
 
-    function chipClass(status){
-      if(status==='in_progress') return 'chip live';
-      if(status==='final') return 'chip final';
-      return 'chip upcoming';
+    const $games = document.getElementById('games');
+    const $empty = document.getElementById('empty');
+    const $dateLabel = document.getElementById('dateLabel');
+    const $updated = document.getElementById('updated');
+    const $liveOnly = document.getElementById('liveOnly');
+
+    // ET helpers (restored)
+    const fmtET = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour:'2-digit', minute:'2-digit', hour12:true, month:'2-digit', day:'2-digit', weekday:'short' });
+    function etParts(d){
+      const f = fmtET.formatToParts(d);
+      const get = t => (f.find(x => x.type===t) || {}).value || '';
+      return { wd:get('weekday'), mo:get('month'), da:get('day'), hr:get('hour'), mi:get('minute'), ampm:get('dayPeriod') };
+    }
+
+    // Tiny team color helper for WP bar (restored style)
+    function teamColor(team){
+      const abbr = (team && team.abbr) || '';
+      const map = {
+        ARI:'#A71930', ATL:'#CE1141', BAL:'#DF4601', BOS:'#BD3039', CHC:'#0E3386', CHW:'#27251F', CIN:'#C6011F', CLE:'#0C2340',
+        COL:'#33006F', DET:'#0C2340', HOU:'#002D62', KC:'#004687', LAA:'#BA0021', LAD:'#005A9C', MIA:'#00A3E0',
+        MIL:'#12284B', MIN:'#002B5C', NYM:'#002D72', NYY:'#003087', OAK:'#003831', PHI:'#E81828', PIT:'#FDB827',
+        SD:'#2F241D', SEA:'#0C2C56', SF:'#FD5A1E', STL:'#C41E3A', TB:'#092C5C', TEX:'#003278', TOR:'#134A8E', WSH:'#AB0003'
+      };
+      return map[abbr] || '#5b6577';
+    }
+
+    // Utilities
+    function pct(n){ return Math.round(n * 100); }
+
+    // Simple Win Prob approximation (restored behavior)
+    function computeWinProb(g){
+      const inning = Number(g.inning || 0) || 0;
+      const isTop = !!g.isTop;
+      const a = g.teams.away, h = g.teams.home;
+      const ascore = Number(a.score || 0), hscore = Number(h.score || 0);
+      const diff = hscore - ascore;
+      const innFactor = Math.min(Math.max((inning - 1) / 8, 0), 1);
+      const raw = diff/4 + (innFactor * (isTop ? -0.15 : 0.15));
+      const sig = 1/(1+Math.exp(-4*raw));
+      const home = Math.min(Math.max(sig, 0.01), 0.99);
+      return { home, away: 1 - home };
+    }
+
+    // Format helpers (restored names)
+    function fmtShortName(name){
+      if(!name) return '';
+      const parts = String(name).split(' ');
+      if(parts.length<2) return name;
+      return parts[0][0] + '. ' + parts.slice(1).join(' ');
     }
 
     function topBottom(isTop){
-      if(isTop === true) return '▲ Top';
-      if(isTop === false) return '▼ Bottom';
+      if(isTop === true) return 'Top';
+      if(isTop === false) return 'Bottom';
       return '';
     }
 
-    function basesDiamond(b){
+    function chipHTML(g){
+      const cls = g.status==='in_progress' ? 'chip live' : (g.status==='final' ? 'chip final' : 'chip upcoming');
+      const txt = g.chip || (g.status==='scheduled' ? 'Scheduled' : (g.status==='final' ? 'Final' : 'Live'));
+      return `<span class="${cls}">${txt}</span>`;
+    }
+
+    function diamondHTML(b){
       const f = b?.first, s = b?.second, t = b?.third;
       return `
-        <div class="diamond" title="Bases">
-          <div class="base b1 ${f?'on':''}"></div>
-          <div class="base b2 ${s?'on':''}"></div>
-          <div class="base b3 ${t?'on':''}"></div>
+        <span class="diamond" aria-label="Bases">
+          <span class="base b2 ${s?'on':''}"></span>
+          <span class="base b1 ${f?'on':''}"></span>
+          <span class="base b3 ${t?'on':''}"></span>
+        </span>`;
+    }
+
+    // Linescore (adapted to your backend shape)
+    function linescoreBox(g){
+      const ls = g.linescore;
+      if(!ls || !ls.innings) return '';
+      const head = ls.innings.map(i=>`<th>${i.num}</th>`).join('');
+      const aRow = ls.innings.map(i=>`<td>${i.away ?? ''}</td>`).join('');
+      const hRow = ls.innings.map(i=>`<td>${i.home ?? ''}</td>`).join('');
+      const aT = ls.totals?.away || {}, hT = ls.totals?.home || {};
+      return `
+        <div class="box">
+          <table>
+            <thead><tr><th></th>${head}<th>R</th><th>H</th><th>E</th></tr></thead>
+            <tbody>
+              <tr><td class="name">${g.teams.away.abbr}</td>${aRow}<td>${aT.runs ?? ''}</td><td>${aT.hits ?? ''}</td><td>${aT.errors ?? ''}</td></tr>
+              <tr><td class="name">${g.teams.home.abbr}</td>${hRow}<td>${hT.runs ?? ''}</td><td>${hT.hits ?? ''}</td><td>${hT.errors ?? ''}</td></tr>
+            </tbody>
+          </table>
         </div>`;
     }
 
-    function makeLinescore(ls){
-      if(!ls || !ls.innings) return '';
-      const head = ls.innings.map(i=>`<th>${i.num}</th>`).join('');
-      const away = ls.innings.map(i=>`<td>${i.away ?? ''}</td>`).join('');
-      const home = ls.innings.map(i=>`<td>${i.home ?? ''}</td>`).join('');
+    // Batters table (accepts either lowercase or uppercase keys)
+    function battersTable(teamAbbr, rows){
+      if (!rows || !rows.length) return `<div class="batters"><em>No batter stats yet.</em></div>`;
+      const head = `<thead><tr><th>POS</th><th>Player</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th></tr></thead>`;
+      const body = rows.map(r=>{
+        const ab = r.ab ?? r.AB, rbi = r.rbi ?? r.RBI, bb = r.bb ?? r.BB, k = r.k ?? r.SO, h = r.h ?? r.H, rR = r.r ?? r.R;
+        const pos = r.pos || '';
+        return `<tr ${r.indent ? 'class="indent"' : ''}>
+          <td>${pos||''}</td><td class="name">${fmtShortName(r.name)||''}</td>
+          <td>${ab ?? ''}</td><td>${rR ?? ''}</td><td>${h ?? ''}</td><td>${rbi ?? ''}</td><td>${bb ?? ''}</td><td>${k ?? ''}</td>
+        </tr>`;
+      }).join('');
+      return `<div class="batters"><table>${head}<tbody>${body}</tbody></table></div>`;
+    }
+
+    function pitchersTable(teamAbbr, rows){
+      if (!rows || !rows.length) return `<div class="pitchers"><em>No pitching stats yet.</em></div>`;
+      const head = `<thead><tr><th>Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>SO</th><th>ERA</th></tr></thead>`;
+      const body = rows.map(r => `
+        <tr><td class="name">${fmtShortName(r.name)||''}</td><td>${r.IP ?? ''}</td><td>${r.H ?? ''}</td><td>${r.R ?? ''}</td>
+            <td>${r.ER ?? ''}</td><td>${r.BB ?? ''}</td><td>${r.SO ?? ''}</td><td>${r.ERA ?? ''}</td></tr>`).join('');
+      return `<div class="pitchers"><table>${head}<tbody>${body}</tbody></table></div>`;
+    }
+
+    // Scoring Summary
+    function scoringSummaryDropdown(g){
+      const scor = Array.isArray(g.scoring) ? g.scoring : [];
+      const a = g.teams.away, h = g.teams.home;
+      const head = `<thead><tr><th>Inning</th><th class="play">Play</th><th>${a.abbr}</th><th>${h.abbr}</th></tr></thead>`;
+      let body = '';
+      if (scor.length){
+        body = scor.map(p => `<tr>
+          <td>${p.inning ?? ''}</td>
+          <td class="play">${p.desc ?? ''}</td>
+          <td>${p.away ?? ''}</td>
+          <td>${p.home ?? ''}</td>
+        </tr>`).join('');
+      } else {
+        body = `<tr><td colspan="4"><em>No scoring plays yet.</em></td></tr>`;
+      }
+      return `<details class="scoring"><summary>Scoring summary</summary>
+        <div class="scoring"><table>${head}<tbody>${body}</tbody></table></div>
+      </details>`;
+    }
+
+    // Win Prob block
+    function winProbBlock(g){
+      const wp = computeWinProb(g);
+      const a = g.teams.away, h = g.teams.home;
+      const homePct = pct(wp.home), awayPct = 100 - homePct;
+      const homeColor = teamColor(h), awayColor = teamColor(a);
       return `
-        <table>
-          <thead><tr><th></th>${head}<th>R</th><th>H</th><th>E</th></tr></thead>
-          <tbody>
-            <tr><th>Away</th>${away}<td>${ls.totals.away?.runs ?? ''}</td><td>${ls.totals.away?.hits ?? ''}</td><td>${ls.totals.away?.errors ?? ''}</td></tr>
-            <tr><th>Home</th>${home}<td>${ls.totals.home?.runs ?? ''}</td><td>${ls.totals.home?.hits ?? ''}</td><td>${ls.totals.home?.errors ?? ''}</td></tr>
-          </tbody>
-        </table>`;
-    }
-
-    function tableBatters(arr){
-      if(!arr || !arr.length) return '<div class="muted small">No batting data</div>';
-      const head = '<tr><th>Name</th><th>AB</th><th>H</th><th>BB</th><th>SO</th><th>RBI</th><th>AVG</th></tr>';
-      const rows = arr.map(r=>`<tr><td>${r.name||''}</td><td>${r.AB??''}</td><td>${r.H??''}</td><td>${r.BB??''}</td><td>${r.SO??''}</td><td>${r.RBI??''}</td><td>${r.AVG??''}</td></tr>`).join('');
-      return `<table><thead>${head}</thead><tbody>${rows}</tbody></table>`;
-    }
-
-    function tablePitchers(arr){
-      if(!arr || !arr.length) return '<div class="muted small">No pitching data</div>';
-      const head = '<tr><th>Name</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>SO</th><th>ERA</th></tr>';
-      const rows = arr.map(r=>`<tr><td>${r.name||''}</td><td>${r.IP??''}</td><td>${r.H??''}</td><td>${r.R??''}</td><td>${r.ER??''}</td><td>${r.BB??''}</td><td>${r.SO??''}</td><td>${r.ERA??''}</td></tr>`).join('');
-      return `<table><thead>${head}</thead><tbody>${rows}</tbody></table>`;
+        <div class="wp-wrap" aria-label="Win Probability">
+          <div class="wp-title">Win Prob.</div>
+          <div class="wp-bar" role="img" aria-label="${a.abbr} ${awayPct}% • ${h.abbr} ${homePct}%">
+            <div class="wp-seg" style="width:${awayPct}%; background:${awayColor}; opacity:.9;"></div>
+            <div class="wp-seg" style="width:${homePct}%; background:${homeColor}; opacity:.9;"></div>
+          </div>
+          <div class="wp-labels">
+            <div><strong>${a.abbr}</strong> ${awayPct}%</div>
+            <div><strong>${h.abbr}</strong> ${homePct}%</div>
+          </div>
+        </div>`;
     }
 
     function teamRow(g){
       const a = g.teams.away, h = g.teams.home;
-      const inningSide = (g.status==='in_progress' && !g.inBreak) ? ` • ${topBottom(g.isTop)} ${g.inning ?? ''}` : '';
+      const showScores = (a.score != null) || (h.score != null);
+      const inningChip = (g.status==='in_progress' && !g.inBreak)
+        ? `<span class="chip">${topBottom(g.isTop)} ${g.inning ?? ''}</span>` : '';
       return `
         <div class="row">
-          <div class="team">
-            <div class="meta">
-              <div class="name">${a.abbr||a.name}</div>
-              <div class="sub">${a.record||''}</div>
-            </div>
-            ${a.score!=null ? `<div class="score">${a.score}</div>` : ''}
-          </div>
-          <div class="badges">
-            <span class="${chipClass(g.status)}">${g.chip || (g.status==='scheduled' ? 'Scheduled' : (g.status==='final' ? 'Final' : 'Live'))}</span>
-            ${inningSide ? `<span class="chip">${inningSide}</span>`:''}
-          </div>
-          <div class="team right">
-            ${h.score!=null ? `<div class="score">${h.score}</div>` : ''}
-            <div class="meta" style="text-align:right">
-              <div class="name">${h.abbr||h.name}</div>
-              <div class="sub">${h.record||''}</div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function contextRow(g){
-      const left = g.lastPlay ? `<strong>Last Play:</strong> ${g.lastPlay}${g.statcast? ' • <span class="muted small">'+g.statcast+'</span>':''}` : '';
-      const right = (g.dueUp || g.teams.home.currentPitcher || g.teams.away.currentPitcher) ?
-        `<div class="muted small">
-          ${g.dueUp ? 'Due up: '+g.dueUp : ''}
-          ${g.teams.home.currentPitcher ? ' • HP: '+g.teams.home.currentPitcher : ''}
-          ${g.teams.away.currentPitcher ? ' • AP: '+g.teams.away.currentPitcher : ''}
-        </div>` : '';
-      return `
-        <div class="sections">
-          <div class="section">
-            <div style="display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap">
-              <div style="display:flex; align-items:center; gap:12px;">
-                ${basesDiamond(g.bases)}
-                <div>${left || '<span class="muted small">No recent play</span>'}</div>
+          <div class="teams">
+            <div class="team">
+              <div class="meta">
+                <div class="name">${a.abbr || a.name}</div>
+                <div class="sub">${a.record || ''}</div>
               </div>
-              ${right}
+              ${showScores ? `<div class="score">${a.score ?? ''}</div>` : ''}
+            </div>
+            <div class="chips">${chipHTML(g)}${inningChip}${diamondHTML(g.bases)}</div>
+            <div class="team right">
+              ${showScores ? `<div class="score">${h.score ?? ''}</div>` : ''}
+              <div class="meta" style="text-align:right">
+                <div class="name">${h.abbr || h.name}</div>
+                <div class="sub">${h.record || ''}</div>
+              </div>
             </div>
           </div>
         </div>`;
     }
 
-    function dropdowns(g){
-      const show = g.linescore || (g.batters && (g.batters.home?.length || g.batters.away?.length)) || (g.pitchers && (g.pitchers.home?.length || g.pitchers.away?.length));
-      if(!show) return '';
-      return `
-        <details>
-          <summary>Box score &amp; linescore</summary>
-          ${makeLinescore(g.linescore)}
-          <div class="grid-2">
-            <div>
-              <h3>Batting — Away</h3>
-              ${tableBatters(g.batters?.away||[])}
-              <h3>Pitching — Away</h3>
-              ${tablePitchers(g.pitchers?.away||[])}
-            </div>
-            <div>
-              <h3>Batting — Home</h3>
-              ${tableBatters(g.batters?.home||[])}
-              <h3>Pitching — Home</h3>
-              ${tablePitchers(g.pitchers?.home||[])}
-            </div>
-          </div>
-        </details>
-      `;
+    function lastPlayBlock(g){
+      const lp = g.lastPlay ? `<strong>Last Play:</strong> ${g.lastPlay}` : '';
+      const sc = g.statcast ? `<div class="statcast">${g.statcast}</div>` : '';
+      if(!lp && !sc) return '';
+      return `<div class="lastplay">${lp}</div>${sc}`;
     }
 
-    async function loadGames(d){
+    function lineupsDropdown(g){
+      const show = g.batters || g.pitchers;
+      if(!show) return '';
+      const aB = (g.batters && g.batters.away) || [];
+      const hB = (g.batters && g.batters.home) || [];
+      const aP = (g.pitchers && g.pitchers.away) || [];
+      const hP = (g.pitchers && g.pitchers.home) || [];
+      return `
+        <details class="lineups"><summary>Lineups</summary>
+          <div class="lineup-flex">
+            <div class="lineup">
+              <h4>${g.teams.away.abbr} — Batters</h4>
+              <div class="list">${battersTable(g.teams.away.abbr, aB)}</div>
+              <h4 style="margin-top:8px">${g.teams.away.abbr} — Pitchers</h4>
+              <div class="list">${pitchersTable(g.teams.away.abbr, aP)}</div>
+            </div>
+            <div class="lineup">
+              <h4>${g.teams.home.abbr} — Batters</h4>
+              <div class="list">${battersTable(g.teams.home.abbr, hB)}</div>
+              <h4 style="margin-top:8px">${g.teams.home.abbr} — Pitchers</h4>
+              <div class="list">${pitchersTable(g.teams.home.abbr, hP)}</div>
+            </div>
+          </div>
+        </details>`;
+    }
+
+    function boxscoreDropdown(g){
+      const show = !!g.linescore;
+      if(!show) return '';
+      return `<details class="boxscore"><summary>Box score</summary>${linescoreBox(g)}</details>`;
+    }
+
+    function cardHTML(g){
+      return `
+        <article class="card">
+          ${teamRow(g)}
+          ${lastPlayBlock(g)}
+          ${winProbBlock(g)}
+          ${scoringSummaryDropdown(g)}
+          ${lineupsDropdown(g)}
+          ${boxscoreDropdown(g)}
+        </article>`;
+    }
+
+    // Fetch/render
+    let state = { dateISO: null, timer: null, liveOnly: false };
+
+    function fmtDateLabel(dET){
+      const parts = etParts(dET);
+      return `${parts.wd} ${parts.mo}/${parts.da}`;
+    }
+    function fmtUpdated(dET){
+      const parts = etParts(dET);
+      return `Updated ${parts.hr}:${parts.mi} ${parts.ampm} ET`;
+    }
+
+    async function fetchJson(url){
+      const r = await fetch(url, { cache:'no-store' });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    }
+
+    function render(data){
+      let games = data.games || [];
+      if (state.liveOnly) games = games.filter(g => g.status === 'in_progress');
+      $empty.style.display = games.length ? 'none' : 'block';
+      $games.innerHTML = games.map(cardHTML).join('');
+      $updated.textContent = fmtUpdated(new Date());
+    }
+
+    async function load(){
       try{
-        const qs = d ? ('?date='+encodeURIComponent(d)) : '';
-        const res = await fetch('/api/games'+qs, {cache:'no-store'});
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const data = await res.json();
-        const games = data.games || [];
-        if(!games.length){
-          $games.innerHTML = '<div class="empty">No games for this date.</div>';
-          return;
-        }
-        $games.innerHTML = games.map(g => `
-          <article class="card">
-            ${teamRow(g)}
-            ${contextRow(g)}
-            ${dropdowns(g)}
-          </article>
-        `).join('');
-      }catch(e){
+        const et = state.dateISO || new Date().toISOString().slice(0,10);
+        const data = await fetchJson("{{ url_for('api_games') }}" + '?date=' + et);
+        render(data);
+        const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
+        clearTimeout(state.timer);
+        if (anyLive) state.timer = setTimeout(load, 30000);
+      } catch(e){
         console.error(e);
         $games.innerHTML = '<div class="empty">Error loading games. If this persists, check your server logs for the /api/games endpoint.</div>';
       }
     }
 
-    function setDate(dt){
-      const iso = dt.toISOString().slice(0,10);
-      $date.value = iso;
-      loadGames(iso);
+    function setDate(d){ // d is Date in local; we’ll show ET label regardless
+      const iso = d.toISOString().slice(0,10);
+      state.dateISO = iso;
+      // show ET date label
+      const etNow = new Date(d.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+      $dateLabel.textContent = fmtDateLabel(etNow);
+      load();
     }
 
-    $date.addEventListener('change', (e)=>loadGames(e.target.value));
+    $liveOnly.addEventListener('change', (e)=>{ state.liveOnly = e.target.checked; load(); });
+
+    // Init for today
     setDate(new Date());
   </script>
 </body>
