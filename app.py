@@ -212,29 +212,10 @@ def _box_batting(box: dict, side: str) -> List[dict]:
 
 def _shape_pbp(live: dict | None, pbp: dict | None) -> list[dict]:
     """
-    Returns a list of plays shaped for game.html from either endpoint.
-    Shape:
-      {
-        inning: "1 ▲" | "1 ▼",
-        desc:   str,
-        ev:     float|None,  # exit velo
-        la:     float|None,  # launch angle
-        dist:   int|None,    # feet
-        xba:    float|None,
-        pitches: [
-          { "type": str, "velo": float|None, "result": str,
-            "px": float|None, "pz": float|None, "code": str|None, "inPlay": bool }
-        ]
-      }
+    Normalizes play-by-play into the structure game.html expects, including xBA.
     """
-    plays = []
-    # Prefer dedicated PBP if present, else fall back to live
-    if pbp:
-        plays = (pbp.get("allPlays") or [])
-    if not plays and live:
-        plays = (((live or {}).get("liveData") or {}).get("plays") or {}).get("allPlays") or []
-
-    out: list[dict] = []
+    plays_src = (pbp or {}).get("allPlays") or (((live or {}).get("liveData") or {}).get("plays") or {}).get("allPlays") or []
+    out = []
 
     def _num(v, cast=float):
         try:
@@ -242,15 +223,15 @@ def _shape_pbp(live: dict | None, pbp: dict | None) -> list[dict]:
         except Exception:
             return None
 
-    for p in plays:
+    for p in plays_src:
         about = (p.get("about") or {})
-        half = (about.get("halfInning") or "").lower()    # "top"/"bottom"
-        sym = "▲" if half == "top" else "▼" if half == "bottom" else ""
-        inn = about.get("inning")
+        half  = (about.get("halfInning") or "").lower()
+        sym   = "▲" if half == "top" else "▼" if half == "bottom" else ""
+        inn   = about.get("inning")
         inning_label = f"{inn} {sym}".strip() if inn else ""
 
         res = (p.get("result") or {})
-        # hitData appears at root (rare) or on the contact event inside playEvents
+        # Get Statcast contact data (root or last pitch with hitData)
         hd = p.get("hitData") or {}
         if not hd:
             for ev in reversed(p.get("playEvents") or []):
@@ -258,44 +239,48 @@ def _shape_pbp(live: dict | None, pbp: dict | None) -> list[dict]:
                     hd = ev["hitData"]
                     break
 
-        ev  = _num(hd.get("launchSpeed"))
-        la  = _num(hd.get("launchAngle"))
+        ev   = _num(hd.get("launchSpeed"))
+        la   = _num(hd.get("launchAngle"))
         dist = _num(hd.get("totalDistance"), int)
-        xba = _num(hd.get("estimatedBAUsingSpeedAngle"))
+        xba  = _num(hd.get("estimatedBAUsingSpeedAngle"))
 
+        # Build pitch list (used by strike zone + mini table)
         pitch_list = []
         for evn in (p.get("playEvents") or []):
             pd = evn.get("pitchData") or {}
             det = evn.get("details") or {}
             coords = (pd.get("coordinates") or {})
 
-            # Skip non-pitches (e.g., substitutions, mound visits)
+            # Skip non-pitches unless it marked ball-in-play
             if not pd and not coords and not det.get("isInPlay"):
                 continue
 
-            # Pitch type best-effort
-            ptype = ( (pd.get("pitchType") or {}).get("code")
-                      or (pd.get("pitchType") or {}).get("description")
-                      or (det.get("type") or {}).get("code")
-                      or det.get("description") or "" )
+            ptype = ((pd.get("pitchType") or {}).get("code")
+                     or (pd.get("pitchType") or {}).get("description")
+                     or (det.get("type") or {}).get("code")
+                     or det.get("description") or "")
 
             pitch_list.append({
                 "type": ptype,
                 "velo": _num(pd.get("startSpeed")) or _num(pd.get("releaseSpeed")),
-                "result": ( (det.get("call") or {}).get("description")
-                            or det.get("description")
-                            or det.get("event")
-                            or "" ),
+                "result": ((det.get("call") or {}).get("description")
+                           or det.get("description")
+                           or det.get("event")
+                           or ""),
                 "px": _num(coords.get("pX")),
                 "pz": _num(coords.get("pZ")),
-                "code": ( (det.get("call") or {}).get("code") or det.get("code") ),
+                "code": ((det.get("call") or {}).get("code") or det.get("code")),
                 "inPlay": bool(det.get("isInPlay")),
             })
 
         out.append({
             "inning": inning_label,
             "desc": res.get("description") or "",
-            "ev": ev, "la": la, "dist": dist, "xba": xba, "xBA": xba,
+            "ev": ev,
+            "la": la,
+            "dist": dist,
+            "xba": xba,   # <- lowercase
+            "xBA": xba,   # <- alias in case the UI uses camel case
             "pitches": pitch_list,
         })
 
