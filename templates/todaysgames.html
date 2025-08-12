@@ -28,100 +28,133 @@
   </footer>
 
   <script>
-    const $games = document.getElementById('games');
-    const $empty = document.getElementById('empty');
-    const $dateLabel = document.getElementById('dateLabel');
-    const $updated = document.getElementById('updated');
-    const $liveOnly = document.getElementById('liveOnly');
+  // --- Safe element lookups (won’t crash if an element is missing)
+  const $games     = document.getElementById('games');
+  const $empty     = document.getElementById('empty');
+  const $dateLabel = document.getElementById('dateLabel');
+  const $updated   = document.getElementById('updated');
+  const $liveOnly  = document.getElementById('liveOnly');
 
-    const state = { date: new Date(), timer: null };
+  const state = { date: new Date(), timer: null };
 
-    function dateStrET(d){
-      return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-    }
+  // Format YYYY-MM-DD in ET for the API
+  function dateStrET(d){
+    return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  }
 
-    function setDate(d){
-      state.date = d;
+  function setDate(d){
+    state.date = d;
+    if ($dateLabel) {
       $dateLabel.textContent = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-      load();
     }
+    load();
+  }
 
-    async function fetchJson(url){
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    }
+  async function fetchJson(url){
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  }
 
-    // NEW: defensive live check
-    function isLiveGame(g){
-      const st = (g.status || '').toLowerCase();
-      if (st === 'in_progress') return true;
-      const chip = (g.chip || '').toLowerCase();
-      return chip.includes('top') || chip.includes('bot');
-    }
+  // Robust “live” detector (works even if server status is a phrase)
+  function isLiveGame(g){
+    const st = (g.status || '').toLowerCase();
+    if (st === 'in_progress') return true;
+    const chip = (g.chip || '').toLowerCase();
+    return chip.includes('top') || chip.includes('bot'); // e.g., "Top 6th", "Bot 3rd"
+  }
 
-    function chipFor(g){
-      if (isLiveGame(g)) return `<span class="chip live">${g.chip}</span>`;
-      if ((g.status || '').toLowerCase() === 'final') return `<span class="chip final">Final</span>`;
-      return `<span class="chip upcoming">${g.chip}</span>`;
-    }
+  // Inning badge / start time chip
+  function chipFor(g){
+    if (isLiveGame(g)) return `<span class="chip live">${g.chip || ''}</span>`;
+    if ((g.status || '').toLowerCase() === 'final') return `<span class="chip final">Final</span>`;
+    return `<span class="chip upcoming">${g.chip || ''}</span>`;
+  }
 
-    function card(g){
-      return Object.assign(document.createElement('div'), {
-        className: 'game-card',
-        innerHTML: `
-          <div class="teams">
-            <div class="team">
-              <img src="https://www.mlbstatic.com/team-logos/${g.away.id}.svg" alt="${g.away.name}">
-              <div class="team-name">${g.away.abbr}</div>
-              <div class="team-score">${g.away.score != null ? g.away.score : ''}</div>
-            </div>
-            <div class="team">
-              <img src="https://www.mlbstatic.com/team-logos/${g.home.id}.svg" alt="${g.home.name}">
-              <div class="team-name">${g.home.abbr}</div>
-              <div class="team-score">${g.home.score != null ? g.home.score : ''}</div>
-            </div>
+  // One game card (keeps your existing structure/classes)
+  function card(g){
+    const div = document.createElement('div');
+    div.className = 'game-card';
+    div.innerHTML = `
+      <a class="link" href="/game/${g.gamePk}">
+        <div class="row row-top">
+          <div class="team">
+            <img class="logo" src="https://www.mlbstatic.com/team-logos/${g.away.id}.svg" alt="${g.away.name}">
+            <div class="abbr">${g.away.abbr || ''}</div>
           </div>
-          <div class="meta">
-            ${chipFor(g)}
-            <div class="venue">${g.venue}</div>
+          <div class="score">${g.away.score ?? ''}</div>
+        </div>
+        <div class="row row-bot">
+          <div class="team">
+            <img class="logo" src="https://www.mlbstatic.com/team-logos/${g.home.id}.svg" alt="${g.home.name}">
+            <div class="abbr">${g.home.abbr || ''}</div>
           </div>
-        `
-      });
-    }
+          <div class="score">${g.home.score ?? ''}</div>
+        </div>
+        <div class="meta">
+          ${chipFor(g)}
+          <div class="venue">${g.venue || ''}</div>
+        </div>
+      </a>
+    `;
+    return div;
+  }
 
-    function render(data){
-      window.__last = data;
-      const all = (data.games || []);
-      const filtered = $liveOnly.checked ? all.filter(isLiveGame) : all;
-      $games.innerHTML = '';
-      if (!filtered.length){
+  // Render list safely (no crashes if filters/containers are missing)
+  function render(data){
+    const all = Array.isArray(data.games) ? data.games : [];
+    const liveOnly = !!($liveOnly && $liveOnly.checked);
+    const filtered = liveOnly ? all.filter(isLiveGame) : all;
+
+    if ($games) $games.innerHTML = '';
+
+    if (!filtered.length){
+      if ($empty){
         $empty.style.display = 'block';
-        $empty.textContent = $liveOnly.checked ? 'No live games right now.' : 'No games to show for this date.';
-        return;
+        $empty.textContent = liveOnly ? 'No live games right now.' : 'No games to show for this date.';
       }
-      $empty.style.display = 'none';
+      if ($updated) $updated.textContent = 'Updated: ' + new Date().toLocaleString();
+      return;
+    }
+
+    if ($empty) $empty.style.display = 'none';
+    if ($games){
       const frag = document.createDocumentFragment();
       filtered.forEach(g => frag.appendChild(card(g)));
       $games.appendChild(frag);
-      $updated.textContent = 'Updated: ' + new Date().toLocaleString();
     }
+    if ($updated) $updated.textContent = 'Updated: ' + new Date().toLocaleString();
+  }
 
-    async function load(){
-      if (state.timer) { clearTimeout(state.timer); state.timer = null; }
-      const et = dateStrET(state.date);
-      try {
-        const data = await fetchJson("{{ url_for('api_games') }}" + '?date=' + et);
-        render(data);
-        const anyLive = (data.games||[]).some(isLiveGame);
-        if (anyLive) state.timer = setTimeout(load, 30000);
-      } catch(e){
-        console.error(e);
-        $games.innerHTML = '<div class="empty">Error loading games. If this persists, check your server logs for the /api/games endpoint.</div>';
-      }
+  // Load + auto-refresh when any game live
+  async function load(){
+    if (state.timer) { clearTimeout(state.timer); state.timer = null; }
+    const et = dateStrET(state.date);
+    try {
+      const data = await fetchJson("{{ url_for('api_games') }}" + '?date=' + encodeURIComponent(et));
+      render(data);
+      const anyLive = (data.games || []).some(isLiveGame);
+      if (anyLive) state.timer = setTimeout(load, 30000);
+    } catch(e){
+      console.error(e);
+      if ($games) $games.innerHTML = '<div class="empty">Error loading games. Check /api/games on the server.</div>';
     }
+  }
 
-    setDate(new Date());
-  </script>
+  // Wire up next/prev today buttons if present (no-crash guards)
+  (function wireControls(){
+    const $prev = document.getElementById('prevDay');
+    const $next = document.getElementById('nextDay');
+    const $today = document.getElementById('today');
+    if ($prev) $prev.addEventListener('click', ()=> setDate(new Date(state.date.getTime() - 86400000)));
+    if ($next) $next.addEventListener('click', ()=> setDate(new Date(state.date.getTime() + 86400000)));
+    if ($today) $today.addEventListener('click', ()=> setDate(new Date()));
+    if ($liveOnly) $liveOnly.addEventListener('change', ()=> render({games: (window.__lastGames || [])}));
+  })();
+
+  // Initial load
+  setDate(new Date());
+</script>
+
 </body>
 </html>
