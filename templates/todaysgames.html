@@ -1,61 +1,118 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Today's Games • Basenerd</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
   <style>
     :root{
       --bg:#ffffff; --card:#ffffff; --muted:#5b6577; --text:#111318; --accent:#0b5cab;
       --row:#fafbfc; --rowAlt:#f4f6f9; --border:#e2e8f0;
+      --header-bg:#ffffff; --header-text:#0b0e13;
       --chip-live:#e21d48; --chip-final:#32425c; --chip-upcoming:#6b7a94;
       --subtle:#8a94ab;
     }
+
     *{box-sizing:border-box}
-    body{ margin:0; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial; font-size:14px; }
-    header{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; background:var(--card); }
-    header h1{margin:0; font-size:18px; letter-spacing:.2px; font-weight:600}
+    body{ margin:0; background:var(--bg); color:var(--text);
+          font-family:"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+          font-size:13.5px; }
+    a{color:var(--accent); text-decoration:none}
+    a:hover{text-decoration:underline}
+
+    /* Header */
+    header{ display:flex; align-items:center; gap:10px; padding:12px 16px;
+            border-bottom:2px solid var(--border); position:sticky; top:0; z-index:10; background:var(--header-bg); }
+    header img{height:32px}
+    header h1{margin:0; font-size:17px; letter-spacing:.2px; font-weight:600; color:var(--header-text)}
     .toolbar{ display:flex; gap:8px; align-items:center; margin-left:auto; }
-    input[type="date"]{ padding:6px 8px; border:1px solid var(--border); border-radius:8px; }
-    main{ max-width:1100px; margin:24px auto; padding:0 16px; display:grid; gap:12px; }
-    .card{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow:0 6px 18px rgba(0,0,0,.04); }
-    .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
-    .teams{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; }
-    .team{ display:flex; flex-direction:column; gap:2px; }
-    .team .name{ font-weight:600; }
+    input[type="date"]{ padding:6px 8px; border:1px solid var(--border); border-radius:10px; background:#fff; color:var(--text) }
+
+    /* Layout */
+    main{ max-width:1100px; margin:20px auto; padding:0 16px; display:grid; gap:12px; }
+    .card{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px;
+           box-shadow:0 8px 20px rgba(0,0,0,.05); }
+    .row{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; }
+    .team{ display:flex; align-items:center; gap:10px; }
+    .team.right{ justify-self:end; flex-direction:row-reverse }
+    .team .meta{ display:flex; flex-direction:column; gap:2px; }
+    .team .name{ font-weight:600; line-height:1.1 }
     .team .sub{ color:var(--muted); font-size:12px; }
-    .chip{ font-size:12px; padding:4px 8px; border-radius:999px; background:#eef1f6; color:#243042; }
-    .chip.live{ background:#fde4ea; color:#7d0a23 }
-    .chip.final{ background:#e6ebf2; color:#1f2d44 }
-    .chip.upcoming{ background:#eef0f3; color:#3a465a }
-    details{ margin-top:8px; border-top:1px dashed var(--border); padding-top:8px; }
-    .section{ margin-top:8px; }
-    .muted{ color:var(--muted); }
-    .empty{ padding:20px; text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:12px; }
+    .team .score{ font-variant-numeric:tabular-nums; font-weight:600; }
+
+    /* Chip / inning badge */
+    .chip{ font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+           font-size:12px; padding:4px 8px; border-radius:999px; }
+    .chip.live{ background:#fde4ea; color:#7d0a23; border:1px solid #fac2d0 }
+    .chip.final{ background:#e6ebf2; color:#1f2d44; border:1px solid #cfd8e6 }
+    .chip.upcoming{ background:#eef0f3; color:#3a465a; border:1px solid #d9e0ea }
+
+    /* Content sections */
+    .sections{ display:grid; grid-template-columns:1fr; gap:6px; margin-top:8px; }
+    .section{ background:linear-gradient(180deg,#fff, #fafbfc); border:1px solid var(--border); border-radius:12px; padding:10px; }
+    .section h3{ margin:0 0 6px 0; font-size:13px; color:#2a3241 }
+    .muted{ color:var(--muted) }
+    .small{ font-size:12px }
+
+    /* Bases diamond */
+    .diamond{ width:70px; height:70px; position:relative; }
+    .base{ position:absolute; width:12px; height:12px; border:2px solid #475569; transform:rotate(45deg); background:#fff; }
+    .b1{ right:6px; top:50%; transform:translateY(-50%) rotate(45deg); }
+    .b2{ top:6px; left:50%; transform:translateX(-50%) rotate(45deg); }
+    .b3{ left:6px; top:50%; transform:translateY(-50%) rotate(45deg); }
+    .base.on{ background:#22c55e; border-color:#1b9e4b; }
+
+    /* Details / dropdown */
+    details{ margin-top:6px; border-top:1px dashed var(--border); padding-top:8px; }
+    summary{ cursor:pointer; color:#243042; font-weight:600 }
     table{ width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
     th, td{ border:1px solid var(--border); padding:6px 8px; text-align:left; }
     th{ background:#f7f9fc; }
+    .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .empty{ padding:20px; text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:12px; }
+
+    /* Badges row under header */
+    .badges{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:center; }
   </style>
 </head>
 <body>
   <header>
+    <img alt="Basenerd" src="https://upload.wikimedia.org/wikipedia/commons/7/79/Baseball.svg">
     <h1>Today's Games</h1>
     <div class="toolbar">
-      <input id="date" type="date">
+      <input id="date" type="date" />
     </div>
   </header>
-  <main id="games"></main>
+
+  <main id="games">
+    <div class="empty">Loading games…</div>
+  </main>
 
   <script>
     const $date = document.getElementById('date');
     const $games = document.getElementById('games');
 
-    function fmtChip(g){
-      const s = g.status;
-      const cls = s==='in_progress' ? 'chip live' : (s==='final' ? 'chip final' : 'chip upcoming');
-      const text = g.chip || (s==='scheduled' ? 'Scheduled' : s==='in_progress' ? 'Live' : 'Final');
-      return `<span class="${cls}">${text}</span>`;
+    function chipClass(status){
+      if(status==='in_progress') return 'chip live';
+      if(status==='final') return 'chip final';
+      return 'chip upcoming';
+    }
+
+    function topBottom(isTop){
+      if(isTop === true) return '▲ Top';
+      if(isTop === false) return '▼ Bottom';
+      return '';
+    }
+
+    function basesDiamond(b){
+      const f = b?.first, s = b?.second, t = b?.third;
+      return `
+        <div class="diamond" title="Bases">
+          <div class="base b1 ${f?'on':''}"></div>
+          <div class="base b2 ${s?'on':''}"></div>
+          <div class="base b3 ${t?'on':''}"></div>
+        </div>`;
     }
 
     function makeLinescore(ls){
@@ -67,70 +124,118 @@
         <table>
           <thead><tr><th></th>${head}<th>R</th><th>H</th><th>E</th></tr></thead>
           <tbody>
-            <tr><th>Away</th>${away}<td>${ls.totals.away.runs ?? ''}</td><td>${ls.totals.away.hits ?? ''}</td><td>${ls.totals.away.errors ?? ''}</td></tr>
-            <tr><th>Home</th>${home}<td>${ls.totals.home.runs ?? ''}</td><td>${ls.totals.home.hits ?? ''}</td><td>${ls.totals.home.errors ?? ''}</td></tr>
+            <tr><th>Away</th>${away}<td>${ls.totals.away?.runs ?? ''}</td><td>${ls.totals.away?.hits ?? ''}</td><td>${ls.totals.away?.errors ?? ''}</td></tr>
+            <tr><th>Home</th>${home}<td>${ls.totals.home?.runs ?? ''}</td><td>${ls.totals.home?.hits ?? ''}</td><td>${ls.totals.home?.errors ?? ''}</td></tr>
           </tbody>
         </table>`;
     }
 
     function tableBatters(arr){
-      if(!arr || !arr.length) return '<div class="muted">No batting data</div>';
+      if(!arr || !arr.length) return '<div class="muted small">No batting data</div>';
       const head = '<tr><th>Name</th><th>AB</th><th>H</th><th>BB</th><th>SO</th><th>RBI</th><th>AVG</th></tr>';
       const rows = arr.map(r=>`<tr><td>${r.name||''}</td><td>${r.AB??''}</td><td>${r.H??''}</td><td>${r.BB??''}</td><td>${r.SO??''}</td><td>${r.RBI??''}</td><td>${r.AVG??''}</td></tr>`).join('');
       return `<table><thead>${head}</thead><tbody>${rows}</tbody></table>`;
     }
 
     function tablePitchers(arr){
-      if(!arr || !arr.length) return '<div class="muted">No pitching data</div>';
+      if(!arr || !arr.length) return '<div class="muted small">No pitching data</div>';
       const head = '<tr><th>Name</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>SO</th><th>ERA</th></tr>';
       const rows = arr.map(r=>`<tr><td>${r.name||''}</td><td>${r.IP??''}</td><td>${r.H??''}</td><td>${r.R??''}</td><td>${r.ER??''}</td><td>${r.BB??''}</td><td>${r.SO??''}</td><td>${r.ERA??''}</td></tr>`).join('');
       return `<table><thead>${head}</thead><tbody>${rows}</tbody></table>`;
+    }
+
+    function teamRow(g){
+      const a = g.teams.away, h = g.teams.home;
+      const inningSide = (g.status==='in_progress' && !g.inBreak) ? ` • ${topBottom(g.isTop)} ${g.inning ?? ''}` : '';
+      return `
+        <div class="row">
+          <div class="team">
+            <div class="meta">
+              <div class="name">${a.abbr||a.name}</div>
+              <div class="sub">${a.record||''}</div>
+            </div>
+            ${a.score!=null ? `<div class="score">${a.score}</div>` : ''}
+          </div>
+          <div class="badges">
+            <span class="${chipClass(g.status)}">${g.chip || (g.status==='scheduled' ? 'Scheduled' : (g.status==='final' ? 'Final' : 'Live'))}</span>
+            ${inningSide ? `<span class="chip">${inningSide}</span>`:''}
+          </div>
+          <div class="team right">
+            ${h.score!=null ? `<div class="score">${h.score}</div>` : ''}
+            <div class="meta" style="text-align:right">
+              <div class="name">${h.abbr||h.name}</div>
+              <div class="sub">${h.record||''}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function contextRow(g){
+      const left = g.lastPlay ? `<strong>Last Play:</strong> ${g.lastPlay}${g.statcast? ' • <span class="muted small">'+g.statcast+'</span>':''}` : '';
+      const right = (g.dueUp || g.teams.home.currentPitcher || g.teams.away.currentPitcher) ?
+        `<div class="muted small">
+          ${g.dueUp ? 'Due up: '+g.dueUp : ''}
+          ${g.teams.home.currentPitcher ? ' • HP: '+g.teams.home.currentPitcher : ''}
+          ${g.teams.away.currentPitcher ? ' • AP: '+g.teams.away.currentPitcher : ''}
+        </div>` : '';
+      return `
+        <div class="sections">
+          <div class="section">
+            <div style="display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap">
+              <div style="display:flex; align-items:center; gap:12px;">
+                ${basesDiamond(g.bases)}
+                <div>${left || '<span class="muted small">No recent play</span>'}</div>
+              </div>
+              ${right}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function dropdowns(g){
+      const show = g.linescore || (g.batters && (g.batters.home?.length || g.batters.away?.length)) || (g.pitchers && (g.pitchers.home?.length || g.pitchers.away?.length));
+      if(!show) return '';
+      return `
+        <details>
+          <summary>Box score &amp; linescore</summary>
+          ${makeLinescore(g.linescore)}
+          <div class="grid-2">
+            <div>
+              <h3>Batting — Away</h3>
+              ${tableBatters(g.batters?.away||[])}
+              <h3>Pitching — Away</h3>
+              ${tablePitchers(g.pitchers?.away||[])}
+            </div>
+            <div>
+              <h3>Batting — Home</h3>
+              ${tableBatters(g.batters?.home||[])}
+              <h3>Pitching — Home</h3>
+              ${tablePitchers(g.pitchers?.home||[])}
+            </div>
+          </div>
+        </details>
+      `;
     }
 
     async function loadGames(d){
       try{
         const qs = d ? ('?date='+encodeURIComponent(d)) : '';
         const res = await fetch('/api/games'+qs, {cache:'no-store'});
-        if(!res.ok){
-          throw new Error('HTTP '+res.status);
-        }
+        if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
         const games = data.games || [];
         if(!games.length){
           $games.innerHTML = '<div class="empty">No games for this date.</div>';
           return;
         }
-        $games.innerHTML = games.map(g=>{
-          const home = g.teams.home, away = g.teams.away;
-          const last = g.lastPlay ? `<div class="section"><strong>Last Play:</strong> ${g.lastPlay}${g.statcast? ' • <span class="muted">'+g.statcast+'</span>':''}</div>` : '';
-          const ctx = (g.dueUp || home.currentPitcher || away.currentPitcher) ? 
-            `<div class="section muted">
-              ${g.dueUp ? 'Due up: '+g.dueUp : ''}
-              ${home.currentPitcher ? ' • HP: '+home.currentPitcher : ''}
-              ${away.currentPitcher ? ' • AP: '+away.currentPitcher : ''}
-            </div>` : '';
-          const dropdown = (g.linescore || (g.batters && (g.batters.home.length||g.batters.away.length)) || (g.pitchers && (g.pitchers.home.length||g.pitchers.away.length))) ?
-            `<details><summary>Box score &amp; linescore</summary>
-              ${makeLinescore(g.linescore)}
-              <h4>Batting — Away</h4>${tableBatters((g.batters && g.batters.away)||[])}
-              <h4>Batting — Home</h4>${tableBatters((g.batters && g.batters.home)||[])}
-              <h4>Pitching — Away</h4>${tablePitchers((g.pitchers && g.pitchers.away)||[])}
-              <h4>Pitching — Home</h4>${tablePitchers((g.pitchers && g.pitchers.home)||[])}
-            </details>` : '';
-          return `
-            <article class="card">
-              <div class="row">
-                <div class="teams">
-                  <div class="team"><div class="name">${away.abbr||away.name}</div><div class="sub">${away.record||''}</div></div>
-                  <div>${fmtChip(g)}</div>
-                  <div class="team" style="text-align:right"><div class="name">${home.abbr||home.name}</div><div class="sub">${home.record||''}</div></div>
-                </div>
-              </div>
-              ${last}
-              ${ctx}
-              ${dropdown}
-            </article>`;
-        }).join('');
+        $games.innerHTML = games.map(g => `
+          <article class="card">
+            ${teamRow(g)}
+            ${contextRow(g)}
+            ${dropdowns(g)}
+          </article>
+        `).join('');
       }catch(e){
         console.error(e);
         $games.innerHTML = '<div class="empty">Error loading games. If this persists, check your server logs for the /api/games endpoint.</div>';
