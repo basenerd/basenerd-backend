@@ -196,379 +196,234 @@
   </div>
 
   <script>
-    // Drawer
-    (function(){
-      const btn = document.querySelector('.hamburger');
-      const drawer = document.getElementById('site-drawer');
-      const backdrop = document.querySelector('.drawer-backdrop');
-      function openDrawer(){ drawer.classList.add('open'); backdrop.classList.add('show'); drawer.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); document.body.style.overflow='hidden'; }
-      function closeDrawer(){ drawer.classList.remove('open'); backdrop.classList.remove('show'); drawer.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); document.body.style.overflow=''; }
-      btn?.addEventListener('click', () => { (btn.getAttribute('aria-expanded') === 'true') ? closeDrawer() : openDrawer(); });
-      backdrop?.addEventListener('click', closeDrawer);
-      document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeDrawer(); });
-    })();
 
-    const $games = document.getElementById('games');
-    const $empty = document.getElementById('empty');
-    const $dateLabel = document.getElementById('dateLabel');
-    const $updated = document.getElementById('updated');
-    const $liveOnly = document.getElementById('liveOnly');
+// Drawer
+(function(){
+  const btn = document.querySelector('.hamburger');
+  const drawer = document.getElementById('site-drawer');
+  const backdrop = document.querySelector('.drawer-backdrop');
+  function openDrawer(){ drawer.classList.add('open'); backdrop.classList.add('show'); drawer.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true'); document.body.style.overflow='hidden'; }
+  function closeDrawer(){ drawer.classList.remove('open'); backdrop.classList.remove('show'); drawer.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); document.body.style.overflow=''; }
+  btn?.addEventListener('click', () => { (btn.getAttribute('aria-expanded') === 'true') ? closeDrawer() : openDrawer(); });
+  backdrop?.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeDrawer(); });
+})();
 
-    // ET helpers
-    const fmtET = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
-    function etParts(d){
-      const f = fmtET.formatToParts(d);
-      const get = t => (f.find(p => p.type===t)||{}).value || '';
-      const mm = get('month').padStart(2,'0'); const dd = get('day').padStart(2,'0'); const yyyy = get('year'); const wk = get('weekday');
-      const label = `${wk} ${new Date(`${yyyy}-${mm}-${dd}T00:00:00`).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'})}`;
-      return {yyyy, mm, dd, label};
-    }
-    function dateStrET(d){ const {yyyy, mm, dd} = etParts(d); return `${yyyy}-${mm}-${dd}`; }
-    function labelET(d){ return etParts(d).label; }
+const $games = document.getElementById('games');
+const $empty = document.getElementById('empty');
+const $dateLabel = document.getElementById('dateLabel');
+const $updated = document.getElementById('updated');
+const $liveOnly = document.getElementById('liveOnly');
+const $prev = document.getElementById('prevDay');
+const $next = document.getElementById('nextDay');
+const $today = document.getElementById('todayBtn');
 
-    let state = { date: new Date(), timer: null };
-    function setDate(d){ state.date = new Date(d.getFullYear(), d.getMonth(), d.getDate()); $dateLabel.textContent = labelET(state.date); load(); }
-    document.getElementById('prevDay').onclick = () => setDate(new Date(state.date.getTime()-86400000));
-    document.getElementById('nextDay').onclick = () => setDate(new Date(state.date.getTime()+86400000));
-    document.getElementById('todayBtn').onclick = () => setDate(new Date());
-    $liveOnly.addEventListener('change', () => render(window.__last || {games:[]}));
+// ET helpers (keep same display)
+const fmtET = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour:'2-digit', minute:'2-digit', hour12:true, month:'2-digit', day:'2-digit', weekday:'short' });
+function etParts(d){
+  const f = fmtET.formatToParts(d);
+  const get = t => (f.find(p => p.type===t)||{}).value || '';
+  const mm = (get('month')||'').toString().padStart(2,'0');
+  const dd = (get('day')||'').toString().padStart(2,'0');
+  const yyyy = get('year');
+  const wk = get('weekday');
+  return {yyyy, mm, dd, wk};
+}
+function dateStrET(d){ const {yyyy, mm, dd} = etParts(d); return `${yyyy}-${mm}-${dd}`; }
+function labelET(d){ const {wk, mm, dd} = etParts(d); return `${wk} ${mm}/${dd}`; }
+function updatedET(){ const d = new Date(); const p = etParts(d); let h = p.hr, mi = p.mi, ap = p.ampm; return `Updated ${d.toLocaleString('en-US',{timeZone:'America/New_York', hour:'numeric', minute:'2-digit'})} ET`; }
 
-    // API helper
-    const API_GAMES = "{{ url_for('api_games') }}";
-    async function fetchJson(url){
-      const res = await fetch(url, { cache: 'no-store' });
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    }
+function logoURL(abbr){ return `/static/logos/${abbr}.svg`; }
 
-    function chipFor(g){
-      if (g.status === 'in_progress') return `<span class="chip live">${g.chip}</span>`;
-      if (g.status === 'final') return `<span class="chip final">Final</span>`;
-      return `<span class="chip upcoming">${g.chip}</span>`;
-    }
+function topBottom(isTop){ if(isTop === true) return 'Top'; if(isTop === false) return 'Bottom'; return ''; }
+function chipHTML(g){
+  const cls = g.status==='in_progress' ? 'chip live' : (g.status==='final' ? 'chip final' : 'chip upcoming');
+  const txt = g.chip || (g.status==='scheduled' ? 'Scheduled' : (g.status==='final' ? 'Final' : 'Live'));
+  return `<span class="${cls}">${txt}</span>`;
+}
+function diamondHTML(b){
+  const f = b?.first, s = b?.second, t = b?.third;
+  return `<span class="diamond" aria-label="Bases">
+    <span class="base b2 ${s?'on':''}"></span>
+    <span class="base b1 ${f?'on':''}"></span>
+    <span class="base b3 ${t?'on':''}"></span>
+  </span>`;
+}
 
-    function diamondHTML(g){
-      if (g.inBreak) return '';
-      const b = g.bases || {};
-      return `<span class="diamond" aria-label="Bases">
-        <span class="base b2 ${b.second?'on':''}"></span>
-        <span class="base b1 ${b.first?'on':''}"></span>
-        <span class="base b3 ${b.third?'on':''}"></span>
-      </span>`;
-    }
+function teamBlock(side, t, showScore){
+  return `<div class="team">
+    <div class="iconstack">
+      <img src="${logoURL(t.abbr)}" alt="${t.abbr} logo">
+      <div class="record">${t.record||''}</div>
+    </div>
+    <div class="abbr">${t.abbr||t.name||''}</div>
+    <div class="info">${(t.probable && !showScore) ? 'Prob: '+t.probable : ''}</div>
+    ${showScore ? `<div class="score">${t.score ?? ''}</div>` : ''}
+  </div>`;
+}
 
-    function teamBlock(t, extraInfo){
-      return `
-        <div class="team">
-          <div class="iconstack">
-            ${t.id ? `<img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="">` : ''}
-            <span class="record">${t.record||''}</span>
-          </div>
-          <span class="abbr">${t.abbr||''}</span>
-          <span class="info">${extraInfo||''}</span>
-        </div>`;
-    }
+function teamsHeader(g){
+  const a = g.teams.away, h = g.teams.home;
+  const showScores = (a.score != null) || (h.score != null);
+  const inningChip = (g.status==='in_progress' && !g.inBreak) ? `<span class="chip">${topBottom(g.isTop)} ${g.inning ?? ''}</span>` : '';
+  return `<div class="rows">
+    <div class="row">
+      ${teamBlock('away', a, showScores)}
+      <div class="chips">${chipHTML(g)}${inningChip}${diamondHTML(g.bases)}</div>
+      ${teamBlock('home', h, showScores)}
+    </div>
+  </div>`;
+}
 
-    function teamRowScheduled(side, t){
-      return `<div class="row">${teamBlock(t, t.probable || '')}<div class="right score">&nbsp;</div></div>`;
-    }
+function lastPlayBlock(g){
+  if(!g.lastPlay && !g.statcast) return '';
+  const lp = g.lastPlay ? `<strong>Last Play:</strong> ${g.lastPlay}` : '';
+  const sc = g.statcast ? ` <span class="muted">• ${g.statcast}</span>` : '';
+  return `<div class="sec">${lp}${sc}</div>`;
+}
 
-    function teamRowLive(side, t, g){
-      let info = '';
-      if (g.inBreak) {
-        if (g.dueUpSide === side && g.dueUp) info = 'Due: ' + g.dueUp;
-        else info = t.breakPitcher || t.currentPitcher || t.currentBatter || '';
-      } else {
-        info = t.currentPitcher || t.currentBatter || '';
-      }
-      const score = (t.score!=null) ? t.score : '&nbsp;';
-      return `<div class="row">${teamBlock(t, info)}<div class="right score">${score}</div></div>`;
-    }
+// mini stats lookup from box arrays
+function findPitcherStats(name, rows){
+  if(!name || !Array.isArray(rows)) return null;
+  const row = rows.find(r => (r.name||'').toLowerCase() === name.toLowerCase());
+  if(!row) return null;
+  return { IP: row.IP, H: row.H, R: row.R, ER: row.ER, BB: row.BB, SO: row.SO, ERA: row.ERA };
+}
+function findBatterStats(name, rows){
+  if(!name || !Array.isArray(rows)) return null;
+  const row = rows.find(r => (r.name||'').toLowerCase() === name.toLowerCase());
+  if(!row) return null;
+  return { AB: row.AB, H: row.H, BB: row.BB, SO: row.SO, RBI: row.RBI, AVG: row.AVG };
+}
 
-    function teamRowFinal(side, t){
-      const score = (t.score!=null) ? t.score : '&nbsp;';
-      const wOrL = t.finalPitcher ? `<div class="info" style="grid-column:1/-1; padding:0 12px 4px 12px;">${t.finalPitcher}</div>` : '';
-      const save = t.savePitcher ? `<div class="info" style="grid-column:1/-1; padding:0 12px 8px 12px;">${t.savePitcher}</div>` : '';
-      return `<div class="row">${teamBlock(t, '')}<div class="right score">${score}</div></div>${wOrL}${save}`;
-    }
+function liveBlock(g){
+  if(g.status!=='in_progress') return '';
+  const a = g.teams.away, h = g.teams.home;
+  const aP = g.pitchers?.away || [], hP = g.pitchers?.home || [];
+  const aB = g.batters?.away || [], hB = g.batters?.home || [];
+  const hp = h.currentPitcher ? findPitcherStats(h.currentPitcher, hP) : null;
+  const ap = a.currentPitcher ? findPitcherStats(a.currentPitcher, aP) : null;
+  const hb = h.currentBatter ? findBatterStats(h.currentBatter, hB) : null;
+  const ab = a.currentBatter ? findBatterStats(a.currentBatter, aB) : null;
+  const due = g.dueUp ? `<div class="muted">Due up: ${g.dueUp}</div>` : '';
+  const rows = [];
+  if(h.currentPitcher){ const t = hp?` — ${hp.IP||'-'} IP, ${hp.H||0} H, ${hp.R||0} R, ${hp.SO||0} K, ERA ${hp.ERA||'-'}`:''; rows.push(`<div><strong>Home P:</strong> ${h.currentPitcher}${t}</div>`); }
+  if(a.currentPitcher){ const t = ap?` — ${ap.IP||'-'} IP, ${ap.H||0} H, ${ap.R||0} R, ${ap.SO||0} K, ERA ${ap.ERA||'-'}`:''; rows.push(`<div><strong>Away P:</strong> ${a.currentPitcher}${t}</div>`); }
+  if(h.currentBatter){ const t = hb?` — ${hb.AB||0} AB, ${hb.H||0} H, ${hb.RBI||0} RBI, ${hb.SO||0} K, AVG ${hb.AVG||'-'}`:''; rows.push(`<div><strong>Home B:</strong> ${h.currentBatter}${t}</div>`); }
+  if(a.currentBatter){ const t = ab?` — ${ab.AB||0} AB, ${ab.H||0} H, ${ab.RBI||0} RBI, ${ab.SO||0} K, AVG ${ab.AVG||'-'}`:''; rows.push(`<div><strong>Away B:</strong> ${a.currentBatter}${t}</div>`); }
+  if(!rows.length && !due) return '';
+  return `<div class="sec">${due}${rows.join('')}</div>`;
+}
 
-    function lastPlayHTML(g){
-      if (g.status !== 'in_progress' || !g.lastPlay) return '';
-      const stat = g.statcast ? `<div class="statcast">${g.statcast}</div>` : '';
-      return `<div class="lastplay"><strong>Last Play:</strong> ${g.lastPlay}</div>${stat}`;
-    }
+function makeLinescore(ls){
+  if(!ls || !ls.innings) return '';
+  const head = ls.innings.map(i=>`<th>${i.num}</th>`).join('');
+  const away = ls.innings.map(i=>`<td>${i.away ?? ''}</td>`).join('');
+  const home = ls.innings.map(i=>`<td>${i.home ?? ''}</td>`).join('');
+  const aT = ls.totals?.away || {}, hT = ls.totals?.home || {};
+  return `<table>
+    <thead><tr><th></th>${head}<th>R</th><th>H</th><th>E</th></tr></thead>
+    <tbody>
+      <tr><th>Away</th>${away}<td>${aT.runs ?? ''}</td><td>${aT.hits ?? ''}</td><td>${aT.errors ?? ''}</td></tr>
+      <tr><th>Home</th>${home}<td>${hT.runs ?? ''}</td><td>${hT.hits ?? ''}</td><td>${hT.errors ?? ''}</td></tr>
+    </tbody>
+  </table>`;
+}
+function battersTable(rows){
+  if(!rows || !rows.length) return '<div class="muted">No batting data</div>';
+  const head = '<thead><tr><th>Player</th><th>AB</th><th>H</th><th>BB</th><th>SO</th><th>RBI</th><th>AVG</th></tr></thead>';
+  const body = rows.map(r=>`<tr><td>${r.name||''}</td><td>${r.AB??''}</td><td>${r.H??''}</td><td>${r.BB??''}</td><td>${r.SO??''}</td><td>${r.RBI??''}</td><td>${r.AVG??''}</td></tr>`).join('');
+  return `<table>${head}<tbody>${body}</tbody></table>`;
+}
+function pitchersTable(rows){
+  if(!rows || !rows.length) return '<div class="muted">No pitching data</div>';
+  const head = '<thead><tr><th>Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>SO</th><th>ERA</th></tr></thead>';
+  const body = rows.map(r=>`<tr><td>${r.name||''}</td><td>${r.IP??''}</td><td>${r.H??''}</td><td>${r.R??''}</td><td>${r.ER??''}</td><td>${r.BB??''}</td><td>${r.SO??''}</td><td>${r.ERA??''}</td></tr>`).join('');
+  return `<table>${head}<tbody>${body}</tbody></table>`;
+}
 
-    // Name shortener
-    function fmtShortName(full){
-      if(!full) return '';
-      const parts = String(full).trim().split(/\s+/);
-      if(parts.length === 1) return parts[0];
-      const last = parts.pop(); const first = parts.shift();
-      const initial = first ? first[0].toUpperCase() + '.' : '';
-      return `${initial} ${last}`;
-    }
-
-    // Inning-by-inning runs
-    function linescoreTable(g){
-      const ls = g.linescore; if (!ls) return '';
-      const n = ls.n || 9;
-      const head = Array.from({length:n}, (_,i)=>`<th>${i+1}</th>`).join('');
-      const aCells = Array.from({length:n}, (_,i)=>`<td>${(ls.away[i] ?? '')}</td>`).join('');
-      const hCells = Array.from({length:n}, (_,i)=>`<td>${(ls.home[i] ?? '')}</td>`).join('');
-      const aT = ls.totals.away, hT = ls.totals.home;
-      return `
-        <div class="box">
-          <table>
-            <thead><tr><th></th>${head}<th>R</th><th>H</th><th>E</th></tr></thead>
-            <tbody>
-              <tr><td class="name">${g.teams.away.abbr}</td>${aCells}<td>${aT.R ?? ''}</td><td>${aT.H ?? ''}</td><td>${aT.E ?? ''}</td></tr>
-              <tr><td class="name">${g.teams.home.abbr}</td>${hCells}<td>${hT.R ?? ''}</td><td>${hT.H ?? ''}</td><td>${hT.E ?? ''}</td></tr>
-            </tbody>
-          </table>
-        </div>`;
-    }
-
-    // Batting box
-    function battersTable(teamAbbr, rows){
-      if (!rows || !rows.length) return `<div class="batters"><em>No batter stats yet.</em></div>`;
-      const trs = rows.map(r => {
-        const tr = `
-          <tr ${r.indent ? 'class="indent"' : ''}>
-            <td class="pos">${r.pos||''}</td>
-            <td class="name">${fmtShortName(r.name)||''}</td>
-            <td>${r.ab ?? ''}</td>
-            <td>${r.r ?? ''}</td>
-            <td>${r.h ?? ''}</td>
-            <td>${r.rbi ?? ''}</td>
-            <td>${r.bb ?? ''}</td>
-            <td>${r.k ?? ''}</td>
-          </tr>`;
-        return tr;
-      }).join('');
-      return `
-        <div class="batters box">
-          <div class="teamhdr">${teamAbbr} — Batting</div>
-          <table>
-            <thead>
-              <tr><th class="pos">POS</th><th class="name">Player</th><th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>K</th></tr>
-            </thead>
-            <tbody>${trs}</tbody>
-          </table>
-        </div>`;
-    }
-
-    // Pitching box
-    function pitchersTable(teamAbbr, rows){
-      if (!rows || !rows.length) return `<div class="pitchers"><em>No pitching stats yet.</em></div>`;
-      const trs = rows.map(r => `
-        <tr ${r.indent ? 'class="indent"' : ''}>
-          <td class="pos">${r.pos||'P'}</td>
-          <td class="name">${fmtShortName(r.name)||''}</td>
-          <td>${r.ip ?? ''}</td>
-          <td>${r.h ?? ''}</td>
-          <td>${r.r ?? ''}</td>
-          <td>${r.er ?? ''}</td>
-          <td>${r.bb ?? ''}</td>
-          <td>${r.k ?? ''}</td>
-          <td>${r.hr ?? ''}</td>
-          <td>${r.p ?? ''}</td>
-        </tr>
-      `).join('');
-      return `
-        <div class="pitchers box">
-          <div class="teamhdr">${teamAbbr} — Pitching</div>
-          <table>
-            <thead>
-              <tr><th class="pos">POS</th><th class="name">Pitcher</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>HR</th><th>P</th></tr>
-            </thead>
-            <tbody>${trs}</tbody>
-          </table>
-        </div>`;
-    }
-
-    function boxscoreDropdown(g){
-      if (!g.linescore && !g.batters && !g.pitchers) return '';
-      const awayBat = g.batters ? battersTable(g.teams.away.abbr, g.batters.away) : '';
-      const homeBat = g.batters ? battersTable(g.teams.home.abbr, g.batters.home) : '';
-      const awayPit = g.pitchers ? pitchersTable(g.teams.away.abbr, g.pitchers.away) : '';
-      const homePit = g.pitchers ? pitchersTable(g.teams.home.abbr, g.pitchers.home) : '';
-      const ls = g.linescore ? linescoreTable(g) : '';
-      return `
-        <details class="boxscore">
-          <summary>Box score</summary>
-          <div class="boxwrap">
-            ${ls}
-            ${awayBat}
-            ${homeBat}
-            ${awayPit}
-            ${homePit}
-          </div>
-        </details>`;
-    }
-
-    // Scheduled lineups
-    function lineupDetails(g){
-      const lu = g.lineups || {};
-      const away = Array.isArray(lu.away) ? lu.away : [];
-      const home = Array.isArray(lu.home) ? lu.home : [];
-      const last = full => { const s = (full || '').trim(); if (!s) return ''; const parts = s.split(/\s+/); return parts[parts.length-1]; };
-      const list = arr => {
-        if (!(arr && arr.length)) return `<div>Lineup not yet available.</div>`;
-        return `<div class="list">${
-          arr.slice(0,9).map(x => `
-            <div class="entry">
-              <span class="pos">${(x.pos||'').toUpperCase()}</span>
-              <span class="name">${last(x.name)}</span>
-              <span class="trip">${x.trip ? x.trip : ''}</span>
-            </div>`).join('')
-        }</div>`;
-      };
-      return `
-        <details class="lineups">
-          <summary>Lineups</summary>
-          <div class="lineup-flex">
-            <div class="lineup"><h4>${g.teams.away.abbr}</h4>${list(away)}</div>
-            <div class="lineup"><h4>${g.teams.home.abbr}</h4>${list(home)}</div>
-          </div>
-        </details>`;
-    }
-
-    // --- Team colors (primary approx) ---
-    const TEAM_COLORS = {
-      109:"#A71930",144:"#CE1141",110:"#DF4601",111:"#BD3039",112:"#0E3386",145:"#27251F",
-      113:"#C6011F",114:"#4E2D82",115:"#33006F",116:"#0C2C56",117:"#EB6E1F",118:"#004687",
-      108:"#BA0021",119:"#005A9C",146:"#00A3E0",158:"#12284B",142:"#002B5C",121:"#002D72",
-      147:"#0C2340",133:"#003831",143:"#E81828",134:"#FDB827",135:"#2F241D",136:"#0A2944",
-      137:"#FD5A1E",138:"#C41E3A",139:"#8FBCE6",140:"#003278",141:"#134A8E",120:"#AB0003"
-    };
-    function teamColor(team){ return TEAM_COLORS[team && team.id] || "#6b7a94"; }
-
-    // --- Simple live win probability (heuristic) ---
-    function computeWinProb(g){
-      const a = g.teams.away, h = g.teams.home;
-      const aR = Number.isFinite(+a.score) ? +a.score : 0;
-      const hR = Number.isFinite(+h.score) ? +h.score : 0;
-      const diff = hR - aR;
-      const inn = g.inning || 1;
-      const half = g.isTop ? 0 : 0.5;
-      const progress = Math.min(((inn - 1) + half) / 9, 1);
-      const kBase = 0.85, kProg = 1.35;
-      const homeEdge = 0.05;
-      const x = (kBase + kProg * progress) * diff + (homeEdge * (1 - progress));
-      const sig = 1 / (1 + Math.exp(-x));
-      const home = Math.min(Math.max(sig, 0.01), 0.99);
-      return { home, away: 1 - home };
-    }
-    function pct(n){ return Math.round(n * 100); }
-    function renderWinProb(g){
-      const wp = computeWinProb(g);
-      const a = g.teams.away, h = g.teams.home;
-      const homePct = pct(wp.home), awayPct = 100 - homePct;
-      const homeColor = teamColor(h), awayColor = teamColor(a);
-      return `
-        <div class="wp-wrap" aria-label="Win Probability">
-          <div class="wp-title">Win Prob.</div>
-          <div class="wp-bar" role="img" aria-label="${a.abbr} ${awayPct}% • ${h.abbr} ${homePct}%">
-            <div class="wp-seg" style="width:${awayPct}%; background:${awayColor}; opacity:.9;"></div>
-            <div class="wp-seg" style="width:${homePct}%; background:${homeColor}; opacity:.9;"></div>
-          </div>
-          <div class="wp-labels">
-            <div><strong>${a.abbr}</strong> ${awayPct}%</div>
-            <div><strong>${h.abbr}</strong> ${homePct}%</div>
-          </div>
-        </div>`;
-    }
-
-    // --- Score Summary (scoring plays) ---
-    function scoringSummaryDropdown(g){
-      const scor = Array.isArray(g.scoring) ? g.scoring : [];
-      const a = g.teams.away, h = g.teams.home;
-      const head = `<thead><tr><th>Inning</th><th class="play">Play</th><th>${a.abbr}</th><th>${h.abbr}</th></tr></thead>`;
-      let body = '';
-      if (scor.length){
-        body = scor.map(s => {
-          const inn = (s.inning!=null)? s.inning : '';
-          const play = (s.play||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-          const away = (s.away!=null)? s.away : '';
-          const home = (s.home!=null)? s.home : '';
-          return `<tr><td>${inn}</td><td class="play">${play}</td><td>${away}</td><td>${home}</td></tr>`;
-        }).join('');
-      } else {
-        body = `<tr><td colspan="4" class="play">No scoring plays yet.</td></tr>`;
-      }
-      return `
-        <details class="scoresum">
-          <summary>Score Summary</summary>
-          <div class="wrap">
-            <table>${head}<tbody>${body}</tbody></table>
-          </div>
-        </details>`;
-    }
-
-    // Link label varies by status
-    function linkLabel(status){
-      if (status === 'final') return 'Game Report';
-      if (status === 'in_progress') return 'Live Game Details';
-      return 'Game Preview';
-    }
-
-    function card(g){
-      const a = g.teams.away, h = g.teams.home;
-      const headerLeft = `<div class="when">${g.venue||''}</div>`;
-      const detailLink = `<a class="details-btn" href="/game/${g.gamePk}" title="${linkLabel(g.status)}">${linkLabel(g.status)} ›</a>`;
-      const headerRight = g.status==='in_progress' ? `${chipFor(g)}${diamondHTML(g)} ${detailLink}` : `${chipFor(g)} ${detailLink}`;
-      const el = document.createElement('article');
-      el.className = 'game';
-      el.innerHTML = `
-        <header>${headerLeft}<div>${headerRight}</div></header>
-        <div class="rows">
-          ${g.status==='scheduled' ? teamRowScheduled('away', a) : g.status==='in_progress' ? teamRowLive('away', a, g) : teamRowFinal('away', a)}
-          ${g.status==='scheduled' ? teamRowScheduled('home', h) : g.status==='in_progress' ? teamRowLive('home', h, g) : teamRowFinal('home', h)}
+function dropdowns(g){
+  let html = '';
+  if(g.linescore){
+    html += `<details class="boxscore"><summary>Box score</summary>${makeLinescore(g.linescore)}</details>`;
+  }
+  if(g.batters || g.pitchers){
+    const aB = g.batters?.away || [], hB = g.batters?.home || [];
+    const aP = g.pitchers?.away || [], hP = g.pitchers?.home || [];
+    html += `<details class="lineups"><summary>Lineups</summary>
+      <div class="grid-2">
+        <div>
+          <h3>Batting — Away</h3>${battersTable(aB)}
+          <h3>Pitching — Away</h3>${pitchersTable(aP)}
         </div>
-        ${ g.status==='in_progress' ? lastPlayHTML(g) : '' }
-        ${ g.status==='in_progress' ? renderWinProb(g) : '' }
-        ${ scoringSummaryDropdown(g) }
-        ${ g.status==='scheduled' ? lineupDetails(g) : '' }
-        ${ (g.status!=='scheduled') ? boxscoreDropdown(g) : '' }
-      `;
-      return el;
-    }
+        <div>
+          <h3>Batting — Home</h3>${battersTable(hB)}
+          <h3>Pitching — Home</h3>${pitchersTable(hP)}
+        </div>
+      </div>
+    </details>`;
+  }
+  return html;
+}
 
-    function render(data){
-      window.__last = data;
-      const all = (data.games||[]);
-      const filtered = $liveOnly.checked ? all.filter(g => g.status==='in_progress') : all;
-      $games.innerHTML = '';
-      if (!filtered.length){
-        $empty.style.display = 'block';
-        $empty.textContent = $liveOnly.checked ? 'No live games right now.' : 'No games to show for this date.';
-        return;
-      }
-      $empty.style.display = 'none';
-      const frag = document.createDocumentFragment();
-      filtered.forEach(g => frag.appendChild(card(g)));
-      $games.appendChild(frag);
-      $updated.textContent = 'Updated: ' + new Date().toLocaleString();
+function cardHTML(g){
+  return `<article class="card">
+    ${teamsHeader(g)}
+    ${lastPlayBlock(g)}
+    ${g.status==='in_progress' ? liveBlock(g) : ''}
+    ${dropdowns(g)}
+    <div class="sec"><a class="details-btn" href="/game/${g.gamePk}">Game details</a></div>
+  </article>`;
+}
 
-      // Ensure Score Summary details are closed on initial render
-      document.querySelectorAll('details.scoresum[open]').forEach(d => d.removeAttribute('open'));
-    }
+// Data flow
+let state = { date: new Date(), timer: null, liveOnly: false };
 
-    async function load(){
-      if (state.timer) { clearTimeout(state.timer); state.timer = null; }
-      const et = dateStrET(state.date);
-      try {
-        const data = await fetchJson("{{ url_for('api_games') }}" + '?date=' + et);
-        render(data);
-        const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
-        if (anyLive) state.timer = setTimeout(load, 30000);
-      } catch(e){
-        console.error(e);
-        $games.innerHTML = '<div class="empty">Error loading games. If this persists, check your server logs for the /api/games endpoint.</div>';
-      }
-    }
+function setDate(d){
+  state.date = d;
+  const et = new Date(d.toLocaleString('en-US',{timeZone:'America/New_York'}));
+  $dateLabel && ($dateLabel.textContent = labelET(et));
+  load();
+}
+function shiftDays(n){ const d = new Date(state.date); d.setDate(d.getDate()+n); setDate(d); }
 
-    setDate(new Date());
-  </script>
+async function fetchJson(url){
+  const r = await fetch(url, { cache:'no-store' });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+function render(data){
+  let games = data.games || [];
+  if (state.liveOnly) games = games.filter(g => g.status === 'in_progress');
+  $empty.style.display = games.length ? 'none' : 'block';
+  $games.innerHTML = games.map(cardHTML).join('');
+  $updated.textContent = new Date().toLocaleString('en-US',{timeZone:'America/New_York', hour:'numeric', minute:'2-digit'}) + ' ET';
+  // auto refresh
+  const anyLive = games.some(g => g.status === 'in_progress');
+  clearTimeout(state.timer);
+  if (anyLive) state.timer = setTimeout(load, 30000);
+}
+
+async function load(){
+  try{
+    const iso = state.date.toISOString().slice(0,10);
+    const data = await fetchJson('/api/games?date='+iso);
+    render(data);
+  }catch(e){
+    console.error(e);
+    $games.innerHTML = '<div class="empty">Error loading games. If this persists, check your server logs for the /api/games endpoint.</div>';
+  }
+}
+
+// Controls
+document.getElementById('prevDay')?.addEventListener('click', ()=>shiftDays(-1));
+document.getElementById('nextDay')?.addEventListener('click', ()=>shiftDays(1));
+document.getElementById('todayBtn')?.addEventListener('click', ()=>setDate(new Date()));
+$liveOnly?.addEventListener('change', (e)=>{ state.liveOnly = e.target.checked; load(); });
+
+setDate(new Date());
+
+</script>
 </body>
 </html>
