@@ -1,7 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 import requests, logging
 from datetime import datetime, timezone, date
-from typing import Dict, Any, Tuple, List, Optional
+from typing import List, Optional, Tuple
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -17,11 +17,14 @@ TEAM_ABBR = {
 }
 
 def _abbr(team_id: int, fallback: str="") -> str:
-    return TEAM_ABBR.get(team_id) or (fallback or "")
-
-def _get(url: str, params: dict=None) -> dict:
     try:
-        r = requests.get(url, params=params, timeout=15)
+        return TEAM_ABBR.get(int(team_id)) or (fallback or "")
+    except Exception:
+        return fallback or ""
+
+def _get(url: str, params: dict=None, timeout: int=15) -> dict:
+    try:
+        r = requests.get(url, params=params, timeout=timeout)
         r.raise_for_status()
         return r.json()
     except Exception as e:
@@ -29,9 +32,7 @@ def _get(url: str, params: dict=None) -> dict:
         return {}
 
 def fetch_schedule(ymd: str) -> dict:
-    return _get(f"{MLB_API}/schedule", {
-        "sportId": SPORT_ID, "date": ymd, "hydrate": "team,linescore,probablePitcher"
-    })
+    return _get(f"{MLB_API}/schedule", {"sportId": SPORT_ID, "date": ymd, "hydrate": "team,linescore,probablePitcher"})
 
 def fetch_live(game_pk: int) -> dict:
     return _get(f"{MLB_API}/game/{game_pk}/feed/live")
@@ -45,7 +46,7 @@ def fetch_box(game_pk: int) -> dict:
 def fetch_standings(season: int) -> dict:
     return _get(f"{MLB_API}/standings", {"leagueId":"103,104","season":season, "hydrate":"team"})
 
-# --- time helpers ---
+# Time helpers
 try:
     import zoneinfo
     ET_TZ = zoneinfo.ZoneInfo("America/New_York")
@@ -53,19 +54,19 @@ except Exception:
     ET_TZ = None
 
 def to_et_str(iso_z: str) -> str:
-    if not iso_z: return ""
+    if not iso_z:
+        return ""
     try:
         dt = datetime.fromisoformat(iso_z.replace("Z","+00:00"))
-        if ET_TZ: dt = dt.astimezone(ET_TZ);  # type: ignore
-        return dt.strftime("%-I:%M %p ET") if ET_TZ else dt.strftime("%H:%M UTC")
+        if ET_TZ:
+            dt = dt.astimezone(ET_TZ)  # type: ignore
+            return dt.strftime("%-I:%M %p ET")
+        return dt.strftime("%H:%M UTC")
     except Exception:
         return ""
 
-# --- shaping helpers ---
+# Shapers
 def _norm_status_from_sched(g: dict) -> str:
-    """
-    Normalize to 'scheduled' | 'in_progress' | 'final'
-    """
     st_det = ((g.get("status") or {}).get("detailedState") or "").lower()
     st_abs = ((g.get("status") or {}).get("abstractGameState") or "").lower()
     if "final" in st_det or "completed" in st_det or "game over" in st_det or st_abs == "final":
@@ -82,7 +83,8 @@ def latest_play_from_feed(live: dict) -> dict:
     ld = (live.get("liveData") or {})
     plays = (ld.get("plays") or {})
     cur = plays.get("currentPlay") or {}
-    if cur: return cur
+    if cur:
+        return cur
     allp = plays.get("allPlays") or []
     return allp[-1] if allp else {}
 
@@ -91,40 +93,41 @@ def extract_statcast_line(live: dict) -> str:
     hd = p.get("hitData") or {}
     if not hd:
         for ev in reversed(p.get("playEvents") or []):
-            if ev.get("hitData"): hd = ev["hitData"]; break
+            if ev.get("hitData"):
+                hd = ev["hitData"]; break
     parts: List[str] = []
     try:
-        ev = float(hd.get("launchSpeed"))
-        parts.append(f"EV: {ev:.1f}")
-    except: pass
+        ev = float(hd.get("launchSpeed")); parts.append(f"EV: {ev:.1f}")
+    except Exception: pass
     try:
-        la = float(hd.get("launchAngle"))
-        parts.append(f"LA: {la:.1f}°")
-    except: pass
+        la = float(hd.get("launchAngle")); parts.append(f"LA: {la:.1f}°")
+    except Exception: pass
     try:
-        dist = float(hd.get("totalDistance"))
-        parts.append(f"Dist: {int(round(dist))} ft")
-    except: pass
+        dist = float(hd.get("totalDistance")); parts.append(f"Dist: {int(round(dist))} ft")
+    except Exception: pass
     try:
         xba = hd.get("estimatedBAUsingSpeedAngle")
-        if xba is not None:
-            parts.append(f"xBA: {float(xba):.3f}".replace("0.", "."))
-    except: pass
+        if xba is not None: parts.append(f"xBA: {float(xba):.3f}".replace("0.","."))
+    except Exception: pass
     try:
         xslg = hd.get("estimatedSLGUsingSpeedAngle")
-        if xslg is not None:
-            parts.append(f"xSLG: {float(xslg):.3f}")
-    except: pass
+        if xslg is not None: parts.append(f"xSLG: {float(xslg):.3f}")
+    except Exception: pass
     return " • ".join(parts)
+
+def _safe_pct(n: Optional[int], d: Optional[int]) -> Optional[str]:
+    try:
+        if d and d>0 and n is not None:
+            return f"{n/d:.3f}".lstrip("0")
+    except Exception:
+        pass
+    return None
 
 def _shape_linescore(ls: dict) -> dict:
     if not ls: return {}
     innings = []
     for inn in ls.get("innings", []):
-        num = inn.get("num")
-        aw = (inn.get("away") or {}).get("runs")
-        ho = (inn.get("home") or {}).get("runs")
-        innings.append({"num": num, "away": aw, "home": ho})
+        innings.append({"num": inn.get("num"), "away": (inn.get("away") or {}).get("runs"), "home": (inn.get("home") or {}).get("runs")})
     totals = {
         "away": {"runs": (ls.get("teams") or {}).get("away", {}).get("runs"),
                  "hits": (ls.get("teams") or {}).get("away", {}).get("hits"),
@@ -135,13 +138,6 @@ def _shape_linescore(ls: dict) -> dict:
     }
     return {"innings": innings, "totals": totals}
 
-def _safe_pct(n: Optional[int], d: Optional[int]) -> Optional[str]:
-    try:
-        if d and d>0 and n is not None: 
-            return f"{n/d:.3f}".lstrip("0")
-    except: pass
-    return None
-
 def _box_batting(box: dict, side: str) -> List[dict]:
     t = (box.get("teams") or {}).get(side) or {}
     players = (t.get("players") or {})
@@ -149,20 +145,16 @@ def _box_batting(box: dict, side: str) -> List[dict]:
     order_ids: List[str] = []
     if isinstance(order, list) and order:
         for pid in order:
-            pid = str(pid).replace("ID","")
-            order_ids.append(pid)
+            order_ids.append(str(pid).replace("ID",""))
     else:
-        # derive from per-player battingOrder
         tmp = []
         for pid, pobj in players.items():
             bo = (pobj.get("battingOrder") or "")
             if bo:
                 try:
-                    slot = int(str(bo)[:2])
-                    tmp.append((slot, pid.replace("ID","")))
-                except: pass
-        tmp.sort()
-        order_ids = [pid for _,pid in tmp]
+                    slot = int(str(bo)[:2]); tmp.append((slot, pid.replace("ID","")))
+                except Exception: pass
+        tmp.sort(); order_ids = [pid for _,pid in tmp]
     if not order_ids:
         order_ids = [pid.replace("ID","") for pid in players.keys()]
     out: List[dict] = []
@@ -201,7 +193,6 @@ def _box_pitching(box: dict, side: str) -> List[dict]:
     return out
 
 def _decisions(live: dict) -> Tuple[dict, str]:
-    """Return ({ids}, text) like 'W: Alcantara • L: Birdsong • SV: Díaz'"""
     ids = {"winId": None, "lossId": None, "saveId": None}
     try:
         dec = (live.get("liveData") or {}).get("decisions") or {}
@@ -218,7 +209,7 @@ def _decisions(live: dict) -> Tuple[dict, str]:
     except Exception:
         return ids, ""
 
-# --- Pages ---
+# Pages
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -232,7 +223,6 @@ def standings_page():
     try:
         season = date.today().year
         js = fetch_standings(season)
-        # simple split by league for template
         data_division = {"American League": [], "National League": []}
         for rec in js.get("records", []):
             lg = (rec.get("league") or {}).get("name", "")
@@ -246,10 +236,10 @@ def standings_page():
 def game_page(game_pk: int):
     return render_template("game.html", game_pk=game_pk)
 
-# --- APIs ---
+# APIs
 @app.route("/api/games")
 def api_games():
-    # --- determine date (ET by default) ---
+    # Determine date (ET by default)
     d = request.args.get("date")
     if not d:
         try:
@@ -260,7 +250,6 @@ def api_games():
         except Exception:
             d = datetime.utcnow().strftime("%Y-%m-%d")
 
-    # --- fetch schedule safely ---
     try:
         js = fetch_schedule(d)
     except Exception as e:
@@ -273,10 +262,10 @@ def api_games():
         for g in (date_obj.get("games") or []):
             try:
                 game_pk = g.get("gamePk")
-                status = _norm_status_from_sched(g)  # robust normalizer we added
+                status = _norm_status_from_sched(g)
                 venue = ((g.get("venue") or {}).get("name")) or ""
 
-                # Inning badge / chip (safe)
+                # Chip
                 try:
                     if status == "scheduled":
                         chip = to_et_str(g.get("gameDate"))
@@ -316,13 +305,21 @@ def api_games():
                     "teams": {"home": _t("home"), "away": _t("away")},
                 }
 
-                # scheduled-safe inning flags
+                # Default shape keys so frontend never sees undefined
+                item.setdefault("lastPlay", "")
+                item.setdefault("statcast", "")
+                item.setdefault("bases", {"first": False, "second": False, "third": False})
+                item.setdefault("dueUpSide", None)
+                item.setdefault("dueUp", None)
+                item.setdefault("linescore", None)
+                item.setdefault("batters", {"away": [], "home": []})
+                item.setdefault("pitchers", {"away": [], "home": []})
+
                 ls_sched = (g.get("linescore") or {})
                 item["inning"] = ls_sched.get("currentInning")
                 item["isTop"] = (ls_sched.get("isTopInning") is True)
                 item["inBreak"] = ((ls_sched.get("inningState") or "").lower() in ("end","middle"))
 
-                # Enrich only live/final — but keep it wrapped so one failure doesn't 500
                 if status != "scheduled":
                     try:
                         live = fetch_live(game_pk) or {}
@@ -341,7 +338,7 @@ def api_games():
                     except Exception:
                         item["statcast"] = ""
 
-                    # offense/defense context (bases, current batter/pitcher, due-up)
+                    # offense/defense context
                     try:
                         ld = (live.get("liveData") or {})
                         ls = ld.get("linescore") or {}
@@ -379,7 +376,7 @@ def api_games():
                     except Exception as e:
                         log.warning("context parse failed for %s: %s", game_pk, e)
 
-                    # Linescore + box for dropdowns
+                    # Linescore & box
                     try:
                         item["linescore"] = _shape_linescore(fetch_linescore(game_pk))
                     except Exception as e:
@@ -393,7 +390,6 @@ def api_games():
                         log.warning("box failed for %s: %s", game_pk, e)
                         item["batters"] = item["pitchers"] = None
 
-                    # finals: decisions
                     if status == "final":
                         try:
                             _, dec_text = _decisions(live)
@@ -405,7 +401,6 @@ def api_games():
                 out.append(item)
 
             except Exception as e:
-                # Log and keep processing other games
                 log.exception("Error shaping game %s: %s", (g.get("gamePk")), e)
                 continue
 
@@ -419,7 +414,6 @@ def api_standings():
 @app.route("/api/game/<int:game_pk>")
 def api_game(game_pk: int):
     g = _get(f"{MLB_API}/schedule", {"gamePk": game_pk, "hydrate": "team,linescore"})
-    # derive status and teams from schedule call
     games = (g.get("dates", [{}])[0].get("games", []) if g.get("dates") else [])
     if not games:
         return jsonify({"error":"not found"}), 404
@@ -430,7 +424,7 @@ def api_game(game_pk: int):
     home_t = (teams.get("home") or {}).get("team", {}) or {}
     away_t = (teams.get("away") or {}).get("team", {}) or {}
 
-    resp: dict = {
+    resp = {
         "status": status,
         "chip": to_et_str(date_iso) if status=="scheduled" else "",
         "venue": (sched.get("venue") or {}).get("name", ""),
@@ -457,7 +451,6 @@ def api_game(game_pk: int):
 
     return jsonify(resp)
 
-# --- health ---
 @app.route("/ping")
 def ping():
     return "ok", 200
