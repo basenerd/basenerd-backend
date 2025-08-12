@@ -206,6 +206,94 @@ def _box_batting(box: dict, side: str) -> List[dict]:
 
     return out
 
+def _shape_pbp_from_live(live: dict) -> list[dict]:
+    """
+    Returns a list of plays shaped for game.html:
+      {
+        inning: "1 ▲" | "1 ▼",
+        desc:   str,
+        ev:     float|None,      # exit velo
+        la:     float|None,      # launch angle
+        dist:   int|None,        # feet
+        xba:    float|None,
+        pitches: [
+          { "type": str, "velo": float|None, "result": str,
+            "px": float|None, "pz": float|None, "code": str|None, "inPlay": bool }
+        ]
+      }
+    """
+    plays = (((live or {}).get("liveData") or {}).get("plays") or {}).get("allPlays") or []
+    out: list[dict] = []
+
+    for p in plays:
+        about = (p.get("about") or {})
+        half  = (about.get("halfInning") or "").lower()   # "top" | "bottom"
+        inn   = about.get("inning")
+        sym   = "▲" if half == "top" else "▼" if half == "bottom" else ""
+        inning_label = f"{inn} {sym}".strip() if inn else ""
+
+        res = (p.get("result") or {})
+        hd  = p.get("hitData") or {}
+        # Pull hitData from last pitch if not on root (e.g., foul/then ball in play)
+        if not hd:
+            for ev in reversed(p.get("playEvents") or []):
+                if ev.get("hitData"):
+                    hd = ev["hitData"]
+                    break
+
+        def _f(v, cast=float):
+            try:
+                return cast(v) if v is not None else None
+            except Exception:
+                return None
+
+        ev  = _f(hd.get("launchSpeed"))
+        la  = _f(hd.get("launchAngle"))
+        dist = _f(hd.get("totalDistance"), int)
+        xba = _f(hd.get("estimatedBAUsingSpeedAngle"))
+
+        # Pitch list for the mini table + strike zone
+        pitches = []
+        for evn in (p.get("playEvents") or []):
+            pd = evn.get("pitchData") or {}
+            det = evn.get("details") or {}
+            coords = (pd.get("coordinates") or {})
+
+            if not pd and not coords:
+                continue  # skip non-pitch events
+
+            pitch = {
+                # type & result labels
+                "type": ( (pd.get("pitchType") or {}).get("code")
+                          or (pd.get("pitchType") or {}).get("description")
+                          or (det.get("type") or {}).get("code")
+                          or det.get("description") or "" ),
+                "velo": _f(pd.get("startSpeed")) or _f(pd.get("releaseSpeed")),
+                "result": ( (det.get("call") or {}).get("description")
+                            or det.get("description")
+                            or det.get("event")
+                            or "" ),
+                # strike-zone plot needs px/pz in feet + a code/inPlay flag
+                "px": _f(coords.get("pX")),
+                "pz": _f(coords.get("pZ")),
+                "code": ( (det.get("call") or {}).get("code") or det.get("code") ),
+                "inPlay": bool(det.get("isInPlay")),
+            }
+            pitches.append(pitch)
+
+        out.append({
+            "inning": inning_label,
+            "desc": res.get("description") or "",
+            "ev": ev,
+            "la": la,
+            "dist": dist,
+            "xba": xba,
+            "pitches": pitches,
+        })
+
+    return out
+
+
 def _box_pitching(box: dict, side: str) -> List[dict]:
     """
     Lowercase keys your page expects:
@@ -308,9 +396,28 @@ def standings_page():
         log.exception("Could not render standings template: %s", e)
         return "Could not render standings template", 500
 
+# app.py
 @app.route("/game/<int:game_pk>")
 def game_page(game_pk: int):
-    return render_template("game.html", game_pk=game_pk)
+    game_ctx = None
+    try:
+        g = _get(f"{MLB_API}/schedule", {"gamePk": game_pk, "hydrate": "team"})
+        games = (g.get("dates", [{}])[0].get("games", []) if g.get("dates") else [])
+        if games:
+            sched = games[0]
+            teams = sched.get("teams") or {}
+            home_t = (teams.get("home") or {}).get("team", {}) or {}
+            away_t = (teams.get("away") or {}).get("team", {}) or {}
+            game_ctx = {
+                "home": {"id": home_t.get("id"), "name": home_t.get("name"), "record": ""},
+                "away": {"id": away_t.get("id"), "name": away_t.get("name"), "record": ""},
+                "venue": (sched.get("venue") or {}).get("name", ""),
+                "status": _norm_status_from_sched(sched),
+                "date": to_et_str(sched.get("gameDate") or ""),
+            }
+    except Exception:
+        game_ctx = None
+    return render_template("game.html", game_pk=game_pk, game=game_ctx)
 
 # ---------- APIs ----------
 @app.route("/api/games")
@@ -508,13 +615,16 @@ def api_standings():
     season = request.args.get("season", default=date.today().year, type=int)
     return jsonify(fetch_standings(season))
 
+# app.py
+# app.py
 @app.route("/api/game/<int:game_pk>")
 def api_game(game_pk: int):
-    # Minimal per-game API used by your "details" link if needed
+    # Schedule (for teams, venue, linescore hydrate)
     g = _get(f"{MLB_API}/schedule", {"gamePk": game_pk, "hydrate": "team,linescore"})
     games = (g.get("dates", [{}])[0].get("games", []) if g.get("dates") else [])
     if not games:
         return jsonify({"error": "not found"}), 404
+
     sched = games[0]
     status = _norm_status_from_sched(sched)
     date_iso = sched.get("gameDate")
@@ -522,7 +632,7 @@ def api_game(game_pk: int):
     home_t = (teams.get("home") or {}).get("team", {}) or {}
     away_t = (teams.get("away") or {}).get("team", {}) or {}
 
-    resp = {
+    game_payload = {
         "status": status,
         "chip": to_et_str(date_iso) if status == "scheduled" else "",
         "venue": (sched.get("venue") or {}).get("name", ""),
@@ -533,23 +643,35 @@ def api_game(game_pk: int):
         },
     }
 
-    live = fetch_live(game_pk)
-    resp["lastPlay"] = ((latest_play_from_feed(live).get("result") or {}).get("description")) if live else ""
-    resp["statcast"] = extract_statcast_line(live) if live else ""
+    # Linescore + scores
     ls_full = fetch_linescore(game_pk)
-    resp["linescore"] = _shape_linescore(ls_full)
-    box = fetch_box(game_pk)
-    resp["batters"]  = {"away": _box_batting(box, "away"), "home": _box_batting(box, "home")}
-    resp["pitchers"] = {"away": _box_pitching(box, "away"), "home": _box_pitching(box, "home")}
+    game_payload["linescore"] = _shape_linescore(ls_full)
     try:
-        _, dec_text, save_text = _decisions(live)
-        resp["decisions"] = dec_text
-        if save_text:
-            resp["save"] = save_text
+        game_payload["teams"]["away"]["score"] = int((ls_full.get("teams") or {}).get("away", {}).get("runs"))
+        game_payload["teams"]["home"]["score"] = int((ls_full.get("teams") or {}).get("home", {}).get("runs"))
     except Exception:
-        resp["decisions"] = ""
+        pass
 
-    return jsonify(resp)
+    # Box + decisions + statcast line
+    live = fetch_live(game_pk)
+    game_payload["lastPlay"] = ((latest_play_from_feed(live).get("result") or {}).get("description")) if live else ""
+    game_payload["statcast"] = extract_statcast_line(live) if live else ""
+
+    box = fetch_box(game_pk)
+    game_payload["batters"]  = {"away": _box_batting(box, "away"), "home": _box_batting(box, "home")}
+    game_payload["pitchers"] = {"away": _box_pitching(box, "away"), "home": _box_pitching(box, "home")}
+
+    # Decisions IDs + text for W/L/S row highlighting
+    ids, dec_text, _ = _decisions(live) if live else ({}, "", "")
+
+    # 👉 NEW: play-by-play for expanders + strike zone
+    plays = _shape_pbp_from_live(live) if live else []
+
+    return jsonify({
+        "game": game_payload,
+        "meta": {"decisions": ids, "decisionsText": dec_text},
+        "plays": plays
+    }), 200
 
 @app.route("/ping")
 def ping():
