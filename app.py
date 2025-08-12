@@ -31,6 +31,7 @@ def _get(url: str, params: dict=None, timeout: int=15) -> dict:
         log.warning("GET failed %s %s: %s", url, params, e)
         return {}
 
+# ---------- MLB fetchers ----------
 def fetch_schedule(ymd: str) -> dict:
     return _get(f"{MLB_API}/schedule", {"sportId": SPORT_ID, "date": ymd, "hydrate": "team,linescore,probablePitcher"})
 
@@ -46,7 +47,7 @@ def fetch_box(game_pk: int) -> dict:
 def fetch_standings(season: int) -> dict:
     return _get(f"{MLB_API}/standings", {"leagueId":"103,104","season":season, "hydrate":"team"})
 
-# Time helpers
+# ---------- time helpers ----------
 try:
     import zoneinfo
     ET_TZ = zoneinfo.ZoneInfo("America/New_York")
@@ -65,7 +66,7 @@ def to_et_str(iso_z: str) -> str:
     except Exception:
         return ""
 
-# Shapers
+# ---------- shaping helpers ----------
 def _norm_status_from_sched(g: dict) -> str:
     st_det = ((g.get("status") or {}).get("detailedState") or "").lower()
     st_abs = ((g.get("status") or {}).get("abstractGameState") or "").lower()
@@ -209,7 +210,7 @@ def _decisions(live: dict) -> Tuple[dict, str]:
     except Exception:
         return ids, ""
 
-# Pages
+# ---------- pages ----------
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -236,10 +237,10 @@ def standings_page():
 def game_page(game_pk: int):
     return render_template("game.html", game_pk=game_pk)
 
-# APIs
+# ---------- APIs ----------
 @app.route("/api/games")
 def api_games():
-    # Determine date (ET by default)
+    # Date (ET default)
     d = request.args.get("date")
     if not d:
         try:
@@ -265,7 +266,7 @@ def api_games():
                 status = _norm_status_from_sched(g)
                 venue = ((g.get("venue") or {}).get("name")) or ""
 
-                # Chip
+                # Inning badge / chip
                 try:
                     if status == "scheduled":
                         chip = to_et_str(g.get("gameDate"))
@@ -305,7 +306,7 @@ def api_games():
                     "teams": {"home": _t("home"), "away": _t("away")},
                 }
 
-                # Default shape keys so frontend never sees undefined
+                # Stable shape for the frontend
                 item.setdefault("lastPlay", "")
                 item.setdefault("statcast", "")
                 item.setdefault("bases", {"first": False, "second": False, "third": False})
@@ -320,6 +321,7 @@ def api_games():
                 item["isTop"] = (ls_sched.get("isTopInning") is True)
                 item["inBreak"] = ((ls_sched.get("inningState") or "").lower() in ("end","middle"))
 
+                # Enrich live/final
                 if status != "scheduled":
                     try:
                         live = fetch_live(game_pk) or {}
@@ -327,7 +329,7 @@ def api_games():
                         log.warning("live fetch failed for %s: %s", game_pk, e)
                         live = {}
 
-                    # Last play + statcast
+                    # Last play + Statcast
                     try:
                         play = latest_play_from_feed(live)
                         item["lastPlay"] = ((play.get("result") or {}).get("description")) or ""
@@ -338,7 +340,7 @@ def api_games():
                     except Exception:
                         item["statcast"] = ""
 
-                    # offense/defense context
+                    # Bases, current batter/pitcher, due-up
                     try:
                         ld = (live.get("liveData") or {})
                         ls = ld.get("linescore") or {}
