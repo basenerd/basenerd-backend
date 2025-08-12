@@ -516,14 +516,29 @@ def fetch_sched_by_gamepk(pk: int) -> dict:
     return {}
 
 def _norm_status_from_sched(g: dict) -> str:
-    st = ((g.get("status") or {}).get("detailedState") or
-          (g.get("status") or {}).get("abstractGameState") or "")
-    st = st.lower()
-    if "final" in st or "completed" in st or "game over" in st:
+    """
+    Normalize MLB schedule status to one of: 'scheduled', 'in_progress', 'final'.
+    """
+    st_det = ((g.get("status") or {}).get("detailedState") or "").lower()
+    st_abs = ((g.get("status") or {}).get("abstractGameState") or "").lower()
+
+    # Finals
+    if "final" in st_det or "completed" in st_det or "game over" in st_det or st_abs == "final":
         return "final"
-    if "in progress" in st or "warmup" in st or "delayed" in st or "pre-game" in st:
+
+    # Truly live
+    live_keys = ("in progress", "warmup", "manager challenge", "review", "suspended")
+    if any(k in st_det for k in live_keys) or st_abs == "live":
         return "in_progress"
+
+    # These should NOT be treated as live
+    pre_keys = ("pre-game", "scheduled", "delayed start", "postponed", "makeup", "tbd")
+    if any(k in st_det for k in pre_keys) or st_abs in ("preview", "pre", "scheduled"):
+        return "scheduled"
+
+    # Fallback: be conservative
     return "scheduled"
+
 
 # -------------------- Pages --------------------
 @app.route("/")
@@ -606,7 +621,6 @@ def game_page(game_pk: int):
 def api_games():
     d = request.args.get("date")
     if not d:
-        # today ET
         dt = datetime.utcnow().replace(tzinfo=timezone.utc)
         if ET_TZ:
             dt = dt.astimezone(ET_TZ)
@@ -619,16 +633,18 @@ def api_games():
         for g in date_obj.get("games", []):
             game_pk = g.get("gamePk")
             status = _norm_status_from_sched(g)
-            venue = (g.get("venue") or {}).get("name")
+            venue = (g.get("venue") or {}).get("name", "")
 
-            # chip
+            # CHIP
             if status == "scheduled":
                 chip = to_et_str(g.get("gameDate"))
             else:
-                ls_sched = (g.get("linescore") or {})
-                chip = ((ls_sched.get("inningState") or "") + (" " + str(ls_sched.get("currentInning")) if ls_sched.get("currentInning") else "")).strip()
+                ls = (g.get("linescore") or {})
+                inning = ls.get("currentInning")
+                inning_state = (ls.get("inningState") or "").title()
+                chip = (f"{inning_state} {inning}" if inning else inning_state).strip()
 
-            # base team block
+            # Teams block
             tms = g.get("teams") or {}
             def _t(side):
                 tt = (tms.get(side) or {})
@@ -641,10 +657,9 @@ def api_games():
                     "score": tt.get("score"),
                     "record": (f"{rec.get('wins')}-{rec.get('losses')}" if rec else "")
                 }
-                # scheduled probable pitchers
-                pp = (tt.get("probablePitcher") or {}).get("fullName") or (tt.get("probablePitcher") or {}).get("name")
-                if pp:
-                    obj["probable"] = pp
+                prob = (tt.get("probablePitcher") or {})
+                if prob:
+                    obj["probable"] = prob.get("fullName") or prob.get("name")
                 return obj
 
             item = {
@@ -655,7 +670,7 @@ def api_games():
                 "teams": {"home": _t("home"), "away": _t("away")},
                 "inning": (g.get("linescore") or {}).get("currentInning"),
                 "isTop": (g.get("linescore") or {}).get("isTopInning") is True,
-                "inBreak": bool(((g.get("linescore") or {}).get("inningState") or "").lower() in ("end", "middle")),
+                "inBreak": ((g.get("linescore") or {}).get("inningState") or "").lower() in ("end", "middle"),
             }
 
             # Enrich non-scheduled games
@@ -665,7 +680,7 @@ def api_games():
                 except Exception:
                     live = {}
 
-                # last play & statcast
+                # Last play + statcast
                 try:
                     play = latest_play_from_feed(live)
                     item["lastPlay"] = ((play.get("result") or {}).get("description")) or ""
@@ -676,40 +691,33 @@ def api_games():
                 except Exception:
                     item["statcast"] = ""
 
-                # live linescore/bases/due-up/current batter/pitcher
+                # Bases + due up + current batter/pitcher
                 ld = (live.get("liveData") or {})
                 ls = ld.get("linescore") or {}
                 offense = ls.get("offense") or {}
                 defense = ls.get("defense") or {}
-
-                # bases
                 item["bases"] = {
                     "first":  bool(offense.get("first")  or offense.get("onFirst")),
                     "second": bool(offense.get("second") or offense.get("onSecond")),
                     "third":  bool(offense.get("third")  or offense.get("onThird")),
                 }
 
-                # which side is batting (for breaks we still want who’s up next)
+                def _nm(pobj):
+                    if not pobj: return None
+                    return pobj.get("fullName") or pobj.get("name")
+
+                batter = _nm(offense.get("batter"))
+                on_deck = _nm(offense.get("onDeck"))
+                in_hole = _nm(offense.get("inHole"))
+                item["dueUp"] = ", ".join([n for n in (batter, on_deck, in_hole) if n]) or None
+
                 home_id = item["teams"]["home"]["id"]
                 away_id = item["teams"]["away"]["id"]
                 off_team_id = ((offense.get("team") or {}).get("id"))
-                if off_team_id == home_id: item["dueUpSide"] = "home"
-                elif off_team_id == away_id: item["dueUpSide"] = "away"
-                else: item["dueUpSide"] = None
+                item["dueUpSide"] = "home" if off_team_id == home_id else ("away" if off_team_id == away_id else None)
 
-                # due up names (current + on deck + in hole)
-                def _nm(pobj):
-                    if not pobj: return None
-                    return (pobj.get("fullName") or pobj.get("name"))
-                batter     = _nm(offense.get("batter"))
-                on_deck    = _nm(offense.get("onDeck"))
-                in_hole    = _nm(offense.get("inHole"))
-                item["dueUp"] = ", ".join([n for n in (batter, on_deck, in_hole) if n]) or None
-
-                # current batter/pitcher on each team
                 cur_bat = batter
                 cur_pit = _nm(defense.get("pitcher"))
-
                 if item["dueUpSide"] == "home":
                     item["teams"]["home"]["currentBatter"] = cur_bat
                     item["teams"]["away"]["currentPitcher"] = cur_pit
@@ -717,14 +725,13 @@ def api_games():
                     item["teams"]["away"]["currentBatter"] = cur_bat
                     item["teams"]["home"]["currentPitcher"] = cur_pit
 
-                # If in break, show upcoming pitcher on the pitching side
                 if item["inBreak"]:
                     if item["dueUpSide"] == "home":
                         item["teams"]["away"]["breakPitcher"] = cur_pit
                     elif item["dueUpSide"] == "away":
                         item["teams"]["home"]["breakPitcher"] = cur_pit
 
-                # linescore table and box tables for dropdown
+                # Linescore and box (for dropdowns)
                 try:
                     ls_full = fetch_linescore(game_pk)
                     item["linescore"] = _shape_linescore(ls_full)
@@ -737,17 +744,12 @@ def api_games():
                 except Exception:
                     item["batters"] = item["pitchers"] = None
 
-                # decisions for finals (displayed in teamRowFinal)
+                # Finals: add decisions text so final rows render extra line(s)
                 if status == "final":
                     try:
-                        dec_ids, dec_text = _decisions(live)
-                        # Put a concise string on each team row; UI will show it if present
+                        _, dec_text = _decisions(live)
                         item["teams"]["home"]["finalPitcher"] = dec_text
                         item["teams"]["away"]["finalPitcher"] = dec_text
-                        # If there’s an explicit save, also set savePitcher field so it renders a second line
-                        if dec_ids.get("saveId"):
-                            item["teams"]["home"]["savePitcher"] = ""  # leave empty unless you want separate text
-                            item["teams"]["away"]["savePitcher"] = ""
                     except Exception:
                         pass
 
