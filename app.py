@@ -729,26 +729,26 @@ def api_games():
         dates = js.get("dates") or []
         games = (dates[0].get("games") or []) if dates else []
     # Fallback: if no games, try explicit start/end and a 1-day ET fudge
-if not games:
-    try:
-        # Attempt #1: explicit start/end (some proxies require this)
-        js2 = fetch_schedule(d) or {}
-        dates2 = js2.get("dates") or []
-        games2 = (dates2[0].get("games") or []) if dates2 else []
-        if games2:
-            games = games2
-        else:
-            # Attempt #2: +/- 1 day in ET in case of timezone boundaries
-            et = ET_TZ.localize(datetime.strptime(d, "%Y-%m-%d")).date()
-            for delta in (-1, 1):
-                dd = (et + timedelta(days=delta)).isoformat()
-                js3 = fetch_schedule(dd) or {}
-                dates3 = js3.get("dates") or []
-                games3 = (dates3[0].get("games") or []) if dates3 else []
-                if games3:
-                    d = dd  # use the date that actually has games
-                    games = games3
-                    break
+    if not games:
+        try:
+            # Attempt #1: explicit start/end (some proxies require this)
+            js2 = fetch_schedule(d) or {}
+            dates2 = js2.get("dates") or []
+            games2 = (dates2[0].get("games") or []) if dates2 else []
+            if games2:
+                games = games2
+            else:
+                # Attempt #2: +/- 1 day in ET in case of timezone boundaries
+                et = ET_TZ.localize(datetime.strptime(d, "%Y-%m-%d")).date()
+                for delta in (-1, 1):
+                    dd = (et + timedelta(days=delta)).isoformat()
+                    js3 = fetch_schedule(dd) or {}
+                    dates3 = js3.get("dates") or []
+                    games3 = (dates3[0].get("games") or []) if dates3 else []
+                    if games3:
+                        d = dd  # use the date that actually has games
+                        games = games3
+                        break
     except Exception:
         pass
 
