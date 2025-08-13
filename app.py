@@ -744,40 +744,60 @@ def api_games():
     def cache_put(key, val):
         _cache[key] = {"t": now, "v": val}
 
-    def _sched_once(day: str, use_range: bool = False) -> dict:
-        """Single schedule request; 3s timeout."""
-        season = (day or str(date.today())).split("-")[0]
-        hydrate = f"team,linescore,probablePitcher,probablePitcher(stats(group=pitching,type=season,season={season}))"
+        def _sched_once(day: str, params: dict) -> dict:
+        """Single schedule request with given params; 4s timeout."""
         base = f"{MLB_API}/schedule"
-        params = {"sportId": SPORT_ID, "hydrate": hydrate}
-        if use_range:
-            params.update({"startDate": day, "endDate": day})
-        else:
-            params.update({"date": day})
         try:
-            r = requests.get(base, params=params, timeout=3, headers={"Accept": "application/json", "User-Agent": "Basenerd/1.0"})
+            r = requests.get(
+                base,
+                params=params,
+                timeout=4,
+                headers={"Accept": "application/json", "User-Agent": "Basenerd/1.0"},
+            )
             r.raise_for_status()
             return r.json() or {}
         except Exception as e:
-            try: log.info("schedule fetch failed %s (range=%s): %s", day, use_range, e)
+            try: log.info("schedule fetch failed %s params=%s: %s", day, params, e)
             except Exception: pass
             return {"dates": [{"date": day, "games": []}]}
 
     def _fetch_sched_with_fallback(day: str) -> tuple[str, list]:
-        """Return (date_used, games_list) with one fallback (range)."""
+        """
+        Try multiple known-good param combos that some hosts require.
+        Order: date, start/end, and each again with gameTypes=R.
+        Uses a tiny cache to avoid hammering.
+        """
+        # cache check
         cached = cache_get(day)
         if cached is not None:
             dates = cached.get("dates") or []
             return day, ((dates[0].get("games") or []) if dates else [])
-        js = _sched_once(day, use_range=False)
-        dates = js.get("dates") or []
-        games = (dates[0].get("games") or []) if dates else []
-        if not games:
-            js = _sched_once(day, use_range=True)
+
+        season = (day or str(date.today())).split("-")[0]
+        hydrate = (
+            f"team,linescore,probablePitcher,"
+            f"probablePitcher(stats(group=pitching,type=season,season={season}))"
+        )
+
+        attempts = [
+            {"sportId": SPORT_ID, "date": day, "hydrate": hydrate},
+            {"sportId": SPORT_ID, "startDate": day, "endDate": day, "hydrate": hydrate},
+            {"sportId": SPORT_ID, "date": day, "gameTypes": "R", "hydrate": hydrate},
+            {"sportId": SPORT_ID, "startDate": day, "endDate": day, "gameTypes": "R", "hydrate": hydrate},
+        ]
+
+        js = {}
+        games = []
+        for params in attempts:
+            js = _sched_once(day, params)
             dates = js.get("dates") or []
             games = (dates[0].get("games") or []) if dates else []
+            if games:
+                break
+
         cache_put(day, js)
         return day, games
+
 
     def _abbr(team_id, fallback=""):
         try:
