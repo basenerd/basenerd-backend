@@ -56,28 +56,44 @@ def fetch_pbp(game_pk: int) -> dict:
 
 def fetch_standings(season: int):
     """
-    Returns a dict with a 'records' list shaped like MLB StatsAPI standings.
-    Never returns a raw string. On failure, returns {"records": []}.
+    Try multiple MLB StatsAPI parameter combos until we get non-empty 'records'.
+    Always returns a dict with a 'records' list (possibly empty).
     """
-    try:
-        url = "https://statsapi.mlb.com/api/v1/standings"
-        # byDivision gives exactly what our shaper expects (records -> teamRecords)
-        params = {
-            "leagueId": "103,104",           # 103 = AL, 104 = NL
-            "season": str(season),
-            "standingsTypes": "byDivision",
-        }
-        r = requests.get(url, params=params, timeout=12, headers={"Accept": "application/json"})
-        r.raise_for_status()
-        js = r.json()
-        if isinstance(js, dict) and isinstance(js.get("records"), list):
-            return js
-    except Exception as e:
-        # log if you have a logger
+    base = "https://statsapi.mlb.com/api/v1/standings"
+    common = {
+        "leagueId": "103,104",   # 103 = AL, 104 = NL
+        "season": str(season),
+        "sportId": "1",          # MLB
+    }
+    # Ordered attempts — first one that returns non-empty 'records' wins
+    attempts = [
+        {"standingsTypes": "byDivision"},
+        {"standingsType":  "byDivision"},      # some servers accept singular
+        {"standingsTypes": "regularSeason"},
+        {"standingsType":  "regularSeason"},
+        {"standingsTypes": "wildCard"},
+        {"standingsType":  "wildCard"},
+    ]
+
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "ParlayPressStandings/1.0 (+your_site)"
+    }
+
+    for extra in attempts:
         try:
-            app.logger.exception("fetch_standings failed: %s", e)
+            params = {**common, **extra}
+            r = requests.get(base, params=params, headers=headers, timeout=12)
+            r.raise_for_status()
+            js = r.json()
+            if isinstance(js, dict) and isinstance(js.get("records"), list) and js["records"]:
+                # success — non-empty
+                return js
         except Exception:
-            pass
+            # try next combo
+            continue
+
+    # Last resort: return shape that won't crash caller
     return {"records": []}
 
 # ---------- time helpers ----------
