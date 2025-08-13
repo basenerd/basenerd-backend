@@ -565,11 +565,19 @@ def standings_page():
             data_division.setdefault(league_name, []).append({"division": div_name, "rows": rows})
 
         # ---------- build wild card tables ----------
-        def wc_gb(leader_w, leader_l, w, l):
-            try:
-                return round(((leader_w - w) + (l - leader_l)) / 2.0, 1)
-            except Exception:
-                return ""
+def wc_gb(leader_w, leader_l, w, l):
+    try:
+        return round(((leader_w - w) + (l - leader_l)) / 2.0, 1)
+    except Exception:
+        return ""
+
+        
+def _div_tag(name: str) -> str:
+    n = (name or "").lower()
+    if "east" in n: return "E"
+    if "central" in n: return "C"
+    if "west" in n: return "W"
+    return ""
 
         def flatten_league_rows(league_name):
             flat = []
@@ -579,50 +587,71 @@ def standings_page():
             return flat
 
         data_wildcard = {}
-        for league in ("American League", "National League"):
-            flat = flatten_league_rows(league)
 
-            # division leaders = first row of each division
-            division_leaders = set()
-            for block in (data_division.get(league) or []):
-                first = (block.get("rows") or [])
-                if first:
-                    division_leaders.add(first[0].get("team_id"))
+for league in ("American League", "National League"):
+    blocks = data_division.get(league) or []
 
-            # pool = non-division winners, sorted by pct then runDiff
-            pool = [r for r in flat if r.get("team_id") not in division_leaders]
-            pool.sort(key=lambda r: (r.get("pct") or 0.0, r.get("runDiff") or 0), reverse=True)
+    # 1) Division leaders for the "leaders" mini-card
+    leaders = []
+    for block in blocks:
+        rows = block.get("rows") or []
+        if not rows:
+            continue
+        leader = rows[0]  # first row is division leader; you already sorted by pct
+        leaders.append({
+            "division_tag": _div_tag(block.get("division")),
+            "team_id":   leader.get("team_id"),
+            "team_name": leader.get("team_name"),
+            "team_abbr": leader.get("team_abbr"),
+            "w": leader.get("w"),
+            "l": leader.get("l"),
+            "pct": leader.get("pct"),
+        })
 
-            top3 = pool[:3]
-            if len(top3) >= 3:
-                cut = top3[2]; cw, cl = cut.get("w") or 0, cut.get("l") or 0
-            elif top3:
-                cw, cl = top3[0].get("w") or 0, top3[0].get("l") or 0
-            else:
-                cw, cl = 0, 0
+    # 2) Wild Card pool = all non-division winners
+    leader_ids = {x.get("team_id") for x in leaders if x.get("team_id") is not None}
+    pool = []
+    for block in blocks:
+        for r in (block.get("rows") or []):
+            if r.get("team_id") not in leader_ids:
+                pool.append(r)
 
-            rows = []
-            labels = ["WC1", "WC2", "WC3"]
-            for i, r in enumerate(top3):
-                val = wc_gb(cw, cl, r.get("w") or 0, r.get("l") or 0)
-                rows.append({
-                    "seed": labels[i],
-                    "team_id": r.get("team_id"),
-                    "team_name": r.get("team_name"),
-                    "team_abbr": r.get("team_abbr"),
-                    "w": r.get("w"),
-                    "l": r.get("l"),
-                    "pct": r.get("pct"),
-                    "gb": r.get("gb"),
-                    "streak": r.get("streak"),
-                    "last10": r.get("last10"),
-                    "runDiff": r.get("runDiff"),
-                    "wcgb": val,
-                    "wc_gb": val,  # alias in case your template uses this key
-                })
+    # Sort pool by pct desc, then runDiff desc
+    pool.sort(key=lambda r: (r.get("pct") or 0.0, r.get("runDiff") or 0), reverse=True)
 
-            data_wildcard[league] = {"leaders": rows[:], "rows": rows[:]}
+    # Cut line = WC3 if present, else best team in pool
+    if len(pool) >= 3:
+        cut = pool[2]
+        cut_w = cut.get("w") or 0
+        cut_l = cut.get("l") or 0
+    elif pool:
+        cut_w = pool[0].get("w") or 0
+        cut_l = pool[0].get("l") or 0
+    else:
+        cut_w = cut_l = 0
 
+    # 3) Build rows with badges for WC1–WC3 and WC GB for everyone
+    rows = []
+    for i, r in enumerate(pool):
+        badge = f"WC{i+1}" if i < 3 else ""
+        rows.append({
+            "badge": badge,
+            "team_id":   r.get("team_id"),
+            "team_name": r.get("team_name"),
+            "team_abbr": r.get("team_abbr"),
+            "w":   r.get("w"),
+            "l":   r.get("l"),
+            "pct": r.get("pct"),
+            "wc_gb": wc_gb(cut_w, cut_l, r.get("w") or 0, r.get("l") or 0),
+            "streak": r.get("streak"),
+            "last10": r.get("last10"),
+            "runDiff": r.get("runDiff"),
+        })
+
+    data_wildcard[league] = {
+        "leaders": leaders,  # division leaders with E/C/W tags
+        "rows": rows,        # all WC contenders, top 3 badged WC1–WC3
+    }
         return render_template(
             "standings.html",
             data_division=data_division,
