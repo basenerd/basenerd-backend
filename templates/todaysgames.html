@@ -241,12 +241,26 @@
       return await res.json();
     }
 
-    function chipFor(g){
-      if (g.status === 'in_progress') return `<span class="chip live">${g.chip}</span>`;
-      if (g.status === 'final') return `<span class="chip final">Final</span>`;
-      return `<span class="chip upcoming">${g.chip}</span>`;
-    }
+    <script>
+  // ...
+  function chipFor(g){
+    if (g.status === 'in_progress') return `<span class="chip live">${g.chip}</span>`;
+    if (g.status === 'final') return `<span class="chip final">Final</span>`;
+    return `<span class="chip upcoming">${g.chip}</span>`;
+  }
 
+  // NEW: show live count + outs
+  function countHTML(g){
+    if (g.status !== 'in_progress') return '';
+    const c = g.count || {};
+    const bs = (c.balls!=null && c.strikes!=null) ? `${c.balls}-${c.strikes}` : '';
+    const o = (c.outs!=null) ? `${c.outs} out${c.outs===1?'':'s'}` : '';
+    if (!bs && !o) return '';
+    return `<span class="count">${[bs, o].filter(Boolean).join(', ')}</span>`;
+  }
+  // ...
+</script>
+  
     function diamondHTML(g){
       if (g.inBreak) return '';
       const b = g.bases || {};
