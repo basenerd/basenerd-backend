@@ -456,9 +456,13 @@ def standings_page():
             season=season,
             error=None
         )
+    # For debugging, run this next block instead of the bottom
     except Exception as e:
-        log.exception("Could not render standings template: %s", e)
-        return "Could not render standings template", 500
+    return f"Standings error: {e}", 500
+    # Final code will contain this instead
+    #except Exception as e:
+        #log.exception("Could not render standings template: %s", e)
+        #return "Could not render standings template", 500
 
 
 # app.py
