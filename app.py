@@ -379,11 +379,32 @@ def todaysgames():
 def standings_page():
     try:
         season = date.today().year
+
+        # ---- Fetch, but be defensive about None / wrong types
         js = fetch_standings(season)
+        if not isinstance(js, dict):
+            js = {}
+        records = js.get("records") or []
+        if not isinstance(records, list):
+            records = []
+
+        # ---- Local, safe helpers (don’t rely on globals being perfect)
+        def get_abbr(team_id, team_name):
+            try:
+                # use global _abbr if it exists and works
+                if "_abbr" in globals():
+                    v = _abbr(team_id, "")
+                    if v:
+                        return v
+            except Exception:
+                pass
+            # fallback: last word 3 letters (e.g., "Dodgers" -> "DOD")
+            tail = (team_name or "").split()[-1].upper()
+            return (tail[:3] if tail else "TBD")
 
         def last10_from(tr: dict) -> str:
             for rec in (tr.get("records") or []):
-                if (rec.get("type") or "").lower() in ("lastten", "last_10", "last ten"):
+                if (rec.get("type") or "").lower().replace(" ", "") in ("lastten","last_10"):
                     w, l = rec.get("wins"), rec.get("losses")
                     if w is not None and l is not None:
                         return f"{w}-{l}"
@@ -412,38 +433,39 @@ def standings_page():
             except Exception:
                 return ""
 
-        # Build exactly what standings.html expects
+        # ---- Shape exactly what standings.html expects
         data_division = {"American League": [], "National League": []}
-        for rec in (js.get("records") or []):
-            league_name = ((rec.get("league") or {}).get("name") or "").strip()
-            div_name = ((rec.get("division") or {}).get("name") or "Division").strip()
+
+        for rec in records:
+            league_name = ((rec.get("league") or {}).get("name") or "").strip() or "League"
+            div_name    = ((rec.get("division") or {}).get("name") or "Division").strip()
 
             rows = []
             for tr in (rec.get("teamRecords") or []):
-                team = tr.get("team") or {}
-                tid = team.get("id")
-                tname = team.get("name") or ""
+                team   = tr.get("team") or {}
+                tid    = team.get("id")
+                tname  = team.get("name") or ""
                 rows.append({
-                    "team_id": tid,
+                    "team_id":   tid,
                     "team_name": tname,
-                    "team_abbr": _abbr(tid, (tname.split()[-1][:3].upper() if tname else "")),
-                    "w": tr.get("wins"),
-                    "l": tr.get("losses"),
+                    "team_abbr": get_abbr(tid, tname),
+                    "w":   tr.get("wins"),
+                    "l":   tr.get("losses"),
                     "pct": pct_from(tr),
-                    "gb": gb_from(tr),
+                    "gb":  gb_from(tr),
                     "streak": streak_from(tr),
                     "last10": last10_from(tr),
                     "runDiff": run_diff_from(tr),
                 })
 
-            rows.sort(key=lambda r: (r.get("pct", 0.0), r.get("runDiff") or 0), reverse=True)
+            rows.sort(key=lambda r: (r.get("pct", 0.0), (r.get("runDiff") or 0)), reverse=True)
 
             data_division.setdefault(league_name, []).append({
                 "division": div_name,
                 "rows": rows
             })
 
-        # Provide wildcard keys so template loops don’t explode
+        # Always pass data_wildcard so template never trips
         data_wildcard = {
             "American League": {"leaders": [], "rows": []},
             "National League": {"leaders": [], "rows": []},
@@ -456,9 +478,11 @@ def standings_page():
             season=season,
             error=None
         )
+
     except Exception as e:
-        log.exception("Could not render standings template: %s", e)
-        return "Could not render standings template", 500
+        # TEMPORARY: surface the real error so we can see it in the browser
+        return f"Standings error: {type(e).__name__}: {e}", 500
+
 
 
 # app.py
