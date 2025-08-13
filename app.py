@@ -730,16 +730,14 @@ def api_games():
         games = (dates[0].get("games") or []) if dates else []
 
         # ---- BEGIN fallback fix (now INSIDE try:) ----
+                # ---- BEGIN fallback fix (timezone-safe) ----
         if not games:
+            # If the direct ?date=YYYY-MM-DD came back empty, try +/- 1 day.
+            # Use pure date math (no .localize — zoneinfo doesn’t have it).
             try:
-                # +/- 1 day in ET in case of timezone boundary issues
-                et_dt = datetime.strptime(d, "%Y-%m-%d")
-                if ET_TZ:
-                    # make it ET-aware without changing calendar date
-                    et_dt = ET_TZ.localize(et_dt)
-                et_date = et_dt.date()
-            except Exception:
                 et_date = date.fromisoformat(d)
+            except Exception:
+                et_date = date.today()
 
             for delta in (-1, 1):
                 dd = (et_date + timedelta(days=delta)).isoformat()
@@ -751,6 +749,7 @@ def api_games():
                     games = games2
                     break
         # ---- END fallback fix ----
+
 
     except Exception as e:
         log.exception("/api/games schedule fetch failed: %s", e)
