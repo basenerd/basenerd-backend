@@ -454,16 +454,40 @@ def standings_page():
 
 
         # ---- helpers robust to odd shapes ----
-        def last10_from(tr) -> str:
-            if not isinstance(tr, dict):
-                return ""
-            for rec in (tr.get("records") or []):
-                if isinstance(rec, dict) and (rec.get("type") or "").lower().replace(" ", "") in ("lastten","last_10"):
-                    w, l = rec.get("wins"), rec.get("losses")
-                    if w is not None and l is not None:
+        # --- replace your last10_from with this robust version ---
+def last10_from(tr) -> str:
+    """
+    Try multiple known shapes for the 'last 10' record.
+    Returns 'W-L' or ''.
+    """
+    if not isinstance(tr, dict):
+        return ""
+
+    # 1) teamRecords[].records list with type 'lastTen'
+    recs = tr.get("records") or []
+    if isinstance(recs, list):
+        for r in recs:
+            if isinstance(r, dict) and (r.get("type") or "").lower().replace(" ", "") in ("lastten", "last_10"):
+                w, l = r.get("wins"), r.get("losses")
+                if isinstance(w, int) and isinstance(l, int):
+                    return f"{w}-{l}"
+
+    # 2) nested splitRecords/overallRecords (sometimes under 'records' dict)
+    if isinstance(tr.get("records"), dict):
+        for key in ("splitRecords", "overallRecords", "records"):
+            arr = tr["records"].get(key) if isinstance(tr["records"].get(key), list) else []
+            for r in arr:
+                if isinstance(r, dict) and (r.get("type") or "").lower().replace(" ", "") in ("lastten", "last_10"):
+                    w, l = r.get("wins"), r.get("losses")
+                    if isinstance(w, int) and isinstance(l, int):
                         return f"{w}-{l}"
-            w10, l10 = tr.get("lastTenWins"), tr.get("lastTenLosses")
-            return f"{w10}-{l10}" if isinstance(w10, int) and isinstance(l10, int) else ""
+
+    # 3) flat fields sometimes appear
+    w10, l10 = tr.get("lastTenWins"), tr.get("lastTenLosses")
+    if isinstance(w10, int) and isinstance(l10, int):
+        return f"{w10}-{l10}"
+
+    return ""
 
         def streak_from(tr) -> str:
             if not isinstance(tr, dict):
@@ -552,10 +576,76 @@ def standings_page():
             rows.sort(key=lambda r: (r.get("pct", 0.0), (r.get("runDiff") or 0)), reverse=True)
             data_division.setdefault(league_name, []).append({"division": div_name, "rows": rows})
 
-        data_wildcard = {
-            "American League": {"leaders": [], "rows": []},
-            "National League": {"leaders": [], "rows": []},
-        }
+        def wc_gb(leader_w, leader_l, w, l):
+    """Games behind helper = ((leader_w - w) + (l - leader_l)) / 2"""
+    try:
+        return round(((leader_w - w) + (l - leader_l)) / 2.0, 1)
+    except Exception:
+        return ""
+
+def flatten_league_rows(league_name):
+    """Flatten all division rows for a league into one list with division info."""
+    flat = []
+    for block in (data_division.get(league_name) or []):
+        for row in (block.get("rows") or []):
+            flat.append({
+                **row,
+                "division": block.get("division") or "",
+            })
+    return flat
+
+data_wildcard = {}
+for league in ("American League", "National League"):
+    flat = flatten_league_rows(league)
+
+    # Identify each division leader (first row in each division block)
+    division_leaders = set()
+    for block in (data_division.get(league) or []):
+        first = (block.get("rows") or [])
+        if first:
+            division_leaders.add(first[0].get("team_id"))
+
+    # Pool = all non-division-winners
+    pool = [r for r in flat if r.get("team_id") not in division_leaders]
+
+    # Sort pool by win% then runDiff (desc)
+    pool.sort(key=lambda r: (r.get("pct") or 0.0, r.get("runDiff") or 0), reverse=True)
+
+    # Top three = WC1..WC3
+    top3 = pool[:3]
+
+    # Compute WCGB relative to the 3rd WC team (the cut line)
+    if len(top3) >= 3:
+        cut = top3[2]
+        cw, cl = cut.get("w") or 0, cut.get("l") or 0
+    else:
+        # If <3 teams, just use the best one as reference to avoid blanks
+        ref = top3[0] if top3 else {"w": 0, "l": 0}
+        cw, cl = ref.get("w") or 0, ref.get("l") or 0
+
+    rows = []
+    labels = ["WC1", "WC2", "WC3"]
+    for i, r in enumerate(top3):
+        rows.append({
+            "seed": labels[i],
+            "team_id": r.get("team_id"),
+            "team_name": r.get("team_name"),
+            "team_abbr": r.get("team_abbr"),
+            "w": r.get("w"),
+            "l": r.get("l"),
+            "pct": r.get("pct"),
+            "gb": r.get("gb"),
+            "streak": r.get("streak"),
+            "last10": r.get("last10"),
+            "runDiff": r.get("runDiff"),
+            "wcgb": wc_gb(cw, cl, r.get("w") or 0, r.get("l") or 0),
+        })
+
+    # 'leaders' can show the three WC seeds with badges; same schema as rows works fine
+    data_wildcard[league] = {
+        "leaders": rows[:],  # shallow copy
+        "rows": rows[:],     # if your template uses both, keep them in sync
+    }
 
         # Tiny debug signal rendered in your page footer so we know what's happening
         debug = {
@@ -566,14 +656,13 @@ def standings_page():
                                if data_division.get("American League") else 0),
         }
 
-        return render_template(
-            "standings.html",
-            data_division=data_division,
-            data_wildcard=data_wildcard,
-            season=season,
-            error=None,
-            debug=debug,  # your template can ignore this; just there if you want to print it
-        )
+return render_template(
+    "standings.html",
+    data_division=data_division,
+    data_wildcard=data_wildcard,
+    season=season,
+    error=None
+)
 
     except Exception as e:
         return f"Standings error: {type(e).__name__}: {e}", 500
