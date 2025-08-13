@@ -428,26 +428,33 @@
   }
 
   // --- Home plate (catcher's view) ---
-  // Add a vertical gap between strike zone and home plate
-const plateGap = zh * 0.1; // adjust this to change the gap size
-// Shift the plate down by plateGap
-const plateTopY = zy + zh + plateGap;
-  const plateTipDrop = zh * 0.15;  // how far tip drops below top edge
-  const plateBottomY = plateTopY + plateTipDrop;
-  const platePoints = [
-    `${zx},${plateTopY}`,                                   // top left
-    `${zx + zw},${plateTopY}`,                              // top right
-    `${zx + zw * 0.8},${plateBottomY - plateTipDrop / 3}`,  // mid right
-    `${zx + zw / 2},${plateBottomY}`,                       // tip
-    `${zx + zw * 0.2},${plateBottomY - plateTipDrop / 3}`   // mid left
-  ].join(" ");
+ // Gap between strike zone and plate (~12 inches in real life)
+const plateGap = zw * (12 / 17);
 
-  const plate = document.createElementNS(NS, "polygon");
-  plate.setAttribute("points", platePoints);
-  plate.setAttribute("fill", "#f3f4f6");
-  plate.setAttribute("stroke", "#111827");
-  plate.setAttribute("stroke-width", "2");
-  svg.appendChild(plate);
+// Proportions in terms of strike zone width (zw)
+const shortSide = zw * (8.5 / 17);
+const angledSide = zw * (12 / 17);
+
+// Plate vertical positioning
+const plateTopY = zy + zh + plateGap;
+const plateTipDrop = angledSide * Math.sin(Math.PI / 3); // height from angled sides (60° typical)
+const plateBottomY = plateTopY + plateTipDrop;
+
+// Build the points
+const platePoints = [
+  `${zx},${plateTopY}`,                            // top left
+  `${zx + zw},${plateTopY}`,                       // top right
+  `${zx + zw - shortSide},${plateBottomY}`,        // angled right
+  `${zx + zw / 2},${plateBottomY + shortSide}`,    // tip
+  `${zx + shortSide},${plateBottomY}`              // angled left
+].join(" ");
+
+const plate = document.createElementNS(NS, "polygon");
+plate.setAttribute("points", platePoints);
+plate.setAttribute("fill", "#f3f4f6");
+plate.setAttribute("stroke", "#111827");
+plate.setAttribute("stroke-width", "2");
+svg.appendChild(plate);
 
   // Pitch dots
   const colorFor = (p) => {
