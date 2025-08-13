@@ -380,14 +380,100 @@ def standings_page():
     try:
         season = date.today().year
         js = fetch_standings(season)
+
+        def last10_from(tr: dict) -> str:
+            # MLB returns split records; try several places safely
+            # 1) teamRecords[].records[].type == 'lastTen' with wins/losses
+            for rec in (tr.get("records") or []):
+                if (rec.get("type") or "").lower() in ("lastten", "last_10", "last ten"):
+                    w = rec.get("wins"); l = rec.get("losses")
+                    if w is not None and l is not None:
+                        return f"{w}-{l}"
+            # 2) sometimes present directly
+            w10 = tr.get("lastTenWins"); l10 = tr.get("lastTenLosses")
+            if w10 is not None and l10 is not None:
+                return f"{w10}-{l10}"
+            # 3) fallback empty
+            return ""
+
+        def streak_from(tr: dict) -> str:
+            s = (tr.get("streak") or {}).get("streakCode") or tr.get("streakCode") or ""
+            # Normalize like "W3" / "L2"
+            return s.strip()
+
+        def gb_from(tr: dict) -> str:
+            gb = tr.get("gamesBack")
+            # MLB sometimes uses '—', '0.0', '-', or numeric
+            if gb in (None, "", "0.0", "0", 0, "-", "—"):
+                return "—"
+            return str(gb)
+
+        def pct_from(tr: dict) -> float:
+            try:
+                return float(tr.get("pct") or tr.get("winningPercentage") or 0.0)
+            except Exception:
+                return 0.0
+
+        def run_diff_from(tr: dict) -> int | str:
+            if tr.get("runDifferential") is not None:
+                return tr.get("runDifferential")
+            try:
+                rs = int(tr.get("runsScored") or 0)
+                ra = int(tr.get("runsAllowed") or 0)
+                return rs - ra
+            except Exception:
+                return ""
+
+        # Build Division view payload the template expects
         data_division = {"American League": [], "National League": []}
-        for rec in js.get("records", []):
-            lg = (rec.get("league") or {}).get("name", "")
-            data_division.setdefault(lg, []).append(rec)
-        return render_template("standings.html", data_division=data_division)
+
+        for rec in (js.get("records") or []):
+            league_name = ((rec.get("league") or {}).get("name") or "").strip()
+            div_name = ((rec.get("division") or {}).get("name") or "Division").strip()
+
+            rows = []
+            for tr in (rec.get("teamRecords") or []):
+                team = tr.get("team") or {}
+                tid = team.get("id")
+                tname = team.get("name") or ""
+                rows.append({
+                    "team_id": tid,
+                    "team_name": tname,
+                    "team_abbr": _abbr(tid, (tname.split()[-1][:3].upper() if tname else "")),
+                    "w": tr.get("wins"),
+                    "l": tr.get("losses"),
+                    "pct": pct_from(tr),
+                    "gb": gb_from(tr),
+                    "streak": streak_from(tr),
+                    "last10": last10_from(tr),
+                    "runDiff": run_diff_from(tr),
+                })
+
+            # Sort by win% desc then run diff desc
+            rows.sort(key=lambda r: (r.get("pct", 0.0), r.get("runDiff") or 0), reverse=True)
+
+            data_division.setdefault(league_name, []).append({
+                "division": div_name,
+                "rows": rows
+            })
+
+        # Pass a safe wildcard structure so template calls to data_wildcard.get(...) don’t crash
+        data_wildcard = {
+            "American League": {"leaders": [], "rows": []},
+            "National League": {"leaders": [], "rows": []},
+        }
+
+        return render_template(
+            "standings.html",
+            data_division=data_division,
+            data_wildcard=data_wildcard,
+            season=season,
+            error=None
+        )
     except Exception as e:
         log.exception("Could not render standings template: %s", e)
         return "Could not render standings template", 500
+
 
 # app.py
 @app.route("/game/<int:game_pk>")
