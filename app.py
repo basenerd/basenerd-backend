@@ -54,8 +54,31 @@ def fetch_pbp(game_pk: int) -> dict:
     # Dedicated, stable PBP endpoint
     return _get(f"{MLB_API}/game/{game_pk}/playByPlay")
 
-def fetch_standings(season: int) -> dict:
-    return _get(f"{MLB_API}/standings", {"leagueId": "103,104", "season": season, "hydrate": "team"})
+def fetch_standings(season: int):
+    """
+    Returns a dict with a 'records' list shaped like MLB StatsAPI standings.
+    Never returns a raw string. On failure, returns {"records": []}.
+    """
+    try:
+        url = "https://statsapi.mlb.com/api/v1/standings"
+        # byDivision gives exactly what our shaper expects (records -> teamRecords)
+        params = {
+            "leagueId": "103,104",           # 103 = AL, 104 = NL
+            "season": str(season),
+            "standingsTypes": "byDivision",
+        }
+        r = requests.get(url, params=params, timeout=12, headers={"Accept": "application/json"})
+        r.raise_for_status()
+        js = r.json()
+        if isinstance(js, dict) and isinstance(js.get("records"), list):
+            return js
+    except Exception as e:
+        # log if you have a logger
+        try:
+            app.logger.exception("fetch_standings failed: %s", e)
+        except Exception:
+            pass
+    return {"records": []}
 
 # ---------- time helpers ----------
 try:
@@ -381,14 +404,11 @@ def standings_page():
         season = date.today().year
 
         js = fetch_standings(season)
-        if not isinstance(js, dict):
-            js = {}
-
         records = js.get("records") or []
         if not isinstance(records, list):
             records = []
 
-        # ---- helpers made robust against non-dict inputs ----
+        # ---- helpers robust to odd shapes ----
         def last10_from(tr) -> str:
             if not isinstance(tr, dict):
                 return ""
@@ -397,9 +417,8 @@ def standings_page():
                     w, l = rec.get("wins"), rec.get("losses")
                     if w is not None and l is not None:
                         return f"{w}-{l}"
-            w10, l10 = (tr.get("lastTenWins") if isinstance(tr.get("lastTenWins"), int) else None), \
-                       (tr.get("lastTenLosses") if isinstance(tr.get("lastTenLosses"), int) else None)
-            return f"{w10}-{l10}" if w10 is not None and l10 is not None else ""
+            w10, l10 = tr.get("lastTenWins"), tr.get("lastTenLosses")
+            return f"{w10}-{l10}" if isinstance(w10, int) and isinstance(l10, int) else ""
 
         def streak_from(tr) -> str:
             if not isinstance(tr, dict):
@@ -420,10 +439,8 @@ def standings_page():
             if not isinstance(tr, dict):
                 return 0.0
             try:
-                val = tr.get("pct")
-                if val is None:
-                    val = tr.get("winningPercentage")
-                return float(val or 0.0)
+                val = tr.get("pct") or tr.get("winningPercentage") or 0.0
+                return float(val)
             except Exception:
                 return 0.0
 
@@ -440,7 +457,6 @@ def standings_page():
                 return ""
 
         def get_abbr(team_id, team_name):
-            # best effort; work even if _abbr/TEAM_ABBR missing or bad
             try:
                 if "_abbr" in globals():
                     v = _abbr(team_id, "")
@@ -458,7 +474,7 @@ def standings_page():
             if not isinstance(rec, dict):
                 continue
 
-            league_obj = rec.get("league") if isinstance(rec.get("league"), dict) else {}
+            league_obj   = rec.get("league")   if isinstance(rec.get("league"), dict)   else {}
             division_obj = rec.get("division") if isinstance(rec.get("division"), dict) else {}
 
             league_name = (league_obj.get("name") or "").strip() or "League"
@@ -472,8 +488,8 @@ def standings_page():
             for tr in team_records:
                 if not isinstance(tr, dict):
                     continue
-                team = tr.get("team") if isinstance(tr.get("team"), dict) else {}
-                tid = team.get("id")
+                team  = tr.get("team") if isinstance(tr.get("team"), dict) else {}
+                tid   = team.get("id")
                 tname = team.get("name") or ""
                 rows.append({
                     "team_id":   tid,
@@ -489,15 +505,20 @@ def standings_page():
                 })
 
             rows.sort(key=lambda r: (r.get("pct", 0.0), (r.get("runDiff") or 0)), reverse=True)
-
-            data_division.setdefault(league_name, []).append({
-                "division": div_name,
-                "rows": rows
-            })
+            data_division.setdefault(league_name, []).append({"division": div_name, "rows": rows})
 
         data_wildcard = {
             "American League": {"leaders": [], "rows": []},
             "National League": {"leaders": [], "rows": []},
+        }
+
+        # Tiny debug signal rendered in your page footer so we know what's happening
+        debug = {
+            "season": season,
+            "records_count": len(records),
+            "leagues_built": {k: len(v) for k, v in data_division.items()},
+            "first_div_rows": (len(data_division.get("American League", [])[0]["rows"])
+                               if data_division.get("American League") else 0),
         }
 
         return render_template(
@@ -505,15 +526,12 @@ def standings_page():
             data_division=data_division,
             data_wildcard=data_wildcard,
             season=season,
-            error=None
+            error=None,
+            debug=debug,  # your template can ignore this; just there if you want to print it
         )
 
     except Exception as e:
-        # keep this temporarily so we see the next real error if any
         return f"Standings error: {type(e).__name__}: {e}", 500
-
-
-
 
 # app.py
 @app.route("/game/<int:game_pk>")
