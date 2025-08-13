@@ -744,7 +744,7 @@ def api_games():
     def cache_put(key, val):
         _cache[key] = {"t": now, "v": val}
 
-        def _sched_once(day: str, params: dict) -> dict:
+    def _sched_once(day: str, params: dict) -> dict:
         """Single schedule request with given params; 4s timeout."""
         base = f"{MLB_API}/schedule"
         try:
@@ -765,7 +765,7 @@ def api_games():
         """
         Try multiple known-good param combos that some hosts require.
         Order: date, start/end, and each again with gameTypes=R.
-        Uses a tiny cache to avoid hammering.
+        Uses the tiny cache to avoid hammering.
         """
         # cache check
         cached = cache_get(day)
@@ -797,6 +797,7 @@ def api_games():
 
         cache_put(day, js)
         return day, games
+
 
 
     def _abbr(team_id, fallback=""):
