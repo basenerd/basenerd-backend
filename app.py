@@ -54,46 +54,74 @@ def fetch_pbp(game_pk: int) -> dict:
     # Dedicated, stable PBP endpoint
     return _get(f"{MLB_API}/game/{game_pk}/playByPlay")
 
+import requests
+from datetime import date
+
 def fetch_standings(season: int):
     """
-    Try multiple MLB StatsAPI parameter combos until we get non-empty 'records'.
-    Always returns a dict with a 'records' list (possibly empty).
+    Robust MLB standings fetcher.
+    Tries several known-good StatsAPI parameter combos (with/without `date` and hydrates).
+    Returns a dict with 'records' (possibly empty) and logs what happened.
     """
     base = "https://statsapi.mlb.com/api/v1/standings"
+    today = date.today().isoformat()
+
+    # Some hosts require `date` for current-season snapshots.
+    # Also try both standingsType(s) spellings and a hydrate to ensure league/division present.
     common = {
-        "leagueId": "103,104",   # 103 = AL, 104 = NL
         "season": str(season),
-        "sportId": "1",          # MLB
+        "sportId": "1",             # MLB
+        "leagueId": "103,104",      # 103 = AL, 104 = NL
+        "hydrate": "team,league,division,record",
     }
-    # Ordered attempts — first one that returns non-empty 'records' wins
+
     attempts = [
-        {"standingsTypes": "byDivision"},
-        {"standingsType":  "byDivision"},      # some servers accept singular
-        {"standingsTypes": "regularSeason"},
-        {"standingsType":  "regularSeason"},
-        {"standingsTypes": "wildCard"},
-        {"standingsType":  "wildCard"},
+        {**common, "standingsTypes": "byDivision", "date": today},
+        {**common, "standingsType":  "byDivision", "date": today},
+        {**common, "standingsTypes": "regularSeason", "date": today},
+        {**common, "standingsType":  "regularSeason", "date": today},
+
+        # no date fallback
+        {**common, "standingsTypes": "byDivision"},
+        {**common, "standingsType":  "byDivision"},
+        {**common, "standingsTypes": "regularSeason"},
+        {**common, "standingsType":  "regularSeason"},
+
+        # wildcard (not used for division tables, but sometimes proves connectivity)
+        {**common, "standingsTypes": "wildCard", "date": today},
+        {**common, "standingsType":  "wildCard", "date": today},
     ]
 
     headers = {
         "Accept": "application/json",
-        "User-Agent": "ParlayPressStandings/1.0 (+your_site)"
+        "User-Agent": "ParlayPressStandings/1.0"
     }
 
-    for extra in attempts:
+    for i, params in enumerate(attempts, 1):
         try:
-            params = {**common, **extra}
             r = requests.get(base, params=params, headers=headers, timeout=12)
             r.raise_for_status()
             js = r.json()
-            if isinstance(js, dict) and isinstance(js.get("records"), list) and js["records"]:
-                # success — non-empty
+            recs = js.get("records") if isinstance(js, dict) else None
+            if isinstance(recs, list) and recs:
+                # success
+                try:
+                    app.logger.info("MLB standings success on attempt %s: records=%s", i, len(recs))
+                except Exception:
+                    pass
                 return js
-        except Exception:
-            # try next combo
-            continue
+            else:
+                try:
+                    app.logger.info("MLB standings attempt %s returned empty records", i)
+                except Exception:
+                    pass
+        except Exception as e:
+            try:
+                app.logger.info("MLB standings attempt %s failed: %s", i, e)
+            except Exception:
+                pass
 
-    # Last resort: return shape that won't crash caller
+    # Final fallback that won't crash caller
     return {"records": []}
 
 # ---------- time helpers ----------
@@ -423,6 +451,7 @@ def standings_page():
         records = js.get("records") or []
         if not isinstance(records, list):
             records = []
+
 
         # ---- helpers robust to odd shapes ----
         def last10_from(tr) -> str:
