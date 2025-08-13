@@ -380,71 +380,101 @@ def standings_page():
     try:
         season = date.today().year
 
-        # ---- Fetch, but be defensive about None / wrong types
         js = fetch_standings(season)
         if not isinstance(js, dict):
             js = {}
+
         records = js.get("records") or []
         if not isinstance(records, list):
             records = []
 
-        # ---- Local, safe helpers (don’t rely on globals being perfect)
-        def get_abbr(team_id, team_name):
+        # ---- helpers made robust against non-dict inputs ----
+        def last10_from(tr) -> str:
+            if not isinstance(tr, dict):
+                return ""
+            for rec in (tr.get("records") or []):
+                if isinstance(rec, dict) and (rec.get("type") or "").lower().replace(" ", "") in ("lastten","last_10"):
+                    w, l = rec.get("wins"), rec.get("losses")
+                    if w is not None and l is not None:
+                        return f"{w}-{l}"
+            w10, l10 = (tr.get("lastTenWins") if isinstance(tr.get("lastTenWins"), int) else None), \
+                       (tr.get("lastTenLosses") if isinstance(tr.get("lastTenLosses"), int) else None)
+            return f"{w10}-{l10}" if w10 is not None and l10 is not None else ""
+
+        def streak_from(tr) -> str:
+            if not isinstance(tr, dict):
+                return ""
+            s = tr.get("streak")
+            if isinstance(s, dict) and s.get("streakCode"):
+                return str(s.get("streakCode")).strip()
+            sc = tr.get("streakCode")
+            return str(sc).strip() if sc is not None else ""
+
+        def gb_from(tr) -> str:
+            if not isinstance(tr, dict):
+                return "—"
+            gb = tr.get("gamesBack")
+            return "—" if gb in (None, "", "0.0", "0", 0, "-", "—") else str(gb)
+
+        def pct_from(tr) -> float:
+            if not isinstance(tr, dict):
+                return 0.0
             try:
-                # use global _abbr if it exists and works
+                val = tr.get("pct")
+                if val is None:
+                    val = tr.get("winningPercentage")
+                return float(val or 0.0)
+            except Exception:
+                return 0.0
+
+        def run_diff_from(tr):
+            if not isinstance(tr, dict):
+                return ""
+            if tr.get("runDifferential") is not None:
+                return tr.get("runDifferential")
+            try:
+                rs = int(tr.get("runsScored") or 0)
+                ra = int(tr.get("runsAllowed") or 0)
+                return rs - ra
+            except Exception:
+                return ""
+
+        def get_abbr(team_id, team_name):
+            # best effort; work even if _abbr/TEAM_ABBR missing or bad
+            try:
                 if "_abbr" in globals():
                     v = _abbr(team_id, "")
                     if v:
                         return v
             except Exception:
                 pass
-            # fallback: last word 3 letters (e.g., "Dodgers" -> "DOD")
             tail = (team_name or "").split()[-1].upper()
             return (tail[:3] if tail else "TBD")
 
-        def last10_from(tr: dict) -> str:
-            for rec in (tr.get("records") or []):
-                if (rec.get("type") or "").lower().replace(" ", "") in ("lastten","last_10"):
-                    w, l = rec.get("wins"), rec.get("losses")
-                    if w is not None and l is not None:
-                        return f"{w}-{l}"
-            w10, l10 = tr.get("lastTenWins"), tr.get("lastTenLosses")
-            return f"{w10}-{l10}" if w10 is not None and l10 is not None else ""
-
-        def streak_from(tr: dict) -> str:
-            return ((tr.get("streak") or {}).get("streakCode")
-                    or tr.get("streakCode") or "").strip()
-
-        def gb_from(tr: dict) -> str:
-            gb = tr.get("gamesBack")
-            return "—" if gb in (None, "", "0.0", "0", 0, "-", "—") else str(gb)
-
-        def pct_from(tr: dict) -> float:
-            try:
-                return float(tr.get("pct") or tr.get("winningPercentage") or 0.0)
-            except Exception:
-                return 0.0
-
-        def run_diff_from(tr: dict):
-            if tr.get("runDifferential") is not None:
-                return tr.get("runDifferential")
-            try:
-                return int(tr.get("runsScored") or 0) - int(tr.get("runsAllowed") or 0)
-            except Exception:
-                return ""
-
-        # ---- Shape exactly what standings.html expects
+        # ---- build payload safely ----
         data_division = {"American League": [], "National League": []}
 
         for rec in records:
-            league_name = ((rec.get("league") or {}).get("name") or "").strip() or "League"
-            div_name    = ((rec.get("division") or {}).get("name") or "Division").strip()
+            if not isinstance(rec, dict):
+                continue
+
+            league_obj = rec.get("league") if isinstance(rec.get("league"), dict) else {}
+            division_obj = rec.get("division") if isinstance(rec.get("division"), dict) else {}
+
+            league_name = (league_obj.get("name") or "").strip() or "League"
+            div_name    = (division_obj.get("name") or "Division").strip()
 
             rows = []
-            for tr in (rec.get("teamRecords") or []):
-                team   = tr.get("team") or {}
-                tid    = team.get("id")
-                tname  = team.get("name") or ""
+            team_records = rec.get("teamRecords") or []
+            if not isinstance(team_records, list):
+                team_records = []
+
+            for tr in team_records:
+                if not isinstance(tr, dict):
+                    continue
+                team = tr.get("team") if isinstance(tr.get("team"), dict) else {}
+                tid = team.get("id")
+                tname = team.get("name") or ""
                 rows.append({
                     "team_id":   tid,
                     "team_name": tname,
@@ -465,7 +495,6 @@ def standings_page():
                 "rows": rows
             })
 
-        # Always pass data_wildcard so template never trips
         data_wildcard = {
             "American League": {"leaders": [], "rows": []},
             "National League": {"leaders": [], "rows": []},
@@ -480,8 +509,9 @@ def standings_page():
         )
 
     except Exception as e:
-        # TEMPORARY: surface the real error so we can see it in the browser
+        # keep this temporarily so we see the next real error if any
         return f"Standings error: {type(e).__name__}: {e}", 500
+
 
 
 
