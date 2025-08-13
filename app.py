@@ -34,13 +34,37 @@ def _get(url: str, params: dict = None, timeout: int = 15) -> dict:
 
 # ---------- MLB fetchers ----------
 def fetch_schedule(ymd: str) -> dict:
-    # include linescore + probablePitcher + probablePitcher season stats (for scheduled cards)
-    season = str(ymd)[:4] if ymd else str(date.today().year)
-    return _get(f"{MLB_API}/schedule", {
-        "sportId": SPORT_ID,
-        "date": ymd,
-        "hydrate": f"team,linescore,probablePitcher,probablePitcher(stats(group=pitching,type=season,season={season}))"
-    })
+    """
+    Robust schedule fetcher. Tries multiple param shapes that MLB StatsAPI
+    sometimes requires. Returns the first non-empty result; otherwise an empty day.
+    """
+    season = (ymd or str(date.today())).split("-")[0]
+    hydrate = f"team,linescore,probablePitcher,probablePitcher(stats(group=pitching,type=season,season={season}))"
+
+    base = f"{MLB_API}/schedule"
+    attempts = [
+        # Standard
+        {"sportId": SPORT_ID, "date": ymd, "hydrate": hydrate},
+        # Some envs only return when using start/end
+        {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "hydrate": hydrate},
+        # Some envs filter to Regular Season implicitly; be explicit
+        {"sportId": SPORT_ID, "date": ymd, "gameTypes": "R", "hydrate": hydrate},
+        {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "gameTypes": "R", "hydrate": hydrate},
+    ]
+
+    for params in attempts:
+        try:
+            js = _get(base, params) or {}
+            dates = js.get("dates") or []
+            games = (dates[0].get("games") or []) if dates else []
+            if games:
+                return js
+        except Exception:
+            continue
+
+    # Safe empty shape
+    return {"dates": [{"date": ymd, "games": []}]}
+
 
 
 def fetch_live(game_pk: int) -> dict:
@@ -704,6 +728,30 @@ def api_games():
         js = fetch_schedule(d) or {}
         dates = js.get("dates") or []
         games = (dates[0].get("games") or []) if dates else []
+    # Fallback: if no games, try explicit start/end and a 1-day ET fudge
+if not games:
+    try:
+        # Attempt #1: explicit start/end (some proxies require this)
+        js2 = fetch_schedule(d) or {}
+        dates2 = js2.get("dates") or []
+        games2 = (dates2[0].get("games") or []) if dates2 else []
+        if games2:
+            games = games2
+        else:
+            # Attempt #2: +/- 1 day in ET in case of timezone boundaries
+            et = ET_TZ.localize(datetime.strptime(d, "%Y-%m-%d")).date()
+            for delta in (-1, 1):
+                dd = (et + timedelta(days=delta)).isoformat()
+                js3 = fetch_schedule(dd) or {}
+                dates3 = js3.get("dates") or []
+                games3 = (dates3[0].get("games") or []) if dates3 else []
+                if games3:
+                    d = dd  # use the date that actually has games
+                    games = games3
+                    break
+    except Exception:
+        pass
+
     except Exception as e:
         log.exception("/api/games schedule fetch failed: %s", e)
         return jsonify({"date": d, "games": []}), 200
