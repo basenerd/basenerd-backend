@@ -1,3 +1,14 @@
+{# --- SAFE DEFAULTS INSERTED (minimal) --- #}
+{% if data_wildcard is not defined or data_wildcard is none %}
+{% set data_wildcard = {"American League": {"leaders": [], "rows": []}, "National League": {"leaders": [], "rows": []}} %}
+{% endif %}
+{% if data_division is not defined or data_division is none %}
+{% set data_division = {"American League": [], "National League": []} %}
+{% endif %}
+{% if season is not defined %}
+{% set season = "" %}
+{% endif %}
+{# --- END SAFE DEFAULTS --- #}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -463,3 +474,4 @@
   </script>
 </body>
 </html>
+
