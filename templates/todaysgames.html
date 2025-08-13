@@ -151,6 +151,7 @@
       color:#0b5cab; border:1px solid var(--border); padding:2px 8px; border-radius:8px; background:#fff;
     }
     .details-btn:hover{ background:#f1f5fb; }
+    .count{ margin-left:6px; color:#394150; font-size:11px; }
   </style>
 </head>
 <body>
@@ -241,26 +242,21 @@
       return await res.json();
     }
 
-    <script>
-  // ...
-  function chipFor(g){
-    if (g.status === 'in_progress') return `<span class="chip live">${g.chip}</span>`;
-    if (g.status === 'final') return `<span class="chip final">Final</span>`;
-    return `<span class="chip upcoming">${g.chip}</span>`;
-  }
+    // Chip + count
+    function chipFor(g){
+      if (g.status === 'in_progress') return `<span class="chip live">${g.chip}</span>`;
+      if (g.status === 'final') return `<span class="chip final">Final</span>`;
+      return `<span class="chip upcoming">${g.chip}</span>`;
+    }
+    function countHTML(g){
+      if (g.status !== 'in_progress') return '';
+      const c = g.count || {};
+      const bs = (c.balls!=null && c.strikes!=null) ? `${c.balls}-${c.strikes}` : '';
+      const o = (c.outs!=null) ? `${c.outs} out${c.outs===1?'':'s'}` : '';
+      if (!bs && !o) return '';
+      return `<span class="count">${[bs, o].filter(Boolean).join(', ')}</span>`;
+    }
 
-  // NEW: show live count + outs
-  function countHTML(g){
-    if (g.status !== 'in_progress') return '';
-    const c = g.count || {};
-    const bs = (c.balls!=null && c.strikes!=null) ? `${c.balls}-${c.strikes}` : '';
-    const o = (c.outs!=null) ? `${c.outs} out${c.outs===1?'':'s'}` : '';
-    if (!bs && !o) return '';
-    return `<span class="count">${[bs, o].filter(Boolean).join(', ')}</span>`;
-  }
-  // ...
-</script>
-  
     function diamondHTML(g){
       if (g.inBreak) return '';
       const b = g.bases || {};
@@ -530,7 +526,9 @@
       const a = g.teams.away, h = g.teams.home;
       const headerLeft = `<div class="when">${g.venue||''}</div>`;
       const detailLink = `<a class="details-btn" href="/game/${g.gamePk}" title="${linkLabel(g.status)}">${linkLabel(g.status)} ›</a>`;
-      const headerRight = g.status==='in_progress' ? `${chipFor(g)}${diamondHTML(g)} ${detailLink}` : `${chipFor(g)} ${detailLink}`;
+      const headerRight = g.status==='in_progress'
+        ? `${chipFor(g)} ${countHTML(g)} ${diamondHTML(g)} ${detailLink}`
+        : `${chipFor(g)} ${detailLink}`;
       const el = document.createElement('article');
       el.className = 'game';
       el.innerHTML = `
