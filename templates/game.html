@@ -399,6 +399,34 @@
   zone.setAttribute("stroke-width", "2");
   svg.appendChild(zone);
 
+  // --- Add grid lines for 9 squares ---
+  const thirdW = zw / 3;
+  const thirdH = zh / 3;
+
+  // Vertical grid lines
+  for (let i = 1; i <= 2; i++) {
+    const line = document.createElementNS(NS, "line");
+    line.setAttribute("x1", zx + i * thirdW);
+    line.setAttribute("y1", zy);
+    line.setAttribute("x2", zx + i * thirdW);
+    line.setAttribute("y2", zy + zh);
+    line.setAttribute("stroke", "#111827");
+    line.setAttribute("stroke-width", "1");
+    svg.appendChild(line);
+  }
+
+  // Horizontal grid lines
+  for (let i = 1; i <= 2; i++) {
+    const line = document.createElementNS(NS, "line");
+    line.setAttribute("x1", zx);
+    line.setAttribute("y1", zy + i * thirdH);
+    line.setAttribute("x2", zx + zw);
+    line.setAttribute("y2", zy + i * thirdH);
+    line.setAttribute("stroke", "#111827");
+    line.setAttribute("stroke-width", "1");
+    svg.appendChild(line);
+  }
+
   // Pitch dots
   const colorFor = (p) => {
     if (p && p.inPlay) return "#2563eb";              // blue for ball in play
