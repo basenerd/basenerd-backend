@@ -565,28 +565,28 @@ def standings_page():
             data_division.setdefault(league_name, []).append({"division": div_name, "rows": rows})
 
         # ---------- build wild card tables ----------
-def wc_gb(leader_w, leader_l, w, l):
-    try:
-        return round(((leader_w - w) + (l - leader_l)) / 2.0, 1)
-    except Exception:
-        return ""
+    def wc_gb(leader_w, leader_l, w, l):
+        try:
+            return round(((leader_w - w) + (l - leader_l)) / 2.0, 1)
+        except Exception:
+            return ""
 
         
-def _div_tag(name: str) -> str:
-    n = (name or "").lower()
-    if "east" in n: return "E"
-    if "central" in n: return "C"
-    if "west" in n: return "W"
-    return ""
-
-        def flatten_league_rows(league_name):
-            flat = []
-            for block in (data_division.get(league_name) or []):
-                for row in (block.get("rows") or []):
-                    flat.append({**row, "division": block.get("division") or ""})
-            return flat
-
-        data_wildcard = {}
+    def _div_tag(name: str) -> str:
+        n = (name or "").lower()
+        if "east" in n: return "E"
+        if "central" in n: return "C"
+        if "west" in n: return "W"
+        return ""
+        
+    def flatten_league_rows(league_name):
+        flat = []
+        for block in (data_division.get(league_name) or []):
+        for row in (block.get("rows") or []):
+                flat.append({**row, "division": block.get("division") or ""})
+                return flat
+        
+                data_wildcard = {}
 
 for league in ("American League", "National League"):
     blocks = data_division.get(league) or []
