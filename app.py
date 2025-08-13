@@ -1,6 +1,6 @@
 from flask import Flask, render_template, jsonify, request 
 import requests, logging
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from typing import List, Optional, Tuple
 
 app = Flask(__name__)
@@ -728,33 +728,35 @@ def api_games():
         js = fetch_schedule(d) or {}
         dates = js.get("dates") or []
         games = (dates[0].get("games") or []) if dates else []
-    # Fallback: if no games, try explicit start/end and a 1-day ET fudge
-    if not games:
-        try:
-            # Attempt #1: explicit start/end (some proxies require this)
-            js2 = fetch_schedule(d) or {}
-            dates2 = js2.get("dates") or []
-            games2 = (dates2[0].get("games") or []) if dates2 else []
-            if games2:
-                games = games2
-            else:
-                # Attempt #2: +/- 1 day in ET in case of timezone boundaries
-                et = ET_TZ.localize(datetime.strptime(d, "%Y-%m-%d")).date()
-                for delta in (-1, 1):
-                    dd = (et + timedelta(days=delta)).isoformat()
-                    js3 = fetch_schedule(dd) or {}
-                    dates3 = js3.get("dates") or []
-                    games3 = (dates3[0].get("games") or []) if dates3 else []
-                    if games3:
-                        d = dd  # use the date that actually has games
-                        games = games3
-                        break
-    except Exception:
-        pass
+
+        # ---- BEGIN fallback fix (now INSIDE try:) ----
+        if not games:
+            try:
+                # +/- 1 day in ET in case of timezone boundary issues
+                et_dt = datetime.strptime(d, "%Y-%m-%d")
+                if ET_TZ:
+                    # make it ET-aware without changing calendar date
+                    et_dt = ET_TZ.localize(et_dt)
+                et_date = et_dt.date()
+            except Exception:
+                et_date = date.fromisoformat(d)
+
+            for delta in (-1, 1):
+                dd = (et_date + timedelta(days=delta)).isoformat()
+                js2 = fetch_schedule(dd) or {}
+                dates2 = js2.get("dates") or []
+                games2 = (dates2[0].get("games") or []) if dates2 else []
+                if games2:
+                    d = dd  # use the date that actually has games
+                    games = games2
+                    break
+        # ---- END fallback fix ----
 
     except Exception as e:
         log.exception("/api/games schedule fetch failed: %s", e)
         return jsonify({"date": d, "games": []}), 200
+
+    # (leave the rest of your function AS-IS below this line)
 
     def _abbr(team_id, fallback=""):
         try:
