@@ -41,15 +41,28 @@ def fetch_schedule(ymd: str) -> dict:
     season = (ymd or str(date.today())).split("-")[0]
     hydrate = f"team,linescore,probablePitcher,probablePitcher(stats(group=pitching,type=season,season={season}))"
 
+    # Build a US-style date as an extra fallback (some hosts are picky)
+    try:
+        _us = datetime.strptime(day, "%Y-%m-%d").strftime("%m/%d/%Y")
+    except Exception:
+        _us = None
+
     base = f"{MLB_API}/schedule"
     attempts = [
         {"sportId": SPORT_ID, "date": day, "hydrate": hydrate},
         {"sportId": SPORT_ID, "startDate": day, "endDate": day, "hydrate": hydrate},
         {"sportId": SPORT_ID, "date": day, "gameTypes": "R", "hydrate": hydrate},
         {"sportId": SPORT_ID, "startDate": day, "endDate": day, "gameTypes": "R", "hydrate": hydrate},
-        # 👇 add this simple one last
+        # simple no-hydrate try
         {"sportId": SPORT_ID, "date": day},
     ]
+    # EXTRA fallbacks: US date format + leagueId/scheduleType that some gateways require
+    if _us:
+        attempts.extend([
+            {"sportId": SPORT_ID, "date": _us, "leagueId": "103,104"},
+            {"sportId": SPORT_ID, "startDate": _us, "endDate": _us, "leagueId": "103,104"},
+            {"sportId": SPORT_ID, "date": _us, "scheduleType": "games"},
+        ])
 
 
     for params in attempts:
@@ -951,6 +964,7 @@ def api_games():
                 break
         if not found:
             date_used = orig_date  # keep the date the client asked for
+
 
 
     if not games:
