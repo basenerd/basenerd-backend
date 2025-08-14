@@ -935,18 +935,23 @@ def api_games():
     # ---------- build response ----------
     out = []
     date_used, games = _fetch_sched_with_fallback(d)
-
-    # If still empty, try ±1 day (pure date math; no tz ops)
     if not games:
+        orig_date = d
         try:
             base_date = date.fromisoformat(d)
         except Exception:
             base_date = date.today()
+        found = False
         for delta in (-1, 1):
             dd = (base_date + timedelta(days=delta)).isoformat()
-            date_used, games = _fetch_sched_with_fallback(dd)
-            if games:
+            _du, _games = _fetch_sched_with_fallback(dd)
+            if _games:
+                date_used, games = _du, _games
+                found = True
                 break
+        if not found:
+            date_used = orig_date  # keep the date the client asked for
+
 
     if not games:
         return jsonify({"date": date_used, "games": []}), 200
