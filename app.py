@@ -39,7 +39,7 @@ def fetch_schedule(ymd: str) -> dict:
     sometimes requires. Returns the first non-empty result; otherwise an empty day.
     """
     season = (ymd or str(date.today())).split("-")[0]
-    hydrate = f"team,linescore,probablePitcher,probablePitcher(stats(group=pitching,type=season,season={season}))"
+    hydrate = "team,linescore,probablePitcher"
 
     base = f"{MLB_API}/schedule"
     attempts = [
