@@ -570,7 +570,7 @@
       if (state.timer) { clearTimeout(state.timer); state.timer = null; }
       const et = dateStrET(state.date);
       try {
-        const data = await fetchJson("{{ url_for('api_games') }}" + '?date=' + et);
+        const data = await fetchJson(API_GAMES + '?date=' + et);
         render(data);
         const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
         if (anyLive) state.timer = setTimeout(load, 30000);
