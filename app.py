@@ -718,7 +718,6 @@ import requests
 
 @app.route("/api/games")
 def api_games():
-    # --- pick date in ET (UI expects ET) ---
     d = request.args.get("date")
     if not d:
         try:
@@ -729,77 +728,16 @@ def api_games():
         except Exception:
             d = datetime.utcnow().strftime("%Y-%m-%d")
 
-    # --- tiny in-proc cache for schedule (20s) ---
-    if not hasattr(api_games, "_sched_cache"):
-        api_games._sched_cache = {}
-    _cache = api_games._sched_cache
-    now = time.time()
+    # --- use the robust top-level fetch_schedule you already have ---
+    js = fetch_schedule(d)
+    dates = js.get("dates") or []
+    games = (dates[0].get("games") or []) if dates else []
 
-    def cache_get(key):
-        rec = _cache.get(key)
-        if rec and (now - rec["t"] < 20):
-            return rec["v"]
-        return None
+    # If still nothing for that ET date, return the empty shape (no +/- day hopping)
+    if not games:
+        return jsonify({"date": d, "games": []}), 200
 
-    def cache_put(key, val):
-        _cache[key] = {"t": now, "v": val}
-
-    def _sched_once(day: str, params: dict) -> dict:
-        """Single schedule request with given params; 4s timeout."""
-        base = f"{MLB_API}/schedule"
-        try:
-            r = requests.get(
-                base,
-                params=params,
-                timeout=4,
-                headers={"Accept": "application/json", "User-Agent": "Basenerd/1.0"},
-            )
-            r.raise_for_status()
-            return r.json() or {}
-        except Exception as e:
-            try: log.info("schedule fetch failed %s params=%s: %s", day, params, e)
-            except Exception: pass
-            return {"dates": [{"date": day, "games": []}]}
-
-    def _fetch_sched_with_fallback(day: str) -> tuple[str, list]:
-        """
-        Try multiple known-good param combos that some hosts require.
-        Order: date, start/end, and each again with gameTypes=R.
-        Uses the tiny cache to avoid hammering.
-        """
-        # cache check
-        cached = cache_get(day)
-        if cached is not None:
-            dates = cached.get("dates") or []
-            return day, ((dates[0].get("games") or []) if dates else [])
-
-        season = (day or str(date.today())).split("-")[0]
-        hydrate = (
-            f"team,linescore,probablePitcher,"
-            f"probablePitcher(stats(group=pitching,type=season,season={season}))"
-        )
-
-        attempts = [
-            {"sportId": SPORT_ID, "date": day, "hydrate": hydrate},
-            {"sportId": SPORT_ID, "startDate": day, "endDate": day, "hydrate": hydrate},
-            {"sportId": SPORT_ID, "date": day, "gameTypes": "R", "hydrate": hydrate},
-            {"sportId": SPORT_ID, "startDate": day, "endDate": day, "gameTypes": "R", "hydrate": hydrate},
-        ]
-
-        js = {}
-        games = []
-        for params in attempts:
-            js = _sched_once(day, params)
-            dates = js.get("dates") or []
-            games = (dates[0].get("games") or []) if dates else []
-            if games:
-                break
-
-        cache_put(day, js)
-        return day, games
-
-
-
+    import time
     def _abbr(team_id, fallback=""):
         try:
             return TEAM_ABBR.get(int(team_id)) or (fallback or "")
@@ -812,24 +750,8 @@ def api_games():
             return "in_progress"
         if "final" in s or "game over" in s or "completed" in s:
             return "final"
+        # everything else is scheduled (e.g., "pre-game", "preview", "warmup")
         return "scheduled"
-
-    def _statcast_line_from_play(play: dict) -> str:
-        try:
-            hd = (play.get("hitData") or {})
-            if not hd:
-                return ""
-            ev = hd.get("launchSpeed"); la = hd.get("launchAngle")
-            dist = hd.get("totalDistance") or hd.get("totalDistanceFt") or hd.get("totalDistanceMeters")
-            estxba = hd.get("estimatedBaBasedOnLaunchSpeedAngle") or hd.get("estimatedBAUsingSpeedAngle") or hd.get("estimatedBA")
-            parts = []
-            if ev is not None: parts.append(f"EV {ev:.1f} mph")
-            if la is not None: parts.append(f"LA {la}°")
-            if dist: parts.append(f"{dist} ft")
-            if estxba is not None: parts.append(f"xBA {float(estxba):.3f}")
-            return " • ".join(parts)
-        except Exception:
-            return ""
 
     def _from_live_feed(game_pk: int) -> dict:
         """One 3s call; extract count/outs, bases, last play/statcast, linescore, scoring."""
@@ -849,6 +771,25 @@ def api_games():
         cur = (plays.get("currentPlay") or {})
         result = (cur.get("result") or {})
         last_play = result.get("description") or ""
+
+        # Statcast line
+        def _statcast_line_from_play(play: dict) -> str:
+            try:
+                hd = (play.get("hitData") or {})
+                if not hd:
+                    return ""
+                ev = hd.get("launchSpeed"); la = hd.get("launchAngle")
+                dist = hd.get("totalDistance") or hd.get("totalDistanceFt") or hd.get("totalDistanceMeters")
+                estxba = hd.get("estimatedBaBasedOnLaunchSpeedAngle") or hd.get("estimatedBAUsingSpeedAngle") or hd.get("estimatedBA")
+                parts = []
+                if ev is not None: parts.append(f"EV {float(ev):.1f} mph")
+                if la is not None: parts.append(f"LA {float(la):.1f}°")
+                if dist: parts.append(f"{int(round(float(dist)))} ft")
+                if estxba is not None: parts.append(f"xBA {float(estxba):.3f}")
+                return " • ".join(parts)
+            except Exception:
+                return ""
+
         statcast = _statcast_line_from_play(cur)
 
         # count/outs
@@ -863,7 +804,6 @@ def api_games():
 
         # bases + offense/defense
         offense = (ls.get("offense") or {})
-        defense = (ls.get("defense") or {})
         bases = {
             "first":  bool(offense.get("first") or offense.get("onFirst")),
             "second": bool(offense.get("second") or offense.get("onSecond")),
@@ -878,7 +818,7 @@ def api_games():
         in_hole = (offense.get("inHole") or {})
         due_up = ", ".join([x for x in (_nm(batter), _nm(on_deck), _nm(in_hole)) if x]) or None
 
-        # linescore (inning-by-inning)
+        # inning-by-inning linescore
         def _shape_linescore_from_live(linescore: dict) -> dict | None:
             try:
                 innings = linescore.get("innings") or []
@@ -905,6 +845,7 @@ def api_games():
             except Exception:
                 return None
 
+        # scoring summary (correct fields: about.awayScore/homeScore)
         scoring = []
         try:
             idxs = plays.get("scoringPlays") or []
@@ -915,8 +856,8 @@ def api_games():
                 res = p.get("result") or {}
                 inn = about.get("inning")
                 desc = res.get("description") or ""
-                away = (p.get("result") or {}).get("awayScore")
-                home = (p.get("result") or {}).get("homeScore")
+                away = about.get("awayScore")
+                home = about.get("homeScore")
                 scoring.append({"inning": inn, "play": desc, "away": away, "home": home})
         except Exception:
             pass
@@ -932,25 +873,7 @@ def api_games():
             "scoring": scoring,
         }
 
-    # ---------- build response ----------
     out = []
-    date_used, games = _fetch_sched_with_fallback(d)
-
-    # If still empty, try ±1 day (pure date math; no tz ops)
-    if not games:
-        try:
-            base_date = date.fromisoformat(d)
-        except Exception:
-            base_date = date.today()
-        for delta in (-1, 1):
-            dd = (base_date + timedelta(days=delta)).isoformat()
-            date_used, games = _fetch_sched_with_fallback(dd)
-            if games:
-                break
-
-    if not games:
-        return jsonify({"date": date_used, "games": []}), 200
-
     for g in games:
         try:
             game_pk = g.get("gamePk")
@@ -974,9 +897,7 @@ def api_games():
                 }
                 prob = (tt.get("probablePitcher") or {})
                 if prob:
-                    # show season line if stats are present
                     obj["probable"] = (lambda p: (p.get("fullName") or p.get("name") or ""))(prob)
-                    # upgrade to "(W-L, ERA)" if splits exist
                     nm = obj["probable"]
                     w = l = era = None
                     for stat in (prob.get("stats") or []):
@@ -1009,7 +930,7 @@ def api_games():
                 "lineups": {"away": [], "home": []},
             }
 
-            # Only live games get the single live-feed call
+            # Pull live-only extras when not scheduled
             if status != "scheduled":
                 live = _from_live_feed(game_pk)
                 if live:
@@ -1032,7 +953,8 @@ def api_games():
             except Exception: pass
             continue
 
-    return jsonify({"date": date_used, "games": out}), 200
+    return jsonify({"date": d, "games": out}), 200
+
 
 
 @app.route("/api/standings")
