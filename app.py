@@ -43,14 +43,14 @@ def fetch_schedule(ymd: str) -> dict:
 
     base = f"{MLB_API}/schedule"
     attempts = [
-        # Standard
-        {"sportId": SPORT_ID, "date": ymd, "hydrate": hydrate},
-        # Some envs only return when using start/end
-        {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "hydrate": hydrate},
-        # Some envs filter to Regular Season implicitly; be explicit
-        {"sportId": SPORT_ID, "date": ymd, "gameTypes": "R", "hydrate": hydrate},
-        {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "gameTypes": "R", "hydrate": hydrate},
+        {"sportId": SPORT_ID, "date": day, "hydrate": hydrate},
+        {"sportId": SPORT_ID, "startDate": day, "endDate": day, "hydrate": hydrate},
+        {"sportId": SPORT_ID, "date": day, "gameTypes": "R", "hydrate": hydrate},
+        {"sportId": SPORT_ID, "startDate": day, "endDate": day, "gameTypes": "R", "hydrate": hydrate},
+        # 👇 add this simple one last
+        {"sportId": SPORT_ID, "date": day},
     ]
+
 
     for params in attempts:
         try:
