@@ -1,8 +1,8 @@
 
 from flask import Flask, render_template, jsonify, request
-import requests, logging, time
-from datetime import datetime, timezone, date, timedelta
-from typing import List, Tuple, Optional, Dict, Any
+import requests, logging, time, os
+from datetime import datetime, timezone, date
+from typing import List, Optional, Dict
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -11,7 +11,6 @@ log = logging.getLogger("basenerd")
 MLB_API = "https://statsapi.mlb.com/api/v1"
 SPORT_ID = 1
 
-# ---------- small utils ----------
 TEAM_ABBR = {
     109:"ARI",144:"ATL",110:"BAL",111:"BOS",112:"CHC",145:"CHW",113:"CIN",114:"CLE",115:"COL",116:"DET",
     117:"HOU",118:"KC",108:"LAA",119:"LAD",146:"MIA",158:"MIL",142:"MIN",121:"NYM",147:"NYY",133:"OAK",
@@ -33,7 +32,6 @@ def _get(url: str, params: dict | None = None, timeout: int = 12) -> dict:
         log.info("GET failed %s params=%s: %s", url, params, e)
         return {}
 
-# ---------- time helpers ----------
 try:
     import zoneinfo
     ET_TZ = zoneinfo.ZoneInfo("America/New_York")
@@ -49,12 +47,9 @@ def to_et_str(iso_z: str) -> str:
     except Exception:
         return ""
 
-# ---------- MLB fetchers ----------
 def fetch_schedule_day(ymd: str) -> dict:
     season = (ymd or str(date.today())).split("-")[0]
-    hydrate = (
-        f"team,linescore,probablePitcher,probablePitcher(stats(group=pitching,type=season,season={season}))"
-    )
+    hydrate = f"team,linescore,probablePitcher,probablePitcher(stats(group=pitching,type=season,season={season}))"
     base = f"{MLB_API}/schedule"
     attempts = [
         {"sportId": SPORT_ID, "date": ymd, "hydrate": hydrate},
@@ -83,7 +78,6 @@ def fetch_box(game_pk: int) -> dict:
 def fetch_pbp(game_pk: int) -> dict:
     return _get(f"{MLB_API}/game/{game_pk}/playByPlay")
 
-# ---------- normalize helpers ----------
 def _norm_status_from_sched(g: dict) -> str:
     st = ((g.get("status") or {}).get("detailedState") or "").lower()
     abs_s = ((g.get("status") or {}).get("abstractGameState") or "").lower()
@@ -98,64 +92,10 @@ def _ls_chip(ls: dict, status: str, game_date_iso: str) -> str:
         return to_et_str(game_date_iso) or "Scheduled"
     if status == "in_progress":
         inning = ls.get("currentInning")
-        half = (ls.get("isTopInning") and "▲") or (ls.get("isBottomInning") and "▼") or ""
-        if inning: return f"{half}{inning}"
+        sym = "▲" if ls.get("isTopInning") else ("▼" if ls.get("isTopInning") is False else "")
+        if inning: return f"{sym}{inning}"
         return "Live"
     return "Final"
-
-def _count_from_live(live: dict) -> dict:
-    try:
-        bs = (((live.get("liveData") or {}).get("plays") or {}).get("currentPlay") or {}).get("count") or {}
-        outs = (live.get("liveData") or {}).get("linescore", {}).get("outs", None)
-        return {
-            "balls": bs.get("balls"),
-            "strikes": bs.get("strikes"),
-            "outs": outs if outs is not None else bs.get("outs")
-        }
-    except Exception:
-        return {}
-
-def _bases_from_live(live: dict) -> dict:
-    try:
-        on = (((live.get("liveData") or {}).get("linescore") or {}).get("offense") or {})
-        return {
-            "first": bool(on.get("first")),
-            "second": bool(on.get("second")),
-            "third": bool(on.get("third")),
-        }
-    except Exception:
-        return {}
-
-def _due_up_from_live(live: dict) -> tuple[Optional[str], Optional[str]]:
-    try:
-        ld = (live.get("liveData") or {})
-        du = (ld.get("linescore") or {}).get("offense", {})
-        players = (ld.get("boxscore") or {}).get("teams", {})
-        # offense has battingOrder? fallback to current/next batter from plays
-        plays = (ld.get("plays") or {})
-        next_up = (plays.get("currentPlay") or {}).get("about", {}).get("halfInning")
-        half = str(next_up or "").lower()
-        side = "away" if half == "top" else "home" if half == "bottom" else None
-        due = []
-        for key in ("batter","onDeck","inHole"):
-            person = du.get(key) or {}
-            name = person.get("lastInitName") or person.get("boxscoreName") or person.get("fullName")
-            if name: due.append(name)
-        return (side, ", ".join(due) if due else None)
-    except Exception:
-        return (None, None)
-
-def _persons_lookup(live: dict) -> Dict[str, dict]:
-    out = {}
-    try:
-        people = (live.get("gameData") or {}).get("players") or {}
-        for k,v in people.items():
-            pid = str(v.get("id") or "").strip()
-            if pid:
-                out[pid] = v
-    except Exception:
-        pass
-    return out
 
 def latest_play_from_feed(live: dict) -> dict:
     plays = ((live.get("liveData") or {}).get("plays") or {})
@@ -170,8 +110,7 @@ def extract_statcast_line(live: dict) -> str:
     if not hd:
         for ev in reversed(p.get("playEvents") or []):
             if ev.get("hitData"):
-                hd = ev["hitData"]
-                break
+                hd = ev["hitData"]; break
     parts: List[str] = []
     try:
         ev = float(hd.get("launchSpeed")); parts.append(f"EV: {ev:.1f}")
@@ -216,7 +155,6 @@ def _box_batting(box: dict, side: str) -> List[dict]:
     t = (box.get("teams") or {}).get(side) or {}
     players = (t.get("players") or {})
     order = t.get("battingOrder") or []
-    # order is list of "IDxxxxxxx" strings; fallback to sorted by battingOrder on player
     ids: List[str] = []
     if isinstance(order, list) and order:
         ids = [s.replace("ID","") for s in order]
@@ -225,10 +163,8 @@ def _box_batting(box: dict, side: str) -> List[dict]:
         for pid,pobj in players.items():
             bo = str(pobj.get("battingOrder") or "")
             if bo:
-                try:
-                    tmp.append((int(bo[:2]), pid.replace("ID","")))
-                except Exception:
-                    pass
+                try: tmp.append((int(bo[:2]), pid.replace("ID","")))
+                except Exception: pass
         tmp.sort()
         ids = [pid for _,pid in tmp] or [pid.replace("ID","") for pid in players.keys()]
     out = []
@@ -282,51 +218,75 @@ def _lineup_from_box(box: dict, side: str) -> List[dict]:
     except Exception:
         return []
 
-def _score_summary_from_pbp(pbp: dict, aabbr: str, habbr: str) -> List[dict]:
+def _count_from_live(live: dict) -> dict:
+    try:
+        bs = (((live.get("liveData") or {}).get("plays") or {}).get("currentPlay") or {}).get("count") or {}
+        outs = (live.get("liveData") or {}).get("linescore", {}).get("outs", None)
+        return {"balls": bs.get("balls"), "strikes": bs.get("strikes"), "outs": outs if outs is not None else bs.get("outs")}
+    except Exception:
+        return {}
+
+def _bases_from_live(live: dict) -> dict:
+    try:
+        on = (((live.get("liveData") or {}).get("linescore") or {}).get("offense") or {})
+        return {"first": bool(on.get("first")), "second": bool(on.get("second")), "third": bool(on.get("third"))}
+    except Exception:
+        return {}
+
+def _due_up_from_live(live: dict) -> tuple[Optional[str], Optional[str]]:
+    try:
+        ld = (live.get("liveData") or {})
+        du = (ld.get("linescore") or {}).get("offense", {})
+        plays = (ld.get("plays") or {})
+        next_up = (plays.get("currentPlay") or {}).get("about", {}).get("halfInning")
+        half = str(next_up or "").lower()
+        side = "away" if half == "top" else "home" if half == "bottom" else None
+        due = []
+        for key in ("batter","onDeck","inHole"):
+            person = du.get(key) or {}
+            name = person.get("lastInitName") or person.get("boxscoreName") or person.get("fullName")
+            if name: due.append(name)
+        return (side, ", ".join(due) if due else None)
+    except Exception:
+        return (None, None)
+
+def _score_summary_from_pbp(pbp: dict) -> List[dict]:
     out = []
     plays = (pbp or {}).get("allPlays") or []
-    a = 0; h = 0
+    a=h=0
     for p in plays:
         res = (p.get("result") or {})
         about = (p.get("about") or {})
-        rbi = res.get("rbi",0) or 0
-        if rbi:
-            # inning label
-            half = (about.get("halfInning") or "").lower()
-            sym = "▲" if half=="top" else "▼" if half=="bottom" else ""
-            inn = about.get("inning")
-            # update score if available on play
-            a = about.get("awayScore", a)
-            h = about.get("homeScore", h)
-            out.append({
-                "inning": f"{inn} {sym}".strip(),
-                "by": res.get("description") and "",
-                "play": res.get("description") or "",
-                "away": a, "home": h
-            })
+        if not (res.get("rbi") or res.get("awayScore") or res.get("homeScore")):
+            continue
+        half = (about.get("halfInning") or "").lower()
+        sym = "▲" if half=="top" else "▼" if half=="bottom" else ""
+        inn = about.get("inning")
+        a = about.get("awayScore", a)
+        h = about.get("homeScore", h)
+        out.append({
+            "inning": f"{inn} {sym}".strip(),
+            "play": res.get("description") or "",
+            "away": a, "home": h
+        })
     return out
 
 def _decisions_text(live: dict) -> tuple[str,str,dict]:
     ids = {"winnerId": None, "loserId": None, "saveId": None}
     try:
         dec = (live.get("liveData") or {}).get("decisions") or {}
-        w = (dec.get("winner") or {})
-        l = (dec.get("loser") or {})
-        s = (dec.get("save") or {})
-        ids["winnerId"] = w.get("id")
-        ids["loserId"]  = l.get("id")
-        ids["saveId"]   = s.get("id")
+        w = (dec.get("winner") or {}); l = (dec.get("loser") or {}); s = (dec.get("save") or {})
+        ids["winnerId"] = w.get("id"); ids["loserId"] = l.get("id"); ids["saveId"] = s.get("id")
         def nm(d): return d.get("fullName") or d.get("lastInitName") or d.get("boxscoreName") or ""
         parts = []
         if w: parts.append(f"W: {nm(w)}")
         if l: parts.append(f"L: {nm(l)}")
         if s: parts.append(f"SV: {nm(s)}")
-        save = f"SV: {nm(s)}" if s else ""
-        return " • ".join(parts), save, ids
+        return " • ".join(parts), (f"SV: {nm(s)}" if s else ""), ids
     except Exception:
         return "", "", ids
 
-# ---------- pages ----------
+# ---------------- PAGES ----------------
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -339,10 +299,13 @@ def todaysgames_page():
 def game_page(game_pk: int):
     return render_template("game.html", game_pk=game_pk, game=None)
 
-# ---------- API: /api/games (grid cards) ----------
+@app.route("/ping")
+def ping():
+    return "ok", 200
+
+# ---------------- API: GAMES GRID ----------------
 @app.route("/api/games")
 def api_games():
-    # pick ET date
     d = request.args.get("date")
     if not d:
         try:
@@ -352,7 +315,6 @@ def api_games():
         except Exception:
             d = datetime.utcnow().strftime("%Y-%m-%d")
 
-    # small cache (20s)
     if not hasattr(api_games, "_cache"):
         api_games._cache = {}
     cache = api_games._cache
@@ -378,30 +340,27 @@ def api_games():
             teams = g.get("teams") or {}
             away = teams.get("away") or {}
             home = teams.get("home") or {}
-            away_t = away.get("team") or {}
-            home_t = home.get("team") or {}
 
             def team_obj(side_obj):
                 t = side_obj or {}
                 team = t.get("team") or {}
                 rec = t.get("leagueRecord") or {}
                 probable = (t.get("probablePitcher") or {})
-                prob_stats = None
+                prob_line = None
                 st = (probable.get("stats") or {})
+                era=w=l=None
                 if isinstance(st, list) and st:
                     try:
                         splits = st[0].get("splits") or []
                         if splits:
                             s = splits[0].get("stat") or {}
-                            era = s.get("era"); so = s.get("strikeOuts"); ip = s.get("inningsPitched"); w = s.get("wins"); l = s.get("losses"); whip = s.get("whip")
-                            prob_stats = {"w": w, "l": l, "era": era, "so": so, "ip": ip, "whip": whip}
+                            era = s.get("era"); w = s.get("wins"); l = s.get("losses")
                     except Exception:
-                        prob_stats = None
-                prob_line = None
+                        pass
                 if probable:
                     nm = probable.get("boxscoreName") or probable.get("lastInitName") or probable.get("fullName")
-                    if nm and prob_stats and (prob_stats.get("era") is not None):
-                        prob_line = f"{nm} • {prob_stats.get('w','?')}-{prob_stats.get('l','?')}, {prob_stats.get('era','—')} ERA"
+                    if nm and (era is not None) and (w is not None) and (l is not None):
+                        prob_line = f"{nm} ({w}-{l}, {era} ERA)"
                     elif nm:
                         prob_line = nm
                 record = ""
@@ -416,34 +375,25 @@ def api_games():
 
             chip = _ls_chip(ls, status, game_date_iso)
 
-            # Live extras
-            count = {}
-            bases = {}
-            last_play = ""
-            statcast = ""
-            in_break = False
-            due_up_side = None
-            due_up = None
+            # Live enrich
+            count = {}; bases = {}; last_play = ""; statcast = ""
+            in_break = False; due_up_side = None; due_up = None
             current_pitcher = {"home": None, "away": None}
             current_batter  = {"home": None, "away": None}
-            break_pitcher = {"home": None, "away": None}
 
             if status != "scheduled":
                 live = fetch_live(game_pk)
                 count = _count_from_live(live)
                 bases = _bases_from_live(live)
-
-                # break / due up
                 about = ((live.get("liveData") or {}).get("plays") or {}).get("currentPlay", {}).get("about", {})
-                in_break = bool(about.get("isTopInning") is None and about.get("hasReview") is False and ((live.get("liveData") or {}).get("linescore") or {}).get("isInningBreak", False))
+                in_break = bool(((live.get("liveData") or {}).get("linescore") or {}).get("isInningBreak", False))
                 due_up_side, due_up = _due_up_from_live(live)
 
-                # current player strings
-                box = ((live.get("liveData") or {}).get("boxscore") or {})
+                # current names (best-effort)
+                boxlive = ((live.get("liveData") or {}).get("boxscore") or {})
                 for side in ("home","away"):
-                    curp = (box.get("teams", {}).get(side, {}).get("pitchers") or [])
-                    curb = (box.get("teams", {}).get(side, {}).get("batters") or [])
-                    # just grab first entries and turn into names
+                    curp = (boxlive.get("teams", {}).get(side, {}).get("pitchers") or [])
+                    curb = (boxlive.get("teams", {}).get(side, {}).get("batters") or [])
                     players = (live.get("gameData") or {}).get("players") or {}
                     def name_for(pid):
                         p = players.get(f"ID{pid}") or {}
@@ -451,7 +401,6 @@ def api_games():
                     current_pitcher[side] = name_for(curp[0]) if curp else None
                     current_batter[side]  = name_for(curb[0]) if curb else None
 
-                # last play + statcast
                 lp = latest_play_from_feed(live) or {}
                 last_play = (lp.get("result") or {}).get("description") or ""
                 statcast = extract_statcast_line(live) or ""
@@ -460,18 +409,7 @@ def api_games():
             away_score = (ls.get("teams") or {}).get("away", {}).get("runs")
             home_score = (ls.get("teams") or {}).get("home", {}).get("runs")
 
-            # final decisions
-            save_text = ""
-            final_text = ""
-            if status == "final":
-                live = fetch_live(game_pk)
-                dec_text, save_text_, _ = _decisions_text(live)
-                final_text = dec_text
-                save_text = save_text_
-
-            # linescore & box snippets (for dropdowns in card)
             shaped_ls = _shape_linescore(ls) if ls else _shape_linescore(fetch_linescore(game_pk))
-            box = fetch_box(game_pk) if status != "scheduled" else {}
 
             obj = {
                 "gamePk": game_pk,
@@ -486,31 +424,41 @@ def api_games():
                 "statcast": statcast,
                 "teams": {
                     "away": { **team_obj(away), "score": away_score, "currentPitcher": current_pitcher.get("away"), "currentBatter": current_batter.get("away"),
-                              "breakPitcher": break_pitcher.get("away"), "finalPitcher": final_text, "savePitcher": save_text },
+                              "finalPitcher": "", "savePitcher": "" },
                     "home": { **team_obj(home), "score": home_score, "currentPitcher": current_pitcher.get("home"), "currentBatter": current_batter.get("home"),
-                              "breakPitcher": break_pitcher.get("home"), "finalPitcher": "", "savePitcher": "" },
+                              "finalPitcher": "", "savePitcher": "" },
                 },
                 "linescore": shaped_ls,
             }
 
-            # Add boxscore rows if available
-            if box:
-                obj["batting"] = {
-                    "away": _box_batting(box, "away"),
-                    "home": _box_batting(box, "home"),
-                }
-                obj["pitching"] = {
-                    "away": _box_pitching(box, "away"),
-                    "home": _box_pitching(box, "home"),
-                }
+            # Fetch boxscore for lineups always (even scheduled, if posted); add box tables when live/final
+            try:
+                box_any = fetch_box(game_pk) or {}
                 obj["lineups"] = {
-                    "away": _lineup_from_box(box, "away"),
-                    "home": _lineup_from_box(box, "home"),
+                    "away": _lineup_from_box(box_any, "away"),
+                    "home": _lineup_from_box(box_any, "home"),
                 }
+                if status != "scheduled" and box_any:
+                    obj["batting"]  = {"away": _box_batting(box_any, "away"), "home": _box_batting(box_any, "home")}
+                    obj["pitching"] = {"away": _box_pitching(box_any, "away"), "home": _box_pitching(box_any, "home")}
+                    # also add aliases some templates expect
+                    obj["batters"]  = obj["batting"]
+                    obj["pitchers"] = obj["pitching"]
+                    # scoring summary
+                    pbp = fetch_pbp(game_pk)
+                    obj["scoreSummary"] = _score_summary_from_pbp(pbp)
+                    obj["scoring"] = obj["scoreSummary"]
+            except Exception:
+                obj["lineups"] = {"away": [], "home": []}
 
-                # score summary
-                pbp = fetch_pbp(game_pk)
-                obj["scoreSummary"] = _score_summary_from_pbp(pbp, obj["teams"]["away"]["abbr"], obj["teams"]["home"]["abbr"])
+            # final W/L/S text for final cards
+            if status == "final":
+                live = fetch_live(game_pk)
+                dec_text, save_text, _ = _decisions_text(live)
+                obj["teams"]["away"]["finalPitcher"] = dec_text or ""
+                obj["teams"]["home"]["finalPitcher"] = ""
+                obj["teams"]["away"]["savePitcher"]  = save_text or ""
+                obj["teams"]["home"]["savePitcher"]  = ""
 
             out.append(obj)
         except Exception as e:
@@ -519,26 +467,22 @@ def api_games():
 
     return jsonify({"date": d, "games": out})
 
-# ---------- API: /api/game/<pk> (details page) ----------
+# ---------------- API: SINGLE GAME ----------------
 @app.route("/api/game/<int:game_pk>")
 def api_game_detail(game_pk: int):
-    # schedule shell
     sched = _get(f"{MLB_API}/schedule", {"gamePk": game_pk, "hydrate":"team,linescore"})
     games = (sched.get("dates", [{}])[0].get("games", []) if sched.get("dates") else [])
     shell = games[0] if games else {}
     status = _norm_status_from_sched(shell)
     ls = shell.get("linescore") or fetch_linescore(game_pk)
 
-    # live + box + pbp
     live = fetch_live(game_pk)
     box = fetch_box(game_pk) if status != "scheduled" else {}
     pbp = fetch_pbp(game_pk)
 
     teams = (shell.get("teams") or {})
-    away = teams.get("away") or {}
-    home = teams.get("home") or {}
-    away_t = away.get("team") or {}
-    home_t = home.get("team") or {}
+    away = teams.get("away") or {}; home = teams.get("home") or {}
+    away_t = away.get("team") or {}; home_t = home.get("team") or {}
 
     def record(s):
         rec = s.get("leagueRecord") or {}
@@ -547,18 +491,11 @@ def api_game_detail(game_pk: int):
         return ""
 
     chip = _ls_chip(ls or {}, status, shell.get("gameDate") or "")
-
-    # linescore shape
     shaped_ls = _shape_linescore(ls or {})
-
-    # decisions
     dec_text, save_text, dec_ids = _decisions_text(live)
-
-    # latest play + statcast
     last_play = (latest_play_from_feed(live).get("result") or {}).get("description") or ""
     statcast = extract_statcast_line(live) or ""
 
-    # build
     out = {
         "gamePk": game_pk,
         "status": status,
@@ -574,30 +511,19 @@ def api_game_detail(game_pk: int):
             "home": {"id": home_t.get("id"), "abbr": _abbr(home_t.get("id"), home_t.get("abbreviation") or ""), "record": record(home)},
         },
         "linescore": shaped_ls,
-        "batting": {
-            "away": _box_batting(box, "away") if box else [],
-            "home": _box_batting(box, "home") if box else [],
-        },
-        "pitching": {
-            "away": _box_pitching(box, "away") if box else [],
-            "home": _box_pitching(box, "home") if box else [],
-        },
-        "lineups": {
-            "away": _lineup_from_box(box, "away") if box else [],
-            "home": _lineup_from_box(box, "home") if box else [],
-        },
+        "batting": {"away": _box_batting(box, "away") if box else [], "home": _box_batting(box, "home") if box else []},
+        "pitching": {"away": _box_pitching(box, "away") if box else [], "home": _box_pitching(box, "home") if box else []},
+        "lineups": {"away": _lineup_from_box(box, "away") if box else [], "home": _lineup_from_box(box, "home") if box else []},
         "decisions": dec_ids,
         "decisionsText": dec_text,
         "saveText": save_text,
         "plays": [],
     }
 
-    # shape PBP list for game.html tables (EV/LA/Dist/xBA + pitch table per play)
+    # shape pbp
     def _num(v, cast=float):
-        try:
-            return cast(v) if v is not None else None
-        except Exception:
-            return None
+        try: return cast(v) if v is not None else None
+        except Exception: return None
 
     plays_src = (pbp or {}).get("allPlays") or (((live or {}).get("liveData") or {}).get("plays") or {}).get("allPlays") or []
     shaped = []
@@ -616,7 +542,6 @@ def api_game_detail(game_pk: int):
         la   = _num(hd.get("launchAngle"))
         dist = _num(hd.get("totalDistance"), int)
         xba  = _num(hd.get("estimatedBAUsingSpeedAngle"))
-
         pitch_list = []
         for evn in (p.get("playEvents") or []):
             pd = evn.get("pitchData") or {}
@@ -635,24 +560,17 @@ def api_game_detail(game_pk: int):
                 "px": _num(coords.get("pX")), "pz": _num(coords.get("pZ")),
                 "code": ((det.get("call") or {}).get("code") or det.get("code")), "inPlay": bool(det.get("isInPlay")),
             })
-
-        shaped.append({
-            "inning": f"{inn} {sym}".strip(),
-            "desc": res.get("description") or "",
-            "ev": ev, "la": la, "dist": dist, "xba": xba,
-            "pitches": pitch_list,
-        })
-
+        shaped.append({"inning": f"{inn} {sym}".strip(), "desc": res.get("description") or "", "ev": ev, "la": la, "dist": dist, "xba": xba, "pitches": pitch_list})
     out["plays"] = shaped
 
     return jsonify(out)
 
-# --------------- standings (left intact for now; optional) ---------------
+# ---------------- Standings passthrough (unchanged) ----------------
 def fetch_standings(season: int) -> dict:
     base = f"{MLB_API}/standings"
     today = date.today().isoformat()
     common = {"season": str(season), "sportId":"1", "leagueId":"103,104", "hydrate":"team,league,division,record"}
-    attempts = [
+    for p in [
         {**common, "standingsTypes":"byDivision", "date":today},
         {**common, "standingsType":"byDivision", "date":today},
         {**common, "standingsTypes":"regularSeason", "date":today},
@@ -661,8 +579,7 @@ def fetch_standings(season: int) -> dict:
         {**common, "standingsType":"byDivision"},
         {**common, "standingsTypes":"regularSeason"},
         {**common, "standingsType":"regularSeason"},
-    ]
-    for p in attempts:
+    ]:
         js = _get(base, p, timeout=10)
         if js.get("records"): return js
     return {"records":[]}
@@ -672,10 +589,10 @@ def standings_page():
     try:
         season = date.today().year
         js = fetch_standings(season)
-        # very light pass-through (HTML handles rendering)
         return render_template("standings.html", data_division=js, data_wildcard={}, season=season, error=None)
     except Exception as e:
         return f"Standings error: {e}", 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=True)
