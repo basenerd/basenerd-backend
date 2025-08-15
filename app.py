@@ -138,8 +138,8 @@ def latest_play_from_feed(live: dict) -> dict:
     cur = plays.get("currentPlay") or {}
     if cur:
         return cur
-    allp = plays.get("allPlays") or []
-    return allPlays[-1] if allp else {}
+    allp = plays.get("allplays") or []
+    return allplays[-1] if allp else {}
 
 def extract_statcast_line(live: dict) -> str:
     p = latest_play_from_feed(live) or {}
