@@ -1161,7 +1161,7 @@ def api_game(game_pk: int):
         game_payload["lastPlay"] = ""
         game_payload["statcast"] = ""
 
-    box = fetch_box(game_pk)
+    box = fetch_box(game_pk) 
     game_payload["batters"]  = {"away": _box_batting(box, "away"), "home": _box_batting(box, "home")}
     game_payload["pitchers"] = {"away": _box_pitching(box, "away"), "home": _box_pitching(box, "home")}
 
