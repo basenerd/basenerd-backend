@@ -632,10 +632,16 @@ async function load(){
       if (state.timer) { clearTimeout(state.timer); state.timer = null; }
       const et = dateStrET(state.date);
       try {
-        const data = await fetchJson("{{ url_for('api_games') }}" + '?date=' + et);
-  if (!data || !Array.isArray(data.games) || data.games.length === 0) {
-    try { data = await fetchMlbSchedule(et); } catch(e) { /* fallback failed */ }
-  }
+        let data;
+        try {
+          data = await fetchJson("{{ url_for('api_games') }}" + '?date=' + et);
+        } catch (err) {
+          // server failed; try direct MLB fallback
+          data = await fetchMlbSchedule(et);
+        }
+        if (!data || !Array.isArray(data.games) || data.games.length === 0) {
+          try { data = await fetchMlbSchedule(et); } catch(e) { /* fallback failed */ }
+        }
 
         render(data);
         const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
