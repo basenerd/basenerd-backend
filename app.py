@@ -43,18 +43,18 @@ def fetch_schedule(ymd: str) -> dict:
 
     # Build a US-style date as an extra fallback (some hosts are picky)
     try:
-        _us = datetime.strptime(day, "%Y-%m-%d").strftime("%m/%d/%Y")
+        _us = datetime.strptime(ymd, "%Y-%m-%d").strftime("%m/%d/%Y")
     except Exception:
         _us = None
 
     base = f"{MLB_API}/schedule"
     attempts = [
-        {"sportId": SPORT_ID, "date": day, "hydrate": hydrate},
-        {"sportId": SPORT_ID, "startDate": day, "endDate": day, "hydrate": hydrate},
-        {"sportId": SPORT_ID, "date": day, "gameTypes": "R", "hydrate": hydrate},
-        {"sportId": SPORT_ID, "startDate": day, "endDate": day, "gameTypes": "R", "hydrate": hydrate},
+        {"sportId": SPORT_ID, "date": ymd, "hydrate": hydrate},
+        {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "hydrate": hydrate},
+        {"sportId": SPORT_ID, "date": ymd, "gameTypes": "R", "hydrate": hydrate},
+        {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "gameTypes": "R", "hydrate": hydrate},
         # simple no-hydrate try
-        {"sportId": SPORT_ID, "date": day},
+        {"sportId": SPORT_ID, "date": ymd},
     ]
     # EXTRA fallbacks: US date format + leagueId/scheduleType that some gateways require
     if _us:
@@ -772,7 +772,7 @@ def api_games():
         except Exception as e:
             try: log.info("schedule fetch failed %s params=%s: %s", day, params, e)
             except Exception: pass
-            return {"dates": [{"date": day, "games": []}]}
+            return {"dates": [{"date": ymd, "games": []}]}
 
     def _fetch_sched_with_fallback(day: str) -> tuple[str, list]:
         """
@@ -793,10 +793,10 @@ def api_games():
         )
 
         attempts = [
-            {"sportId": SPORT_ID, "date": day, "hydrate": hydrate},
-            {"sportId": SPORT_ID, "startDate": day, "endDate": day, "hydrate": hydrate},
-            {"sportId": SPORT_ID, "date": day, "gameTypes": "R", "hydrate": hydrate},
-            {"sportId": SPORT_ID, "startDate": day, "endDate": day, "gameTypes": "R", "hydrate": hydrate},
+            {"sportId": SPORT_ID, "date": ymd, "hydrate": hydrate},
+            {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "hydrate": hydrate},
+            {"sportId": SPORT_ID, "date": ymd, "gameTypes": "R", "hydrate": hydrate},
+            {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "gameTypes": "R", "hydrate": hydrate},
         ]
 
         js = {}
@@ -854,7 +854,23 @@ def api_games():
         except Exception as e:
             try: log.info("live feed failed %s: %s", game_pk, e)
             except Exception: pass
-            return {}
+            
+        return {
+            "linescore": _shape_linescore_from_live(ls),
+            "lastPlay": last_play,
+            "statcast": statcast,
+            "count": count,
+            "bases": bases,
+            "off_team_id": off_team_id,
+            "def_team_id": ((defense.get("team") or {}).get("id")),
+            "batter_name": (_nm(batter) if batter else None),
+            "pitcher_name": (_nm((defense.get("pitcher") or {})) if defense else None),
+            "dueUp": due_up,
+            "scoring": scoring,
+            "inning": ls.get("currentInning"),
+            "isTop": bool(ls.get("isTopInning")),
+            "inBreak": (str(ls.get("inningState","")).lower() in ("end","middle")),
+        }
 
         ld = (live.get("liveData") or {})
         ls = (ld.get("linescore") or {})
@@ -1029,70 +1045,7 @@ def api_games():
             }
 
             # Only live games get the single live-feed call
-            # Supplement team context (current batter/pitcher) + decisions + boxscore
-            def _nm(p):
-                if not isinstance(p, dict):
-                    return ""
-                return p.get("lastInitName") or p.get("boxscoreName") or p.get("fullName") or p.get("name") or ""
-
-            def _fill_current_from_live(target_item: dict, live_js: dict):
-                try:
-                    ld = (live_js.get("liveData") or {})
-                    ls2 = (ld.get("linescore") or {})
-                    off = (ls2.get("offense") or {})
-                    defn = (ls2.get("defense") or {})
-
-                    # Current batter/pitcher
-                    batter = off.get("batter") or {}
-                    pitcher = defn.get("pitcher") or {}
-                    bname = _nm(batter); pname = _nm(pitcher)
-                    # attach to correct side for display lines
-                    if bname:
-                        # batter belongs to offense side
-                        if target_item.get("dueUpSide") == "home":
-                            target_item["teams"]["home"]["currentBatter"] = bname
-                        elif target_item.get("dueUpSide") == "away":
-                            target_item["teams"]["away"]["currentBatter"] = bname
-                    if pname:
-                        # pitcher belongs to defense side
-                        if target_item.get("dueUpSide") == "home":
-                            target_item["teams"]["away"]["currentPitcher"] = pname
-                        elif target_item.get("dueUpSide") == "away":
-                            target_item["teams"]["home"]["currentPitcher"] = pname
-
-                    # During inning breaks, show 'breakPitcher' on defense
-                    inning_state = (ls2.get("inningState") or "").lower()
-                    if inning_state in ("end", "middle"):
-                        if pname:
-                            # next half's defense known from isTop flag
-                            if target_item.get("isTop"):
-                                # next is bottom: home will pitch
-                                target_item["teams"]["home"]["breakPitcher"] = pname
-                            else:
-                                target_item["teams"]["away"]["breakPitcher"] = pname
-                except Exception:
-                    pass
-
-            def _fill_decisions_and_box(target_item: dict, game_pk: int):
-                try:
-                    # Decisions from live
-                    live_full = _get(f"{MLB_API}/game/{game_pk}/feed/live")
-                    dec = ((live_full.get("liveData") or {}).get("decisions") or {})
-                    if dec:
-                        w = dec.get("winner") or {}; l = dec.get("loser") or {}; s = dec.get("save") or {}
-                        if w: target_item["teams"]["home"]["finalPitcher"] = f"W: {_nm(w)}"
-                        if l: target_item["teams"]["away"]["finalPitcher"] = f"L: {_nm(l)}"
-                        if s: target_item["teams"]["home"]["savePitcher"] = f"SV: {_nm(s)}"
-
-                    # Lightweight box for rows (top 9 batters + pitchers)
-                    bx = fetch_box(game_pk) or {}
-                    target_item["batters"]  = {"away": _box_batting(bx, "away"), "home": _box_batting(bx, "home")}
-                    target_item["pitchers"] = {"away": _box_pitching(bx, "away"), "home": _box_pitching(bx, "home")}
-                except Exception:
-                    pass
-
-            if status != "scheduled":
-                live = _from_live_feed(game_pk)
+            
                 if live:
                     item["lastPlay"] = live.get("lastPlay") or ""
                     item["statcast"] = live.get("statcast") or ""
@@ -1104,35 +1057,45 @@ def api_games():
                     home_id = item["teams"]["home"]["id"]
                     away_id = item["teams"]["away"]["id"]
                     off_id = live.get("off_team_id")
+                    def_id = live.get("def_team_id")
+
+                    # Which side is batting/fielding
                     item["dueUpSide"] = "home" if off_id == home_id else ("away" if off_id == away_id else None)
-                    # new: current batter/pitcher + breakPitcher
+
+                    # Current names
+                    batter = live.get("batter_name")
+                    pitcher = live.get("pitcher_name")
+                    if off_id == home_id:
+                        if batter: item["teams"]["home"]["currentBatter"] = batter
+                        if pitcher: item["teams"]["away"]["currentPitcher"] = pitcher
+                    elif off_id == away_id:
+                        if batter: item["teams"]["away"]["currentBatter"] = batter
+                        if pitcher: item["teams"]["home"]["currentPitcher"] = pitcher
+
+                    # During breaks, show last pitcher on respective side
+                    if live.get("inBreak"):
+                        if def_id == home_id and pitcher: item["teams"]["home"]["breakPitcher"] = pitcher
+                        if def_id == away_id and pitcher: item["teams"]["away"]["breakPitcher"] = pitcher
+
+                    # Lightweight box + decisions (live/final only)
                     try:
-                        _fill_current_from_live(item, live)
+                        box = fetch_box(game_pk)
+                        item["batters"] = {"away": _box_batting(box, "away"), "home": _box_batting(box, "home")}
+                        item["pitchers"] = {"away": _box_pitching(box, "away"), "home": _box_pitching(box, "home")}
                     except Exception:
                         pass
-                    # Also enrich with decisions + small boxscore for live/final
+
+                    # Decisions (for finals and late live)
                     try:
-                        _fill_decisions_and_box(item, game_pk)
+                        ids, dec_text, save_text = _decisions(fetch_live(game_pk))
+                        # Attach short labels under team rows
+                        if "winnerId" in ids or "winId" in ids:
+                            item["teams"]["home"].setdefault("finalPitcher","")
+                            item["teams"]["away"].setdefault("finalPitcher","")
+                        # We can't map which team from ids cleanly without more data here; leave dec_text for game page.
+                        # (todaysgames cards already show box + linescore; pitcher tags are optional.)
                     except Exception:
                         pass
-            else:
-                # For scheduled games, fetch probable lineups if available via boxscore (rare pregame)
-                try:
-                    bx = fetch_box(game_pk) or {}
-                    item["lineups"] = {"away": [], "home": []}
-                except Exception:
-                    pass
-                    item["lastPlay"] = live.get("lastPlay") or ""
-                    item["statcast"] = live.get("statcast") or ""
-                    item["count"] = live.get("count")
-                    item["bases"] = live.get("bases") or item["bases"]
-                    item["linescore"] = live.get("linescore")
-                    item["scoring"] = live.get("scoring") or []
-                    item["dueUp"] = live.get("dueUp")
-                    home_id = item["teams"]["home"]["id"]
-                    away_id = item["teams"]["away"]["id"]
-                    off_id = live.get("off_team_id")
-                    item["dueUpSide"] = "home" if off_id == home_id else ("away" if off_id == away_id else None)
 
             out.append(item)
 
