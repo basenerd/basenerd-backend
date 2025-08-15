@@ -910,9 +910,15 @@ def api_games():
                     try:
                         idxs = plays.get("scoringPlays") or []
                         allp = plays.get("allPlays") or []
+                        by_id = {p.get("playId"): p for p in allp if p.get("playId")}
                         srows = []
-                        for i in idxs:
-                            p = allp[i] if 0 <= i < len(allp) else {}
+                        for ref in idxs:
+                            if isinstance(ref, int) and 0 <= ref < len(allp):
+                                p = allp[ref]
+                            elif isinstance(ref, dict):
+                                p = ref
+                            else:
+                                p = by_id.get(ref, {})
                             about = p.get("about") or {}
                             resd = p.get("result") or {}
                             inn = about.get("inning")
@@ -955,6 +961,52 @@ def api_games():
                 except Exception as e:
                     log.info("boxscore fetch failed %s: %s", game_pk, e)
 
+
+                # Augment current pitcher/batter strings with live line from boxscore
+                try:
+                    offense = (ls.get("offense") or {}) if 'ls' in locals() else {}
+                    defense = (ls.get("defense") or {}) if 'ls' in locals() else {}
+                    home_id = item["teams"]["home"]["id"]; away_id = item["teams"]["away"]["id"]
+                    off_team_id = (offense.get("team") or {}).get("id")
+                    cur_b_id = (offense.get("batter") or {}).get("id")
+                    cur_p_id = (defense.get("pitcher") or {}).get("id")
+                    if box and (cur_b_id or cur_p_id):
+                        teams_box = (box.get("teams") or {})
+                        # Map team id to side string
+                        def side_for_id(tid):
+                            if tid == home_id: return "home"
+                            if tid == away_id: return "away"
+                            return None
+                        off_side = side_for_id(off_team_id)
+                        def_side = "home" if off_side == "away" else "away" if off_side == "home" else None
+                        # Compose pitcher line
+                        if cur_p_id and def_side:
+                            pobj = (teams_box.get(def_side, {}).get("players") or {}).get(f"ID{cur_p_id}") or {}
+                            pstat = (pobj.get("stats") or {}).get("pitching") or {}
+                            pname = (pobj.get("person") or {}).get("boxscoreName") or (pobj.get("person") or {}).get("fullName") or item["teams"][def_side].get("currentPitcher") or ""
+                            ip = pstat.get("inningsPitched"); k = pstat.get("strikeOuts"); bb = pstat.get("baseOnBalls"); h = pstat.get("hits"); er = pstat.get("earnedRuns")
+                            line = []
+                            if ip is not None: line.append(f"IP {ip}")
+                            if h is not None: line.append(f"H {h}")
+                            if er is not None: line.append(f"ER {er}")
+                            if k is not None: line.append(f"K {k}")
+                            if bb is not None: line.append(f"BB {bb}")
+                            pitch_str = f"{pname} (" + ", ".join(line) + ")" if line else pname
+                            item["teams"][def_side]["currentPitcher"] = pitch_str
+                        # Compose batter line
+                        if cur_b_id and off_side:
+                            bobj = (teams_box.get(off_side, {}).get("players") or {}).get(f"ID{cur_b_id}") or {}
+                            bstat = (bobj.get("stats") or {}).get("batting") or {}
+                            bname = (bobj.get("person") or {}).get("boxscoreName") or (bobj.get("person") or {}).get("fullName") or item["teams"][off_side].get("currentBatter") or ""
+                            ab = bstat.get("atBats"); hts = bstat.get("hits"); rbi = bstat.get("rbi"); hr = bstat.get("homeRuns")
+                            line = []
+                            if ab is not None and hts is not None: line.append(f"{hts}-{ab}")
+                            if rbi is not None: line.append(f"RBI {rbi}")
+                            if hr is not None and hr>0: line.append(f"HR {hr}")
+                            bat_str = f"{bname} (" + ", ".join(line) + ")" if line else bname
+                            item["teams"][off_side]["currentBatter"] = bat_str
+                except Exception as e:
+                    log.info("augment live names failed %s: %s", game_pk, e)
                 # Decisions (winner/loser/save) -> strings on teams for finals
                 try:
                     ids, dec_text, save_text = _decisions(live_full)
