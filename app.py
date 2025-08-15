@@ -43,18 +43,18 @@ def fetch_schedule(ymd: str) -> dict:
 
     # Build a US-style date as an extra fallback (some hosts are picky)
     try:
-        _us = datetime.strptime(day, "%Y-%m-%d").strftime("%m/%d/%Y")
+        _us = datetime.strptime(ymd, "%Y-%m-%d").strftime("%m/%d/%Y")
     except Exception:
         _us = None
 
     base = f"{MLB_API}/schedule"
     attempts = [
-        {"sportId": SPORT_ID, "date": day, "hydrate": hydrate},
-        {"sportId": SPORT_ID, "startDate": day, "endDate": day, "hydrate": hydrate},
-        {"sportId": SPORT_ID, "date": day, "gameTypes": "R", "hydrate": hydrate},
-        {"sportId": SPORT_ID, "startDate": day, "endDate": day, "gameTypes": "R", "hydrate": hydrate},
+        {"sportId": SPORT_ID, "date": ymd, "hydrate": hydrate},
+        {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "hydrate": hydrate},
+        {"sportId": SPORT_ID, "date": ymd, "gameTypes": "R", "hydrate": hydrate},
+        {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "gameTypes": "R", "hydrate": hydrate},
         # simple no-hydrate try
-        {"sportId": SPORT_ID, "date": day},
+        {"sportId": SPORT_ID, "date": ymd},
     ]
     # EXTRA fallbacks: US date format + leagueId/scheduleType that some gateways require
     if _us:
@@ -772,7 +772,7 @@ def api_games():
         except Exception as e:
             try: log.info("schedule fetch failed %s params=%s: %s", day, params, e)
             except Exception: pass
-            return {"dates": [{"date": day, "games": []}]}
+            return {"dates": [{"date": ymd, "games": []}]}
 
     def _fetch_sched_with_fallback(day: str) -> tuple[str, list]:
         """
@@ -793,10 +793,10 @@ def api_games():
         )
 
         attempts = [
-            {"sportId": SPORT_ID, "date": day, "hydrate": hydrate},
-            {"sportId": SPORT_ID, "startDate": day, "endDate": day, "hydrate": hydrate},
-            {"sportId": SPORT_ID, "date": day, "gameTypes": "R", "hydrate": hydrate},
-            {"sportId": SPORT_ID, "startDate": day, "endDate": day, "gameTypes": "R", "hydrate": hydrate},
+            {"sportId": SPORT_ID, "date": ymd, "hydrate": hydrate},
+            {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "hydrate": hydrate},
+            {"sportId": SPORT_ID, "date": ymd, "gameTypes": "R", "hydrate": hydrate},
+            {"sportId": SPORT_ID, "startDate": ymd, "endDate": ymd, "gameTypes": "R", "hydrate": hydrate},
         ]
 
         js = {}
