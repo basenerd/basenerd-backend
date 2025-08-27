@@ -642,11 +642,7 @@ async function load(){
       try {
         let data;
         try {
-<<<<<<< HEAD
           data = await fetchJson(apiGamesUrl() + '?date=' + et);
-=======
-          data = await fetchJson("{{ url_for('api_games') }}" + '?date=' + et);
->>>>>>> da77a3147a067d79bddf1f66f3d09e2c47f33654
         } catch (err) {
           // server failed; try direct MLB fallback
           data = await fetchMlbSchedule(et);
