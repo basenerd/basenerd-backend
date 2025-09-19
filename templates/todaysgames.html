@@ -151,7 +151,6 @@
       color:#0b5cab; border:1px solid var(--border); padding:2px 8px; border-radius:8px; background:#fff;
     }
     .details-btn:hover{ background:#f1f5fb; }
-    .count{ margin-left:6px; color:#394150; font-size:11px; }
   </style>
 </head>
 <body>
@@ -197,11 +196,6 @@
   </div>
 
   <script>
-  function apiGamesUrl(){
-    const u = "{{ url_for('api_games') }}";
-    return (typeof u === "string" && u.indexOf("{{") === -1) ? u : "/api/games";
-  }
-
     // Drawer
     (function(){
       const btn = document.querySelector('.hamburger');
@@ -240,26 +234,17 @@
     $liveOnly.addEventListener('change', () => render(window.__last || {games:[]}));
 
     // API helper
-    const API_GAMES = "/api/games";
+    const API_GAMES = "{{ url_for('api_games') }}";
     async function fetchJson(url){
       const res = await fetch(url, { cache: 'no-store' });
       if(!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     }
 
-    // Chip + count
     function chipFor(g){
       if (g.status === 'in_progress') return `<span class="chip live">${g.chip}</span>`;
       if (g.status === 'final') return `<span class="chip final">Final</span>`;
       return `<span class="chip upcoming">${g.chip}</span>`;
-    }
-    function countHTML(g){
-      if (g.status !== 'in_progress') return '';
-      const c = g.count || {};
-      const bs = (c.balls!=null && c.strikes!=null) ? `${c.balls}-${c.strikes}` : '';
-      const o = (c.outs!=null) ? `${c.outs} out${c.outs===1?'':'s'}` : '';
-      if (!bs && !o) return '';
-      return `<span class="count">${[bs, o].filter(Boolean).join(', ')}</span>`;
     }
 
     function diamondHTML(g){
@@ -301,11 +286,8 @@
     }
 
     function teamRowFinal(side, t){
-  const score = (t.score!=null) ? t.score : '&nbsp;';
-  const wRow = t.finalPitcher ? `<div class="row"><div class="info" style="grid-column:1/-1; padding:0 12px 4px 12px;">${t.finalPitcher}</div></div>` : '';
-  const sRow = t.savePitcher ? `<div class="row"><div class="info" style="grid-column:1/-1; padding:0 12px 8px 12px;">${t.savePitcher}</div></div>` : '';
-  return `<div class="row">${teamBlock(t, '')}<div class="right score">${score}</div></div>${wRow}${sRow}`;
-}</div>` : '';
+      const score = (t.score!=null) ? t.score : '&nbsp;';
+      const wOrL = t.finalPitcher ? `<div class="info" style="grid-column:1/-1; padding:0 12px 4px 12px;">${t.finalPitcher}</div>` : '';
       const save = t.savePitcher ? `<div class="info" style="grid-column:1/-1; padding:0 12px 8px 12px;">${t.savePitcher}</div>` : '';
       return `<div class="row">${teamBlock(t, '')}<div class="right score">${score}</div></div>${wOrL}${save}`;
     }
@@ -534,9 +516,7 @@
       const a = g.teams.away, h = g.teams.home;
       const headerLeft = `<div class="when">${g.venue||''}</div>`;
       const detailLink = `<a class="details-btn" href="/game/${g.gamePk}" title="${linkLabel(g.status)}">${linkLabel(g.status)} ›</a>`;
-      const headerRight = g.status==='in_progress'
-        ? `${chipFor(g)} ${countHTML(g)} ${diamondHTML(g)} ${detailLink}`
-        : `${chipFor(g)} ${detailLink}`;
+      const headerRight = g.status==='in_progress' ? `${chipFor(g)}${diamondHTML(g)} ${detailLink}` : `${chipFor(g)} ${detailLink}`;
       const el = document.createElement('article');
       el.className = 'game';
       el.innerHTML = `
@@ -574,83 +554,11 @@
       document.querySelectorAll('details.scoresum[open]').forEach(d => d.removeAttribute('open'));
     }
 
-    async function fetchMlbSchedule(etDate) {
-  const mlbUrl = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${etDate}&hydrate=team,linescore,probablePitcher`;
-  const r = await fetch(mlbUrl, { cache: "no-store" });
-  if (!r.ok) throw new Error("MLB schedule fetch failed");
-  const raw = await r.json();
-  const games = [];
-  const dates = raw.dates || [];
-  for (const d of dates) {
-    for (const g of (d.games || [])) {
-      const detailed = (g.status || {}).detailedState || "";
-      const abs = (g.status || {}).abstractGameState || "";
-      const status = (abs || "").toLowerCase() || "scheduled";
-      const chip = status === "scheduled"
-        ? (g.gameDate ? new Date(g.gameDate).toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit", timeZone:"America/New_York"}) + " ET" : detailed)
-        : detailed;
-      games.push({
-        gamePk: g.gamePk,
-        status,
-        chip,
-        venue: g.venue?.name || "",
-        teams: {
-          away: {
-            abbr: g.teams?.away?.team?.abbreviation || "",
-            score: g.teams?.away?.score ?? null,
-            id: g.teams?.away?.team?.id || null
-          },
-          home: {
-            abbr: g.teams?.home?.team?.abbreviation || "",
-            score: g.teams?.home?.score ?? null,
-            id: g.teams?.home?.team?.id || null
-          }
-        },
-        bases: { first:false, second:false, third:false },
-        inBreak: false,
-        inning: null,
-        isTop: null,
-        lastPlay: "",
-        statcast: "",
-        linescore: (function(ls){
-          if (!ls) return null;
-          try {
-            const innings = ls.innings || [];
-            const n = Math.max(9, innings.length);
-            const away = Array.from({length:n}, (_,i)=> (innings[i]?.away?.runs) ?? "");
-            const home = Array.from({length:n}, (_,i)=> (innings[i]?.home?.runs) ?? "");
-            const totals = {
-              away: { R: ls.teams?.away?.runs, H: ls.teams?.away?.hits, E: ls.teams?.away?.errors },
-              home: { R: ls.teams?.home?.runs, H: ls.teams?.home?.hits, E: ls.teams?.home?.errors },
-            };
-            return { n, away, home, totals };
-          } catch(_) { return null; }
-        })(g.linescore || null),
-        batters: { away: [], home: [] },
-        pitchers: { away: [], home: [] },
-        scoring: [],
-        lineups: { away: [], home: [] }
-      });
-    }
-  }
-  return { date: etDate, games };
-}
-
-async function load(){
+    async function load(){
       if (state.timer) { clearTimeout(state.timer); state.timer = null; }
       const et = dateStrET(state.date);
       try {
-        let data;
-        try {
-          data = await fetchJson(apiGamesUrl() + '?date=' + et);
-        } catch (err) {
-          // server failed; try direct MLB fallback
-          data = await fetchMlbSchedule(et);
-        }
-        if (!data || !Array.isArray(data.games) || data.games.length === 0) {
-          try { data = await fetchMlbSchedule(et); } catch(e) { /* fallback failed */ }
-        }
-
+        const data = await fetchJson("{{ url_for('api_games') }}" + '?date=' + et);
         render(data);
         const anyLive = (data.games||[]).some(g => g.status === 'in_progress');
         if (anyLive) state.timer = setTimeout(load, 30000);
