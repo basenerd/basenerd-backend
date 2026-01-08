@@ -4,6 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{ title or "Basenerd" }}</title>
+
+    <!-- Modern font (optional, but matches the vibe). If you prefer, we can remove it. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   </head>
 
@@ -12,29 +18,49 @@
       <!-- Sidebar -->
       <aside class="sidebar">
         <div class="sidebar-inner">
-          <a class="brand" href="/">basenerd</a>
+          <a class="brand" href="/">
+            <span class="brand-dot"></span>
+            <span>basenerd</span>
+          </a>
 
           <nav class="side-nav">
-            <a href="/" class="{% if request.path == '/' %}active{% endif %}">Home</a>
-            <a href="/standings" class="{% if request.path.startswith('/standings') %}active{% endif %}">Standings</a>
+            <a href="/" class="{% if request.path == '/' %}active{% endif %}">
+              Home
+            </a>
+            <a href="/standings" class="{% if request.path.startswith('/standings') %}active{% endif %}">
+              Standings
+            </a>
           </nav>
 
           <div class="sidebar-footer">
-            <span class="muted">v0.1</span>
+            <span class="muted">Basenerd • v0.1</span>
           </div>
         </div>
       </aside>
 
       <!-- Main -->
       <main class="main">
-        <div class="container">
-          {% block content %}{% endblock %}
-          <footer class="footer">
-            <span class="muted">© 2026 Basenerd</span>
-          </footer>
+        <div class="main-inner">
+          <!-- Top bar (matches the screenshot vibe) -->
+          <div class="topbar">
+            <div class="topbar-left">
+              <div class="page-title">{{ title or "Basenerd" }}</div>
+            </div>
+            <div class="topbar-right">
+              <!-- Placeholder pill button (we can wire later) -->
+              <span class="pill">Analytics hub</span>
+            </div>
+          </div>
+
+          <div class="container">
+            {% block content %}{% endblock %}
+
+            <footer class="footer">
+              <span class="muted">© 2026 Basenerd</span>
+            </footer>
+          </div>
         </div>
       </main>
     </div>
   </body>
 </html>
-
