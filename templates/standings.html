@@ -1,42 +1,58 @@
 {% extends "base.html" %}
 {% block content %}
+
   <div class="card">
     <div class="card-header">
-      <div class="card-title">Standings</div>
-      <div class="card-subtitle">Placeholder table styling (data comes next)</div>
+      <div>
+        <div class="card-title">MLB Standings</div>
+        <div class="card-subtitle">Season {{ season }}</div>
+      </div>
+
+      <div class="pill">Updated via MLB Stats API</div>
     </div>
 
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th style="width: 90px;">Slot</th>
-            <th>Team</th>
-            <th class="num">W</th>
-            <th class="num">L</th>
-            <th class="num">Pct</th>
-            <th class="num">GB</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><span class="badge">WC1</span></td>
-            <td>CHC</td>
-            <td class="num">66</td>
-            <td class="num">49</td>
-            <td class="num">.574</td>
-            <td class="num">+3.5</td>
-          </tr>
-          <tr>
-            <td><span class="badge">WC2</span></td>
-            <td>SDP</td>
-            <td class="num">64</td>
-            <td class="num">52</td>
-            <td class="num">.552</td>
-            <td class="num">+1.0</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    {% if error %}
+      <p><strong>Couldn’t load standings.</strong></p>
+      <p class="small">{{ error }}</p>
+    {% endif %}
   </div>
+
+  {% for div in divisions %}
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">{{ div.name }}</div>
+        <div class="card-subtitle">W/L, pct, GB, streak, run diff</div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th class="num">W</th>
+              <th class="num">L</th>
+              <th class="num">Pct</th>
+              <th class="num">GB</th>
+              <th class="num">Streak</th>
+              <th class="num">Run Diff</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in div.teams %}
+              <tr>
+                <td><strong>{{ t.abbrev }}</strong> <span class="muted">— {{ t.name }}</span></td>
+                <td class="num">{{ t.w }}</td>
+                <td class="num">{{ t.l }}</td>
+                <td class="num">{{ t.pct }}</td>
+                <td class="num">{{ t.gb }}</td>
+                <td class="num">{{ t.streak or "-" }}</td>
+                <td class="num">{{ t.run_diff }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endfor %}
+
 {% endblock %}
