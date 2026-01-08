@@ -1,58 +1,120 @@
 {% extends "base.html" %}
 {% block content %}
 
-  <div class="card">
-    <div class="card-header">
-      <div>
-        <div class="card-title">MLB Standings</div>
-        <div class="card-subtitle">Season {{ season }}</div>
-      </div>
-
-      <div class="pill">Updated via MLB Stats API</div>
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">MLB Standings</div>
+      <div class="card-subtitle">Season {{ season }}</div>
     </div>
-
-    {% if error %}
-      <p><strong>Couldn’t load standings.</strong></p>
-      <p class="small">{{ error }}</p>
-    {% endif %}
+    <div class="pill">Updated via MLB Stats API</div>
   </div>
 
-  {% for div in divisions %}
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">{{ div.name }}</div>
-        <div class="card-subtitle">W/L, pct, GB, streak, run diff</div>
-      </div>
+  {% if error %}
+    <p><strong>Couldn’t load standings.</strong></p>
+    <p class="small">{{ error }}</p>
+  {% endif %}
+</div>
 
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Team</th>
-              <th class="num">W</th>
-              <th class="num">L</th>
-              <th class="num">Pct</th>
-              <th class="num">GB</th>
-              <th class="num">Streak</th>
-              <th class="num">Run Diff</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for t in div.teams %}
+{% set nl_divs = divisions | selectattr("league", "equalto", "National League") | list %}
+{% set al_divs = divisions | selectattr("league", "equalto", "American League") | list %}
+
+<div class="standings-grid">
+  <!-- National League -->
+  <div class="standings-col">
+    <div class="standings-col-title">National League</div>
+
+    {% for div in nl_divs %}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">{{ div.name }}</div>
+          <div class="card-subtitle">W • L • Pct • GB • Streak • RD</div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table table-centered">
+            <thead>
               <tr>
-                <td><strong>{{ t.abbrev }}</strong> <span class="muted">— {{ t.name }}</span></td>
-                <td class="num">{{ t.w }}</td>
-                <td class="num">{{ t.l }}</td>
-                <td class="num">{{ t.pct }}</td>
-                <td class="num">{{ t.gb }}</td>
-                <td class="num">{{ t.streak or "-" }}</td>
-                <td class="num">{{ t.run_diff }}</td>
+                <th class="teamcol">Team</th>
+                <th class="num">W</th>
+                <th class="num">L</th>
+                <th class="num">Pct</th>
+                <th class="num">GB</th>
+                <th class="num">Stk</th>
+                <th class="num">RD</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {% for t in div.teams %}
+                <tr>
+                  <td class="teamcell">
+                    {% if t.logo_url %}
+                      <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
+                    {% endif %}
+                    <span class="teamabbr">{{ t.abbrev }}</span>
+                  </td>
+                  <td class="num">{{ t.w }}</td>
+                  <td class="num">{{ t.l }}</td>
+                  <td class="num">{{ t.pct }}</td>
+                  <td class="num">{{ t.gb }}</td>
+                  <td class="num">{{ t.streak or "-" }}</td>
+                  <td class="num">{{ t.run_diff }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  {% endfor %}
+    {% endfor %}
+  </div>
+
+  <!-- American League -->
+  <div class="standings-col">
+    <div class="standings-col-title">American League</div>
+
+    {% for div in al_divs %}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">{{ div.name }}</div>
+          <div class="card-subtitle">W • L • Pct • GB • Streak • RD</div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table table-centered">
+            <thead>
+              <tr>
+                <th class="teamcol">Team</th>
+                <th class="num">W</th>
+                <th class="num">L</th>
+                <th class="num">Pct</th>
+                <th class="num">GB</th>
+                <th class="num">Stk</th>
+                <th class="num">RD</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in div.teams %}
+                <tr>
+                  <td class="teamcell">
+                    {% if t.logo_url %}
+                      <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
+                    {% endif %}
+                    <span class="teamabbr">{{ t.abbrev }}</span>
+                  </td>
+                  <td class="num">{{ t.w }}</td>
+                  <td class="num">{{ t.l }}</td>
+                  <td class="num">{{ t.pct }}</td>
+                  <td class="num">{{ t.gb }}</td>
+                  <td class="num">{{ t.streak or "-" }}</td>
+                  <td class="num">{{ t.run_diff }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
 
 {% endblock %}
