@@ -1,5 +1,6 @@
 from datetime import datetime
-
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request
 
 from services.mlb_api import get_standings
