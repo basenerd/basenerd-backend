@@ -6,23 +6,35 @@
     <title>{{ title or "Basenerd" }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   </head>
+
   <body>
-    <header class="site-header">
-      <div class="container header-inner">
-        <a class="brand" href="/">basenerd</a>
-        <nav class="nav">
-          <a href="/">Home</a>
-          <a href="/standings">Standings</a>
-        </nav>
-      </div>
-    </header>
+    <div class="layout">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-inner">
+          <a class="brand" href="/">basenerd</a>
 
-    <main class="container">
-      {% block content %}{% endblock %}
-    </main>
+          <nav class="side-nav">
+            <a href="/" class="{% if request.path == '/' %}active{% endif %}">Home</a>
+            <a href="/standings" class="{% if request.path.startswith('/standings') %}active{% endif %}">Standings</a>
+          </nav>
 
-    <footer class="container footer">
-      <span>© {{ 2026 }} Basenerd</span>
-    </footer>
+          <div class="sidebar-footer">
+            <span class="muted">v0.1</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <main class="main">
+        <div class="container">
+          {% block content %}{% endblock %}
+          <footer class="footer">
+            <span class="muted">© 2026 Basenerd</span>
+          </footer>
+        </div>
+      </main>
+    </div>
   </body>
 </html>
+
