@@ -30,26 +30,41 @@ def standings():
         )
 
     # Convert MLB response into a clean structure for the template
-    divisions = []
-    for rec in records:
-        division_name = (rec.get("division") or {}).get("name", "Unknown Division")
-        team_rows = []
+   divisions = []
+for rec in records:
+    division = rec.get("division") or {}
+    league = rec.get("league") or {}
 
-        for tr in rec.get("teamRecords", []):
-            team = tr.get("team", {})
-            team_rows.append({
-                "name": team.get("name", ""),
-                "abbrev": team.get("abbreviation") or team.get("teamName") or "",
-                "w": tr.get("wins"),
-                "l": tr.get("losses"),
-                "pct": tr.get("winningPercentage"),
-                "gb": tr.get("gamesBack"),
-                "streak": (tr.get("streak") or {}).get("streakCode"),
-                "last10": tr.get("records", {}).get("splitRecords", []),  # not always present the same way
-                "run_diff": tr.get("runDifferential"),
-            })
+    division_name = division.get("name", "Unknown Division")
+    league_name = league.get("name", "Unknown League")
 
-        divisions.append({"name": division_name, "teams": team_rows})
+    team_rows = []
+    for tr in rec.get("teamRecords", []):
+        team = tr.get("team", {}) or {}
+
+        team_id = team.get("id")
+        abbrev = team.get("abbreviation") or team.get("teamName") or ""
+
+        # MLB static logo (works great for small icons)
+        logo_url = f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None
+
+        team_rows.append({
+            "team_id": team_id,
+            "abbrev": abbrev,
+            "logo_url": logo_url,
+            "w": tr.get("wins"),
+            "l": tr.get("losses"),
+            "pct": tr.get("winningPercentage"),
+            "gb": tr.get("gamesBack"),
+            "streak": (tr.get("streak") or {}).get("streakCode"),
+            "run_diff": tr.get("runDifferential"),
+        })
+
+    divisions.append({
+        "name": division_name,
+        "league": league_name,
+        "teams": team_rows
+    })
 
     # Sort divisions for a nicer display order (AL then NL)
     def sort_key(d):
