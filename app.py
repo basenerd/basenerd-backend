@@ -30,7 +30,7 @@ def standings():
         )
 
     # Convert MLB response into a clean structure for the template
-   divisions = []
+divisions = []
 for rec in records:
     division = rec.get("division") or {}
     league = rec.get("league") or {}
