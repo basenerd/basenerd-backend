@@ -310,3 +310,56 @@ p{
     margin-top: 0;
   }
 }
+/* ---- Standings 2-column layout ---- */
+.standings-grid{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+  margin-top: 16px;
+}
+
+.standings-col-title{
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 6px 0 10px;
+}
+
+/* collapse to 1 column on smaller screens */
+@media (max-width: 1100px){
+  .standings-grid{
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Team cell with logo ---- */
+.teamcell{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.teamlogo{
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.teamabbr{
+  letter-spacing: 0.02em;
+}
+
+/* ---- Center numeric columns ---- */
+.table-centered thead th.num,
+.table-centered tbody td.num{
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-centered .teamcol{
+  text-align: left;
+}
