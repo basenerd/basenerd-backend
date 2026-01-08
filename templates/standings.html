@@ -1,11 +1,42 @@
 {% extends "base.html" %}
-
 {% block content %}
-  <h1>Standings</h1>
-  <p>Placeholder page. Next step: pull MLB standings and show a clean table.</p>
-
   <div class="card">
-    <h2>Coming soon</h2>
-    <p>AL + NL standings with filters (division, league, wild card).</p>
+    <div class="card-header">
+      <div class="card-title">Standings</div>
+      <div class="card-subtitle">Placeholder table styling (data comes next)</div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width: 90px;">Slot</th>
+            <th>Team</th>
+            <th class="num">W</th>
+            <th class="num">L</th>
+            <th class="num">Pct</th>
+            <th class="num">GB</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge">WC1</span></td>
+            <td>CHC</td>
+            <td class="num">66</td>
+            <td class="num">49</td>
+            <td class="num">.574</td>
+            <td class="num">+3.5</td>
+          </tr>
+          <tr>
+            <td><span class="badge">WC2</span></td>
+            <td>SDP</td>
+            <td class="num">64</td>
+            <td class="num">52</td>
+            <td class="num">.552</td>
+            <td class="num">+1.0</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 {% endblock %}
