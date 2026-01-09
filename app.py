@@ -3,7 +3,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request
 
-from services.mlb_api import get_standings
+from services.mlb_api import get_standings, get_teams, get_team
 
 app = Flask(__name__)
 
@@ -26,6 +26,84 @@ def standings():
     def fetch_records(season_year: int):
         data = get_standings(season_year)
         return data.get("records", []) if isinstance(data, dict) else []
+@app.get("/teams")
+def teams():
+    season = request.args.get("season", default=datetime.utcnow().year, type=int)
+
+    try:
+        data = get_teams(season)
+        teams_raw = data.get("teams", [])
+
+        # If empty (early year edge case), fall back one season
+        if not teams_raw:
+            data = get_teams(season - 1)
+            teams_raw = data.get("teams", [])
+            if teams_raw:
+                season = season - 1
+
+        teams_clean = []
+        for t in teams_raw:
+            team_id = t.get("id")
+            teams_clean.append({
+                "team_id": team_id,
+                "name": t.get("name"),
+                "abbrev": t.get("abbreviation"),
+                "league": (t.get("league") or {}).get("name"),
+                "division": (t.get("division") or {}).get("name"),
+                "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None,
+            })
+
+        # Sort for readability
+        teams_clean.sort(key=lambda x: (x["league"] or "", x["division"] or "", x["abbrev"] or ""))
+
+        return render_template(
+            "teams.html",
+            title="Teams",
+            season=season,
+            teams=teams_clean,
+            error=None,
+        )
+
+    except Exception as e:
+        return render_template(
+            "teams.html",
+            title="Teams",
+            season=season,
+            teams=[],
+            error=str(e),
+        )
+
+
+@app.get("/teams/<int:team_id>")
+def team(team_id: int):
+    try:
+        data = get_team(team_id)
+        t = (data.get("teams") or [{}])[0]
+
+        team_obj = {
+            "team_id": t.get("id"),
+            "name": t.get("name"),
+            "abbrev": t.get("abbreviation"),
+            "league": (t.get("league") or {}).get("name"),
+            "division": (t.get("division") or {}).get("name"),
+            "venue": (t.get("venue") or {}).get("name"),
+            "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg",
+        }
+
+        return render_template(
+            "team.html",
+            title=team_obj["abbrev"] or "Team",
+            team=team_obj,
+            error=None,
+        )
+
+    except Exception as e:
+        return render_template(
+            "team.html",
+            title="Team",
+            team=None,
+            error=str(e),
+        )
 
     # 2) Fetch standings; if empty (common in early year), fall back to previous season
     try:
