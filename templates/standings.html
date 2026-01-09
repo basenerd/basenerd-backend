@@ -7,7 +7,17 @@
       <div class="card-title">MLB Standings</div>
       <div class="card-subtitle">Season {{ season }}</div>
     </div>
-    <div class="pill">Updated via MLB Stats API</div>
+
+    <div class="topbar-actions">
+      <form method="get" action="/standings" class="season-form">
+        <label class="season-label" for="season">Season</label>
+        <select id="season" name="season" class="season-select" onchange="this.form.submit()">
+          {% for y in seasons %}
+            <option value="{{ y }}" {% if y == season %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
   </div>
 
   {% if error %}
