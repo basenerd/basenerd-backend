@@ -45,5 +45,50 @@ def get_standings(season: int) -> dict:
     r.raise_for_status()
     data = r.json()
 
+# Adding API helper to get list of teams for any given season. This will be used to populate the team directory page
+def get_teams(season: int) -> dict:
+    """
+    Fetch MLB teams for a given season (includes division/league hydration).
+    """
+    cache_key = f"teams:{season}"
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached
+
+    params = {
+        "sportId": 1,  # MLB
+        "season": season,
+        "hydrate": "division,league",
+    }
+
+    r = requests.get(f"{BASE}/teams", params=params, timeout=10)
+    r.raise_for_status()
+    data = r.json()
+
+    _set_cached(cache_key, data)
+    return data
+
+
+def get_team(team_id: int) -> dict:
+    """
+    Fetch details for a single team.
+    """
+    cache_key = f"team:{team_id}"
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached
+
+    params = {
+        "hydrate": "division,league,venue",
+    }
+
+    r = requests.get(f"{BASE}/teams/{team_id}", params=params, timeout=10)
+    r.raise_for_status()
+    data = r.json()
+
+    _set_cached(cache_key, data)
+    return data
+
+
     _set_cached(cache_key, data)
     return data
