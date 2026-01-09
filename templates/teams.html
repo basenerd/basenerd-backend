@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Teams</div>
+      <div class="card-subtitle">Season {{ season }}</div>
+    </div>
+  </div>
+
+  {% if error %}
+    <p><strong>Couldn’t load teams.</strong></p>
+    <p class="small">{{ error }}</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="table table-centered">
+      <thead>
+        <tr>
+          <th class="teamcol">Team</th>
+          <th>League</th>
+          <th>Division</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in teams %}
+          <tr>
+            <td class="teamcell">
+              {% if t.logo_url %}
+                <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
+              {% endif %}
+              <a class="teamlink" href="/teams/{{ t.team_id }}">{{ t.abbrev }}</a>
+            </td>
+            <td>{{ t.league }}</td>
+            <td>{{ t.division }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
