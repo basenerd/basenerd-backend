@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if error %}
+  <div class="card">
+    <div class="card-title">Team</div>
+    <p class="small">{{ error }}</p>
+  </div>
+{% elif team %}
+  <div class="card">
+    <div class="card-header">
+      <div class="teamheader">
+        <img class="teamlogo-lg" src="{{ team.logo_url }}" alt="{{ team.abbrev }} logo">
+        <div>
+          <div class="card-title">{{ team.name }}</div>
+          <div class="card-subtitle">{{ team.league }} • {{ team.division }}</div>
+        </div>
+      </div>
+      <div class="pill">{{ team.abbrev }}</div>
+    </div>
+
+    <div class="small">
+      <div><strong>Venue:</strong> {{ team.venue or "—" }}</div>
+      <div><strong>Team ID:</strong> {{ team.team_id }}</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Coming soon</div>
+    <p>Team schedule, roster, splits, and Statcast summaries will live here.</p>
+  </div>
+{% endif %}
+
+{% endblock %}
