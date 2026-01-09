@@ -39,6 +39,8 @@ def standings():
             "standings.html",
             title="Standings",
             season=season,
+            # Adding seasons to dropdown as well in the exception block
+            seasons=seasons,
             divisions=[],
             error=str(e),
         )
@@ -94,12 +96,19 @@ def standings():
         return (league_order.get(league, 99), div_order.get(suffix, 99), name)
 
     divisions.sort(key=division_sort_key)
+    
+    #4.5) Build season dropdown options -- Added 1/9/29 
+        # We are going to show the last 6 seasons
+    current_year = datetime.utcnow().year
+    seasons = list(range(current_year, current_year -6, -1))
 
     # 5) Render page
     return render_template(
         "standings.html",
         title="Standings",
         season=season,
+        # Adding the seasons variable for the dropdown menu
+        seasons=seasons,
         divisions=divisions,
         error=None,
     )
