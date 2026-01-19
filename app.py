@@ -37,27 +37,49 @@ def teams():
         teams_raw = data.get("teams", [])
 
         # reshape into what teams.html expects
-        teams = []
+        al_divs = {}
+        nl_divs = {}
         for t in teams_raw:
-            teams.append({
-                "team_id": t.get("id"),
-                "abbrev": t.get("abbreviation"),
-                "league": (t.get("league") or {}).get("name"),
-                "division": (t.get("division") or {}).get("name"),
-                "logo_url": f"https://www.mlbstatic.com/team-logos/{t.get('id')}.svg"
-            })
+            team_id = t.get("id")
+            league_name = (t.get("league") or {}).get("name") or ""
+            division_name = (t.get("division") or {}).get("name") or ""
+            full_div_name = division_name  # e.g. "American League East"
+
+            team_obj = {
+                "team_id": team_id,
+                "name": t.get("name"),  # FULL NAME
+                "league": league_name,
+                "division": division_name,
+                "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None,
+            }
+            if "American League" in division_name or league_name == "American League":
+                al_divs.setdefault(full_div_name, []).append(team_obj)
+            elif "National League" in division_name or league_name == "National League":
+                nl_divs.setdefault(full_div_name, []).append(team_obj)
+        # sort teams alphabetically within each division (by full name)
+        for d in al_divs:
+            al_divs[d].sort(key=lambda x: (x.get("name") or ""))
+        for d in nl_divs:
+            nl_divs[d].sort(key=lambda x: (x.get("name") or ""))
+        # optional: order divisions in the classic East/Central/West order
+        def div_sort_key(div_name: str):
+            if "East" in div_name: return 0
+            if "Central" in div_name: return 1
+            if "West" in div_name: return 2
+            return 99
+
+        al_divs = dict(sorted(al_divs.items(), key=lambda kv: div_sort_key(kv[0])))
+        nl_divs = dict(sorted(nl_divs.items(), key=lambda kv: div_sort_key(kv[0])))\
 
         return render_template("teams.html",
                                title="Teams",
                                season=season,
-                               teams=teams)
+                               al_divs=al_divs,
+                               nl_divs=nl_divs)
 
     except Exception as e:
-        return render_template("teams.html",
-                               title="Teams",
-                               season=season,
-                               teams=[],
-                               error=str(e))
+       return render_template("teams.html", title="Teams", season=season, al_divs={}, nl_divs={}, error=str(e))
+
 
 @app.get("/team/<int:team_id>")
 def team(team_id):
