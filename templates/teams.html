@@ -15,32 +15,57 @@
   {% endif %}
 </div>
 
-<div class="card">
-  <div class="table-wrap">
-    <table class="table table-centered">
-      <thead>
-        <tr>
-          <th class="teamcol">Team</th>
-          <th>League</th>
-          <th>Division</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for t in teams %}
-          <tr>
-            <td class="teamcell">
+<div class="grid-2">
+
+  <!-- American League -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">American League</div>
+      <div class="card-subtitle">Season {{ season }}</div>
+    </div>
+
+    {% for div_name, teams in al_divs.items() %}
+      <div class="subcard">
+        <div class="subcard-title">{{ div_name }}</div>
+        <ul class="team-list">
+          {% for t in teams %}
+            <li class="team-row">
               {% if t.logo_url %}
-                <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
+                <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.name }} logo">
               {% endif %}
-              <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
-            </td>
-            <td>{{ t.league }}</td>
-            <td>{{ t.division }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+              <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.name }}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
   </div>
+
+  <!-- National League -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">National League</div>
+      <div class="card-subtitle">Season {{ season }}</div>
+    </div>
+
+    {% for div_name, teams in nl_divs.items() %}
+      <div class="subcard">
+        <div class="subcard-title">{{ div_name }}</div>
+        <ul class="team-list">
+          {% for t in teams %}
+            <li class="team-row">
+              {% if t.logo_url %}
+                <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.name }} logo">
+              {% endif %}
+              <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.name }}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  </div>
+
 </div>
+
 
 {% endblock %}
