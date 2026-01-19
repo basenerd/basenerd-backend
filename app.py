@@ -2,8 +2,7 @@ from datetime import datetime
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request
-
-from services.mlb_api import get_standings
+from services.mlb_api import get_player, get_player_stats, get_standings
 
 app = Flask(__name__)
 
@@ -27,6 +26,13 @@ def players():
     q = request.args.get("q", "").strip()
     results = search_players(q) if q else []
     return render_template("players.html", q=q, results=results)
+
+@app.get("/player/<int:player_id>")
+def player(player_id):
+    season = request.args.get("season", type=int)  # optional: /player/123?season=2025
+    bio = get_player(player_id)
+    stats = get_player_stats(player_id, season=season)
+    return render_template("player.html", bio=bio, stats=stats, season=season)
 
 @app.get("/standings")
 def standings():
