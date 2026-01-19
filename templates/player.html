@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>{{ bio.fullName }}</h1>
+
+<p>
+  {% if bio.currentTeam %}{{ bio.currentTeam.name }}{% endif %}
+  {% if bio.primaryPosition %} • {{ bio.primaryPosition.name }}{% endif %}
+  {% if bio.batSide %} • Bats: {{ bio.batSide.description }}{% endif %}
+  {% if bio.pitchHand %} • Throws: {{ bio.pitchHand.description }}{% endif %}
+</p>
+
+<img
+  src="https://img.mlbstatic.com/mlb-photos/image/upload/w_360,q_100/v1/people/{{ bio.id }}/headshot/67/current"
+  alt="{{ bio.fullName }}"
+  style="border-radius: 12px; max-width: 180px; margin: 10px 0;"
+/>
+
+<h2>Season stats{% if season %} ({{ season }}){% endif %}</h2>
+
+{% if stats %}
+  {% for block in stats %}
+    <h3>{{ block.group.displayName }}</h3>
+    {% if block.splits and block.splits|length > 0 %}
+      <table>
+        <tbody>
+          {% for k, v in block.splits[0].stat.items() %}
+            <tr>
+              <td style="padding-right:12px;"><strong>{{ k }}</strong></td>
+              <td>{{ v }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No stats available.</p>
+    {% endif %}
+  {% endfor %}
+{% else %}
+  <p>No stats available.</p>
+{% endif %}
+
+{% endblock %}
