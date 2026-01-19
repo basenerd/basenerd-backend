@@ -19,7 +19,21 @@ from services.mlb_api import get_standings
 from datetime import datetime
 from flask import request, render_template
 
-from services.mlb_api import search_players  # add to your imports
+from services.mlb_api import get_teams, get_team, search_players  # add to imports
+
+@app.get("/teams")
+def teams():
+    current_year = datetime.utcnow().year
+    season = request.args.get("season", default=current_year, type=int)
+    data = get_teams(season)
+    teams_list = data.get("teams", [])
+    return render_template("teams.html", title="Teams", season=season, teams=teams_list)
+
+@app.get("/team/<int:team_id>")
+def team(team_id):
+    data = get_team(team_id)
+    team_obj = (data.get("teams") or [{}])[0]
+    return render_template("team.html", title=team_obj.get("name", "Team"), team=team_obj)
 
 @app.get("/players")
 def players():
