@@ -1,0 +1,17 @@
+{# Shared link helpers #}
+
+{% macro player_link(player_id, label, class_name="") -%}
+  {%- if player_id -%}
+    <a href="{{ url_for('player', player_id=player_id) }}" class="{{ class_name }}">{{ label }}</a>
+  {%- else -%}
+    {{ label }}
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro team_link(team_id, label, class_name="") -%}
+  {%- if team_id -%}
+    <a href="{{ url_for('team', team_id=team_id) }}" class="{{ class_name }}">{{ label }}</a>
+  {%- else -%}
+    {{ label }}
+  {%- endif -%}
+{%- endmacro %}
