@@ -20,6 +20,14 @@ from services.mlb_api import get_standings
 from datetime import datetime
 from flask import request, render_template
 
+from services.mlb_api import search_players  # add to your imports
+
+@app.get("/players")
+def players():
+    q = request.args.get("q", "").strip()
+    results = search_players(q) if q else []
+    return render_template("players.html", q=q, results=results)
+
 @app.get("/standings")
 def standings():
     # Build season dropdown first so it's available even on errors
