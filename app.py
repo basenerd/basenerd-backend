@@ -21,13 +21,43 @@ from flask import request, render_template
 
 from services.mlb_api import get_teams, get_team, search_players  # add to imports
 
+from services.mlb_api import get_teams
+
 @app.get("/teams")
 def teams():
-    current_year = datetime.utcnow().year
-    season = request.args.get("season", default=current_year, type=int)
-    data = get_teams(season)
-    teams_list = data.get("teams", [])
-    return render_template("teams.html", title="Teams", season=season, teams=teams_list)
+    from datetime import datetime
+    
+    now = datetime.utcnow()
+    current_year = now.year
+    default_season = current_year if now.month >= 3 else current_year - 1
+    season = request.args.get("season", default=default_season, type=int)
+
+    try:
+        data = get_teams(season)
+        teams_raw = data.get("teams", [])
+
+        # reshape into what teams.html expects
+        teams = []
+        for t in teams_raw:
+            teams.append({
+                "team_id": t.get("id"),
+                "abbrev": t.get("abbreviation"),
+                "league": (t.get("league") or {}).get("name"),
+                "division": (t.get("division") or {}).get("name"),
+                "logo_url": f"https://www.mlbstatic.com/team-logos/{t.get('id')}.svg"
+            })
+
+        return render_template("teams.html",
+                               title="Teams",
+                               season=season,
+                               teams=teams)
+
+    except Exception as e:
+        return render_template("teams.html",
+                               title="Teams",
+                               season=season,
+                               teams=[],
+                               error=str(e))
 
 @app.get("/team/<int:team_id>")
 def team(team_id):
