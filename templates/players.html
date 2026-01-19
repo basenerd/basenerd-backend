@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_links.html" import player_link %}
+
+{% block content %}
+<h1>Players</h1>
+
+<form method="get" action="{{ url_for('players') }}" style="margin-bottom: 16px;">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search players (e.g., Juan Soto)" />
+  <button type="submit">Search</button>
+</form>
+
+{% if q and results %}
+  <ul>
+    {% for p in results %}
+      <li>
+        {{ player_link(p.id, p.fullName) }}
+        {% if p.primaryPosition %} — {{ p.primaryPosition.name }}{% endif %}
+        {% if p.currentTeam %} — {{ p.currentTeam.name }}{% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% elif q %}
+  <p>No results for "{{ q }}".</p>
+{% endif %}
+{% endblock %}
