@@ -1,6 +1,6 @@
 import time
 from typing import Any, Dict, Optional
-
+from datetime import datetime
 import requests
 
 BASE = "https://statsapi.mlb.com/api/v1"
@@ -9,6 +9,47 @@ BASE = "https://statsapi.mlb.com/api/v1"
 _cache: Dict[str, Dict[str, Any]] = {}
 CACHE_TTL_SECONDS = 60 * 5  # 5 minutes
 
+def get_player(player_id: int):
+    """
+    Player bio + current team hydration.
+    Cached like teams.
+    """
+    cache_key = f"player:{player_id}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{MLB_API_BASE}/people/{player_id}"
+    resp = requests.get(url, params={"hydrate": "currentTeam"}, timeout=10)
+    resp.raise_for_status()
+    person = resp.json().get("people", [{}])[0]
+
+    _set_cached(cache_key, person)
+    return person
+
+
+def get_player_stats(player_id: int, season: int | None = None):
+    """
+    Season stats for hitting/pitching/fielding (whatever applies).
+    Cached.
+    """
+    season = season or datetime.now().year
+    cache_key = f"player_stats:{player_id}:{season}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{MLB_API_BASE}/people/{player_id}/stats"
+    resp = requests.get(
+        url,
+        params={"stats": "season", "group": "hitting,pitching,fielding", "season": season},
+        timeout=10
+    )
+    resp.raise_for_status()
+    stats = resp.json().get("stats", [])
+
+    _set_cached(cache_key, stats)
+    return stats
 
 def _get_cached(key: str) -> Optional[dict]:
     item = _cache.get(key)
