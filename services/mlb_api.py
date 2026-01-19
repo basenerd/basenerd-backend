@@ -99,3 +99,29 @@ def get_team(team_id: int) -> dict:
 
     _set_cached(cache_key, data)
     return data
+
+# --- Players ---
+
+def search_players(query: str):
+    """
+    Search players by name via StatsAPI.
+    Returns a list of people dicts (id, fullName, currentTeam, primaryPosition, etc.)
+    Cached briefly because users might search the same names repeatedly.
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+
+    cache_key = f"player_search:{q.lower()}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{MLB_API_BASE}/people/search"
+    resp = requests.get(url, params={"names": q}, timeout=10)
+    resp.raise_for_status()
+    people = resp.json().get("people", [])
+
+    _set_cached(cache_key, people)
+    return people
+
