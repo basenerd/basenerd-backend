@@ -81,10 +81,25 @@ def teams():
        return render_template("teams.html", title="Teams", season=season, al_divs={}, nl_divs={}, error=str(e))
 
 
+from services.mlb_api import get_team
+
 @app.get("/team/<int:team_id>")
 def team(team_id):
     data = get_team(team_id)
-    team_obj = (data.get("teams") or [{}])[0]
+    raw = (data.get("teams") or [{}])[0]
+
+    team_obj = {
+        "team_id": raw.get("id"),
+        "name": raw.get("name"),
+        "abbrev": raw.get("abbreviation"),
+        "location": raw.get("locationName"),
+        "first_year": raw.get("firstYearOfPlay"),
+        "league": (raw.get("league") or {}).get("name"),
+        "division": (raw.get("division") or {}).get("name"),
+        "venue": (raw.get("venue") or {}).get("name"),
+        "logo_url": f"https://www.mlbstatic.com/team-logos/{raw.get('id')}.svg" if raw.get("id") else None,
+    }
+
     return render_template("team.html", title=team_obj.get("name", "Team"), team=team_obj)
 
 @app.get("/players")
@@ -141,7 +156,11 @@ def standings():
             season=season,
             seasons=seasons,
             divisions=[],
+            al_divs=[],
+            nl_divs=[],
             error=str(e),
+        )
+
         )
 
     divisions = []
