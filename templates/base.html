@@ -29,8 +29,10 @@
             </a>
             <a href="/standings" class="{% if request.path.startswith('/standings') %}active{% endif %}">
               Standings
+            </a>
             <a href="/players" class="{% if request.path.startswith('/players') or request.path.startswith('/player/') %}active{% endif %}">
               Players
+            </a>
             <a href="/teams" class="{% if request.path.startswith('/teams') or request.path.startswith('/team/') %}active{% endif %}">
               Teams
             </a>
