@@ -212,24 +212,24 @@ for rec in records:
     })
 
 
-# --- Split into AL / NL lists ---
-al_divs = [d for d in divisions if "American League" in d["name"] or d["league"] == "American League"]
-nl_divs = [d for d in divisions if "National League" in d["name"] or d["league"] == "National League"]
-
-print("DEBUG divisions:", len(divisions), "AL:", len(al_divs), "NL:", len(nl_divs))
-if divisions:
-    print("DEBUG first division:", divisions[0]["league"], divisions[0]["name"], "teams:", len(divisions[0]["teams"]))
-
-return render_template(
-    "standings.html",
-    title="Standings",
-    season=season,
-    seasons=seasons,
-    divisions=divisions,   # keep for debugging / future use
-    al_divs=al_divs,
-    nl_divs=nl_divs,
-    error=error,
-)
+    # --- Split into AL / NL lists ---
+    al_divs = [d for d in divisions if "American League" in d["name"] or d["league"] == "American League"]
+    nl_divs = [d for d in divisions if "National League" in d["name"] or d["league"] == "National League"]
+    
+    print("DEBUG divisions:", len(divisions), "AL:", len(al_divs), "NL:", len(nl_divs))
+    if divisions:
+        print("DEBUG first division:", divisions[0]["league"], divisions[0]["name"], "teams:", len(divisions[0]["teams"]))
+    
+    return render_template(
+        "standings.html",
+        title="Standings",
+        season=season,
+        seasons=seasons,
+        divisions=divisions,   # keep for debugging / future use
+        al_divs=al_divs,
+        nl_divs=nl_divs,
+        error=error,
+    )
 
 
 if __name__ == "__main__":
