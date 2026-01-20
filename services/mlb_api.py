@@ -72,8 +72,7 @@ def get_standings(season_year: int) -> dict:
         "sportId": 1,                 # MLB
         "leagueId": "103,104",        # AL, NL
         "season": str(season_year),
-        "standingsTypes": "regularSeason",
-        "hydrate": "team(division,league)"
+        "standingsTypes": "regularSeason"
     }
 
     r = requests.get(url, params=params, timeout=20)
