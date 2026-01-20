@@ -274,4 +274,37 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   }
   .side-nav a{ white-space:nowrap; margin-bottom:0; }
 }
+/* ===== Restore base layout (sidebar + main side-by-side) ===== */
+.layout{
+  display:flex;
+  min-height:100vh;
+}
+
+.sidebar{
+  flex:0 0 240px;          /* sidebar width */
+  border-right:1px solid var(--border);
+  background:linear-gradient(180deg, #f6f8fb, #ffffff);
+}
+
+.sidebar-inner{
+  position:sticky;
+  top:0;
+  height:100vh;
+  padding:14px 12px;
+  display:flex;
+  flex-direction:column;
+}
+
+.main{
+  flex:1 1 auto;
+  min-width:0;             /* prevents overflow pushing layout */
+}
+
+.main-inner{ min-height:100vh; }
+
+.container{
+  max-width:1200px;
+  margin:16px auto 56px;
+  padding:0 12px;
+}
 
