@@ -161,8 +161,6 @@ def standings():
             error=str(e),
         )
 
-        )
-
     divisions = []
     for rec in records:
         division = rec.get("division") or {}
