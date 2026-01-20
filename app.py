@@ -225,18 +225,16 @@ if divisions:
     if divisions:
         print("DEBUG first division:", divisions[0]["league"], divisions[0]["name"], "teams:", len(divisions[0]["teams"]))
 
-    return render_template(
-    "standings.html",
-    title="Standings",
-    season=season,
-    seasons=seasons,
-    divisions=divisions,   # keep for debugging / future use
-    al_divs=al_divs,       # <-- important if template uses these
-    nl_divs=nl_divs,       # <-- important if template uses these
-    error=error,
-)
-
-
+        return render_template(
+            "standings.html",
+            title="Standings",
+            season=season,
+            seasons=seasons,
+            divisions=divisions,   # keep for debugging / future use
+            al_divs=al_divs,       # <-- important if template uses these
+            nl_divs=nl_divs,       # <-- important if template uses these
+            error=error,
+        )
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
