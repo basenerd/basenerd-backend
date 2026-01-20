@@ -162,58 +162,64 @@ def standings():
         )
 
     divisions = []
-    for rec in records:
-        division = rec.get("division") or {}
-        league = rec.get("league") or {}
 
-        division_name = division.get("name", "Unknown Division")
-        league_name = league.get("name", "Unknown League")
+for rec in records:
+    # --- Extract league + division safely from StatsAPI shape ---
+    league = (rec.get("league") or {}).get("name", "")
+    division = (rec.get("division") or {}).get("name", "")
 
-        team_rows = []
-        for tr in rec.get("teamRecords", []):
-            team = tr.get("team", {}) or {}
-            team_id = team.get("id")
-            abbrev = team.get("abbreviation") or team.get("teamName") or ""
+    # Fallback mapping if API ever returns IDs instead of names
+    if isinstance(league, int):
+        league = "American League" if league == 103 else "National League" if league == 104 else str(league)
 
-            logo_url = f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None
+    if isinstance(division, int):
+        div_map = {
+            201: "American League West",
+            202: "American League East",
+            203: "American League Central",
+            204: "National League West",
+            205: "National League East",
+            206: "National League Central",
+        }
+        division = div_map.get(division, str(division))
 
-            team_rows.append({
-                "team_id": team_id,
-                "abbrev": abbrev,
-                "logo_url": logo_url,
-                "w": tr.get("wins"),
-                "l": tr.get("losses"),
-                "pct": tr.get("winningPercentage"),
-                "gb": tr.get("gamesBack"),
-                "streak": (tr.get("streak") or {}).get("streakCode"),
-                "run_diff": tr.get("runDifferential"),
-            })
+    div_name = division or "Unknown Division"
 
-        divisions.append({
-            "name": division_name,
-            "league": league_name,
-            "teams": team_rows,
+    # --- Build team rows for this division ---
+    teams = []
+    for tr in rec.get("teamRecords", []):
+        team = tr.get("team", {})
+
+        teams.append({
+            "team_id": team.get("id"),
+            "abbrev": team.get("abbreviation"),
+            "w": tr.get("wins"),
+            "l": tr.get("losses"),
+            "pct": tr.get("pct"),
+            "gb": tr.get("gamesBack"),
+            "streak": tr.get("streak", {}).get("streakCode"),
+            "run_diff": tr.get("runDifferential"),
+            "logo_url": f"https://www.mlbstatic.com/team-logos/{team.get('id')}.svg"
         })
 
-    # Sort divisions into stable order
-    league_order = {"National League": 0, "American League": 1}
-    div_order = {"East": 0, "Central": 1, "West": 2}
+    # Sort teams by wins descending
+    teams.sort(key=lambda x: (-x["w"], x["l"]))
 
-    def division_sort_key(d):
-        name = d.get("name", "")
-        league = d.get("league", "")
-        suffix = "East" if name.endswith("East") else "Central" if name.endswith("Central") else "West" if name.endswith("West") else ""
-        return (league_order.get(league, 99), div_order.get(suffix, 99), name)
+    divisions.append({
+        "name": div_name,
+        "league": league,
+        "teams": teams
+    })
 
-    divisions.sort(key=division_sort_key)
 
-    # Optional: if STILL empty, surface an explicit message in template via error
-    error = None
-    if not divisions:
-        error = "Standings API returned no records for the selected (or fallback) season."
-        
-    al_divs = [d for d in divisions if d.get("league") == "American League"]
-    nl_divs = [d for d in divisions if d.get("league") == "National League"]
+# --- Split into AL / NL lists ---
+al_divs = [d for d in divisions if "American League" in d["name"] or d["league"] == "American League"]
+nl_divs = [d for d in divisions if "National League" in d["name"] or d["league"] == "National League"]
+
+print("DEBUG divisions:", len(divisions), "AL:", len(al_divs), "NL:", len(nl_divs))
+if divisions:
+    print("DEBUG first division:", divisions[0]["name"], "teams:", len(divisions[0]["teams"]))
+
 
     print("DEBUG divisions:", len(divisions), "AL:", len(al_divs), "NL:", len(nl_divs))
     if divisions:
