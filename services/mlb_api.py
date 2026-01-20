@@ -67,29 +67,36 @@ def _set_cached(key: str, data: dict) -> None:
 import requests
 
 def get_standings(season_year: int) -> dict:
-    url = "https://statsapi.mlb.com/api/v1/standings"
-    params = {
-        "sportId": 1,                 # MLB
-        "leagueId": "103,104",        # AL, NL
-        "season": str(season_year),
-        "standingsTypes": "regularSeason"
+    url = f"{BASE}/standings"
+
+    # Some MLB endpoints behave better with a real User-Agent.
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Basenerd; +https://example.com)"
     }
 
-    r = requests.get(url, params=params, timeout=20)
+    # Keep params minimal + avoid combinations that sometimes return empty records.
+    params = {
+        "leagueId": "103,104",            # AL, NL
+        "season": str(season_year),
+        "standingsTypes": "regularSeason",
+        # hydrate is optional; keep it, but if you still get empty, remove this line next
+        "hydrate": "team(division,league)",
+    }
 
-    # HARD debug to Render logs
+    r = requests.get(url, params=params, headers=headers, timeout=20)
+
     print("STANDINGS DEBUG URL:", r.url)
     print("STANDINGS DEBUG STATUS:", r.status_code)
-    print("STANDINGS DEBUG HEAD:", r.text[:200])  # first 200 chars to see if HTML/error
+    print("STANDINGS DEBUG HEAD:", r.text[:200])
 
     r.raise_for_status()
     data = r.json()
 
-    # More debug
     print("STANDINGS DEBUG keys:", list(data.keys()) if isinstance(data, dict) else type(data))
     print("STANDINGS DEBUG records len:", len(data.get("records", [])) if isinstance(data, dict) else "n/a")
 
     return data
+
 
 
 # Adding API helper to get list of teams for any given season. This will be used to populate the team directory page
