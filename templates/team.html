@@ -181,13 +181,40 @@
 
   .schedule-table { width:100%; }
   .schedule-row{
-    display:grid;
-    grid-template-columns: 110px 90px 1.7fr 170px 110px 1.4fr 90px;
-    gap:10px;
-    padding:10px 6px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    align-items:center;
+  display:grid;
+  grid-template-columns: 110px 90px 1.7fr 170px 110px 1.4fr 90px;
+  gap:8px;                 /* tighter */
+  padding:6px 6px;         /* tighter */
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  align-items:center;
+  font-size: 12px;         /* smaller */
+  line-height: 1.2;        /* denser */
   }
+  
+  .schedule-header{
+    font-weight:600;
+    opacity:0.9;
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    padding:8px 6px;         /* a bit tighter than before */
+  }
+  
+  /* Alternating row shading (only data rows) */
+  .schedule-row.data-row:nth-child(even){
+    background: rgba(255,255,255,0.04);
+  }
+  .schedule-row.data-row:nth-child(odd){
+    background: rgba(255,255,255,0.00);
+  }
+  
+  /* Section title */
+  .schedule-section-title{
+    margin-top: 10px;
+    margin-bottom: 6px;
+    font-weight: 700;
+    font-size: 13px;
+    opacity: 0.95;
+  }
+
   .schedule-header{
     font-weight:600;
     opacity:0.9;
