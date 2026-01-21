@@ -10,8 +10,7 @@
       <div>
         <div class="card-title">{{ team.name }}</div>
         <div class="card-subtitle">
-          {% if team.league %}{{ team.league }}{% endif %}
-          {% if team.division %} • {{ team.division }}{% endif %}
+          {% if team.division %}{{ team.division }}{% endif %}
         </div>
       </div>
     </div>
@@ -20,10 +19,7 @@
   <div class="card-body">
     <table class="table">
       <tbody>
-        <tr><td><strong>Abbreviation</strong></td><td>{{ team.abbrev }}</td></tr>
-        <tr><td><strong>Location</strong></td><td>{{ team.location }}</td></tr>
         <tr><td><strong>Ballpark</strong></td><td>{{ team.venue }}</td></tr>
-        <tr><td><strong>First year</strong></td><td>{{ team.first_year }}</td></tr>
       </tbody>
     </table>
   </div>
@@ -63,7 +59,6 @@
                     <td><strong>Player</strong></td>
                     <td style="width:70px; text-align:right;"><strong>B/T</strong></td>
                     <td style="width:60px; text-align:right;"><strong>Pos</strong></td>
-                    <td style="width:74px; text-align:right;"><strong>Status</strong></td>
                   </tr>
                 </thead>
                 <tbody>
@@ -72,27 +67,29 @@
                       <td style="text-align:right; font-variant-numeric: tabular-nums;">
                         {{ p.jersey or "—" }}
                       </td>
-                      <td>{{ p.name }}</td>
+
+                      <td style="white-space:nowrap;">
+                        {{ p.name }}
+
+                        {% if p.status_code and p.status_code not in ["A"] %}
+                          {% set code = p.status_code %}
+                          <span class="status-pill
+                            {% if code == 'IL' %} status-il
+                            {% elif code == 'MIN' %} status-min
+                            {% else %} status-other
+                            {% endif %}"
+                            title="{{ p.status_desc }}">
+                            {{ code }}
+                          </span>
+                        {% endif %}
+                      </td>
+
                       <td style="text-align:right; font-variant-numeric: tabular-nums;">
                         {{ p.bt or "—" }}
                       </td>
+
                       <td style="text-align:right;">
                         {{ p.pos or "—" }}
-                      </td>
-                      <td style="text-align:right;">
-                        {% if p.status_code and p.status_code not in ["A"] %}
-                          <span style="
-                            display:inline-block;
-                            padding:2px 8px;
-                            border-radius:999px;
-                            background: rgba(255,255,255,0.10);
-                            font-size:11px;
-                          " title="{{ p.status_desc }}">
-                            {{ p.status_code }}
-                          </span>
-                        {% else %}
-                          <span class="muted">—</span>
-                        {% endif %}
                       </td>
                     </tr>
                   {% endfor %}
@@ -114,31 +111,31 @@
                   <td><strong>Player</strong></td>
                   <td style="width:70px; text-align:right;"><strong>B/T</strong></td>
                   <td style="width:60px; text-align:right;"><strong>Pos</strong></td>
-                  <td style="width:74px; text-align:right;"><strong>Status</strong></td>
                 </tr>
               </thead>
               <tbody>
                 {% for p in roster_other %}
                   <tr>
                     <td style="text-align:right; font-variant-numeric: tabular-nums;">{{ p.jersey or "—" }}</td>
-                    <td>{{ p.name }}</td>
-                    <td style="text-align:right; font-variant-numeric: tabular-nums;">{{ p.bt or "—" }}</td>
-                    <td style="text-align:right;">{{ p.pos or "—" }}</td>
-                    <td style="text-align:right;">
+
+                    <td style="white-space:nowrap;">
+                      {{ p.name }}
+
                       {% if p.status_code and p.status_code not in ["A"] %}
-                        <span style="
-                          display:inline-block;
-                          padding:2px 8px;
-                          border-radius:999px;
-                          background: rgba(255,255,255,0.10);
-                          font-size:11px;
-                        " title="{{ p.status_desc }}">
-                          {{ p.status_code }}
+                        {% set code = p.status_code %}
+                        <span class="status-pill
+                          {% if code == 'IL' %} status-il
+                          {% elif code == 'MIN' %} status-min
+                          {% else %} status-other
+                          {% endif %}"
+                          title="{{ p.status_desc }}">
+                          {{ code }}
                         </span>
-                      {% else %}
-                        <span class="muted">—</span>
                       {% endif %}
                     </td>
+
+                    <td style="text-align:right; font-variant-numeric: tabular-nums;">{{ p.bt or "—" }}</td>
+                    <td style="text-align:right;">{{ p.pos or "—" }}</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -151,7 +148,7 @@
   </div>
 </div>
 
-<!-- small local styles for the dropdown header -->
+<!-- Local styles for dropdown + status pills -->
 <style>
   .roster-details { width: 100%; }
   .roster-summary {
@@ -165,6 +162,31 @@
     list-style: none;
   }
   .roster-summary::-webkit-details-marker { display: none; }
+
+  .status-pill{
+    display:inline-block;
+    margin-left:8px;
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:11px;
+    line-height:1.2;
+    vertical-align:middle;
+  }
+  .status-il{
+    background: rgba(255, 0, 0, 0.18);
+    color: rgba(255, 170, 170, 0.95);
+    border: 1px solid rgba(255, 0, 0, 0.28);
+  }
+  .status-min{
+    background: rgba(160, 160, 160, 0.18);
+    color: rgba(220, 220, 220, 0.95);
+    border: 1px solid rgba(180, 180, 180, 0.22);
+  }
+  .status-other{
+    background: rgba(255,255,255,0.10);
+    color: rgba(235,235,235,0.95);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
 </style>
 
 {% endblock %}
