@@ -160,7 +160,7 @@ def team_schedule_json(team_id):
                 "gamePk": g.get("gamePk"),
                 "gameDate": g.get("gameDate"),
                 "status": (g.get("status") or {}).get("detailedState"),
-
+                "gameType": g.get("gameType"),  # <--- ADD THIS
                 "isHome": is_home,
                 "opp": {
                     "id": opp_team.get("id"),
