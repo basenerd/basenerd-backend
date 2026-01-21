@@ -147,6 +147,38 @@ def get_team(team_id: int) -> dict:
     _set_cached(cache_key, data)
     return data
 
+def get_team_schedule(team_id: int, season: int) -> dict:
+    """
+    Fetch schedule for a team + season.
+    Includes Spring Training, Regular Season, Postseason.
+    Cached.
+    """
+    cache_key = f"team_schedule:{team_id}:{season}"
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached
+
+    # Schedule endpoint lives under api/v1/schedule
+    url = f"{BASE}/schedule"
+
+    # Include Spring + Regular + Postseason (and exhibition just in case)
+    # E=Exhibition, S=Spring, R=Regular, F=Wild Card, D=DS, L=LCS, W=WS
+    params = {
+        "sportId": 1,
+        "teamId": team_id,
+        "season": season,
+        "gameTypes": "E,S,R,F,D,L,W",
+        # hydrate gives us probable pitchers & decisions when available
+        "hydrate": "probablePitchers,decisions,team"
+    }
+
+    r = requests.get(url, params=params, timeout=20)
+    r.raise_for_status()
+    data = r.json()
+
+    _set_cached(cache_key, data)
+    return data
+
 # --- Players ---
 
 def search_players(query: str):
