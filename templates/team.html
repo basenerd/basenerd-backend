@@ -29,5 +29,119 @@
   </div>
 </div>
 
-{% endblock %}
 
+<!-- ===================== -->
+<!-- 40-MAN ROSTER SECTION -->
+<!-- ===================== -->
+
+<div class="card" style="margin-top:18px;">
+  <div class="card-header">
+    <div class="card-title">40-Man Roster</div>
+  </div>
+
+  <div class="card-body">
+
+    {% for bucket, pos_map in roster_grouped.items() %}
+      {% if pos_map %}
+        <div style="margin-bottom:18px;">
+          <div style="font-weight:600; margin-bottom:8px;">{{ bucket }}</div>
+
+          {% for pos, players in pos_map.items() %}
+            <div style="margin-bottom:12px;">
+              <div style="font-size:13px; opacity:0.85; margin-bottom:6px;">{{ pos }}</div>
+
+              {% for p in players %}
+                <div style="
+                  display:grid;
+                  grid-template-columns: 42px 1fr 70px 55px;
+                  gap:10px;
+                  align-items:center;
+                  padding:6px 8px;
+                  margin-bottom:4px;
+                  border-radius:8px;
+                  background: rgba(255,255,255,0.04);
+                ">
+
+                  <div style="text-align:right; font-variant-numeric: tabular-nums;">
+                    {{ p.jersey or "—" }}
+                  </div>
+
+                  <div>
+                    {{ p.name }}
+                  </div>
+
+                  <div style="text-align:right; font-variant-numeric: tabular-nums;">
+                    {{ p.bt or "—" }}
+                  </div>
+
+                  {% if p.status_code and p.status_code not in ["A"] %}
+                    <div style="
+                      justify-self:end;
+                      font-size:11px;
+                      padding:2px 7px;
+                      border-radius:999px;
+                      background: rgba(255,255,255,0.12);
+                    " title="{{ p.status_desc }}">
+                      {{ p.status_code }}
+                    </div>
+                  {% else %}
+                    <div></div>
+                  {% endif %}
+
+                </div>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    {% if roster_other %}
+      <div style="margin-bottom:18px;">
+        <div style="font-weight:600; margin-bottom:8px;">Other</div>
+
+        {% for pos, players in roster_other.items() %}
+          <div style="margin-bottom:12px;">
+            <div style="font-size:13px; opacity:0.85; margin-bottom:6px;">{{ pos }}</div>
+
+            {% for p in players %}
+              <div style="
+                display:grid;
+                grid-template-columns: 42px 1fr 70px 55px;
+                gap:10px;
+                align-items:center;
+                padding:6px 8px;
+                margin-bottom:4px;
+                border-radius:8px;
+                background: rgba(255,255,255,0.04);
+              ">
+
+                <div style="text-align:right;">{{ p.jersey or "—" }}</div>
+                <div>{{ p.name }}</div>
+                <div style="text-align:right;">{{ p.bt or "—" }}</div>
+
+                {% if p.status_code %}
+                  <div style="
+                    justify-self:end;
+                    font-size:11px;
+                    padding:2px 7px;
+                    border-radius:999px;
+                    background: rgba(255,255,255,0.12);
+                  " title="{{ p.status_desc }}">
+                    {{ p.status_code }}
+                  </div>
+                {% else %}
+                  <div></div>
+                {% endif %}
+
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}
