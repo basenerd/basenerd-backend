@@ -305,77 +305,109 @@
         return;
       }
 
-      const header = `
-        <div class="schedule-table">
-          <div class="schedule-row schedule-header">
-            <div>Date</div>
-            <div>Time</div>
-            <div>Location</div>
-            <div>Opponent</div>
-            <div>Score</div>
-            <div>Pitchers</div>
-            <div></div>
-          </div>
-      `;
+      function sectionForGameType(gt){
+  // Spring Training: S (Spring) plus E (Exhibition) treated as spring bucket
+  if (gt === "S" || gt === "E") return "Spring Training";
+  // Regular
+  if (gt === "R") return "Regular Season";
+  // Postseason bucket
+  if (["F","D","L","W"].includes(gt)) return "Postseason";
+  // Fallback
+  return "Other";
+}
 
-      const rows = games.map(g => {
-        const date = fmtLocalDate(g.gameDate);
-        const time = fmtLocalTime(g.gameDate);
-        const loc  = renderLocation(g.venue);
+function renderSection(title, sectionGames){
+  if (!sectionGames.length) return "";
 
-        const prefix = g.isHome ? "vs." : "@";
-        const oppAbbrev = (g.opp?.abbrev || "—");
-        const oppLogo = g.opp?.id
-          ? `<img class="opp-logo" src="${mlbLogoUrl(g.opp.id)}" alt="${oppAbbrev}">`
-          : "";
+  const header = `
+    <div class="schedule-section-title">${title}</div>
+    <div class="schedule-table">
+      <div class="schedule-row schedule-header">
+        <div>Date</div>
+        <div>Time</div>
+        <div>Location</div>
+        <div>Opponent</div>
+        <div>Score</div>
+        <div>Pitchers</div>
+        <div></div>
+      </div>
+  `;
 
-        // Score + W/L
-        const result = computeResult(g);
-        let scoreHtml = `<span class="muted">—</span>`;
-        if (result){
-          const cls = result.wl === "W" ? "wl-win" : (result.wl === "L" ? "wl-loss" : "wl-tie");
-          scoreHtml = `<span class="wl ${cls}">${result.wl}</span>
-                       <span>${result.teamRuns}&ndash;${result.oppRuns}</span>`;
-        } else if (!isUpcoming(g.status)) {
-          scoreHtml = `<span class="muted">${g.status || "—"}</span>`;
-        }
+  const rows = sectionGames.map(g => {
+    const date = fmtLocalDate(g.gameDate);
+    const time = fmtLocalTime(g.gameDate);
+    const loc  = renderLocation(g.venue);
 
-        // Pitchers
-        let pitchersHtml = `<span class="muted">—</span>`;
-        if (isFinal(g.status)){
-          const w = g.pitchers?.winner ? `W: ${g.pitchers.winner}` : null;
-          const l = g.pitchers?.loser ? `L: ${g.pitchers.loser}` : null;
-          pitchersHtml = [w, l].filter(Boolean).join(" • ") || `<span class="muted">—</span>`;
-        } else {
-          const tp = g.pitchers?.teamProbable || "TBD";
-          const op = g.pitchers?.oppProbable || "TBD";
-          pitchersHtml = `${tp} vs ${op}`;
-        }
+    const prefix = g.isHome ? "vs." : "@";
+    const oppAbbrev = (g.opp?.abbrev || "—");
+    const oppLogo = g.opp?.id
+      ? `<img class="opp-logo" src="${mlbLogoUrl(g.opp.id)}" alt="${oppAbbrev}">`
+      : "";
 
-        const rightLabel = isFinal(g.status) ? "Recap" : "Preview";
-        const rightHref = g.gamePk ? `/game/${g.gamePk}` : "#";
+    const result = computeResult(g);
+    let scoreHtml = `<span class="muted">—</span>`;
+    if (result){
+      const cls = result.wl === "W" ? "wl-win" : (result.wl === "L" ? "wl-loss" : "wl-tie");
+      scoreHtml = `<span class="wl ${cls}">${result.wl}</span>
+                   <span>${result.teamRuns}&ndash;${result.oppRuns}</span>`;
+    } else if (!isUpcoming(g.status)) {
+      scoreHtml = `<span class="muted">${g.status || "—"}</span>`;
+    }
 
-        return `
-          <div class="schedule-row">
-            <div>${date}</div>
-            <div>${time}</div>
-            <div>${loc}</div>
-            <div class="opponent">
-              <span style="opacity:0.85; width:32px; display:inline-block;">${prefix}</span>
-              <span style="font-weight:600;">${oppAbbrev}</span>
-              ${oppLogo}
-            </div>
-            <div class="scorecell">${scoreHtml}</div>
-            <div>${pitchersHtml}</div>
-            <div class="rightlink"><a href="${rightHref}">${rightLabel}</a></div>
-          </div>
-        `;
-      }).join("");
+    let pitchersHtml = `<span class="muted">—</span>`;
+    if (isFinal(g.status)){
+      const w = g.pitchers?.winner ? `W: ${g.pitchers.winner}` : null;
+      const l = g.pitchers?.loser ? `L: ${g.pitchers.loser}` : null;
+      pitchersHtml = [w, l].filter(Boolean).join(" • ") || `<span class="muted">—</span>`;
+    } else {
+      const tp = g.pitchers?.teamProbable || "TBD";
+      const op = g.pitchers?.oppProbable || "TBD";
+      pitchersHtml = `${tp} vs ${op}`;
+    }
 
-      container.innerHTML = header + rows + `</div>`;
-    } catch (e){
-      console.error(e);
-      container.innerHTML = `<div class="muted" style="font-size:13px;">Error loading schedule.</div>`;
+    const rightLabel = isFinal(g.status) ? "Recap" : "Preview";
+    const rightHref = g.gamePk ? `/game/${g.gamePk}` : "#";
+
+    return `
+      <div class="schedule-row data-row">
+        <div>${date}</div>
+        <div>${time}</div>
+        <div>${loc}</div>
+        <div class="opponent">
+          <span style="opacity:0.85; width:32px; display:inline-block;">${prefix}</span>
+          <span style="font-weight:600;">${oppAbbrev}</span>
+          ${oppLogo}
+        </div>
+        <div class="scorecell">${scoreHtml}</div>
+        <div>${pitchersHtml}</div>
+        <div class="rightlink"><a href="${rightHref}">${rightLabel}</a></div>
+      </div>
+    `;
+  }).join("");
+
+  return header + rows + `</div>`;
+}
+
+// ---- group and render ----
+const spring = [];
+const regular = [];
+const post = [];
+const other = [];
+
+for (const g of games){
+  const title = sectionForGameType(g.gameType);
+  if (title === "Spring Training") spring.push(g);
+  else if (title === "Regular Season") regular.push(g);
+  else if (title === "Postseason") post.push(g);
+  else other.push(g);
+}
+
+container.innerHTML =
+  renderSection("Spring Training", spring) +
+  renderSection("Regular Season", regular) +
+  renderSection("Postseason", post) +
+  renderSection("Other", other);
+
     }
   }
 
