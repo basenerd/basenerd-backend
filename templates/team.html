@@ -371,11 +371,25 @@
       if (isFinal(g.status)){
         const w = g.pitchers?.winner ? `W: ${g.pitchers.winner}` : null;
         const l = g.pitchers?.loser ? `L: ${g.pitchers.loser}` : null;
-        pitchersHtml = [w, l].filter(Boolean).join(" • ") || `<span class="muted">—</span>`;
+
+        if (w || l){
+          pitchersHtml = `
+            <div style="display:flex; flex-direction:column; line-height:1.15;">
+              ${w ? `<div>${w}</div>` : ""}
+              ${l ? `<div>${l}</div>` : ""}
+            </div>
+          `;
+        }
       } else {
         const tp = g.pitchers?.teamProbable || "TBD";
         const op = g.pitchers?.oppProbable || "TBD";
-        pitchersHtml = `${tp} vs ${op}`;
+
+        pitchersHtml = `
+          <div style="display:flex; flex-direction:column; line-height:1.15;">
+            <div>${tp}</div>
+            <div>${op}</div>
+          </div>
+        `;
       }
 
       const rightLabel = isFinal(g.status) ? "Recap" : "Preview";
