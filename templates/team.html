@@ -36,111 +36,186 @@
 
 <div class="card" style="margin-top:18px;">
   <div class="card-header">
-    <div class="card-title">40-Man Roster</div>
-  </div>
+    <details style="width:100%;" open>
+      <summary style="
+        list-style:none;
+        cursor:pointer;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        user-select:none;
+      ">
+        <div class="card-title" style="margin:0;">40-Man Roster</div>
+        <div style="opacity:0.75; font-size:12px;">
+          Click to {{ "collapse" if (roster_grouped and roster_grouped|length > 0) else "expand" }}
+        </div>
+      </summary>
 
-  <div class="card-body">
+      <div style="margin-top:12px;">
 
-    {% for bucket, pos_map in roster_grouped.items() %}
-      {% if pos_map %}
-        <div style="margin-bottom:18px;">
-          <div style="font-weight:600; margin-bottom:8px;">{{ bucket }}</div>
+        <!-- Column headings -->
+        <div style="
+          display:grid;
+          grid-template-columns: 46px 1fr 70px 60px 60px;
+          gap:10px;
+          align-items:center;
+          padding:8px 10px;
+          border-radius:10px;
+          background: rgba(255,255,255,0.06);
+          font-size:12px;
+          font-weight:600;
+          opacity:0.9;
+          margin-bottom:10px;
+        ">
+          <div style="text-align:right;">#</div>
+          <div>Player</div>
+          <div style="text-align:right;">B/T</div>
+          <div style="text-align:right;">Pos</div>
+          <div style="text-align:right;">Status</div>
+        </div>
 
-          {% for pos, players in pos_map.items() %}
-            <div style="margin-bottom:12px;">
-              <div style="font-size:13px; opacity:0.85; margin-bottom:6px;">{{ pos }}</div>
+        {% set bucket_label = {
+          "Pitcher": "Pitchers",
+          "Catcher": "Catchers",
+          "Infielder": "Infielders",
+          "Outfielder": "Outfielders",
+          "Two-Way": "Two-Way Players"
+        } %}
 
-              {% for p in players %}
-                <div style="
-                  display:grid;
-                  grid-template-columns: 42px 1fr 70px 55px;
-                  gap:10px;
-                  align-items:center;
-                  padding:6px 8px;
-                  margin-bottom:4px;
-                  border-radius:8px;
-                  background: rgba(255,255,255,0.04);
-                ">
+        {% for bucket, pos_map in (roster_grouped or {}).items() %}
+          {% if pos_map %}
+            <div style="
+              margin-bottom:16px;
+              padding:12px;
+              border-radius:12px;
+              background: rgba(255,255,255,0.03);
+              border: 1px solid rgba(255,255,255,0.06);
+            ">
+              <div style="font-weight:700; margin-bottom:10px;">
+                {{ bucket_label.get(bucket, bucket ~ "s") }}
+              </div>
 
-                  <div style="text-align:right; font-variant-numeric: tabular-nums;">
-                    {{ p.jersey or "—" }}
+              {% for pos, players in pos_map.items() %}
+                <div style="margin-bottom:12px;">
+                  <div style="
+                    font-size:12px;
+                    font-weight:600;
+                    opacity:0.85;
+                    margin-bottom:6px;
+                    padding-left:4px;
+                  ">
+                    {{ pos }}
                   </div>
 
-                  <div>
-                    {{ p.name }}
-                  </div>
-
-                  <div style="text-align:right; font-variant-numeric: tabular-nums;">
-                    {{ p.bt or "—" }}
-                  </div>
-
-                  {% if p.status_code and p.status_code not in ["A"] %}
+                  {% for p in players %}
                     <div style="
-                      justify-self:end;
-                      font-size:11px;
-                      padding:2px 7px;
-                      border-radius:999px;
-                      background: rgba(255,255,255,0.12);
-                    " title="{{ p.status_desc }}">
-                      {{ p.status_code }}
+                      display:grid;
+                      grid-template-columns: 46px 1fr 70px 60px 60px;
+                      gap:10px;
+                      align-items:center;
+                      padding:7px 10px;
+                      margin-bottom:5px;
+                      border-radius:10px;
+                      background: rgba(255,255,255,0.04);
+                    ">
+                      <div style="text-align:right; font-variant-numeric: tabular-nums; opacity:0.9;">
+                        {{ p.jersey or "—" }}
+                      </div>
+
+                      <div style="min-width:0;">
+                        <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                          {{ p.name }}
+                        </div>
+                      </div>
+
+                      <div style="text-align:right; font-variant-numeric: tabular-nums; opacity:0.85;">
+                        {{ p.bt or "—" }}
+                      </div>
+
+                      <div style="text-align:right; opacity:0.85;">
+                        {{ p.pos or "—" }}
+                      </div>
+
+                      <div style="text-align:right;">
+                        {% if p.status_code and p.status_code not in ["A"] %}
+                          <span style="
+                            display:inline-block;
+                            font-size:11px;
+                            padding:2px 8px;
+                            border-radius:999px;
+                            background: rgba(255,255,255,0.12);
+                          " title="{{ p.status_desc }}">
+                            {{ p.status_code }}
+                          </span>
+                        {% else %}
+                          <span style="opacity:0.5;">—</span>
+                        {% endif %}
+                      </div>
                     </div>
-                  {% else %}
-                    <div></div>
-                  {% endif %}
+                  {% endfor %}
 
                 </div>
               {% endfor %}
             </div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endfor %}
+          {% endif %}
+        {% endfor %}
 
-    {% if roster_other %}
-      <div style="margin-bottom:18px;">
-        <div style="font-weight:600; margin-bottom:8px;">Other</div>
+        {% if roster_other %}
+          <div style="
+            margin-bottom:6px;
+            padding:12px;
+            border-radius:12px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+          ">
+            <div style="font-weight:700; margin-bottom:10px;">Other</div>
 
-        {% for pos, players in roster_other.items() %}
-          <div style="margin-bottom:12px;">
-            <div style="font-size:13px; opacity:0.85; margin-bottom:6px;">{{ pos }}</div>
+            {% for pos, players in roster_other.items() %}
+              <div style="margin-bottom:12px;">
+                <div style="font-size:12px; font-weight:600; opacity:0.85; margin-bottom:6px; padding-left:4px;">
+                  {{ pos }}
+                </div>
 
-            {% for p in players %}
-              <div style="
-                display:grid;
-                grid-template-columns: 42px 1fr 70px 55px;
-                gap:10px;
-                align-items:center;
-                padding:6px 8px;
-                margin-bottom:4px;
-                border-radius:8px;
-                background: rgba(255,255,255,0.04);
-              ">
-
-                <div style="text-align:right;">{{ p.jersey or "—" }}</div>
-                <div>{{ p.name }}</div>
-                <div style="text-align:right;">{{ p.bt or "—" }}</div>
-
-                {% if p.status_code %}
+                {% for p in players %}
                   <div style="
-                    justify-self:end;
-                    font-size:11px;
-                    padding:2px 7px;
-                    border-radius:999px;
-                    background: rgba(255,255,255,0.12);
-                  " title="{{ p.status_desc }}">
-                    {{ p.status_code }}
+                    display:grid;
+                    grid-template-columns: 46px 1fr 70px 60px 60px;
+                    gap:10px;
+                    align-items:center;
+                    padding:7px 10px;
+                    margin-bottom:5px;
+                    border-radius:10px;
+                    background: rgba(255,255,255,0.04);
+                  ">
+                    <div style="text-align:right;">{{ p.jersey or "—" }}</div>
+                    <div>{{ p.name }}</div>
+                    <div style="text-align:right;">{{ p.bt or "—" }}</div>
+                    <div style="text-align:right;">{{ p.pos or "—" }}</div>
+                    <div style="text-align:right;">
+                      {% if p.status_code %}
+                        <span style="
+                          display:inline-block;
+                          font-size:11px;
+                          padding:2px 8px;
+                          border-radius:999px;
+                          background: rgba(255,255,255,0.12);
+                        " title="{{ p.status_desc }}">
+                          {{ p.status_code }}
+                        </span>
+                      {% else %}
+                        <span style="opacity:0.5;">—</span>
+                      {% endif %}
+                    </div>
                   </div>
-                {% else %}
-                  <div></div>
-                {% endif %}
-
+                {% endfor %}
               </div>
             {% endfor %}
           </div>
-        {% endfor %}
-      </div>
-    {% endif %}
+        {% endif %}
 
+      </div>
+    </details>
   </div>
 </div>
 
