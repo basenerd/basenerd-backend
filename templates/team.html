@@ -11,20 +11,12 @@
         <div class="card-title">{{ team.name }}</div>
         <div class="card-subtitle">
           {% if team.division %}{{ team.division }}{% endif %}
+          {% if team.venue %} • {{ team.venue }}{% endif %}
         </div>
       </div>
     </div>
   </div>
-
-  <div class="card-body">
-    <table class="table">
-      <tbody>
-        <tr><td><strong>Ballpark</strong></td><td>{{ team.venue }}</td></tr>
-      </tbody>
-    </table>
-  </div>
 </div>
-
 
 <!-- ===================== -->
 <!-- 40-MAN ROSTER DROPDOWN -->
