@@ -178,50 +178,64 @@ from collections import defaultdict
 from collections import defaultdict
 import requests
 
+from collections import defaultdict
+import requests
+
 def get_40man_roster_grouped(team_id: int):
     """
-    Returns:
-      grouped: dict[str, list[dict]]  # keys: Pitcher/Catcher/Infielder/Outfielder
-      other: list[dict]
-    Each player dict includes: name, jersey, bt, pos, status_code, status_desc
+    Groups into exactly: Pitcher, Catcher, Infielder, Outfielder.
+    Sorts each group by jersey number asc; missing jersey numbers last.
+    Pitchers show Pos as RHP/LHP based on throwing hand.
+    Also populates bt (bats/throws) and status if available.
     """
     url = f"https://statsapi.mlb.com/api/v1/teams/{team_id}/roster/40Man"
 
-    # IMPORTANT: do NOT use fields=... here. It often drops nested keys like batSide/pitchHand/status.
-    r = requests.get(url, timeout=20)
+    # Hydrate person so batSide/pitchHand come through reliably
+    params = {"hydrate": "person"}
+    r = requests.get(url, params=params, timeout=20)
     r.raise_for_status()
     data = r.json()
 
     roster = data.get("roster", []) or []
 
-    group_order = ["Pitcher", "Catcher", "Infielder", "Outfielder"]
-    grouped = {k: [] for k in group_order}
+    buckets = ["Pitcher", "Catcher", "Infielder", "Outfielder"]
+    grouped = {b: [] for b in buckets}
     other = []
+
+    def jersey_sort_val(j):
+        # Missing jerseys go last
+        try:
+            return (0, int(j))
+        except Exception:
+            return (1, 9999)
 
     for item in roster:
         person = item.get("person") or {}
         position = item.get("position") or {}
-        status = item.get("status") or {}
 
+        # B/T
         bat_obj = person.get("batSide") or {}
         throw_obj = person.get("pitchHand") or {}
         bats = bat_obj.get("code")
         throws = throw_obj.get("code")
+        bt = f"{bats}/{throws}" if bats and throws else None
 
-        # Fallback logic for grouping
+        # Status (try multiple likely locations)
+        status = item.get("status") or {}
+        status_code = status.get("code") or item.get("statusCode") or item.get("rosterStatus")
+        status_desc = status.get("description") or status.get("status") or None
+
+        # Bucket selection
         pos_type = position.get("type")  # Pitcher/Infielder/Outfielder/Catcher/Two-Way
-        primary = person.get("primaryPosition") or {}
-        primary_type = primary.get("type")
+        if pos_type not in buckets:
+            # try primary position type if present
+            primary = person.get("primaryPosition") or {}
+            primary_type = primary.get("type")
+            pos_type = primary_type if primary_type in buckets else "Other"
 
-        bucket = pos_type
-        if bucket not in group_order:
-            # Two-Way or missing -> use primary position type if possible
-            bucket = primary_type if primary_type in group_order else "Other"
-
-        # Position column value
-        pos_abbrev = position.get("abbreviation") or position.get("name")
-        if bucket == "Pitcher":
-            # For pitchers, show handedness as RHP/LHP based on throwing hand
+        # Position column
+        pos_abbrev = position.get("abbreviation") or position.get("name") or None
+        if pos_type == "Pitcher":
             if throws == "R":
                 pos_abbrev = "RHP"
             elif throws == "L":
@@ -229,45 +243,28 @@ def get_40man_roster_grouped(team_id: int):
             else:
                 pos_abbrev = "P"
 
-        player_row = {
+        row = {
             "id": person.get("id"),
             "name": person.get("fullName"),
             "jersey": item.get("jerseyNumber"),
+            "bt": bt,
             "pos": pos_abbrev,
-            "bt": f"{bats}/{throws}" if bats and throws else None,
-            "status_code": status.get("code"),
-            "status_desc": status.get("description"),
+            "status_code": status_code,
+            "status_desc": status_desc,
         }
 
-        if bucket in grouped:
-            grouped[bucket].append(player_row)
+        if pos_type in grouped:
+            grouped[pos_type].append(row)
         else:
-            other.append(player_row)
+            other.append(row)
 
-    # Sort: pitchers by L/R then jersey/name; others by position then jersey/name
-    def jersey_int(x):
-        try:
-            return int(x["jersey"])
-        except:
-            return 999
+    # Sort each bucket by jersey number only (missing last). Tie-breaker: name.
+    for b in grouped:
+        grouped[b].sort(key=lambda x: (jersey_sort_val(x.get("jersey")), (x.get("name") or "")))
 
-    def sort_key_pitcher(x):
-        # LHP first, then RHP, then unknown; then jersey; then name
-        hand_rank = 2
-        if x.get("pos") == "LHP": hand_rank = 0
-        if x.get("pos") == "RHP": hand_rank = 1
-        return (hand_rank, jersey_int(x), (x.get("name") or ""))
+    other.sort(key=lambda x: (jersey_sort_val(x.get("jersey")), (x.get("name") or "")))
 
-    def sort_key_other(x):
-        return ((x.get("pos") or ""), jersey_int(x), (x.get("name") or ""))
-
-    if "Pitcher" in grouped:
-        grouped["Pitcher"].sort(key=sort_key_pitcher)
-    for k in ["Catcher", "Infielder", "Outfielder"]:
-        if k in grouped:
-            grouped[k].sort(key=sort_key_other)
-
-    other.sort(key=sort_key_other)
     return grouped, other
+
 
 
