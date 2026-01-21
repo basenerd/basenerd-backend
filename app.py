@@ -1,7 +1,7 @@
 from datetime import datetime
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from services.mlb_api import get_player, get_player_stats, get_standings
 
 app = Flask(__name__)
