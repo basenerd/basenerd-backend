@@ -308,3 +308,35 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   padding:0 12px;
 }
 
+.roster-section { margin-top: 24px; }
+.section-title { font-size: 20px; margin-bottom: 12px; }
+
+.roster-bucket { margin-bottom: 20px; }
+.bucket-title { font-size: 16px; margin: 10px 0; opacity: 0.9; }
+
+.roster-pos-group { margin: 10px 0 14px; }
+.pos-header { font-weight: 600; margin-bottom: 6px; opacity: 0.9; }
+
+.roster-grid { display: grid; gap: 6px; }
+.roster-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 70px 56px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+}
+
+.jersey { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.bt { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.85; }
+
+.status-badge {
+  justify-self: end;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  opacity: 0.95;
+}
+.status-spacer { height: 1px; }
