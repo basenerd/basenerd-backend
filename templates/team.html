@@ -48,64 +48,56 @@
           "Pitcher": "Pitchers",
           "Catcher": "Catchers",
           "Infielder": "Infielders",
-          "Outfielder": "Outfielders",
-          "Two-Way": "Two-Way Players"
+          "Outfielder": "Outfielders"
         } %}
 
-        {% for bucket, pos_map in (roster_grouped or {}).items() %}
-          {% if pos_map %}
+        {% for bucket, players in (roster_grouped or {}).items() %}
+          {% if players %}
             <div class="subcard" style="margin-top:12px;">
               <div class="subcard-title">{{ bucket_label.get(bucket, bucket ~ "s") }}</div>
 
-              <!-- Inside each bucket, make each POSITION its own mini-card/table -->
-              {% for pos, players in pos_map.items() %}
-                <div class="subcard" style="margin-top:10px;">
-                  <div class="subcard-title" style="opacity:0.9;">{{ pos }}</div>
-
-                  <table class="table">
-                    <thead>
-                      <tr>
-                        <td style="width:44px; text-align:right;"><strong>#</strong></td>
-                        <td><strong>Player</strong></td>
-                        <td style="width:70px; text-align:right;"><strong>B/T</strong></td>
-                        <td style="width:60px; text-align:right;"><strong>Pos</strong></td>
-                        <td style="width:74px; text-align:right;"><strong>Status</strong></td>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for p in players %}
-                        <tr>
-                          <td style="text-align:right; font-variant-numeric: tabular-nums;">
-                            {{ p.jersey or "—" }}
-                          </td>
-                          <td>{{ p.name }}</td>
-                          <td style="text-align:right; font-variant-numeric: tabular-nums;">
-                            {{ p.bt or "—" }}
-                          </td>
-                          <td style="text-align:right;">
-                            {{ p.pos or "—" }}
-                          </td>
-                          <td style="text-align:right;">
-                            {% if p.status_code and p.status_code not in ["A"] %}
-                              <span style="
-                                display:inline-block;
-                                padding:2px 8px;
-                                border-radius:999px;
-                                background: rgba(255,255,255,0.10);
-                                font-size:11px;
-                              " title="{{ p.status_desc }}">
-                                {{ p.status_code }}
-                              </span>
-                            {% else %}
-                              <span class="muted">—</span>
-                            {% endif %}
-                          </td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
-              {% endfor %}
+              <table class="table">
+                <thead>
+                  <tr>
+                    <td style="width:44px; text-align:right;"><strong>#</strong></td>
+                    <td><strong>Player</strong></td>
+                    <td style="width:70px; text-align:right;"><strong>B/T</strong></td>
+                    <td style="width:60px; text-align:right;"><strong>Pos</strong></td>
+                    <td style="width:74px; text-align:right;"><strong>Status</strong></td>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for p in players %}
+                    <tr>
+                      <td style="text-align:right; font-variant-numeric: tabular-nums;">
+                        {{ p.jersey or "—" }}
+                      </td>
+                      <td>{{ p.name }}</td>
+                      <td style="text-align:right; font-variant-numeric: tabular-nums;">
+                        {{ p.bt or "—" }}
+                      </td>
+                      <td style="text-align:right;">
+                        {{ p.pos or "—" }}
+                      </td>
+                      <td style="text-align:right;">
+                        {% if p.status_code and p.status_code not in ["A"] %}
+                          <span style="
+                            display:inline-block;
+                            padding:2px 8px;
+                            border-radius:999px;
+                            background: rgba(255,255,255,0.10);
+                            font-size:11px;
+                          " title="{{ p.status_desc }}">
+                            {{ p.status_code }}
+                          </span>
+                        {% else %}
+                          <span class="muted">—</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
 
             </div>
           {% endif %}
@@ -115,49 +107,42 @@
           <div class="subcard" style="margin-top:12px;">
             <div class="subcard-title">Other</div>
 
-            {% for pos, players in roster_other.items() %}
-              <div class="subcard" style="margin-top:10px;">
-                <div class="subcard-title" style="opacity:0.9;">{{ pos }}</div>
-
-                <table class="table">
-                  <thead>
-                    <tr>
-                      <td style="width:44px; text-align:right;"><strong>#</strong></td>
-                      <td><strong>Player</strong></td>
-                      <td style="width:70px; text-align:right;"><strong>B/T</strong></td>
-                      <td style="width:60px; text-align:right;"><strong>Pos</strong></td>
-                      <td style="width:74px; text-align:right;"><strong>Status</strong></td>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for p in players %}
-                      <tr>
-                        <td style="text-align:right; font-variant-numeric: tabular-nums;">{{ p.jersey or "—" }}</td>
-                        <td>{{ p.name }}</td>
-                        <td style="text-align:right;">{{ p.bt or "—" }}</td>
-                        <td style="text-align:right;">{{ p.pos or "—" }}</td>
-                        <td style="text-align:right;">
-                          {% if p.status_code %}
-                            <span style="
-                              display:inline-block;
-                              padding:2px 8px;
-                              border-radius:999px;
-                              background: rgba(255,255,255,0.10);
-                              font-size:11px;
-                            " title="{{ p.status_desc }}">
-                              {{ p.status_code }}
-                            </span>
-                          {% else %}
-                            <span class="muted">—</span>
-                          {% endif %}
-                        </td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-
-              </div>
-            {% endfor %}
+            <table class="table">
+              <thead>
+                <tr>
+                  <td style="width:44px; text-align:right;"><strong>#</strong></td>
+                  <td><strong>Player</strong></td>
+                  <td style="width:70px; text-align:right;"><strong>B/T</strong></td>
+                  <td style="width:60px; text-align:right;"><strong>Pos</strong></td>
+                  <td style="width:74px; text-align:right;"><strong>Status</strong></td>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in roster_other %}
+                  <tr>
+                    <td style="text-align:right; font-variant-numeric: tabular-nums;">{{ p.jersey or "—" }}</td>
+                    <td>{{ p.name }}</td>
+                    <td style="text-align:right; font-variant-numeric: tabular-nums;">{{ p.bt or "—" }}</td>
+                    <td style="text-align:right;">{{ p.pos or "—" }}</td>
+                    <td style="text-align:right;">
+                      {% if p.status_code and p.status_code not in ["A"] %}
+                        <span style="
+                          display:inline-block;
+                          padding:2px 8px;
+                          border-radius:999px;
+                          background: rgba(255,255,255,0.10);
+                          font-size:11px;
+                        " title="{{ p.status_desc }}">
+                          {{ p.status_code }}
+                        </span>
+                      {% else %}
+                        <span class="muted">—</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
         {% endif %}
 
@@ -166,9 +151,8 @@
   </div>
 </div>
 
-<!-- tiny styles local to this page only -->
+<!-- small local styles for the dropdown header -->
 <style>
-  /* Make summary look like your card header row */
   .roster-details { width: 100%; }
   .roster-summary {
     cursor: pointer;
@@ -177,7 +161,7 @@
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
-    padding: 0; /* card-header already provides spacing */
+    padding: 0;
     list-style: none;
   }
   .roster-summary::-webkit-details-marker { display: none; }
