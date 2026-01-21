@@ -172,3 +172,73 @@ def search_players(query: str):
     _set_cached(cache_key, people)
     return people
 
+import requests
+from collections import defaultdict
+
+ROSTER_FIELDS = (
+    "roster,jerseyNumber,"
+    "position,name,abbreviation,type,"
+    "status,code,description,"
+    "person,id,fullName,"
+    "person,batSide,code,description,"
+    "person,pitchHand,code,description,"
+    "person,primaryPosition,abbreviation"
+)
+
+def get_40man_roster_grouped(team_id: int):
+    url = f"https://statsapi.mlb.com/api/v1/teams/{team_id}/roster/40Man"
+    r = requests.get(url, params={"fields": ROSTER_FIELDS}, timeout=20)
+    r.raise_for_status()
+    data = r.json()
+
+    roster = data.get("roster", [])
+
+    # Normalize to a simple list of dicts your template can render
+    players = []
+    for item in roster:
+        person = item.get("person", {}) or {}
+        position = item.get("position", {}) or {}
+        status = item.get("status", {}) or {}
+
+        bats = (person.get("batSide", {}) or {}).get("code")
+        throws = (person.get("pitchHand", {}) or {}).get("code")
+
+        players.append({
+            "id": person.get("id"),
+            "name": person.get("fullName"),
+            "jersey": item.get("jerseyNumber"),
+            "pos": position.get("abbreviation") or position.get("name"),
+            "pos_type": position.get("type"),  # Pitcher/Infielder/Outfielder/Catcher/Two-Way
+            "status_code": status.get("code"),
+            "status_desc": status.get("description"),
+            "bt": f"{bats}/{throws}" if bats and throws else None,
+        })
+
+    # Grouping logic: you can group by pos_type + pos for a nice layout
+    # buckets in the order you likely want on the page
+    group_order = ["Pitcher", "Catcher", "Infielder", "Outfielder", "Two-Way"]
+    grouped = {k: defaultdict(list) for k in group_order}
+    other = defaultdict(list)
+
+    for p in players:
+        bucket = p["pos_type"] if p["pos_type"] in grouped else "Other"
+        target = grouped[bucket] if bucket in grouped else other
+        target[p["pos"]].append(p)
+
+    # Sort players inside each position by jersey then name
+    def sort_key(x):
+        try:
+            j = int(x["jersey"]) if x["jersey"] is not None else 999
+        except:
+            j = 999
+        return (j, x["name"] or "")
+
+    for bucket in grouped:
+        for pos in grouped[bucket]:
+            grouped[bucket][pos].sort(key=sort_key)
+
+    for pos in other:
+        other[pos].sort(key=sort_key)
+
+    return grouped, other
+
