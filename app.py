@@ -2,7 +2,7 @@ from datetime import datetime
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request, jsonify
-from services.mlb_api import get_player, get_player_stats, get_standings
+from services.mlb_api import get_player, get_player_stats, get_standings, get_team_schedule
 
 app = Flask(__name__)
 
@@ -119,6 +119,74 @@ def team(team_id):
         roster_grouped=roster_grouped,
         roster_other=roster_other
     )
+
+@app.get("/game/<int:game_pk>")
+def game(game_pk):
+    return render_template("game.html", title=f"Game {game_pk}", game_pk=game_pk)
+
+@app.get("/team/<int:team_id>/schedule_json")
+def team_schedule_json(team_id):
+    season = request.args.get("season", type=int)
+    if not season:
+        season = datetime.utcnow().year
+
+    data = get_team_schedule(team_id, season)
+
+    games_out = []
+    for d in data.get("dates", []) or []:
+        for g in d.get("games", []) or []:
+            teams = g.get("teams", {}) or {}
+            home = teams.get("home", {}) or {}
+            away = teams.get("away", {}) or {}
+
+            home_team = (home.get("team") or {})
+            away_team = (away.get("team") or {})
+
+            is_home = (home_team.get("id") == team_id)
+            opp_team = away_team if is_home else home_team
+
+            venue = g.get("venue", {}) or {}
+            loc = venue.get("location", {}) or {}
+
+            probables = g.get("probablePitchers", {}) or {}
+            team_prob = probables.get("home" if is_home else "away") or {}
+            opp_prob = probables.get("away" if is_home else "home") or {}
+
+            decisions = g.get("decisions", {}) or {}
+            winner = decisions.get("winner") or {}
+            loser = decisions.get("loser") or {}
+
+            games_out.append({
+                "gamePk": g.get("gamePk"),
+                "gameDate": g.get("gameDate"),
+                "status": (g.get("status") or {}).get("detailedState"),
+
+                "isHome": is_home,
+                "opp": {
+                    "id": opp_team.get("id"),
+                    "abbrev": (opp_team.get("abbreviation") or "").upper()
+                },
+
+                "venue": {
+                    "name": venue.get("name"),
+                    "city": loc.get("city"),
+                    "state": loc.get("state") or loc.get("stateAbbrev"),
+                },
+
+                "score": {
+                    "home": home.get("score"),
+                    "away": away.get("score"),
+                },
+
+                "pitchers": {
+                    "teamProbable": team_prob.get("fullName"),
+                    "oppProbable": opp_prob.get("fullName"),
+                    "winner": winner.get("fullName"),
+                    "loser": loser.get("fullName"),
+                }
+            })
+
+    return jsonify({"teamId": team_id, "season": season, "games": games_out})
 
 @app.get("/players")
 def players():
