@@ -25,12 +25,6 @@ from services.mlb_api import get_teams
 
 from flask import render_template
 
-@app.route("/team/<int:team_id>")
-def team_page(team_id):
-    grouped, other = get_40man_roster_grouped(team_id)
-    # you probably already fetch team meta (name/logo/etc.) elsewhere
-    return render_template("team.html", team_id=team_id, roster_grouped=grouped, roster_other=other)
-
 @app.get("/teams")
 def teams():
     from datetime import datetime
@@ -77,7 +71,7 @@ def teams():
             return 99
 
         al_divs = dict(sorted(al_divs.items(), key=lambda kv: div_sort_key(kv[0])))
-        nl_divs = dict(sorted(nl_divs.items(), key=lambda kv: div_sort_key(kv[0])))\
+        nl_divs = dict(sorted(nl_divs.items(), key=lambda kv: div_sort_key(kv[0])))
 
         return render_template("teams.html",
                                title="Teams",
@@ -91,8 +85,11 @@ def teams():
 
 from services.mlb_api import get_team
 
+from services.mlb_api import get_team, get_40man_roster_grouped
+
 @app.get("/team/<int:team_id>")
 def team(team_id):
+    # Team metadata
     data = get_team(team_id)
     raw = (data.get("teams") or [{}])[0]
 
@@ -108,7 +105,20 @@ def team(team_id):
         "logo_url": f"https://www.mlbstatic.com/team-logos/{raw.get('id')}.svg" if raw.get("id") else None,
     }
 
-    return render_template("team.html", title=team_obj.get("name", "Team"), team=team_obj)
+    # Roster (don’t let API hiccups take down the page)
+    roster_grouped, roster_other = {}, {}
+    try:
+        roster_grouped, roster_other = get_40man_roster_grouped(team_id)
+    except Exception as e:
+        print(f"[team] roster fetch failed for team_id={team_id}: {e}")
+
+    return render_template(
+        "team.html",
+        title=team_obj.get("name", "Team"),
+        team=team_obj,
+        roster_grouped=roster_grouped,
+        roster_other=roster_other
+    )
 
 @app.get("/players")
 def players():
