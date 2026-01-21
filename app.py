@@ -23,6 +23,14 @@ from services.mlb_api import get_teams, get_team, search_players  # add to impor
 
 from services.mlb_api import get_teams
 
+from flask import render_template
+
+@app.route("/team/<int:team_id>")
+def team_page(team_id):
+    grouped, other = get_40man_roster_grouped(team_id)
+    # you probably already fetch team meta (name/logo/etc.) elsewhere
+    return render_template("team.html", team_id=team_id, roster_grouped=grouped, roster_other=other)
+
 @app.get("/teams")
 def teams():
     from datetime import datetime
