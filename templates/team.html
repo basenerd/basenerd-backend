@@ -228,31 +228,36 @@
 
   .schedule-table { width:100%; }
 
+  /* TIGHTER ROWS */
   .schedule-row{
     display:grid;
-    grid-template-columns: 110px 90px 1.7fr 170px 110px 1.4fr 90px;
-    gap:8px;
-    padding:6px 6px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    grid-template-columns: 100px 70px 1.8fr 150px 95px 1.3fr 78px;
+    gap:6px;
+    padding:3px 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
     align-items:center;
-    font-size: 12px;
-    line-height: 1.2;
+    font-size: 11px;
+    line-height: 1.1;
   }
 
   .schedule-header{
     font-weight:600;
     opacity:0.9;
     border-bottom: 1px solid rgba(255,255,255,0.14);
-    padding:8px 6px;
+    padding:6px 6px;
+    font-size: 11px;
   }
 
-  /* Alternating row shading: scope to each section table */
-  .schedule-table .data-row:nth-child(even){
-    background: rgba(255,255,255,0.04);
+  /* Alternating row shading like table tbody zebra */
+  .schedule-body .data-row:nth-child(odd){
+    background: rgba(255,255,255,0.00);
+  }
+  .schedule-body .data-row:nth-child(even){
+    background: rgba(255,255,255,0.06);
   }
 
   .opponent { display:flex; align-items:center; gap:8px; white-space:nowrap; }
-  .opp-logo { height:16px; width:16px; object-fit:contain; }
+  .opp-logo { height:14px; width:14px; object-fit:contain; }
   .scorecell { display:flex; align-items:center; gap:8px; white-space:nowrap; }
 
   .wl { font-weight:700; }
@@ -262,6 +267,13 @@
 
   .rightlink a { text-decoration:none; }
   .rightlink a:hover { text-decoration:underline; }
+
+  /* Tight stacked pitchers */
+  .pitchers-stack{
+    display:flex;
+    flex-direction:column;
+    line-height:1.05;
+  }
 </style>
 
 <script>
@@ -344,6 +356,7 @@
           <div>Pitchers</div>
           <div></div>
         </div>
+        <div class="schedule-body">
     `;
 
     const rows = sectionGames.map(g => {
@@ -374,7 +387,7 @@
 
         if (w || l){
           pitchersHtml = `
-            <div style="display:flex; flex-direction:column; line-height:1.15;">
+            <div class="pitchers-stack">
               ${w ? `<div>${w}</div>` : ""}
               ${l ? `<div>${l}</div>` : ""}
             </div>
@@ -385,7 +398,7 @@
         const op = g.pitchers?.oppProbable || "TBD";
 
         pitchersHtml = `
-          <div style="display:flex; flex-direction:column; line-height:1.15;">
+          <div class="pitchers-stack">
             <div>${tp}</div>
             <div>${op}</div>
           </div>
@@ -412,7 +425,7 @@
       `;
     }).join("");
 
-    return header + rows + `</div>`;
+    return header + rows + `</div></div>`;
   }
 
   async function loadSchedule(){
