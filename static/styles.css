@@ -44,18 +44,24 @@ hr{ border:0; border-top:1px solid var(--border); margin:16px 0; }
 @media(max-width:900px){ .grid-2{ grid-template-columns:1fr; } }
 
 /* ===== Global Banner ===== */
+.site-banner-wrap {
+  width: 100%;
+  max-height: 95px;     /* Exact requested height */
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Banner image fills width, cropped vertically */
 .site-banner {
   width: 100%;
   height: auto;
   display: block;
-  border-bottom: 1px solid var(--border);
+  object-fit: cover;
+
+  /* Center the glasses logo in the visible crop */
+  object-position: center center;
 }
 
-/* Keeps banner from getting too tall on huge screens */
-.site-banner-wrap {
-  max-height: 260px;
-  overflow: hidden;
-}
 
 /* ===== Header (if you use a top header anywhere) ===== */
 header.site-header{
