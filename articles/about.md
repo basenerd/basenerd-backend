@@ -1,7 +1,7 @@
 ---
-title: About Basenerd <img src="/static/basenerd-logo-official.png" class="article-img-tiny">
+title: About Basenerd 
 ---
-
+<img src="/static/basenerd-logo-official.png" class="article-img-tiny">
 # About Basenerd
 
 Basenerd is my MLB analytics hub — standings, team pages, player pages, and deep dives.
