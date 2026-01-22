@@ -53,17 +53,12 @@
       <!-- Main -->
       <main class="main">
         <div class="main-inner">
-          <!-- Top bar (matches the screenshot vibe) -->
-          <div class="topbar">
-            <div class="topbar-left">
-              <div class="page-title">{{ title or "Basenerd" }}</div>
-            </div>
-            <div class="topbar-right">
-              <!-- Placeholder pill button (we can wire later) -->
-              <span class="pill">Analytics hub</span>
-            </div>
+          <!-- Global site banner -->
+          <div class="site-banner-wrap">
+            <img src="{{ url_for('static', filename='basenerd-banner.png') }}" 
+              alt="Basenerd Banner"
+             class="site-banner">
           </div>
-
           <div class="container">
             {% block content %}{% endblock %}
 
