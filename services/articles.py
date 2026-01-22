@@ -93,3 +93,25 @@ def get_article(slug: str) -> Optional[Dict[str, Any]]:
         if a.get("slug") == slug:
             return a
     return None
+
+def get_markdown_page(filename: str) -> Optional[Dict[str, Any]]:
+    """
+    Loads a single markdown file from /articles (e.g. about.md) and returns:
+    { title, content_html }
+    """
+    if not filename.lower().endswith(".md"):
+        filename += ".md"
+
+    path = os.path.join(ARTICLES_DIR, filename)
+    if not os.path.isfile(path):
+        return None
+
+    with open(path, "r", encoding="utf-8") as f:
+        raw = f.read()
+
+    meta, body_md = _parse_front_matter(raw)
+    title = meta.get("title") or "Page"
+    body_html = markdown.markdown(body_md, extensions=MD_EXTENSIONS, output_format="html5")
+
+    return {"title": title, "content_html": body_html}
+
