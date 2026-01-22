@@ -213,6 +213,10 @@ def standings():
 
     def fetch_records(season_year: int):
         data = get_standings(season_year)
+        err = data.get("error")
+        if err:
+            raise Exception(err)
+
 
         # If get_standings ever returns a Response-like object, try to json() it
         if hasattr(data, "json") and not isinstance(data, dict):
