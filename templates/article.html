@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if not article %}
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Article not found</div>
+        <div class="card-subtitle">Try going back to Articles.</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <a href="/articles">← Back to Articles</a>
+    </div>
+  </div>
+{% else %}
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">{{ article.title }}</div>
+        <div class="card-subtitle">
+          {{ article.date }}{% if article.author %} • {{ article.author }}{% endif %}
+        </div>
+      </div>
+      <div>
+        <a class="small" href="/articles">← All Articles</a>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div class="article-content">
+        {{ article.content_html | safe }}
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}
