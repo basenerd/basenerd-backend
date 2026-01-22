@@ -67,35 +67,33 @@ def _set_cached(key: str, data: dict) -> None:
 import requests
 
 def get_standings(season_year: int) -> dict:
+    cache_key = f"standings:{season_year}"
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached
+
     url = f"{BASE}/standings"
+    headers = {"User-Agent": "Mozilla/5.0 (Basenerd)"}
 
-    # Some MLB endpoints behave better with a real User-Agent.
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Basenerd; +https://example.com)"
-    }
-
-    # Keep params minimal + avoid combinations that sometimes return empty records.
     params = {
-        "leagueId": "103,104",            # AL, NL
+        "leagueId": "103,104",
         "season": str(season_year),
         "standingsTypes": "regularSeason",
-        # hydrate is optional; keep it, but if you still get empty, remove this line next
         "hydrate": "team(division,league)",
     }
 
-    r = requests.get(url, params=params, headers=headers, timeout=20)
-
-    print("STANDINGS DEBUG URL:", r.url)
-    print("STANDINGS DEBUG STATUS:", r.status_code)
-    print("STANDINGS DEBUG HEAD:", r.text[:200])
-
-    r.raise_for_status()
-    data = r.json()
-
-    print("STANDINGS DEBUG keys:", list(data.keys()) if isinstance(data, dict) else type(data))
-    print("STANDINGS DEBUG records len:", len(data.get("records", [])) if isinstance(data, dict) else "n/a")
-
-    return data
+    try:
+        r = requests.get(url, params=params, headers=headers, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, dict):
+            _set_cached(cache_key, data)
+            return data
+        return {"records": []}
+    except Exception as e:
+        # Return an empty-but-valid payload so the page renders with an error message upstream
+        print(f"[get_standings] failed season={season_year}: {e}")
+        return {"records": [], "error": str(e)}
 
 
 
