@@ -39,6 +39,9 @@
             <a href="/articles" class="{% if request.path.startswith('/articles') or request.path.startswith('/article/') %}active{% endif %}">
               Articles
             </a>
+            <a href="/about" class="{% if request.path.startswith('/about') %}active{% endif %}">
+              About
+            </a>
           </nav>
 
           <div class="sidebar-footer">
