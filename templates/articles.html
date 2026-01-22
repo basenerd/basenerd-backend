@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Articles</div>
+      <div class="card-subtitle">Basenerd writing</div>
+    </div>
+  </div>
+
+  {% if not articles %}
+    <div class="card-body">
+      <div class="muted">No articles yet. Add a .md file in the /articles folder.</div>
+    </div>
+  {% endif %}
+
+  {% for a in articles %}
+    <div class="subcard">
+      <div class="subcard-title">
+        <a href="/article/{{ a.slug }}">{{ a.title }}</a>
+      </div>
+      <div class="small muted">
+        {{ a.date }}{% if a.author %} • {{ a.author }}{% endif %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
