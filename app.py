@@ -3,6 +3,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request, jsonify
 from services.mlb_api import get_player, get_player_stats, get_standings, get_team_schedule
+from services.articles import load_articles, get_article
 
 app = Flask(__name__)
 
@@ -200,6 +201,18 @@ def player(player_id):
     bio = get_player(player_id)
     stats = get_player_stats(player_id, season=season)
     return render_template("player.html", bio=bio, stats=stats, season=season)
+
+@app.get("/articles")
+def articles():
+    articles = load_articles()
+    return render_template("articles.html", title="Articles", articles=articles)
+
+@app.get("/article/<slug>")
+def article(slug):
+    a = get_article(slug)
+    if not a:
+        return render_template("article.html", title="Not Found", article=None), 404
+    return render_template("article.html", title=a["title"], article=a)
 
 @app.get("/standings")
 def standings():
