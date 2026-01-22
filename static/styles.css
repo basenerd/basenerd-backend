@@ -340,3 +340,21 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   opacity: 0.95;
 }
 .status-spacer { height: 1px; }
+
+.article-img-small {
+  width: 220px;
+  height: auto;
+  border-radius: 6px;
+}
+
+.article-img-medium {
+  width: 420px;
+  height: auto;
+}
+
+.article-img-large {
+  width: 700px;
+  max-width: 100%;
+  height: auto;
+}
+
