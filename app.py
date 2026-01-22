@@ -4,8 +4,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request, jsonify
 from services.mlb_api import get_player, get_player_stats, get_standings, get_team_schedule
 from services.articles import load_articles, get_article
+from services.articles import get_markdown_page
+
 
 app = Flask(__name__)
+
+@app.get("/about")
+def about():
+    page = get_markdown_page("about.md")
+    if not page:
+        return "About page not found", 404
+    return render_template("page.html", title=page["title"], page=page)
 
 @app.get("/")
 def home():
