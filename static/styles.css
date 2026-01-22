@@ -341,6 +341,16 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
 }
 .status-spacer { height: 1px; }
 
+.article-img-icon {
+  width: 50px;
+  height: auto;
+}
+
+.article-img-tiny {
+  width: 100px;
+  height: auto;
+}
+
 .article-img-small {
   width: 220px;
   height: auto;
