@@ -39,6 +39,104 @@
 
 <style>
   /* --------------------- */
+  /* Bracket elbow lines */
+  /* --------------------- */
+  
+  .series-pair{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    padding-right:18px;  /* space for right connectors */
+  }
+  
+  /* Right-facing pair connector (AL side) */
+  .series-pair.connect-right::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    right:-14px;
+    width:14px;
+    border-top:2px solid rgba(255,255,255,0.18);
+  }
+  
+  /* Vertical line linking the two matchups in the pair */
+  .series-pair.connect-right::before{
+    content:"";
+    position:absolute;
+    right:0px;                 /* near the edge of the pair */
+    top:18px;                  /* near top of first card */
+    bottom:18px;               /* near bottom of second card */
+    width:0;
+    border-right:2px solid rgba(255,255,255,0.18);
+  }
+  
+  /* Each card in a pair gets a little horizontal line into the vertical */
+  .series-pair.connect-right .series-card{
+    position:relative;
+  }
+  .series-pair.connect-right .series-card::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    right:-18px;
+    width:18px;
+    border-top:2px solid rgba(255,255,255,0.18);
+  }
+  
+  /* Mirror for LEFT-facing pair connector (NL side) */
+  .series-pair.connect-left{
+    padding-right:0;
+    padding-left:18px;
+  }
+  .series-pair.connect-left::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    left:-14px;
+    width:14px;
+    border-top:2px solid rgba(255,255,255,0.18);
+  }
+  .series-pair.connect-left::before{
+    content:"";
+    position:absolute;
+    left:0px;
+    top:18px;
+    bottom:18px;
+    width:0;
+    border-left:2px solid rgba(255,255,255,0.18);
+  }
+  .series-pair.connect-left .series-card::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    left:-18px;
+    width:18px;
+    border-top:2px solid rgba(255,255,255,0.18);
+  }
+  
+  /* Single-series connector (CS -> WS) */
+  .series-single{
+    position:relative;
+  }
+  .series-single.to-right::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    right:-14px;
+    width:14px;
+    border-top:2px solid rgba(255,255,255,0.18);
+  }
+  .series-single.to-left::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    left:-14px;
+    width:14px;
+    border-top:2px solid rgba(255,255,255,0.18);
+  }
+
+  /* --------------------- */
   /* Playoff Picture (true bracket) */
   /* --------------------- */
   .bracket-wrap{ margin-top:14px; }
@@ -481,7 +579,7 @@
       {% for tm in series.teams %}
         <div class="team-row {% if tm.is_winner %}win{% endif %}">
           <div class="team-left">
-            <span class="seedpill">{{ tm.seed if tm.seed is not none else "—" }}</span>
+            <span class="seedpill">{{ tm.seed if tm.seed is not none else "—" }}</span> 
             {% if tm.logo_url %}
               <img class="bracket-logo" src="{{ tm.logo_url }}" alt="{{ tm.abbrev }} logo">
             {% endif %}
@@ -512,33 +610,44 @@
           <!-- AL Wild Card -->
           <div class="bracket-col">
             <div class="bracket-title">Wild Card</div>
-            {{ series_card(playoff_picture.AL.wc_top, "to-right") }}
-            {{ series_card(playoff_picture.AL.wc_bot, "to-right") }}
+            <div class="series-pair connect-right">
+              {{ series_card(playoff_picture.AL.wc_top) }}
+              {{ series_card(playoff_picture.AL.wc_bot) }}
+            </div>
           </div>
-
+          
           <!-- ALDS -->
           <div class="bracket-col">
             <div class="bracket-title">ALDS</div>
-            {{ series_card(playoff_picture.AL.ds_top, "to-right") }}
-            {{ series_card(playoff_picture.AL.ds_bot, "to-right") }}
+            <div class="series-pair connect-right">
+              {{ series_card(playoff_picture.AL.ds_top) }}
+              {{ series_card(playoff_picture.AL.ds_bot) }}
+            </div>
           </div>
-
+          
           <!-- ALCS -->
           <div class="bracket-col">
             <div class="bracket-title">ALCS</div>
             <div class="spacer-md"></div>
-            {{ series_card(playoff_picture.AL.cs, "to-right") }}
+            <div class="series-single to-right">
+              {{ series_card(playoff_picture.AL.cs) }}
+            </div>
           </div>
-
+          
           <!-- World Series (center) -->
           <div class="bracket-col center">
             <div class="bracket-title">World Series</div>
             <div class="spacer-lg"></div>
-            {{ series_card(playoff_picture.WS.ws, "") }}
-
+            {{ series_card(playoff_picture.WS.ws) }}
+          
             {% if playoff_picture.WS.champion %}
               <div class="champ-label">World Series Champion</div>
               <div style="display:flex; justify-content:center; gap:10px; align-items:center; margin-top:10px;">
+                {# Optional: show champion seed too if you want #}
+                {% if playoff_picture.WS.champion.seed is not none %}
+                  <span class="seedpill">{{ playoff_picture.WS.champion.seed }}</span>
+                {% endif %}
+          
                 {% if playoff_picture.WS.champion.logo_url %}
                   <img class="bracket-logo" src="{{ playoff_picture.WS.champion.logo_url }}" alt="{{ playoff_picture.WS.champion.abbrev }} logo" style="height:22px;">
                 {% endif %}
@@ -546,28 +655,33 @@
               </div>
             {% endif %}
           </div>
-
+          
           <!-- NLCS -->
           <div class="bracket-col">
             <div class="bracket-title">NLCS</div>
             <div class="spacer-md"></div>
-            {{ series_card(playoff_picture.NL.cs, "to-left") }}
+            <div class="series-single to-left">
+              {{ series_card(playoff_picture.NL.cs) }}
+            </div>
           </div>
-
+          
           <!-- NLDS -->
           <div class="bracket-col">
             <div class="bracket-title">NLDS</div>
-            {{ series_card(playoff_picture.NL.ds_top, "to-left") }}
-            {{ series_card(playoff_picture.NL.ds_bot, "to-left") }}
+            <div class="series-pair connect-left">
+              {{ series_card(playoff_picture.NL.ds_top) }}
+              {{ series_card(playoff_picture.NL.ds_bot) }}
+            </div>
           </div>
-
+          
           <!-- NL Wild Card -->
           <div class="bracket-col">
             <div class="bracket-title">Wild Card</div>
-            {{ series_card(playoff_picture.NL.wc_top, "to-left") }}
-            {{ series_card(playoff_picture.NL.wc_bot, "to-left") }}
+            <div class="series-pair connect-left">
+              {{ series_card(playoff_picture.NL.wc_top) }}
+              {{ series_card(playoff_picture.NL.wc_bot) }}
+            </div>
           </div>
-
         </div>
       </div>
     </div>
