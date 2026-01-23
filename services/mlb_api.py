@@ -202,6 +202,38 @@ def search_players(query: str):
     _set_cached(cache_key, people)
     return people
 
+# services/db.py
+import os
+from urllib.parse import urlparse
+
+import psycopg
+
+def get_conn():
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        raise RuntimeError("DATABASE_URL is not set")
+
+    # Render sometimes provides postgres:// — psycopg expects postgresql://
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+    return psycopg.connect(db_url)
+
+def get_standings_from_db(season: int):
+    sql = """
+      SELECT season, league, division, team_id, team_abbrev, team_name,
+             w, l, pct, gb, wc_gb, rs, ra, streak, last_updated
+      FROM standings
+      WHERE season = %s
+      ORDER BY league, division, w DESC, pct DESC, team_name;
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, (season,))
+            cols = [d.name for d in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+    return rows
+
 import requests
 from collections import defaultdict
 
