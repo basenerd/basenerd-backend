@@ -5,7 +5,8 @@ from flask import Flask, render_template, request, jsonify
 from services.mlb_api import get_player, get_player_stats, get_standings, get_team_schedule
 from services.articles import load_articles, get_article
 from services.articles import get_markdown_page
-from services.mlb_api import get_postseason_series, build_playoff_bracket
+from services.postseason import get_postseason_series, build_playoff_bracket
+
 
 
 
