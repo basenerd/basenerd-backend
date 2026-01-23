@@ -227,6 +227,11 @@ from datetime import datetime
 from flask import request, render_template
 from services.db import get_standings_from_db
 
+from datetime import datetime
+from flask import request, render_template
+from services.standings_db import fetch_standings_ranked
+from services.standings_db import build_divs  # if you put it there; otherwise import from wherever you placed it
+
 @app.get("/standings")
 def standings():
     now = datetime.utcnow()
@@ -234,25 +239,30 @@ def standings():
     default_season = current_year if now.month >= 3 else current_year - 1
 
     season = int(request.args.get("season", default_season))
+    seasons = list(range(2021, default_season + 1))
 
-    rows = get_standings_from_db(season)
+    error = None
+    al_divs, nl_divs = [], []
 
-    # If nothing in DB yet, show a helpful message instead of a blank page
-    if not rows:
-        return render_template(
-            "standings.html",
-            title="Standings",
-            season=season,
-            rows=[],
-            error=f"No standings found in database for {season}. Run update_standings.py first."
-        )
+    try:
+        rows = fetch_standings_ranked(season)
+        if not rows:
+            error = f"No standings found for {season}. Make sure standings + standings_season_final are populated."
+        else:
+            al_divs, nl_divs = build_divs(rows)
+    except Exception as e:
+        error = f"Standings DB query failed: {e}"
 
     return render_template(
         "standings.html",
         title="Standings",
         season=season,
-        rows=rows
+        seasons=seasons,
+        al_divs=al_divs,
+        nl_divs=nl_divs,
+        error=error
     )
+
 
 
 if __name__ == "__main__":
