@@ -299,6 +299,11 @@ def standings():
     season = int(request.args.get("season", default_season))
     seasons = list(range(2021, default_season + 1))
 
+    # >>> ADD THESE TWO LINES <<<
+    current_season = default_season
+    is_current_season = (season == current_season)
+    # ----------------------------
+
     error = None
     al_divs, nl_divs = [], []
 
@@ -318,7 +323,12 @@ def standings():
         seasons=seasons,
         al_divs=al_divs,
         nl_divs=nl_divs,
-        error=error
+        error=error,
+
+        # >>> ADD THESE TWO VALUES <<<
+        current_season=current_season,
+        is_current_season=is_current_season
+        # ----------------------------
     )
 
 
