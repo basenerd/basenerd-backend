@@ -2,7 +2,8 @@
 import os
 import psycopg
 
-def _db_url():
+
+def _db_url() -> str:
     url = os.getenv("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL is not set")
@@ -13,41 +14,37 @@ def _db_url():
 
 def fetch_standings_ranked(season: int) -> list[dict]:
     sql = """
-    WITH cte AS (
-      SELECT
-        s.season,
-        ssf.league AS league,
-        ssf.division AS division,
-        s.team_id,
-        s.team_abbrev,
-        s.team_name,
-        s.w,
-        s.l,
-        s.pct,
-        s.gb,
-        s.wc_gb,
-        s.rs,
-        s.ra,
-        (s.rs - s.ra) AS run_differential,
-        s.streak,
-        CASE WHEN s.gb = '-' AND s.wc_gb = '-' THEN 1 ELSE 0 END AS division_leader,
-        CASE WHEN s.wc_gb LIKE '%%+%%' OR (s.gb != '-' AND s.wc_gb = '-') THEN 1 ELSE 0 END AS wild_card,
-        s.last_updated
-      FROM standings s
-      JOIN standings_season_final ssf
-        ON ssf.team_id = s.team_id
-       AND ssf.season = s.season
-      WHERE s.season = %s
-      ORDER BY ssf.league, ssf.division, s.pct DESC
-    )
     SELECT
-      cte.*,
-      DENSE_RANK() OVER (
-        PARTITION BY division
-        ORDER BY pct DESC, division_leader DESC
-      ) AS division_rank
-    FROM cte
-    ORDER BY league, division, division_rank ASC;
+      s.season,
+      ssf.league,
+      ssf.division,
+      s.team_id,
+      s.team_abbrev,
+      s.team_name,
+      s.w,
+      s.l,
+      s.pct,
+      s.gb,
+      s.wc_gb,
+      s.rs,
+      s.ra,
+      (s.rs - s.ra) AS run_differential,
+      s.streak,
+
+      -- Official MLB rank fields (tiebreak-safe)
+      s.division_rank,
+      s.wild_card_rank,
+
+      s.last_updated
+
+    FROM standings s
+    JOIN standings_season_final ssf
+      ON ssf.team_id = s.team_id
+     AND ssf.season = s.season
+
+    WHERE s.season = %s
+
+    ORDER BY ssf.league, ssf.division, s.division_rank NULLS LAST, s.pct DESC;
     """
 
     with psycopg.connect(_db_url()) as conn:
@@ -58,37 +55,59 @@ def fetch_standings_ranked(season: int) -> list[dict]:
 
 
 def build_divs(rows: list[dict]) -> tuple[list[dict], list[dict]]:
-    by_league_div = {}
+    by_league_div: dict[tuple[str, str], list[dict]] = {}
+
     for r in rows:
-        league = r.get("league") or ""
-        division = r.get("division") or ""
+        league = (r.get("league") or "").strip()
+        division = (r.get("division") or "").strip()
         by_league_div.setdefault((league, division), []).append(r)
 
-    al_divs, nl_divs = [], []
+    al_divs: list[dict] = []
+    nl_divs: list[dict] = []
 
     for (league, division), teams in by_league_div.items():
+        # Stable sort: division_rank first, then pct desc
         teams_sorted = sorted(
             teams,
-            key=lambda x: (x.get("division_rank") or 999, -(x.get("pct") or 0))
+            key=lambda x: (
+                x.get("division_rank") if x.get("division_rank") is not None else 999,
+                -(x.get("pct") or 0),
+            ),
         )
 
-        mapped = []
+        mapped: list[dict] = []
         for t in teams_sorted:
-            team_id = t["team_id"]
-            mapped.append({
-                "team_id": team_id,
-                "abbrev": t.get("team_abbrev") or "",
-                "w": t.get("w"),
-                "l": t.get("l"),
-                "pct": f'{t["pct"]:.3f}' if t.get("pct") is not None else "—",
-                "gb": t.get("gb") or "—",
-                "streak": t.get("streak") or "—",
-                "run_diff": t.get("run_differential"),
-                "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg",
-                "division_rank": t.get("division_rank"),
-                "division_leader": t.get("division_leader"),
-                "wild_card": t.get("wild_card"),
-            })
+            team_id = int(t["team_id"])
+
+            division_rank = t.get("division_rank")
+            wild_card_rank = t.get("wild_card_rank")
+
+            is_winner = (division_rank == 1)
+            is_wc = (wild_card_rank in (1, 2, 3)) and not is_winner
+
+            mapped.append(
+                {
+                    "team_id": team_id,
+                    "abbrev": t.get("team_abbrev") or "",
+                    "w": t.get("w"),
+                    "l": t.get("l"),
+
+                    # Keep pct numeric for template formatting/gradient; template can format to .432
+                    "pct": t.get("pct"),
+
+                    "gb": t.get("gb") or "—",
+                    "wc_gb": t.get("wc_gb") or "—",
+                    "streak": t.get("streak") or "—",
+                    "run_diff": t.get("run_differential"),
+                    "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg",
+
+                    # ranks + derived flags
+                    "division_rank": division_rank,
+                    "wild_card_rank": wild_card_rank,
+                    "division_leader": 1 if is_winner else 0,
+                    "wild_card": 1 if is_wc else 0,
+                }
+            )
 
         div_obj = {"name": division, "teams": mapped}
 
@@ -98,7 +117,7 @@ def build_divs(rows: list[dict]) -> tuple[list[dict], list[dict]]:
             nl_divs.append(div_obj)
 
     # Keep division order stable
-    def div_sort_key(d):
+    def div_sort_key(d: dict) -> int:
         order = {
             "American League East": 1,
             "American League Central": 2,
@@ -107,7 +126,7 @@ def build_divs(rows: list[dict]) -> tuple[list[dict], list[dict]]:
             "National League Central": 2,
             "National League West": 3,
         }
-        return order.get(d["name"], 99)
+        return order.get(d.get("name", ""), 99)
 
     al_divs.sort(key=div_sort_key)
     nl_divs.sort(key=div_sort_key)
