@@ -1,7 +1,6 @@
 # services/standings_db.py
 import os
 import psycopg
-from datetime import datetime
 
 def _db_url():
     url = os.getenv("DATABASE_URL")
@@ -10,6 +9,7 @@ def _db_url():
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
     return url
+
 
 def fetch_standings_ranked(season: int) -> list[dict]:
     sql = """
@@ -55,3 +55,61 @@ def fetch_standings_ranked(season: int) -> list[dict]:
             cur.execute(sql, (season,))
             cols = [d.name for d in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+def build_divs(rows: list[dict]) -> tuple[list[dict], list[dict]]:
+    by_league_div = {}
+    for r in rows:
+        league = r.get("league") or ""
+        division = r.get("division") or ""
+        by_league_div.setdefault((league, division), []).append(r)
+
+    al_divs, nl_divs = [], []
+
+    for (league, division), teams in by_league_div.items():
+        teams_sorted = sorted(
+            teams,
+            key=lambda x: (x.get("division_rank") or 999, -(x.get("pct") or 0))
+        )
+
+        mapped = []
+        for t in teams_sorted:
+            team_id = t["team_id"]
+            mapped.append({
+                "team_id": team_id,
+                "abbrev": t.get("team_abbrev") or "",
+                "w": t.get("w"),
+                "l": t.get("l"),
+                "pct": f'{t["pct"]:.3f}' if t.get("pct") is not None else "—",
+                "gb": t.get("gb") or "—",
+                "streak": t.get("streak") or "—",
+                "run_diff": t.get("run_differential"),
+                "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg",
+                "division_rank": t.get("division_rank"),
+                "division_leader": t.get("division_leader"),
+                "wild_card": t.get("wild_card"),
+            })
+
+        div_obj = {"name": division, "teams": mapped}
+
+        if league == "American League":
+            al_divs.append(div_obj)
+        elif league == "National League":
+            nl_divs.append(div_obj)
+
+    # Keep division order stable
+    def div_sort_key(d):
+        order = {
+            "American League East": 1,
+            "American League Central": 2,
+            "American League West": 3,
+            "National League East": 1,
+            "National League Central": 2,
+            "National League West": 3,
+        }
+        return order.get(d["name"], 99)
+
+    al_divs.sort(key=div_sort_key)
+    nl_divs.sort(key=div_sort_key)
+
+    return al_divs, nl_divs
