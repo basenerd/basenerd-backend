@@ -294,27 +294,32 @@ def build_divs(rows: list[dict]) -> tuple[list[dict], list[dict]]:
 def standings():
     from datetime import datetime
     from flask import request, render_template
+    from services.standings_db import fetch_standings_ranked, build_divs
 
     now = datetime.utcnow()
     current_year = now.year
     default_season = current_year if now.month >= 3 else current_year - 1
 
-    season = int(request.args.get("season", default_season))
+    season = request.args.get("season", default=default_season, type=int)
     seasons = list(range(2021, default_season + 1))
+
+    view = (request.args.get("view", "division") or "division").lower()
+    if view not in ("division", "wildcard"):
+        view = "division"
 
     # helper: build the little “chip” dict the template expects
     def _chip(row):
         if not row:
             return None
         tid = int(row.get("team_id") or 0)
-        abbrev = row.get("team_abbrev") or row.get("abbrev") or ""
+        abbrev = (row.get("team_abbrev") or row.get("abbrev") or "").upper()
         return {
             "team_id": tid,
             "abbrev": abbrev,
-            "logo_url": f"https://www.mlbstatic.com/team-logos/{tid}.svg",
+            "logo_url": f"https://www.mlbstatic.com/team-logos/{tid}.svg" if tid else None,
         }
 
-    # helper: pick division winners + WC (tiebreak-safe) straight from DB rows
+    # helper: pick division winners + WC straight from DB rows (tiebreak-safe)
     def _pick_playoff(rows, league_name: str):
         league_rows = [r for r in rows if (r.get("league") == league_name)]
 
@@ -324,7 +329,7 @@ def standings():
         central = next((r for r in div_winners if "Central" in (r.get("division") or "")), None)
         west = next((r for r in div_winners if "West" in (r.get("division") or "")), None)
 
-        # Wild Cards using wild_card_rank in (1,2,3) (MLB authoritative ordering)
+        # Wild Cards using wild_card_rank in (1,2,3)
         wc_rows = sorted(
             [r for r in league_rows if int(r.get("wild_card_rank") or 0) in (1, 2, 3)],
             key=lambda x: int(x.get("wild_card_rank") or 99),
@@ -339,21 +344,55 @@ def standings():
             "wc3": _chip(wc_rows[2]) if len(wc_rows) > 2 else None,
         }
 
+    # Wild card table rows (exclude division leaders)
+    def _map_wc_row(r):
+        tid = int(r.get("team_id") or 0)
+        return {
+            "team_id": tid,
+            "abbrev": (r.get("team_abbrev") or r.get("abbrev") or "").upper(),
+            "w": r.get("w"),
+            "l": r.get("l"),
+            # keep pct numeric if possible (template handles float conversion safely)
+            "pct": r.get("pct"),
+            "wc_gb": r.get("wc_gb"),
+            "streak": r.get("streak") or "—",
+            "run_diff": r.get("run_differential"),
+            "wild_card_rank": r.get("wild_card_rank"),
+            "logo_url": f"https://www.mlbstatic.com/team-logos/{tid}.svg" if tid else None,
+        }
+
+    def _build_wc(rows, league_name: str):
+        league_rows = [r for r in rows if (r.get("league") == league_name)]
+        league_rows = [r for r in league_rows if int(r.get("division_rank") or 0) != 1]
+
+        league_rows_sorted = sorted(
+            league_rows,
+            key=lambda x: (int(x.get("wild_card_rank") or 99), -(x.get("pct") or 0)),
+        )
+        return [_map_wc_row(r) for r in league_rows_sorted]
+
     error = None
     al_divs, nl_divs = [], []
     al_playoff, nl_playoff = None, None
+    al_wc, nl_wc = [], []
 
     try:
         rows = fetch_standings_ranked(season)
+
         if not rows:
             error = f"No standings found for {season}. Make sure standings + standings_season_final are populated."
         else:
-            # Build the division tables for the main standings display
+            # Main division tables
             al_divs, nl_divs = build_divs(rows)
 
-            # Build playoff picture directly from raw DB rows (bypasses any mapping weirdness)
+            # Top playoff block
             al_playoff = _pick_playoff(rows, "American League")
             nl_playoff = _pick_playoff(rows, "National League")
+
+            # Wild card tables for the Wild Card view
+            al_wc = _build_wc(rows, "American League")
+            nl_wc = _build_wc(rows, "National League")
+
     except Exception as e:
         error = f"Standings DB query failed: {e}"
 
@@ -362,16 +401,16 @@ def standings():
         title="Standings",
         season=season,
         seasons=seasons,
+        view=view,
         al_divs=al_divs,
         nl_divs=nl_divs,
         al_playoff=al_playoff,
         nl_playoff=nl_playoff,
+        al_wc=al_wc,
+        nl_wc=nl_wc,
         is_current_season=(season == default_season),
         error=error,
     )
-
-
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
