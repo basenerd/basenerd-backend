@@ -232,6 +232,63 @@ from flask import request, render_template
 from services.standings_db import fetch_standings_ranked
 from services.standings_db import build_divs  # if you put it there; otherwise import from wherever you placed it
 
+def build_divs(rows: list[dict]) -> tuple[list[dict], list[dict]]:
+    # Group rows into divisions for your template structure:
+    # d = { name: "AL East", teams: [ ... ] }
+    by_league_div = {}
+    for r in rows:
+        league = r.get("league") or ""
+        division = r.get("division") or ""
+        by_league_div.setdefault((league, division), []).append(r)
+
+    al_divs, nl_divs = [], []
+
+    for (league, division), teams in by_league_div.items():
+        # Ensure teams are sorted by the computed division_rank
+        teams_sorted = sorted(teams, key=lambda x: (x.get("division_rank") or 999, -(x.get("pct") or 0)))
+
+        # Map DB row -> template team object
+        mapped = []
+        for t in teams_sorted:
+            team_id = t["team_id"]
+            mapped.append({
+                "team_id": team_id,
+                "abbrev": t.get("team_abbrev") or "",
+                "w": t.get("w"),
+                "l": t.get("l"),
+                "pct": (f'{t["pct"]:.3f}' if t.get("pct") is not None else "—"),
+                "gb": t.get("gb") or "—",
+                "streak": t.get("streak") or "—",
+                "run_diff": t.get("run_differential"),
+                "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg",
+                # Optional if you want to use these later:
+                "division_leader": t.get("division_leader"),
+                "wild_card": t.get("wild_card"),
+                "division_rank": t.get("division_rank"),
+                "wc_gb": t.get("wc_gb"),
+            })
+
+        div_obj = {"name": division, "teams": mapped}
+
+        if league == "American League":
+            al_divs.append(div_obj)
+        elif league == "National League":
+            nl_divs.append(div_obj)
+
+    # Keep divisions in a consistent order (optional)
+    def div_sort_key(d):
+        name = d["name"]
+        order = {
+            "American League East": 1, "American League Central": 2, "American League West": 3,
+            "National League East": 1, "National League Central": 2, "National League West": 3,
+        }
+        return order.get(name, 99), name
+
+    al_divs = sorted(al_divs, key=div_sort_key)
+    nl_divs = sorted(nl_divs, key=div_sort_key)
+
+    return al_divs, nl_divs
+
 @app.get("/standings")
 def standings():
     now = datetime.utcnow()
