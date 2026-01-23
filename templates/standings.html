@@ -172,40 +172,27 @@
 {% endmacro %}
 
 {% macro playoff_block(divs) %}
-  {# Collect division leaders/winners + WC teams (tiebreak-safe) #}
-  {% set ns = namespace(east=None, central=None, west=None, wc=[], seen=[]) %}
+  {# Flatten teams for this league + find division winners from division_rank #}
+  {% set ns = namespace(all=[], east=None, central=None, west=None, wc1=None, wc2=None, wc3=None) %}
 
   {% for d in divs %}
     {% set dname = d.name|string %}
     {% for t in d.teams %}
-      {% set is_winner = (t.division_rank is defined and (t.division_rank|int) == 1) or ((t.division_leader is defined) and (t.division_leader|int) == 1) %}
+      {% set _ = ns.all.append(t) %}
 
-      {# IMPORTANT: parenthesize before using "in" #}
-      {% set is_wc =
-        (((t.wild_card is defined) and ((t.wild_card|int) == 1))
-         or ((t.wild_card_rank is defined) and (((t.wild_card_rank|int) in (1,2,3)))))
-      %}
-
-      {% if is_winner %}
+      {% if (t.division_rank|default(0)|int) == 1 %}
         {% if "East" in dname %}{% set ns.east = t %}{% endif %}
         {% if "Central" in dname %}{% set ns.central = t %}{% endif %}
         {% if "West" in dname %}{% set ns.west = t %}{% endif %}
       {% endif %}
 
-      {% if is_wc and not is_winner %}
-        {% if t.team_id not in ns.seen %}
-          {% set _ = ns.seen.append(t.team_id) %}
-          {% set _ = ns.wc.append(t) %}
-        {% endif %}
-      {% endif %}
+      {# Wild cards by rank (authoritative, tie-safe) #}
+      {% set wcr = (t.wild_card_rank|default(0)|int) %}
+      {% if wcr == 1 %}{% set ns.wc1 = t %}{% endif %}
+      {% if wcr == 2 %}{% set ns.wc2 = t %}{% endif %}
+      {% if wcr == 3 %}{% set ns.wc3 = t %}{% endif %}
     {% endfor %}
   {% endfor %}
-
-  {# Sort WC by wild_card_rank (1,2,3). If missing, fallback to pct desc. #}
-  {% set wc_sorted = ns.wc|sort(attribute="wild_card_rank") %}
-  {% if wc_sorted|length == 0 %}
-    {% set wc_sorted = ns.wc|sort(attribute="pct", reverse=true) %}
-  {% endif %}
 
   {% set leader_label = "Division Leaders" if is_current_season else "Division Winners" %}
 
@@ -229,17 +216,18 @@
     <div class="pp-subtitle">Wild Card</div>
     <div class="pp-row">
       <div class="pp-slot">
-        {% if wc_sorted|length > 0 %}{{ teamchip(wc_sorted[0]) }}{% else %}<span class="muted pp-empty">—</span>{% endif %}
+        {% if ns.wc1 %}{{ teamchip(ns.wc1) }}{% else %}<span class="muted pp-empty">—</span>{% endif %}
       </div>
       <div class="pp-slot">
-        {% if wc_sorted|length > 1 %}{{ teamchip(wc_sorted[1]) }}{% else %}<span class="muted pp-empty">—</span>{% endif %}
+        {% if ns.wc2 %}{{ teamchip(ns.wc2) }}{% else %}<span class="muted pp-empty">—</span>{% endif %}
       </div>
       <div class="pp-slot">
-        {% if wc_sorted|length > 2 %}{{ teamchip(wc_sorted[2]) }}{% else %}<span class="muted pp-empty">—</span>{% endif %}
+        {% if ns.wc3 %}{{ teamchip(ns.wc3) }}{% else %}<span class="muted pp-empty">—</span>{% endif %}
       </div>
     </div>
   </div>
 {% endmacro %}
+
 
 <div class="grid-2">
 
