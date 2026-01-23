@@ -298,7 +298,7 @@ def standings():
     from datetime import datetime
     from flask import request, render_template
     from services.standings_db import fetch_standings_ranked, build_divs
-    from services.mlb_api import get_postseason_series, build_playoff_bracket  # <- add
+    from services.postseason_db import fetch_postseason_series_rows, build_playoff_picture
 
     now = datetime.utcnow()
     current_year = now.year
@@ -327,13 +327,11 @@ def standings():
     def _pick_playoff(rows, league_name: str):
         league_rows = [r for r in rows if (r.get("league") == league_name)]
 
-        # Division leaders/winners (one per division) using division_rank == 1
         div_winners = [r for r in league_rows if int(r.get("division_rank") or 0) == 1]
         east = next((r for r in div_winners if "East" in (r.get("division") or "")), None)
         central = next((r for r in div_winners if "Central" in (r.get("division") or "")), None)
         west = next((r for r in div_winners if "West" in (r.get("division") or "")), None)
 
-        # Wild Cards using wild_card_rank in (1,2,3)
         wc_rows = sorted(
             [r for r in league_rows if int(r.get("wild_card_rank") or 0) in (1, 2, 3)],
             key=lambda x: int(x.get("wild_card_rank") or 99),
@@ -356,7 +354,6 @@ def standings():
             "abbrev": (r.get("team_abbrev") or r.get("abbrev") or "").upper(),
             "w": r.get("w"),
             "l": r.get("l"),
-            # keep pct numeric if possible (template handles float conversion safely)
             "pct": r.get("pct"),
             "wc_gb": r.get("wc_gb"),
             "streak": r.get("streak") or "—",
@@ -379,7 +376,7 @@ def standings():
     al_divs, nl_divs = [], []
     al_playoff, nl_playoff = None, None
     al_wc, nl_wc = [], []
-    playoff_bracket = None
+    playoff_picture = None
 
     try:
         rows = fetch_standings_ranked(season)
@@ -387,25 +384,25 @@ def standings():
         if not rows:
             error = f"No standings found for {season}. Make sure standings + standings_season_final are populated."
         else:
-            # Main division tables
+            # Division tables
             al_divs, nl_divs = build_divs(rows)
 
-            # Top playoff block (division leaders + WC teams)
+            # Top playoff chips block
             al_playoff = _pick_playoff(rows, "American League")
             nl_playoff = _pick_playoff(rows, "National League")
 
-            # Wild card tables for the Wild Card view
+            # Wild card tables
             al_wc = _build_wc(rows, "American League")
             nl_wc = _build_wc(rows, "National League")
 
-        # NEW: Playoff Picture view (current or past seasons)
+        # Playoff Picture bracket (DB views). If the views have no data for that season, show an error banner.
         if view == "playoffs":
-            try:
-                series_json = get_postseason_series(season)
-                playoff_bracket = build_playoff_bracket(series_json)
-            except Exception as e:
-                # Don’t break standings page if MLB endpoint hiccups
-                error = f"Playoff Picture fetch failed for {season}: {e}"
+            ps_rows = fetch_postseason_series_rows(season)
+            playoff_picture = build_playoff_picture(ps_rows) if ps_rows else {"AL": {"F": [], "D": [], "L": []},
+                                                                             "NL": {"F": [], "D": [], "L": []},
+                                                                             "WS": {"W": []}}
+            if ps_rows == []:
+                error = error or f"No postseason series found for {season} in vw_postseason_series / vw_postseason_series_team_enriched."
 
     except Exception as e:
         error = f"Standings DB query failed: {e}"
@@ -422,7 +419,7 @@ def standings():
         nl_playoff=nl_playoff,
         al_wc=al_wc,
         nl_wc=nl_wc,
-        playoff_bracket=playoff_bracket,   # <- new
+        playoff_picture=playoff_picture,
         is_current_season=(season == default_season),
         error=error,
     )
