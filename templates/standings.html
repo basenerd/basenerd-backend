@@ -29,11 +29,46 @@
 {# Helpers: badges + playoff row   #}
 {# ------------------------------ #}
 
-{% macro badge(text, kind) %}
-  {# kind: "div" or "wc" #}
-  <span class="pill {{ 'pill-div' if kind=='div' else 'pill-wc' }}">
-    {{ text }}
-  </span>
+<style>
+  /* Little "cell/circle" badges */
+  .mark{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:18px;
+    height:18px;
+    margin-left:6px;
+    border-radius:999px; /* circle */
+    font-size:11px;
+    font-weight:800;
+    line-height:1;
+    border:1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.06);
+    user-select:none;
+  }
+  .mark-wc{
+    width:22px;           /* WC needs a bit more room */
+    border-radius:999px;  /* still round-ish */
+    font-size:10px;
+    letter-spacing:-0.2px;
+  }
+
+  /* Pct gradient cell */
+  .pctcell{
+    border-radius:8px;
+    padding:4px 8px;
+    display:inline-block;
+    min-width:56px;
+    text-align:right;
+  }
+</style>
+
+{% macro badge_1() %}
+  <span class="mark" title="Division leader">1</span>
+{% endmacro %}
+
+{% macro badge_wc() %}
+  <span class="mark mark-wc" title="Wild card">WC</span>
 {% endmacro %}
 
 {% macro teamchip(t) %}
@@ -45,30 +80,79 @@
   </a>
 {% endmacro %}
 
-{% macro playoff_row(divs, league_code) %}
-  {# league_code used only for labels if you want; not required #}
+{# pct background: diverging red/blue, midpoint .500 #}
+{% macro pct_badge(pct_value, pct_text) %}
+  {# pct_value should be a float (0-1). We'll tint background accordingly. #}
+  {% set p = pct_value %}
+  {% if p is none %}{% set p = 0.5 %}{% endif %}
 
-  {# Find division winners by division name containing East/Central/West #}
-  {% set east = none %}
-  {% set central = none %}
-  {% set west = none %}
-  {% set wc_list = [] %}
+  {# Clamp-ish (best effort) #}
+  {% if p < 0 %}{% set p = 0 %}{% endif %}
+  {% if p > 1 %}{% set p = 1 %}{% endif %}
+
+  {# Two-sided intensity from midpoint #}
+  {% if p >= 0.5 %}
+    {# 0.5 -> 0 intensity, 1.0 -> 1 intensity #}
+    {% set a = (p - 0.5) / 0.5 %}
+    {% if a > 1 %}{% set a = 1 %}{% endif %}
+    {# red tint using rgba #}
+    {% set bg = "rgba(255, 70, 70, " ~ (0.10 + 0.35 * a) ~ ")" %}
+  {% else %}
+    {# 0.5 -> 0 intensity, 0.0 -> 1 intensity #}
+    {% set a = (0.5 - p) / 0.5 %}
+    {% if a > 1 %}{% set a = 1 %}{% endif %}
+    {# blue tint using rgba #}
+    {% set bg = "rgba(70, 140, 255, " ~ (0.10 + 0.35 * a) ~ ")" %}
+  {% endif %}
+
+  <span class="pctcell" style="background: {{ bg }};">
+    {{ pct_text }}
+  </span>
+{% endmacro %}
+
+{% macro streak_with_emoji(streak) %}
+  {% set s = (streak or "") %}
+  {% if s|length >= 2 %}
+    {% set kind = s[0] %}
+    {% set n = (s[1:]|int(0)) %}
+    {% if kind == "W" and n >= 3 %}
+      {{ s }} 🔥
+    {% elif kind == "L" and n >= 3 %}
+      {{ s }} 🧊
+    {% else %}
+      {{ s }}
+    {% endif %}
+  {% else %}
+    {{ s if s else "—" }}
+  {% endif %}
+{% endmacro %}
+
+{% macro playoff_row(divs) %}
+  {# Jinja scoping fix: namespace so assignments persist #}
+  {% set ns = namespace(east=None, central=None, west=None, wc_list=[]) %}
 
   {% for d in divs %}
     {% set dname = d.name|string %}
     {% for t in d.teams %}
-      {% if t.division_leader %}
+
+      {# Determine division winner: prefer division_rank == 1, else fallback to division_leader #}
+      {% set is_winner = (t.division_rank is defined and t.division_rank == 1) or (t.division_leader is defined and t.division_leader) %}
+
+      {% if is_winner %}
         {% if "East" in dname %}
-          {% set east = t %}
+          {% set ns.east = t %}
         {% elif "Central" in dname %}
-          {% set central = t %}
+          {% set ns.central = t %}
         {% elif "West" in dname %}
-          {% set west = t %}
+          {% set ns.west = t %}
         {% endif %}
       {% endif %}
-      {% if t.wild_card %}
-        {% set _ = wc_list.append(t) %}
+
+      {# Wild cards: do not include division winners #}
+      {% if t.wild_card and not is_winner %}
+        {% set _ = ns.wc_list.append(t) %}
       {% endif %}
+
     {% endfor %}
   {% endfor %}
 
@@ -77,29 +161,29 @@
       <table class="table" style="margin:0;">
         <thead>
           <tr>
-            <th class="num" style="width:60px; text-align:left;">E</th>
-            <th class="num" style="width:60px; text-align:left;">C</th>
-            <th class="num" style="width:60px; text-align:left;">W</th>
+            <th class="num" style="width:70px; text-align:left;">E</th>
+            <th class="num" style="width:70px; text-align:left;">C</th>
+            <th class="num" style="width:70px; text-align:left;">W</th>
             <th class="num" style="text-align:left;">WC</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td style="white-space:nowrap;">
-              {% if east %}{{ teamchip(east) }}{% else %}<span class="muted">—</span>{% endif %}
+              {% if ns.east %}{{ teamchip(ns.east) }}{% else %}<span class="muted">—</span>{% endif %}
             </td>
             <td style="white-space:nowrap;">
-              {% if central %}{{ teamchip(central) }}{% else %}<span class="muted">—</span>{% endif %}
+              {% if ns.central %}{{ teamchip(ns.central) }}{% else %}<span class="muted">—</span>{% endif %}
             </td>
             <td style="white-space:nowrap;">
-              {% if west %}{{ teamchip(west) }}{% else %}<span class="muted">—</span>{% endif %}
+              {% if ns.west %}{{ teamchip(ns.west) }}{% else %}<span class="muted">—</span>{% endif %}
             </td>
             <td>
-              {% if wc_list|length == 0 %}
+              {% if ns.wc_list|length == 0 %}
                 <span class="muted">—</span>
               {% else %}
-                <div style="display:flex; flex-wrap:wrap; gap:10px;">
-                  {% for t in wc_list %}
+                <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                  {% for t in ns.wc_list %}
                     {{ teamchip(t) }}
                   {% endfor %}
                 </div>
@@ -111,31 +195,6 @@
     </div>
   </div>
 {% endmacro %}
-
-{# Minimal CSS hooks; uses your existing design system but adds badge styles #}
-<style>
-  .pill{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    height:16px;
-    min-width:16px;
-    padding:0 6px;
-    margin-left:6px;
-    border-radius:999px;
-    font-size:11px;
-    line-height:1;
-    font-weight:700;
-    border:1px solid rgba(255,255,255,0.14);
-    background: rgba(255,255,255,0.06);
-  }
-  .pill-div{
-    border-color: rgba(255,255,255,0.18);
-  }
-  .pill-wc{
-    border-color: rgba(255,255,255,0.18);
-  }
-</style>
 
 {# ------------------------------ #}
 {#     MAIN: AL vs NL TABLES       #}
@@ -152,8 +211,7 @@
       </div>
     </div>
 
-    {# Playoff picture row #}
-    {{ playoff_row(al_divs, "AL") }}
+    {{ playoff_row(al_divs) }}
 
     {% for d in al_divs %}
       <div class="subcard">
@@ -167,12 +225,15 @@
                 <th class="num">L</th>
                 <th class="num">Pct</th>
                 <th class="num">GB</th>
+                <th class="num">WC GB</th>
                 <th class="num">Streak</th>
                 <th class="num">Run Diff</th>
               </tr>
             </thead>
             <tbody>
               {% for t in d.teams %}
+                {% set is_winner = (t.division_rank is defined and t.division_rank == 1) or (t.division_leader is defined and t.division_leader) %}
+                {% set p = (t.pct|float if t.pct is not none else none) %}
                 <tr>
                   <td class="teamcell">
                     {% if t.logo_url %}
@@ -180,19 +241,19 @@
                     {% endif %}
                     <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
 
-                    {# badges: division leader and wild card #}
-                    {% if t.division_leader %}
-                      {{ badge("1", "div") }}
+                    {% if is_winner %}
+                      {{ badge_1() }}
                     {% endif %}
-                    {% if t.wild_card %}
-                      {{ badge("WC", "wc") }}
+                    {% if t.wild_card and not is_winner %}
+                      {{ badge_wc() }}
                     {% endif %}
                   </td>
                   <td class="num">{{ t.w }}</td>
                   <td class="num">{{ t.l }}</td>
-                  <td class="num">{{ t.pct }}</td>
+                  <td class="num">{{ pct_badge(p, t.pct) }}</td>
                   <td class="num">{{ t.gb }}</td>
-                  <td class="num">{{ t.streak }}</td>
+                  <td class="num">{{ t.wc_gb if t.wc_gb is not none and t.wc_gb != "" else "—" }}</td>
+                  <td class="num">{{ streak_with_emoji(t.streak) }}</td>
                   <td class="num">{{ t.run_diff }}</td>
                 </tr>
               {% endfor %}
@@ -212,8 +273,7 @@
       </div>
     </div>
 
-    {# Playoff picture row #}
-    {{ playoff_row(nl_divs, "NL") }}
+    {{ playoff_row(nl_divs) }}
 
     {% for d in nl_divs %}
       <div class="subcard">
@@ -227,12 +287,15 @@
                 <th class="num">L</th>
                 <th class="num">Pct</th>
                 <th class="num">GB</th>
+                <th class="num">WC GB</th>
                 <th class="num">Streak</th>
                 <th class="num">Run Diff</th>
               </tr>
             </thead>
             <tbody>
               {% for t in d.teams %}
+                {% set is_winner = (t.division_rank is defined and t.division_rank == 1) or (t.division_leader is defined and t.division_leader) %}
+                {% set p = (t.pct|float if t.pct is not none else none) %}
                 <tr>
                   <td class="teamcell">
                     {% if t.logo_url %}
@@ -240,18 +303,19 @@
                     {% endif %}
                     <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
 
-                    {% if t.division_leader %}
-                      {{ badge("1", "div") }}
+                    {% if is_winner %}
+                      {{ badge_1() }}
                     {% endif %}
-                    {% if t.wild_card %}
-                      {{ badge("WC", "wc") }}
+                    {% if t.wild_card and not is_winner %}
+                      {{ badge_wc() }}
                     {% endif %}
                   </td>
                   <td class="num">{{ t.w }}</td>
                   <td class="num">{{ t.l }}</td>
-                  <td class="num">{{ t.pct }}</td>
+                  <td class="num">{{ pct_badge(p, t.pct) }}</td>
                   <td class="num">{{ t.gb }}</td>
-                  <td class="num">{{ t.streak }}</td>
+                  <td class="num">{{ t.wc_gb if t.wc_gb is not none and t.wc_gb != "" else "—" }}</td>
+                  <td class="num">{{ streak_with_emoji(t.streak) }}</td>
                   <td class="num">{{ t.run_diff }}</td>
                 </tr>
               {% endfor %}
