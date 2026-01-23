@@ -90,7 +90,7 @@
     min-width: 0;
     display:flex;
     align-items:center;
-    justify-content:center;   /* THIS makes them fill/center evenly */
+    justify-content:center;
     gap:8px;
     padding:6px 8px;
     border-radius:12px;
@@ -172,15 +172,19 @@
 {% endmacro %}
 
 {% macro playoff_block(divs) %}
-  {# Collect division leaders/winners + WC teams (tiebreak-safe)
-     WC logic: accept wild_card==1 OR wild_card_rank in (1,2,3) #}
+  {# Collect division leaders/winners + WC teams (tiebreak-safe) #}
   {% set ns = namespace(east=None, central=None, west=None, wc=[], seen=[]) %}
 
   {% for d in divs %}
     {% set dname = d.name|string %}
     {% for t in d.teams %}
       {% set is_winner = (t.division_rank is defined and (t.division_rank|int) == 1) or ((t.division_leader is defined) and (t.division_leader|int) == 1) %}
-      {% set is_wc = ((t.wild_card is defined) and (t.wild_card|int == 1)) or ((t.wild_card_rank is defined) and (t.wild_card_rank|int in (1,2,3))) %}
+
+      {# IMPORTANT: parenthesize before using "in" #}
+      {% set is_wc =
+        (((t.wild_card is defined) and ((t.wild_card|int) == 1))
+         or ((t.wild_card_rank is defined) and (((t.wild_card_rank|int) in (1,2,3)))))
+      %}
 
       {% if is_winner %}
         {% if "East" in dname %}{% set ns.east = t %}{% endif %}
@@ -197,7 +201,7 @@
     {% endfor %}
   {% endfor %}
 
-  {# Sort WC by wild_card_rank if present, else by pct desc, then take top 3 #}
+  {# Sort WC by wild_card_rank (1,2,3). If missing, fallback to pct desc. #}
   {% set wc_sorted = ns.wc|sort(attribute="wild_card_rank") %}
   {% if wc_sorted|length == 0 %}
     {% set wc_sorted = ns.wc|sort(attribute="pct", reverse=true) %}
@@ -270,7 +274,10 @@
             <tbody>
               {% for t in d.teams %}
                 {% set is_winner = (t.division_rank is defined and (t.division_rank|int) == 1) or ((t.division_leader is defined) and (t.division_leader|int) == 1) %}
-                {% set is_wc = ((t.wild_card is defined) and (t.wild_card|int == 1)) or ((t.wild_card_rank is defined) and (t.wild_card_rank|int in (1,2,3))) %}
+                {% set is_wc =
+                  (((t.wild_card is defined) and ((t.wild_card|int) == 1))
+                   or ((t.wild_card_rank is defined) and (((t.wild_card_rank|int) in (1,2,3)))))
+                %}
                 {% set p = (t.pct|float if t.pct is not none else none) %}
                 <tr>
                   <td class="tagcol">
@@ -330,7 +337,10 @@
             <tbody>
               {% for t in d.teams %}
                 {% set is_winner = (t.division_rank is defined and (t.division_rank|int) == 1) or ((t.division_leader is defined) and (t.division_leader|int) == 1) %}
-                {% set is_wc = ((t.wild_card is defined) and (t.wild_card|int == 1)) or ((t.wild_card_rank is defined) and (t.wild_card_rank|int in (1,2,3))) %}
+                {% set is_wc =
+                  (((t.wild_card is defined) and ((t.wild_card|int) == 1))
+                   or ((t.wild_card_rank is defined) and (((t.wild_card_rank|int) in (1,2,3)))))
+                %}
                 {% set p = (t.pct|float if t.pct is not none else none) %}
                 <tr>
                   <td class="tagcol">
