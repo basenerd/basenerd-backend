@@ -10,7 +10,7 @@ Basenerd is my MLB analytics hub — standings, team pages, player pages, and de
 - Live MLB StatsAPI data
 - More coming soon (Statcast, projections, etc.)
 
-<img src="/static/x-logo-basenerd.png" class="article-img-icon"> [Follow me on X](https://www.x.com/nicklabella6)
+<img src="/static/x-logo-basenerd.png" class="article-img-icon"> [Follow me on X](https://www.x.com/basenerd_)
 
 
 
