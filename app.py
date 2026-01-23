@@ -292,6 +292,9 @@ def build_divs(rows: list[dict]) -> tuple[list[dict], list[dict]]:
 
 @app.get("/standings")
 def standings():
+    from datetime import datetime
+    from flask import request, render_template
+
     now = datetime.utcnow()
     current_year = now.year
     default_season = current_year if now.month >= 3 else current_year - 1
@@ -299,20 +302,58 @@ def standings():
     season = int(request.args.get("season", default_season))
     seasons = list(range(2021, default_season + 1))
 
-    # >>> ADD THESE TWO LINES <<<
-    current_season = default_season
-    is_current_season = (season == current_season)
-    # ----------------------------
+    # helper: build the little “chip” dict the template expects
+    def _chip(row):
+        if not row:
+            return None
+        tid = int(row.get("team_id") or 0)
+        abbrev = row.get("team_abbrev") or row.get("abbrev") or ""
+        return {
+            "team_id": tid,
+            "abbrev": abbrev,
+            "logo_url": f"https://www.mlbstatic.com/team-logos/{tid}.svg",
+        }
+
+    # helper: pick division winners + WC (tiebreak-safe) straight from DB rows
+    def _pick_playoff(rows, league_name: str):
+        league_rows = [r for r in rows if (r.get("league") == league_name)]
+
+        # Division leaders/winners (one per division) using division_rank == 1
+        div_winners = [r for r in league_rows if int(r.get("division_rank") or 0) == 1]
+        east = next((r for r in div_winners if "East" in (r.get("division") or "")), None)
+        central = next((r for r in div_winners if "Central" in (r.get("division") or "")), None)
+        west = next((r for r in div_winners if "West" in (r.get("division") or "")), None)
+
+        # Wild Cards using wild_card_rank in (1,2,3) (MLB authoritative ordering)
+        wc_rows = sorted(
+            [r for r in league_rows if int(r.get("wild_card_rank") or 0) in (1, 2, 3)],
+            key=lambda x: int(x.get("wild_card_rank") or 99),
+        )
+
+        return {
+            "east": _chip(east),
+            "central": _chip(central),
+            "west": _chip(west),
+            "wc1": _chip(wc_rows[0]) if len(wc_rows) > 0 else None,
+            "wc2": _chip(wc_rows[1]) if len(wc_rows) > 1 else None,
+            "wc3": _chip(wc_rows[2]) if len(wc_rows) > 2 else None,
+        }
 
     error = None
     al_divs, nl_divs = [], []
+    al_playoff, nl_playoff = None, None
 
     try:
         rows = fetch_standings_ranked(season)
         if not rows:
             error = f"No standings found for {season}. Make sure standings + standings_season_final are populated."
         else:
+            # Build the division tables for the main standings display
             al_divs, nl_divs = build_divs(rows)
+
+            # Build playoff picture directly from raw DB rows (bypasses any mapping weirdness)
+            al_playoff = _pick_playoff(rows, "American League")
+            nl_playoff = _pick_playoff(rows, "National League")
     except Exception as e:
         error = f"Standings DB query failed: {e}"
 
@@ -323,13 +364,12 @@ def standings():
         seasons=seasons,
         al_divs=al_divs,
         nl_divs=nl_divs,
+        al_playoff=al_playoff,
+        nl_playoff=nl_playoff,
+        is_current_season=(season == default_season),
         error=error,
-
-        # >>> ADD THESE TWO VALUES <<<
-        current_season=current_season,
-        is_current_season=is_current_season
-        # ----------------------------
     )
+
 
 
 
