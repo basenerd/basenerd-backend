@@ -63,7 +63,13 @@
     display:inline-block;
     width:18px;
     text-align:center;
+    font-size:16px;          /* 👑🃏 slightly bigger */
+    line-height:1;
   }
+
+  /* Run diff colors */
+  .rundiff-pos{ color:#18a558; font-weight:800; } /* green */
+  .rundiff-neg{ color:#e03a3a; font-weight:800; } /* red */
 
   /* TOP playoff block */
   .pp-block{
@@ -83,6 +89,8 @@
     margin:0 0 12px 0;
   }
   .pp-row:last-child{ margin-bottom:0; }
+
+  /* Ensure both rows align by always reserving the same pill width */
   .pp-slot{
     flex: 1 1 0;
     min-width: 0;
@@ -97,12 +105,10 @@
   }
   .pp-empty{ opacity:0.55; }
 
-  /* E/C/W pill next to division winners */
-  .divpill{
+  .pp-pill{
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    width:18px;
     height:18px;
     border-radius:999px;
     font-size:11px;
@@ -111,8 +117,40 @@
     border: 1px solid rgba(255,255,255,0.14);
     color: rgba(255,255,255,0.85);
     flex: 0 0 auto;
+    width:28px; /* E/C/W */
+  }
+  .pp-pill.wc{
+    width:42px; /* WC1/WC2/WC3 */
+  }
+
+  /* optional: make the emoji in the playoff block a hair bigger */
+  .pp-emoji{
+    font-size:16px;
+    line-height:1;
+    display:inline-block;
+    width:18px;
+    text-align:center;
+  }
+
+  /* Tabs (Division vs Wild Card) */
+  .standings-tabs{
+    display:flex;
+    gap:22px;
+    padding:10px 12px 0;
+  }
+  .standings-tab{
+    text-decoration:none;
+    font-weight:800;
+    opacity:0.75;
+    padding-bottom:6px;
+    border-bottom:2px solid transparent;
+  }
+  .standings-tab.active{
+    opacity:1;
+    border-bottom-color: rgba(255,255,255,0.85);
   }
 </style>
+
 
 {% macro teamchip(t) %}
   <a class="teamlink" href="/team/{{ t.team_id }}" style="display:inline-flex; align-items:center; gap:6px; white-space:nowrap;">
