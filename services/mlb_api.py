@@ -240,6 +240,97 @@ from collections import defaultdict
 from collections import defaultdict
 import requests
 
+import requests
+
+STATSAPI_BASE = "https://statsapi.mlb.com/api/v1"
+
+def get_postseason_series(season: int):
+    """
+    Returns postseason schedule grouped by series for a given season.
+    Uses: /schedule/postseason/series
+    """
+    url = f"{STATSAPI_BASE}/schedule/postseason/series"
+    params = {"season": str(season), "sportId": "1"}
+    r = requests.get(url, params=params, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+
+def build_playoff_bracket(series_json: dict):
+    """
+    Normalizes the StatsAPI response into something easy to render.
+
+    Output shape:
+    {
+      "AL": { "Wild Card Series": [...], "Division Series": [...], "League Championship Series": [...], "World Series": [...] },
+      "NL": { ... },
+      "WS": { "World Series": [...] }   # optional convenience
+    }
+    """
+    out = {"AL": {}, "NL": {}, "WS": {}}
+
+    series_list = series_json.get("series", []) or []
+
+    for s in series_list:
+        # These keys can vary a bit by season; we keep this defensive.
+        # Common fields typically include round/name-like descriptors and teams.
+        round_name = (
+            s.get("round", {}).get("name")
+            or s.get("roundName")
+            or s.get("seriesDescription")
+            or s.get("name")
+            or "Postseason"
+        )
+
+        # league label (AL/NL/WS). Sometimes it’s nested, sometimes not present.
+        lg = (
+            (s.get("league") or {}).get("abbreviation")
+            or (s.get("league") or {}).get("name")
+            or s.get("leagueName")
+            or ""
+        )
+        lg = "AL" if "American" in lg or lg == "AL" else "NL" if "National" in lg or lg == "NL" else "WS"
+
+        matchup = {
+            "seriesNumber": s.get("seriesNumber"),
+            "bestOf": s.get("gamesInSeries") or s.get("bestOf") or None,
+            "status": (s.get("status") or {}).get("detailedState") or (s.get("status") or {}).get("abstractGameState") or None,
+            "teams": [],
+            "link": s.get("link"),
+        }
+
+        # teams may appear as 'teams' or 'matchupTeams' depending on season
+        teams_blob = s.get("teams") or s.get("matchupTeams") or {}
+
+        # attempt to read both sides (home/away OR team1/team2)
+        candidates = []
+        if isinstance(teams_blob, dict):
+            for k in ["home", "away", "team1", "team2"]:
+                if teams_blob.get(k):
+                    candidates.append(teams_blob.get(k))
+
+        for t in candidates:
+            team_obj = t.get("team") or t.get("club") or {}
+            team_id = team_obj.get("id")
+            abbrev = (team_obj.get("abbreviation") or team_obj.get("abbrev") or "").upper()
+
+            wins = t.get("wins") if t.get("wins") is not None else (t.get("seriesWins") or t.get("score"))
+            # some seasons store as 'isWinner' bool
+            is_winner = t.get("isWinner")
+
+            matchup["teams"].append({
+                "team_id": team_id,
+                "abbrev": abbrev,
+                "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None,
+                "wins": wins,
+                "is_winner": is_winner,
+            })
+
+        out[lg].setdefault(round_name, []).append(matchup)
+
+    return out
+
+
 from collections import defaultdict
 import requests
 
