@@ -171,44 +171,44 @@ def main() -> int:
         print("ERROR: DATABASE_URL env var is not set.", file=sys.stderr)
         return 2
 
-    season = get_season()
     pulled_at = datetime.now(timezone.utc)
 
-    # 1) Fetch + parse
-    try:
-        payload = fetch_standings(season)
-    except Exception as e:
-        print(f"ERROR fetching standings: {e}", file=sys.stderr)
-        return 3
+    start_season = 2021
+    end_season = datetime.now(timezone.utc).year
+    seasons = range(start_season, end_season + 1)
 
-    rows = normalize_rows(payload, season, pulled_at)
-
-    # Simple sanity check: MLB should have 30 teams
-    if len(rows) < 28:
-        print("WARNING: Parsed fewer than 28 teams. Dumping a small debug sample:", file=sys.stderr)
-        print(json.dumps(payload, indent=2)[:1500], file=sys.stderr)
-
-    # 2) Write to DB
     try:
         if PSYCOPG3:
             with psycopg.connect(db_url) as conn:
                 ensure_table(conn)
-                upsert_rows(conn, rows)
+
+                for season in seasons:
+                    print(f"Fetching standings for {season}...")
+                    payload = fetch_standings(season)
+                    rows = normalize_rows(payload, season, pulled_at)
+                    upsert_rows(conn, rows)
+
                 conn.commit()
         else:
             conn = psycopg.connect(db_url)
             try:
                 ensure_table(conn)
-                upsert_rows(conn, rows)
+                for season in seasons:
+                    print(f"Fetching standings for {season}...")
+                    payload = fetch_standings(season)
+                    rows = normalize_rows(payload, season, pulled_at)
+                    upsert_rows(conn, rows)
                 conn.commit()
             finally:
                 conn.close()
+
     except Exception as e:
         print(f"ERROR writing to database: {e}", file=sys.stderr)
         return 4
 
-    print(f"OK: Upserted {len(rows)} standings rows for season {season} at {pulled_at.isoformat()}")
+    print(f"OK: Standings loaded for seasons {start_season}–{end_season}")
     return 0
+
 
 
 if __name__ == "__main__":
