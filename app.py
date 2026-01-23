@@ -297,6 +297,7 @@ def standings():
     from datetime import datetime
     from flask import request, render_template
     from services.standings_db import fetch_standings_ranked, build_divs
+    from services.mlb_api import get_postseason_series, build_playoff_bracket  # <- add
 
     now = datetime.utcnow()
     current_year = now.year
@@ -306,7 +307,7 @@ def standings():
     seasons = list(range(2021, default_season + 1))
 
     view = (request.args.get("view", "division") or "division").lower()
-    if view not in ("division", "wildcard"):
+    if view not in ("division", "wildcard", "playoffs"):
         view = "division"
 
     # helper: build the little “chip” dict the template expects
@@ -377,6 +378,7 @@ def standings():
     al_divs, nl_divs = [], []
     al_playoff, nl_playoff = None, None
     al_wc, nl_wc = [], []
+    playoff_bracket = None
 
     try:
         rows = fetch_standings_ranked(season)
@@ -387,13 +389,22 @@ def standings():
             # Main division tables
             al_divs, nl_divs = build_divs(rows)
 
-            # Top playoff block
+            # Top playoff block (division leaders + WC teams)
             al_playoff = _pick_playoff(rows, "American League")
             nl_playoff = _pick_playoff(rows, "National League")
 
             # Wild card tables for the Wild Card view
             al_wc = _build_wc(rows, "American League")
             nl_wc = _build_wc(rows, "National League")
+
+        # NEW: Playoff Picture view (current or past seasons)
+        if view == "playoffs":
+            try:
+                series_json = get_postseason_series(season)
+                playoff_bracket = build_playoff_bracket(series_json)
+            except Exception as e:
+                # Don’t break standings page if MLB endpoint hiccups
+                error = f"Playoff Picture fetch failed for {season}: {e}"
 
     except Exception as e:
         error = f"Standings DB query failed: {e}"
@@ -410,9 +421,11 @@ def standings():
         nl_playoff=nl_playoff,
         al_wc=al_wc,
         nl_wc=nl_wc,
+        playoff_bracket=playoff_bracket,   # <- new
         is_current_season=(season == default_season),
         error=error,
     )
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
