@@ -2,7 +2,7 @@ import time
 from typing import Any, Dict, Optional
 from datetime import datetime
 import requests
-from services.mlb_api import get_postseason_series, build_playoff_bracket
+
 
 BASE = "https://statsapi.mlb.com/api/v1"
 
