@@ -25,11 +25,97 @@
   {% endif %}
 </div>
 
-<div class="grid-2">
-  <div class="small muted" style="margin:8px 0 12px;">
-  debug: al_divs={{ al_divs|length }}, nl_divs={{ nl_divs|length }}
-</div>
+{# ------------------------------ #}
+{#   TOP: DIVISION / WILD CARD     #}
+{# ------------------------------ #}
 
+{% set div_winners = [] %}
+{% set wc_teams = [] %}
+
+{# Collect from AL + NL division objects #}
+{% for d in al_divs %}
+  {% for t in d.teams %}
+    {% if t.division_leader %}
+      {% set _ = div_winners.append(t) %}
+    {% endif %}
+    {% if t.wild_card %}
+      {% set _ = wc_teams.append(t) %}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+
+{% for d in nl_divs %}
+  {% for t in d.teams %}
+    {% if t.division_leader %}
+      {% set _ = div_winners.append(t) %}
+    {% endif %}
+    {% if t.wild_card %}
+      {% set _ = wc_teams.append(t) %}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+
+{% if div_winners|length > 0 or wc_teams|length > 0 %}
+  <div class="grid-2" style="margin-top:12px;">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Division Winners</div>
+          <div class="card-subtitle">Current leaders</div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if div_winners|length == 0 %}
+          <div class="small muted">No division winners found.</div>
+        {% else %}
+          <div style="display:flex; flex-wrap:wrap; gap:10px;">
+            {% for t in div_winners %}
+              <a class="teamlink" href="/team/{{ t.team_id }}" style="display:flex; gap:8px; align-items:center; padding:6px 10px; border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+                {% if t.logo_url %}
+                  <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo" style="height:18px; width:auto;">
+                {% endif %}
+                <span>{{ t.abbrev }}</span>
+                <span title="Division leader" aria-label="Division leader" style="opacity:0.95;">🏆</span>
+              </a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Wild Card Teams</div>
+          <div class="card-subtitle">In a playoff spot</div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if wc_teams|length == 0 %}
+          <div class="small muted">No wild card teams found.</div>
+        {% else %}
+          <div style="display:flex; flex-wrap:wrap; gap:10px;">
+            {% for t in wc_teams %}
+              <a class="teamlink" href="/team/{{ t.team_id }}" style="display:flex; gap:8px; align-items:center; padding:6px 10px; border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+                {% if t.logo_url %}
+                  <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo" style="height:18px; width:auto;">
+                {% endif %}
+                <span>{{ t.abbrev }}</span>
+                <span title="Wild card" aria-label="Wild card" style="opacity:0.95;">⭐</span>
+              </a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+{# ------------------------------ #}
+{#     MAIN: AL vs NL TABLES       #}
+{# ------------------------------ #}
+
+<div class="grid-2" style="margin-top:12px;">
 
   <!-- American League -->
   <div class="card">
@@ -64,6 +150,14 @@
                       <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
                     {% endif %}
                     <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
+
+                    {# icons #}
+                    {% if t.division_leader %}
+                      <span title="Division leader" aria-label="Division leader" style="margin-left:6px;">🏆</span>
+                    {% endif %}
+                    {% if t.wild_card %}
+                      <span title="Wild card" aria-label="Wild card" style="margin-left:4px;">⭐</span>
+                    {% endif %}
                   </td>
                   <td class="num">{{ t.w }}</td>
                   <td class="num">{{ t.l }}</td>
@@ -113,6 +207,14 @@
                       <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
                     {% endif %}
                     <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
+
+                    {# icons #}
+                    {% if t.division_leader %}
+                      <span title="Division leader" aria-label="Division leader" style="margin-left:6px;">🏆</span>
+                    {% endif %}
+                    {% if t.wild_card %}
+                      <span title="Wild card" aria-label="Wild card" style="margin-left:4px;">⭐</span>
+                    {% endif %}
                   </td>
                   <td class="num">{{ t.w }}</td>
                   <td class="num">{{ t.l }}</td>
@@ -132,4 +234,3 @@
 </div>
 
 {% endblock %}
-
