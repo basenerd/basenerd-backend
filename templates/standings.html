@@ -25,35 +25,7 @@
   {% endif %}
 </div>
 
-{# ------------------------------ #}
-{# Helpers: badges + playoff row   #}
-{# ------------------------------ #}
-
 <style>
-  /* Little "cell/circle" badges */
-  .mark{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    width:18px;
-    height:18px;
-    margin-left:6px;
-    border-radius:999px; /* circle */
-    font-size:11px;
-    font-weight:800;
-    line-height:1;
-    border:1px solid rgba(255,255,255,0.18);
-    background: rgba(255,255,255,0.06);
-    user-select:none;
-  }
-  .mark-wc{
-    width:22px;           /* WC needs a bit more room */
-    border-radius:999px;  /* still round-ish */
-    font-size:10px;
-    letter-spacing:-0.2px;
-  }
-
-  /* Pct gradient cell */
   .pctcell{
     border-radius:8px;
     padding:4px 8px;
@@ -61,15 +33,35 @@
     min-width:56px;
     text-align:right;
   }
+
+  /* Playoff picture: two lines inside each cell */
+  .pp-cell{
+    padding-top:6px;
+    padding-bottom:6px;
+  }
+  .pp-line{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:center;
+    line-height:1.15;
+  }
+  .pp-line + .pp-line{ margin-top:6px; }
+
+  /* Streak alignment: emoji in fixed-width slot on right */
+  .streakwrap{
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:6px;
+  }
+  .streakemoji{
+    width:16px;           /* fixed slot so column lines up */
+    text-align:center;
+    display:inline-block;
+    opacity:0.95;
+  }
 </style>
-
-{% macro badge_1() %}
-  <span class="mark" title="Division leader">1</span>
-{% endmacro %}
-
-{% macro badge_wc() %}
-  <span class="mark mark-wc" title="Wild card">WC</span>
-{% endmacro %}
 
 {% macro teamchip(t) %}
   <a class="teamlink" href="/team/{{ t.team_id }}" style="display:inline-flex; align-items:center; gap:6px;">
@@ -81,78 +73,71 @@
 {% endmacro %}
 
 {# pct background: diverging red/blue, midpoint .500 #}
-{% macro pct_badge(pct_value, pct_text) %}
-  {# pct_value should be a float (0-1). We'll tint background accordingly. #}
-  {% set p = pct_value %}
-  {% if p is none %}{% set p = 0.5 %}{% endif %}
-
-  {# Clamp-ish (best effort) #}
-  {% if p < 0 %}{% set p = 0 %}{% endif %}
-  {% if p > 1 %}{% set p = 1 %}{% endif %}
-
-  {# Two-sided intensity from midpoint #}
-  {% if p >= 0.5 %}
-    {# 0.5 -> 0 intensity, 1.0 -> 1 intensity #}
-    {% set a = (p - 0.5) / 0.5 %}
-    {% if a > 1 %}{% set a = 1 %}{% endif %}
-    {# red tint using rgba #}
-    {% set bg = "rgba(255, 70, 70, " ~ (0.10 + 0.35 * a) ~ ")" %}
+{% macro pct_badge(pct_value) %}
+  {% if pct_value is none %}
+    <span class="pctcell" style="background: rgba(255,255,255,0.06);">—</span>
   {% else %}
-    {# 0.5 -> 0 intensity, 0.0 -> 1 intensity #}
-    {% set a = (0.5 - p) / 0.5 %}
-    {% if a > 1 %}{% set a = 1 %}{% endif %}
-    {# blue tint using rgba #}
-    {% set bg = "rgba(70, 140, 255, " ~ (0.10 + 0.35 * a) ~ ")" %}
-  {% endif %}
+    {% set p = pct_value %}
+    {% if p < 0 %}{% set p = 0 %}{% endif %}
+    {% if p > 1 %}{% set p = 1 %}{% endif %}
 
-  <span class="pctcell" style="background: {{ bg }};">
-    {{ pct_text }}
-  </span>
+    {% if p >= 0.5 %}
+      {% set a = (p - 0.5) / 0.5 %}
+      {% if a > 1 %}{% set a = 1 %}{% endif %}
+      {% set bg = "rgba(255, 70, 70, " ~ (0.10 + 0.35 * a) ~ ")" %}
+    {% else %}
+      {% set a = (0.5 - p) / 0.5 %}
+      {% if a > 1 %}{% set a = 1 %}{% endif %}
+      {% set bg = "rgba(70, 140, 255, " ~ (0.10 + 0.35 * a) ~ ")" %}
+    {% endif %}
+
+    <span class="pctcell" style="background: {{ bg }};">
+      {{ "%.3f"|format(p) }}
+    </span>
+  {% endif %}
 {% endmacro %}
 
-{% macro streak_with_emoji(streak) %}
+{% macro streak_cell(streak) %}
   {% set s = (streak or "") %}
+  {% set emoji = "" %}
   {% if s|length >= 2 %}
     {% set kind = s[0] %}
     {% set n = (s[1:]|int(0)) %}
     {% if kind == "W" and n >= 3 %}
-      {{ s }} 🔥
+      {% set emoji = "🔥" %}
     {% elif kind == "L" and n >= 3 %}
-      {{ s }} 🧊
-    {% else %}
-      {{ s }}
+      {% set emoji = "🧊" %}
     {% endif %}
-  {% else %}
-    {{ s if s else "—" }}
   {% endif %}
+
+  <span class="streakwrap">
+    <span>{{ s if s else "—" }}</span>
+    <span class="streakemoji">{{ emoji }}</span>
+  </span>
 {% endmacro %}
 
 {% macro playoff_row(divs) %}
-  {# Jinja scoping fix: namespace so assignments persist #}
-  {% set ns = namespace(east=None, central=None, west=None, wc_list=[]) %}
+  {# Use namespace so selections persist outside inner loops #}
+  {% set ns = namespace(east_win=None, central_win=None, west_win=None, wc_list=[]) %}
 
   {% for d in divs %}
     {% set dname = d.name|string %}
     {% for t in d.teams %}
-
-      {# Determine division winner: prefer division_rank == 1, else fallback to division_leader #}
       {% set is_winner = (t.division_rank is defined and t.division_rank == 1) or (t.division_leader is defined and t.division_leader) %}
 
       {% if is_winner %}
         {% if "East" in dname %}
-          {% set ns.east = t %}
+          {% set ns.east_win = t %}
         {% elif "Central" in dname %}
-          {% set ns.central = t %}
+          {% set ns.central_win = t %}
         {% elif "West" in dname %}
-          {% set ns.west = t %}
+          {% set ns.west_win = t %}
         {% endif %}
       {% endif %}
 
-      {# Wild cards: do not include division winners #}
       {% if t.wild_card and not is_winner %}
         {% set _ = ns.wc_list.append(t) %}
       {% endif %}
-
     {% endfor %}
   {% endfor %}
 
@@ -161,44 +146,74 @@
       <table class="table" style="margin:0;">
         <thead>
           <tr>
-            <th class="num" style="width:70px; text-align:left;">E</th>
-            <th class="num" style="width:70px; text-align:left;">C</th>
-            <th class="num" style="width:70px; text-align:left;">W</th>
+            <th class="num" style="width:80px; text-align:left;">E</th>
+            <th class="num" style="width:80px; text-align:left;">C</th>
+            <th class="num" style="width:80px; text-align:left;">W</th>
             <th class="num" style="text-align:left;">WC</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style="white-space:nowrap;">
-              {% if ns.east %}{{ teamchip(ns.east) }}{% else %}<span class="muted">—</span>{% endif %}
+            {# East cell: winner on top, WC teams on bottom (if any) #}
+            <td class="pp-cell">
+              <div class="pp-line">
+                {% if ns.east_win %}{{ teamchip(ns.east_win) }}{% else %}<span class="muted">—</span>{% endif %}
+              </div>
+              <div class="pp-line">
+                {# show WC teams that are in East division if you want, but you asked “WC teams on bottom” generally.
+                   We'll show ALL WC teams in the WC column only. Keep this line empty. #}
+                <span class="muted"></span>
+              </div>
             </td>
-            <td style="white-space:nowrap;">
-              {% if ns.central %}{{ teamchip(ns.central) }}{% else %}<span class="muted">—</span>{% endif %}
+
+            <td class="pp-cell">
+              <div class="pp-line">
+                {% if ns.central_win %}{{ teamchip(ns.central_win) }}{% else %}<span class="muted">—</span>{% endif %}
+              </div>
+              <div class="pp-line"><span class="muted"></span></div>
             </td>
-            <td style="white-space:nowrap;">
-              {% if ns.west %}{{ teamchip(ns.west) }}{% else %}<span class="muted">—</span>{% endif %}
+
+            <td class="pp-cell">
+              <div class="pp-line">
+                {% if ns.west_win %}{{ teamchip(ns.west_win) }}{% else %}<span class="muted">—</span>{% endif %}
+              </div>
+              <div class="pp-line"><span class="muted"></span></div>
             </td>
-            <td>
-              {% if ns.wc_list|length == 0 %}
-                <span class="muted">—</span>
-              {% else %}
+
+            {# WC cell: division winners (top) and WC teams (bottom) per your request #}
+            <td class="pp-cell">
+              <div class="pp-line">
+                {# Division winners (top line) #}
                 <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-                  {% for t in ns.wc_list %}
-                    {{ teamchip(t) }}
-                  {% endfor %}
+                  {% if ns.east_win %}{{ teamchip(ns.east_win) }}{% endif %}
+                  {% if ns.central_win %}{{ teamchip(ns.central_win) }}{% endif %}
+                  {% if ns.west_win %}{{ teamchip(ns.west_win) }}{% endif %}
+                  {% if not ns.east_win and not ns.central_win and not ns.west_win %}
+                    <span class="muted">—</span>
+                  {% endif %}
                 </div>
-              {% endif %}
+              </div>
+
+              <div class="pp-line">
+                {# Wild cards (bottom line) #}
+                {% if ns.wc_list|length == 0 %}
+                  <span class="muted">—</span>
+                {% else %}
+                  <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                    {% for t in ns.wc_list %}
+                      {{ teamchip(t) }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
             </td>
+
           </tr>
         </tbody>
       </table>
     </div>
   </div>
 {% endmacro %}
-
-{# ------------------------------ #}
-{#     MAIN: AL vs NL TABLES       #}
-{# ------------------------------ #}
 
 <div class="grid-2">
 
@@ -240,20 +255,15 @@
                       <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
                     {% endif %}
                     <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
-
-                    {% if is_winner %}
-                      {{ badge_1() }}
-                    {% endif %}
-                    {% if t.wild_card and not is_winner %}
-                      {{ badge_wc() }}
-                    {% endif %}
+                    {% if is_winner %} <span title="Division leader">👑</span>{% endif %}
+                    {% if t.wild_card and not is_winner %} <span title="Wild card">🃏</span>{% endif %}
                   </td>
                   <td class="num">{{ t.w }}</td>
                   <td class="num">{{ t.l }}</td>
-                  <td class="num">{{ pct_badge(p, t.pct) }}</td>
+                  <td class="num">{{ pct_badge(p) }}</td>
                   <td class="num">{{ t.gb }}</td>
                   <td class="num">{{ t.wc_gb if t.wc_gb is not none and t.wc_gb != "" else "—" }}</td>
-                  <td class="num">{{ streak_with_emoji(t.streak) }}</td>
+                  <td class="num">{{ streak_cell(t.streak) }}</td>
                   <td class="num">{{ t.run_diff }}</td>
                 </tr>
               {% endfor %}
@@ -302,20 +312,15 @@
                       <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
                     {% endif %}
                     <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
-
-                    {% if is_winner %}
-                      {{ badge_1() }}
-                    {% endif %}
-                    {% if t.wild_card and not is_winner %}
-                      {{ badge_wc() }}
-                    {% endif %}
+                    {% if is_winner %} <span title="Division leader">👑</span>{% endif %}
+                    {% if t.wild_card and not is_winner %} <span title="Wild card">🃏</span>{% endif %}
                   </td>
                   <td class="num">{{ t.w }}</td>
                   <td class="num">{{ t.l }}</td>
-                  <td class="num">{{ pct_badge(p, t.pct) }}</td>
+                  <td class="num">{{ pct_badge(p) }}</td>
                   <td class="num">{{ t.gb }}</td>
                   <td class="num">{{ t.wc_gb if t.wc_gb is not none and t.wc_gb != "" else "—" }}</td>
-                  <td class="num">{{ streak_with_emoji(t.streak) }}</td>
+                  <td class="num">{{ streak_cell(t.streak) }}</td>
                   <td class="num">{{ t.run_diff }}</td>
                 </tr>
               {% endfor %}
