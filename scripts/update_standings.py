@@ -14,7 +14,6 @@
 
 import os
 import sys
-import json
 from datetime import datetime, timezone
 
 import requests
@@ -35,7 +34,6 @@ def get_season() -> int:
     s = os.getenv("MLB_SEASON")
     if s:
         return int(s)
-    # MLB regular season starts in spring; default to current year
     return datetime.now(timezone.utc).year
 
 
@@ -44,7 +42,6 @@ def fetch_standings(season: int) -> dict:
         "leagueId": "103,104",  # AL, NL
         "season": str(season),
         "standingsTypes": "regularSeason",
-        # hydrate adds division/league info in a consistent way
         "hydrate": "team(division,league),standings(note)",
     }
     r = requests.get(MLB_STANDINGS_URL, params=params, timeout=30)
@@ -52,35 +49,46 @@ def fetch_standings(season: int) -> dict:
     return r.json()
 
 
+def _to_int(x):
+    """Best-effort int conversion for API fields that may be str/int/None."""
+    if x in (None, "", "-"):
+        return None
+    try:
+        return int(x)
+    except Exception:
+        return None
+
+
 def normalize_rows(payload: dict, season: int, pulled_at_utc: datetime) -> list[dict]:
     rows: list[dict] = []
     records = payload.get("records", [])
 
     for div_block in records:
-        # division info (best-effort)
         division = (div_block.get("division") or {}).get("name") or ""
         league = (div_block.get("league") or {}).get("name") or ""
 
         for tr in div_block.get("teamRecords", []):
             team = tr.get("team") or {}
             team_id = team.get("id")
+            if team_id is None:
+                continue
 
-            # Some fields are nested / can be missing
             wins = tr.get("wins")
             losses = tr.get("losses")
             pct = tr.get("winningPercentage")
             gb = tr.get("gamesBack")
             wc_gb = tr.get("wildCardGamesBack")
-            rs = (tr.get("runsScored") if tr.get("runsScored") is not None else None)
-            ra = (tr.get("runsAllowed") if tr.get("runsAllowed") is not None else None)
+            rs = tr.get("runsScored")
+            ra = tr.get("runsAllowed")
             streak = (tr.get("streak") or {}).get("streakCode") or ""
 
-            # Team identifiers
+            # ✅ Official ranks (these incorporate MLB tiebreakers)
+            division_rank = _to_int(tr.get("divisionRank"))
+            wild_card_rank = _to_int(tr.get("wildCardRank"))
+            league_rank = _to_int(tr.get("leagueRank"))
+
             team_name = team.get("name") or ""
             team_abbrev = team.get("abbreviation") or ""
-
-            if team_id is None:
-                continue
 
             rows.append(
                 {
@@ -98,6 +106,12 @@ def normalize_rows(payload: dict, season: int, pulled_at_utc: datetime) -> list[
                     "rs": int(rs) if rs is not None else None,
                     "ra": int(ra) if ra is not None else None,
                     "streak": streak,
+
+                    # ✅ new fields
+                    "division_rank": division_rank,
+                    "wild_card_rank": wild_card_rank,
+                    "league_rank": league_rank,
+
                     "last_updated": pulled_at_utc,
                 }
             )
@@ -106,29 +120,39 @@ def normalize_rows(payload: dict, season: int, pulled_at_utc: datetime) -> list[
 
 
 def ensure_table(conn):
-    # Minimal table for current standings snapshot by team + season.
     ddl = """
     CREATE TABLE IF NOT EXISTS standings (
-      season        INT NOT NULL,
-      league        TEXT,
-      division      TEXT,
-      team_id       INT NOT NULL,
-      team_abbrev   TEXT,
-      team_name     TEXT,
-      w             INT,
-      l             INT,
-      pct           DOUBLE PRECISION,
-      gb            TEXT,
-      wc_gb         TEXT,
-      rs            INT,
-      ra            INT,
-      streak        TEXT,
-      last_updated  TIMESTAMPTZ NOT NULL,
+      season         INT NOT NULL,
+      league         TEXT,
+      division       TEXT,
+      team_id        INT NOT NULL,
+      team_abbrev    TEXT,
+      team_name      TEXT,
+      w              INT,
+      l              INT,
+      pct            DOUBLE PRECISION,
+      gb             TEXT,
+      wc_gb          TEXT,
+      rs             INT,
+      ra             INT,
+      streak         TEXT,
+
+      -- ✅ official rank fields (tiebreak-safe)
+      division_rank  INT,
+      wild_card_rank INT,
+      league_rank    INT,
+
+      last_updated   TIMESTAMPTZ NOT NULL,
       PRIMARY KEY (season, team_id)
     );
     """
     with conn.cursor() as cur:
         cur.execute(ddl)
+
+        # If the table existed from before, ensure new columns exist
+        cur.execute("ALTER TABLE standings ADD COLUMN IF NOT EXISTS division_rank INT;")
+        cur.execute("ALTER TABLE standings ADD COLUMN IF NOT EXISTS wild_card_rank INT;")
+        cur.execute("ALTER TABLE standings ADD COLUMN IF NOT EXISTS league_rank INT;")
 
 
 def upsert_rows(conn, rows: list[dict]):
@@ -138,11 +162,15 @@ def upsert_rows(conn, rows: list[dict]):
     sql = """
     INSERT INTO standings (
       season, league, division, team_id, team_abbrev, team_name,
-      w, l, pct, gb, wc_gb, rs, ra, streak, last_updated
+      w, l, pct, gb, wc_gb, rs, ra, streak,
+      division_rank, wild_card_rank, league_rank,
+      last_updated
     )
     VALUES (
       %(season)s, %(league)s, %(division)s, %(team_id)s, %(team_abbrev)s, %(team_name)s,
-      %(w)s, %(l)s, %(pct)s, %(gb)s, %(wc_gb)s, %(rs)s, %(ra)s, %(streak)s, %(last_updated)s
+      %(w)s, %(l)s, %(pct)s, %(gb)s, %(wc_gb)s, %(rs)s, %(ra)s, %(streak)s,
+      %(division_rank)s, %(wild_card_rank)s, %(league_rank)s,
+      %(last_updated)s
     )
     ON CONFLICT (season, team_id) DO UPDATE SET
       league = EXCLUDED.league,
@@ -157,11 +185,13 @@ def upsert_rows(conn, rows: list[dict]):
       rs = EXCLUDED.rs,
       ra = EXCLUDED.ra,
       streak = EXCLUDED.streak,
+      division_rank = EXCLUDED.division_rank,
+      wild_card_rank = EXCLUDED.wild_card_rank,
+      league_rank = EXCLUDED.league_rank,
       last_updated = EXCLUDED.last_updated
     ;
     """
     with conn.cursor() as cur:
-        # executemany works in psycopg3 and psycopg2
         cur.executemany(sql, rows)
 
 
@@ -181,13 +211,11 @@ def main() -> int:
         if PSYCOPG3:
             with psycopg.connect(db_url) as conn:
                 ensure_table(conn)
-
                 for season in seasons:
                     print(f"Fetching standings for {season}...")
                     payload = fetch_standings(season)
                     rows = normalize_rows(payload, season, pulled_at)
                     upsert_rows(conn, rows)
-
                 conn.commit()
         else:
             conn = psycopg.connect(db_url)
@@ -208,7 +236,6 @@ def main() -> int:
 
     print(f"OK: Standings loaded for seasons {start_season}–{end_season}")
     return 0
-
 
 
 if __name__ == "__main__":
