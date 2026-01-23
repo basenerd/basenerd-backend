@@ -225,7 +225,8 @@ def article(slug):
 
 from datetime import datetime
 from flask import request, render_template
-from services.db import get_standings_from_db
+from services.standings_db import fetch_standings_ranked, build_divs
+
 
 from datetime import datetime
 from flask import request, render_template
