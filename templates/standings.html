@@ -34,23 +34,6 @@
     text-align:right;
   }
 
-  /* Playoff picture: two lines */
-  .pp-cell{ padding:8px 10px; }
-  .pp-title{
-    font-size:11px;
-    font-weight:800;
-    opacity:0.75;
-    margin-bottom:6px;
-  }
-  .pp-line{
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-    align-items:center;
-    line-height:1.15;
-  }
-  .pp-line + .pp-line{ margin-top:8px; }
-
   /* Streak alignment: emoji in fixed-width slot on right */
   .streakwrap{
     display:flex;
@@ -65,7 +48,7 @@
     opacity:0.95;
   }
 
-  /* New: tiny icon column (prevents clipping) */
+  /* tiny icon column */
   .tagcol{
     width:34px;
     text-align:center;
@@ -107,7 +90,8 @@
     {% endif %}
 
     <span class="pctcell" style="background: {{ bg }};">
-      {{ "%.3f"|format(p) }}
+      {% set s = "%.3f"|format(p) %}
+      {{ s[1:] }}
     </span>
   {% endif %}
 {% endmacro %}
@@ -151,11 +135,14 @@
     {% endfor %}
   {% endfor %}
 
+  {% set leader_label = "Division Leaders" if is_current_season else "Division Winners" %}
+
   <div class="subcard" style="margin-top:10px;">
     <div class="table-wrap">
       <table class="table" style="margin:0;">
         <thead>
           <tr>
+            <th style="width:150px;"></th>
             <th style="width:90px; text-align:left;">E</th>
             <th style="width:90px; text-align:left;">C</th>
             <th style="width:90px; text-align:left;">W</th>
@@ -164,58 +151,29 @@
         </thead>
         <tbody>
           <tr>
-            {# E #}
-            <td class="pp-cell">
-              <div class="pp-title">{{ "Division Leaders" if is_current_season else "Division Winners" }}</div>
-              <div class="pp-line">{% if ns.east_win %}{{ teamchip(ns.east_win) }}{% else %}<span class="muted">—</span>{% endif %}</div>
-              <div class="pp-title" style="margin-top:10px;">Wild Card</div>
-              <div class="pp-line"><span class="muted">—</span></div>
-            </td>
+            <td class="small muted" style="font-weight:800;">{{ leader_label }}</td>
+            <td style="white-space:nowrap;">{% if ns.east_win %}{{ teamchip(ns.east_win) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td style="white-space:nowrap;">{% if ns.central_win %}{{ teamchip(ns.central_win) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td style="white-space:nowrap;">{% if ns.west_win %}{{ teamchip(ns.west_win) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td><span class="muted">—</span></td>
+          </tr>
 
-            {# C #}
-            <td class="pp-cell">
-              <div class="pp-title">{{ "Division Leaders" if is_current_season else "Division Winners" }}</div>
-              <div class="pp-line">{% if ns.central_win %}{{ teamchip(ns.central_win) }}{% else %}<span class="muted">—</span>{% endif %}</div>
-              <div class="pp-title" style="margin-top:10px;">Wild Card</div>
-              <div class="pp-line"><span class="muted">—</span></div>
-            </td>
-
-            {# W #}
-            <td class="pp-cell">
-              <div class="pp-title">{{ "Division Leaders" if is_current_season else "Division Winners" }}</div>
-              <div class="pp-line">{% if ns.west_win %}{{ teamchip(ns.west_win) }}{% else %}<span class="muted">—</span>{% endif %}</div>
-              <div class="pp-title" style="margin-top:10px;">Wild Card</div>
-              <div class="pp-line"><span class="muted">—</span></div>
-            </td>
-
-            {# WC (only WC teams, not winners) #}
-            <td class="pp-cell">
-              <div class="pp-title">{{ "Division Leaders" if is_current_season else "Division Winners" }}</div>
-              <div class="pp-line">
+          <tr>
+            <td class="small muted" style="font-weight:800;">Wild Card</td>
+            <td><span class="muted">—</span></td>
+            <td><span class="muted">—</span></td>
+            <td><span class="muted">—</span></td>
+            <td>
+              {% if ns.wc_list|length == 0 %}
+                <span class="muted">—</span>
+              {% else %}
                 <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-                  {% if ns.east_win %}{{ teamchip(ns.east_win) }}{% endif %}
-                  {% if ns.central_win %}{{ teamchip(ns.central_win) }}{% endif %}
-                  {% if ns.west_win %}{{ teamchip(ns.west_win) }}{% endif %}
-                  {% if not ns.east_win and not ns.central_win and not ns.west_win %}
-                    <span class="muted">—</span>
-                  {% endif %}
+                  {% for t in ns.wc_list %}
+                    {{ teamchip(t) }}
+                  {% endfor %}
                 </div>
-              </div>
-
-              <div class="pp-title" style="margin-top:10px;">Wild Card</div>
-              <div class="pp-line">
-                {% if ns.wc_list|length == 0 %}
-                  <span class="muted">—</span>
-                {% else %}
-                  <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-                    {% for t in ns.wc_list %}
-                      {{ teamchip(t) }}
-                    {% endfor %}
-                  </div>
-                {% endif %}
-              </div>
+              {% endif %}
             </td>
-
           </tr>
         </tbody>
       </table>
@@ -230,7 +188,6 @@
     <div class="card-header">
       <div>
         <div class="card-title">American League</div>
-        <div class="card-subtitle">Divisions</div>
       </div>
     </div>
 
@@ -238,7 +195,9 @@
 
     {% for d in al_divs %}
       <div class="subcard">
-        <div class="subcard-title">{{ d.name }}</div>
+        <div class="subcard-title">
+          {{ d.name|replace("American League", "AL")|replace("National League", "NL") }}
+        </div>
         <div class="table-wrap">
           <table class="table">
             <thead>
@@ -290,7 +249,6 @@
     <div class="card-header">
       <div>
         <div class="card-title">National League</div>
-        <div class="card-subtitle">Divisions</div>
       </div>
     </div>
 
@@ -298,7 +256,9 @@
 
     {% for d in nl_divs %}
       <div class="subcard">
-        <div class="subcard-title">{{ d.name }}</div>
+        <div class="subcard-title">
+          {{ d.name|replace("American League", "AL")|replace("National League", "NL") }}
+        </div>
         <div class="table-wrap">
           <table class="table">
             <thead>
