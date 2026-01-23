@@ -223,117 +223,35 @@ def article(slug):
         return render_template("article.html", title="Not Found", article=None), 404
     return render_template("article.html", title=a["title"], article=a)
 
+from datetime import datetime
+from flask import request, render_template
+from services.db import get_standings_from_db
+
 @app.get("/standings")
 def standings():
-    # Build season dropdown first so it's available even on errors
     now = datetime.utcnow()
     current_year = now.year
     default_season = current_year if now.month >= 3 else current_year - 1
-    seasons = list(range(current_year, current_year - 6, -1))
 
-    season = request.args.get("season", default=default_season, type=int)
+    season = int(request.args.get("season", default_season))
 
-    def fetch_records(season_year: int):
-        data = get_standings(season_year)
-        err = data.get("error")
-        if err:
-            raise Exception(err)
+    rows = get_standings_from_db(season)
 
-
-        # If get_standings ever returns a Response-like object, try to json() it
-        if hasattr(data, "json") and not isinstance(data, dict):
-            data = data.json()
-
-        if not isinstance(data, dict):
-            return []
-
-        return data.get("records", []) or []
-
-    try:
-        records = fetch_records(season)
-
-        # If empty (common early year), fall back to previous season
-        if not records:
-            prev = fetch_records(season - 1)
-            if prev:
-                records = prev
-                season = season - 1
-
-    except Exception as e:
+    # If nothing in DB yet, show a helpful message instead of a blank page
+    if not rows:
         return render_template(
             "standings.html",
             title="Standings",
             season=season,
-            seasons=seasons,
-            al_divs=[],
-            nl_divs=[],
-            error=str(e),
+            rows=[],
+            error=f"No standings found in database for {season}. Run update_standings.py first."
         )
-
-    divisions = []
-
-    for rec in records:
-        league = (rec.get("league") or {}).get("name", "")
-        division = (rec.get("division") or {}).get("name", "")
-
-        # Fallback mapping if IDs are returned
-        if isinstance(league, int):
-            league = "American League" if league == 103 else "National League" if league == 104 else str(league)
-
-        if isinstance(division, int):
-            div_map = {
-                201: "American League West",
-                202: "American League East",
-                203: "American League Central",
-                204: "National League West",
-                205: "National League East",
-                206: "National League Central",
-            }
-            division = div_map.get(division, str(division))
-
-        div_name = division or "Unknown Division"
-
-        teams = []
-        for tr in rec.get("teamRecords", []):
-            team = tr.get("team", {})
-            team_id = team.get("id")
-
-            teams.append({
-                "team_id": team_id,
-                "abbrev": team.get("abbreviation"),
-                "w": tr.get("wins"),
-                "l": tr.get("losses"),
-                "pct": tr.get("pct"),
-                "gb": tr.get("gamesBack"),
-                "streak": (tr.get("streak") or {}).get("streakCode"),
-                "run_diff": tr.get("runDifferential"),
-                "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None,
-            })
-
-        teams.sort(key=lambda x: (-(x["w"] or 0), (x["l"] or 0)))
-
-        divisions.append({
-            "name": div_name,
-            "league": league,
-            "teams": teams
-        })
-
-    # Split AFTER the loop (important)
-    al_divs = [d for d in divisions if "American League" in d["name"] or d["league"] == "American League"]
-    nl_divs = [d for d in divisions if "National League" in d["name"] or d["league"] == "National League"]
-
-    print("DEBUG divisions:", len(divisions), "AL:", len(al_divs), "NL:", len(nl_divs))
-    if divisions:
-        print("DEBUG first division:", divisions[0]["league"], divisions[0]["name"], "teams:", len(divisions[0]["teams"]))
 
     return render_template(
         "standings.html",
         title="Standings",
         season=season,
-        seasons=seasons,
-        al_divs=al_divs,
-        nl_divs=nl_divs,
-        error=None,
+        rows=rows
     )
 
 
