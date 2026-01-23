@@ -38,6 +38,138 @@
 </div>
 
 <style>
+  /* --------------------- */
+  /* Playoff Picture (true bracket) */
+  /* --------------------- */
+  .bracket-wrap{ margin-top:14px; }
+  .bracket-scroll{ overflow-x:auto; padding-bottom:6px; }
+  .bracket{
+    min-width: 980px; /* lets mobile scroll instead of crushing */
+    display:grid;
+    grid-template-columns: 1.15fr 1.15fr 1.15fr 1.05fr 1.15fr 1.15fr 1.15fr;
+    gap:14px;
+    align-items:start;
+  }
+  
+  .bracket-col{
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius:14px;
+    padding:10px;
+    min-width:0;
+    position:relative;
+  }
+  .bracket-col.center{
+    background: rgba(255,255,255,0.03);
+    border-color: rgba(255,255,255,0.10);
+  }
+  
+  .bracket-title{
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:0.3px;
+    opacity:0.8;
+    padding:0 2px 10px 2px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+    margin-bottom:12px;
+    text-align:center;
+    text-transform:uppercase;
+  }
+  
+  /* series cards */
+  .series-card{
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius:14px;
+    padding:8px;
+    margin-bottom:14px;
+    position:relative;
+  }
+  .series-card:last-child{ margin-bottom:0; }
+  
+  /* team rows */
+  .team-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:6px 6px;
+    border-radius:10px;
+  }
+  .team-row.win{
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .team-left{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    min-width:0;
+  }
+  .seedpill{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:18px;
+    height:18px;
+    padding:0 6px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:900;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: rgba(255,255,255,0.85);
+    flex:0 0 auto;
+  }
+  .bracket-logo{ height:18px; width:auto; display:block; flex:0 0 auto; }
+  .abbrlink{ text-decoration:none; font-weight:900; white-space:nowrap; }
+  .winsbox{ font-weight:900; min-width:18px; text-align:right; opacity:0.9; }
+  
+  /* winner line under matchup */
+  .series-winnerline{
+    margin-top:8px;
+    font-size:12px;
+    font-weight:900;
+    opacity:0.85;
+    text-align:center;
+  }
+  
+  /* champion label */
+  .champ-label{
+    margin-top:10px;
+    font-size:11px;
+    font-weight:900;
+    opacity:0.9;
+    text-align:center;
+    text-transform:uppercase;
+    letter-spacing:0.3px;
+  }
+  
+  /* spacing to mimic bracket vertical rhythm */
+  .spacer-sm{ height:22px; }
+  .spacer-md{ height:46px; }
+  .spacer-lg{ height:92px; }
+  
+  /* simple connector lines (clean + theme-aligned) */
+  .series-card.to-right::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    right:-14px;
+    width:14px;
+    height:0;
+    border-top:2px solid rgba(255,255,255,0.16);
+  }
+  .series-card.to-left::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    left:-14px;
+    width:14px;
+    height:0;
+    border-top:2px solid rgba(255,255,255,0.16);
+  }
+
   .pctcell{
     border-radius:8px;
     padding:4px 8px;
@@ -343,34 +475,29 @@
   </div>
 {% endmacro %}
 
-{% macro series_card(series) %}
-  <div class="series-card">
-    <div class="series-meta">
-      <span>{{ series.round_name }}</span>
-      {% if series.best_of %}<span>Best of {{ series.best_of }}</span>{% endif %}
-    </div>
-
-    {% for tm in series.teams %}
-      <div class="team-row {% if tm.is_winner %}win{% endif %}">
-        <div class="team-left">
-          {% if tm.seed is not none %}
-            <span class="seedpill">{{ tm.seed }}</span>
-          {% else %}
-            <span class="seedpill" style="opacity:0.35;">—</span>
-          {% endif %}
-
-          {% if tm.logo_url %}
-            <img class="bracket-logo" src="{{ tm.logo_url }}" alt="{{ tm.abbrev }} logo">
-          {% endif %}
-
-          <a class="abbrlink" href="/team/{{ tm.team_id }}">{{ tm.abbrev }}</a>
+{% macro series_card(series, connector_class="") %}
+  {% if series %}
+    <div class="series-card {{ connector_class }}">
+      {% for tm in series.teams %}
+        <div class="team-row {% if tm.is_winner %}win{% endif %}">
+          <div class="team-left">
+            <span class="seedpill">{{ tm.seed if tm.seed is not none else "—" }}</span>
+            {% if tm.logo_url %}
+              <img class="bracket-logo" src="{{ tm.logo_url }}" alt="{{ tm.abbrev }} logo">
+            {% endif %}
+            <a class="abbrlink" href="/team/{{ tm.team_id }}">{{ tm.abbrev }}</a>
+          </div>
+          <div class="winsbox">{{ tm.wins }}</div>
         </div>
+      {% endfor %}
 
-        <div class="winsbox">{{ tm.wins }}</div>
-      </div>
-    {% endfor %}
-  </div>
+      {% if series.winner_text %}
+        <div class="series-winnerline">{{ series.winner_text }}</div>
+      {% endif %}
+    </div>
+  {% endif %}
 {% endmacro %}
+
 
 {% if (view or 'division') == 'playoffs' %}
   <div class="card bracket-wrap">
@@ -379,62 +506,72 @@
     </div>
 
     <div class="card-body" style="padding-top:12px;">
-      <div class="bracket-grid">
-        <!-- AL side -->
-        <div class="bracket-col">
-          <div class="bracket-title">Wild Card</div>
-          {% for s in playoff_picture.AL.F %}
-            {{ series_card(s) }}
-          {% endfor %}
-        </div>
+      <div class="bracket-scroll">
+        <div class="bracket">
 
-        <div class="bracket-col">
-          <div class="bracket-title">ALDS</div>
-          {% for s in playoff_picture.AL.D %}
-            {{ series_card(s) }}
-          {% endfor %}
-        </div>
+          <!-- AL Wild Card -->
+          <div class="bracket-col">
+            <div class="bracket-title">Wild Card</div>
+            {{ series_card(playoff_picture.AL.wc_top, "to-right") }}
+            {{ series_card(playoff_picture.AL.wc_bot, "to-right") }}
+          </div>
 
-        <div class="bracket-col">
-          <div class="bracket-title">ALCS</div>
-          {% for s in playoff_picture.AL.L %}
-            {{ series_card(s) }}
-          {% endfor %}
-        </div>
+          <!-- ALDS -->
+          <div class="bracket-col">
+            <div class="bracket-title">ALDS</div>
+            {{ series_card(playoff_picture.AL.ds_top, "to-right") }}
+            {{ series_card(playoff_picture.AL.ds_bot, "to-right") }}
+          </div>
 
-        <!-- World Series center -->
-        <div class="bracket-col center">
-          <div class="bracket-title">World Series</div>
-          {% for s in playoff_picture.WS.W %}
-            {{ series_card(s) }}
-          {% endfor %}
-        </div>
+          <!-- ALCS -->
+          <div class="bracket-col">
+            <div class="bracket-title">ALCS</div>
+            <div class="spacer-md"></div>
+            {{ series_card(playoff_picture.AL.cs, "to-right") }}
+          </div>
 
-        <!-- NL side -->
-        <div class="bracket-col">
-          <div class="bracket-title">NLCS</div>
-          {% for s in playoff_picture.NL.L %}
-            {{ series_card(s) }}
-          {% endfor %}
-        </div>
+          <!-- World Series (center) -->
+          <div class="bracket-col center">
+            <div class="bracket-title">World Series</div>
+            <div class="spacer-lg"></div>
+            {{ series_card(playoff_picture.WS.ws, "") }}
 
-        <div class="bracket-col">
-          <div class="bracket-title">NLDS</div>
-          {% for s in playoff_picture.NL.D %}
-            {{ series_card(s) }}
-          {% endfor %}
-        </div>
+            {% if playoff_picture.WS.champion %}
+              <div class="champ-label">World Series Champion</div>
+              <div style="display:flex; justify-content:center; gap:10px; align-items:center; margin-top:10px;">
+                {% if playoff_picture.WS.champion.logo_url %}
+                  <img class="bracket-logo" src="{{ playoff_picture.WS.champion.logo_url }}" alt="{{ playoff_picture.WS.champion.abbrev }} logo" style="height:22px;">
+                {% endif %}
+                <div style="font-weight:1000; font-size:18px;">{{ playoff_picture.WS.champion.abbrev }}</div>
+              </div>
+            {% endif %}
+          </div>
 
-        <div class="bracket-col">
-          <div class="bracket-title">Wild Card</div>
-          {% for s in playoff_picture.NL.F %}
-            {{ series_card(s) }}
-          {% endfor %}
+          <!-- NLCS -->
+          <div class="bracket-col">
+            <div class="bracket-title">NLCS</div>
+            <div class="spacer-md"></div>
+            {{ series_card(playoff_picture.NL.cs, "to-left") }}
+          </div>
+
+          <!-- NLDS -->
+          <div class="bracket-col">
+            <div class="bracket-title">NLDS</div>
+            {{ series_card(playoff_picture.NL.ds_top, "to-left") }}
+            {{ series_card(playoff_picture.NL.ds_bot, "to-left") }}
+          </div>
+
+          <!-- NL Wild Card -->
+          <div class="bracket-col">
+            <div class="bracket-title">Wild Card</div>
+            {{ series_card(playoff_picture.NL.wc_top, "to-left") }}
+            {{ series_card(playoff_picture.NL.wc_bot, "to-left") }}
+          </div>
+
         </div>
       </div>
     </div>
   </div>
-
 {% else %}
 
 <div class="grid-2">
