@@ -61,7 +61,7 @@ def extract_year_by_year_rows(player: dict):
         for s in splits:
             stat = s.get("stat") or {}
             season = s.get("season")  # "2019"
-            team = (s.get("team") or {}).get("name") or ""
+            team = (s.get("team") or {}).get("abbreviation") or ""
             league = (s.get("league") or {}).get("name") or ""
             sport = (s.get("sport") or {}).get("name") or ""
 
