@@ -31,23 +31,38 @@ from services.mlb_api import (
 from services.mlb_api import extract_year_by_year_rows
 
 @app.get("/random-player")
-def random_player():
+def random_player_landing():
+    # Just render the page with no player yet
+    return render_template(
+        "random_player.html",
+        player=None,
+        yby=None,
+        headshot_url=None,
+        title="Random Player • Basenerd"
+    )
+
+
+@app.get("/random-player/play")
+def random_player_play():
     for _ in range(15):
         pid = get_random_player_id("players_index.json")
         try:
             player = get_player_full(pid)
             headshot_url = get_player_headshot_url(pid, size=420)
             yby = extract_year_by_year_rows(player)
+
             return render_template(
                 "random_player.html",
                 player=player,
                 headshot_url=headshot_url,
                 yby=yby,
-                title="Random Player • Basenerd",
+                title="Random Player • Basenerd"
             )
         except Exception:
             continue
-    return "Could not fetch a random player right now. Try again.", 500
+
+    return "Could not fetch a random player right now.", 500
+
 
 
 
