@@ -205,17 +205,24 @@ def build_accolade_pills(awards: list[dict]):
         elif "silver slugger" in n:
             counts["silver_slugger"] += 1
         elif ("all-star" in n or "all star" in n):
-            # Exclude non-MLB / noisy variants
+            # Only count MLB All-Star (AL/NL). MiLB all-stars create false positives (e.g., Tim Locastro).
+            league_id = ((a.get("league") or {}).get("id")) or a.get("leagueId")
+            sport_id  = ((a.get("sport") or {}).get("id")) or a.get("sportId")
+        
+            # MLB leagues: AL=103, NL=104. MLB sportId is 1.
+            is_mlb_context = (league_id in (103, 104)) or (sport_id == 1)
+        
+            # Exclude known noisy variants even if context is missing
             bad = [
                 "milb", "minor", "triple-a", "triple a", "double-a", "double a",
                 "single-a", "single a", "high-a", "high a", "low-a", "low a",
-                "futures", "rookie", "prospects", "all-star team"
+                "international league", "pacific coast league", "texas league",
+                "southern league", "eastern league", "midwest league", "futures",
+                "rookie", "prospects", "all-star team", "all-star rookie"
             ]
-            if not any(b in n for b in bad):
-                # Prefer "selection" style wording if present
-                good = ["selection", "game", "all-star"]
-                if any(g in n for g in good):
-                    counts["all_star"] += 1
+        
+            if is_mlb_context and not any(b in n for b in bad):
+                counts["all_star"] += 1
         elif "batting title" in n or "batting champion" in n:
             counts["batting_champ"] += 1
         elif "world series" in n and "champ" in n:
