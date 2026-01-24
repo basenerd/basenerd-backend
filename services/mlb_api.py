@@ -44,6 +44,23 @@ def get_player_full(pid: int):
         raise ValueError("No player returned")
     return people[0]
 
+_TEAM_ABBREV_CACHE = {}
+
+def get_team_abbrev(team_id: int):
+    if not team_id:
+        return ""
+    if team_id in _TEAM_ABBREV_CACHE:
+        return _TEAM_ABBREV_CACHE[team_id]
+
+    url = f"{BASE}/teams/{team_id}"
+    r = requests.get(url, timeout=10)
+    r.raise_for_status()
+    data = r.json()
+    team = (data.get("teams") or [{}])[0]
+    abbrev = team.get("abbreviation") or ""
+    _TEAM_ABBREV_CACHE[team_id] = abbrev
+    return abbrev
+
 def get_player_career_totals(pid: int, kind: str):
     """
     Pull true career totals from StatsAPI (separate endpoint),
@@ -230,7 +247,8 @@ def extract_year_by_year_rows(player: dict):
             stat = s.get("stat") or {}
             season = s.get("season")  # "2019"
             team_obj = s.get("team") or {}
-            team = team_obj.get("name") or ""
+            team_id = team_obj.get("id")
+            team = get_team_abbrev(team_id)  # ← abbreviated version
             league = (s.get("league") or {}).get("name") or ""
             sport = (s.get("sport") or {}).get("name") or ""
 
@@ -243,7 +261,8 @@ def extract_year_by_year_rows(player: dict):
                 "year": season,
                 "team": team,
                 "league": league,
-                "stat": stat
+                "stat": stat,
+                "team_id": team_id
             }
             rows.append(base)
 
