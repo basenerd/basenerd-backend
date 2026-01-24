@@ -19,6 +19,14 @@ def about():
         return "About page not found", 404
     return render_template("page.html", title=page["title"], page=page)
 
+from services.mlb_api import get_random_player_id, get_player_full
+
+@app.get("/random-player")
+def random_player():
+    pid = get_random_player_id()
+    player = get_player_full(pid)
+    return render_template("random_player.html", player=player)
+
 @app.get("/")
 def home():
     return render_template("home.html", title="Basenerd")
