@@ -142,8 +142,8 @@ def group_year_by_year(rows: list[dict], kind: str):
 
         groups.append({"year": year, "total": total_row, "parts": parts})
 
-    # sort years descending (newest first)
-    groups.sort(key=lambda g: g["year"], reverse=True)
+    # sort years ascending
+    groups.sort(key=lambda g: g["year"])
     return groups
 
 
