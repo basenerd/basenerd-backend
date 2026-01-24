@@ -3,7 +3,6 @@ from typing import Any, Dict, Optional
 from datetime import datetime
 import requests
 import random
-import psycopg2
 import os
 import requests
 
