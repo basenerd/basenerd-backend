@@ -44,6 +44,174 @@ def get_player_full(pid: int):
         raise ValueError("No player returned")
     return people[0]
 
+def get_player_career_totals(pid: int, kind: str):
+    """
+    Pull true career totals from StatsAPI (separate endpoint),
+    instead of summing year-by-year rows.
+    kind: "hitting" or "pitching"
+    Returns stat dict or None.
+    """
+    if kind not in ("hitting", "pitching"):
+        return None
+
+    cache_key = f"player_career_totals:{pid}:{kind}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{BASE}/people/{pid}/stats"
+    params = {
+        "stats": "career",
+        "group": kind,
+    }
+
+    r = requests.get(url, params=params, timeout=20)
+    r.raise_for_status()
+    data = r.json() or {}
+    stats = data.get("stats", []) or []
+
+    # Expected shape: stats[0].splits[0].stat
+    out = None
+    if stats and (stats[0].get("splits") or []):
+        out = (stats[0]["splits"][0].get("stat") or None)
+
+    _set_cached(cache_key, out)
+    return out
+
+
+def get_player_awards(pid: int):
+    """
+    Pull awards for accolade pills.
+    """
+    cache_key = f"player_awards:{pid}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{BASE}/people/{pid}/awards"
+    r = requests.get(url, timeout=20)
+    r.raise_for_status()
+    data = r.json() or {}
+    awards = data.get("awards", []) or []
+
+    _set_cached(cache_key, awards)
+    return awards
+
+
+def group_year_by_year(rows: list[dict], kind: str):
+    """
+    Takes your extract_year_by_year_rows output and returns a structure
+    that supports:
+      - one visible row per year (the blank-team 'total' row becomes team='Total')
+      - expandable child rows for team splits in that year
+    Output:
+      [
+        {"year": "2025", "total": row_or_None, "parts": [rows...]},
+        ...
+      ]
+    """
+    # filter kind
+    krows = [r for r in (rows or []) if r.get("kind") == kind]
+
+    # group by season/year
+    by_year = {}
+    for r in krows:
+        year = str(r.get("year") or "")
+        if not year:
+            continue
+        by_year.setdefault(year, []).append(r)
+
+    groups = []
+    for year, yr_rows in by_year.items():
+        # "total row" is the one with blank team (multi-team totals)
+        total_row = next((x for x in yr_rows if not (x.get("team") or "").strip()), None)
+        parts = [x for x in yr_rows if (x.get("team") or "").strip()]
+
+        if total_row:
+            total_row = dict(total_row)
+            total_row["team"] = "Total"
+        else:
+            # If there’s only one team row, use it as the visible row, no expand.
+            # If there are multiple team rows and no total row (rare), we still show first as "Total".
+            if len(parts) == 1:
+                total_row = parts[0]
+                parts = []
+            elif len(parts) > 1:
+                total_row = dict(parts[0])
+                total_row["team"] = "Total"
+
+        groups.append({"year": year, "total": total_row, "parts": parts})
+
+    # sort years descending (newest first)
+    groups.sort(key=lambda g: g["year"], reverse=True)
+    return groups
+
+
+def build_accolade_pills(awards: list[dict]):
+    """
+    Convert StatsAPI awards objects into simple pills.
+    Keep this mapping basic for now; we can refine as you like.
+    Returns list of {"key": "...", "label": "..."}.
+    """
+    if not awards:
+        return []
+
+    # Count occurrences
+    counts = {
+        "mvp": 0,
+        "cy_young": 0,
+        "roy": 0,
+        "gold_glove": 0,
+        "silver_slugger": 0,
+        "all_star": 0,
+        "batting_champ": 0,
+        "ws_champ": 0,
+        "hof": 0,
+    }
+
+    def _name(a):
+        return (a.get("name") or "").strip()
+
+    for a in awards:
+        n = _name(a).lower()
+        if not n:
+            continue
+
+        if "most valuable player" in n or n == "mvp":
+            counts["mvp"] += 1
+        elif "cy young" in n:
+            counts["cy_young"] += 1
+        elif "rookie of the year" in n:
+            counts["roy"] += 1
+        elif "gold glove" in n:
+            counts["gold_glove"] += 1
+        elif "silver slugger" in n:
+            counts["silver_slugger"] += 1
+        elif "all-star" in n or "all star" in n:
+            counts["all_star"] += 1
+        elif "batting title" in n or "batting champion" in n:
+            counts["batting_champ"] += 1
+        elif "world series" in n and "champ" in n:
+            counts["ws_champ"] += 1
+        elif "hall of fame" in n:
+            counts["hof"] += 1
+
+    def _label(base, c):
+        return f"{base}×{c}" if c > 1 else base
+
+    pills = []
+    if counts["mvp"]: pills.append({"key": "mvp", "label": _label("MVP", counts["mvp"])})
+    if counts["cy_young"]: pills.append({"key": "cyyoung", "label": _label("Cy Young", counts["cy_young"])})
+    if counts["roy"]: pills.append({"key": "roy", "label": _label("ROY", counts["roy"])})
+    if counts["gold_glove"]: pills.append({"key": "goldglove", "label": _label("Gold Glove", counts["gold_glove"])})
+    if counts["silver_slugger"]: pills.append({"key": "silverslugger", "label": _label("Silver Slugger", counts["silver_slugger"])})
+    if counts["all_star"]: pills.append({"key": "allstar", "label": _label("All-Star", counts["all_star"])})
+    if counts["batting_champ"]: pills.append({"key": "battingchamp", "label": _label("Batting Champ", counts["batting_champ"])})
+    if counts["ws_champ"]: pills.append({"key": "wschamp", "label": _label("WS Champ", counts["ws_champ"])})
+    if counts["hof"]: pills.append({"key": "hof", "label": _label("HOF", counts["hof"])})
+
+    return pills
+
 def extract_year_by_year_rows(player: dict):
     rows = []
     stats = player.get("stats", [])
