@@ -28,30 +28,27 @@ from services.mlb_api import (
     extract_career_statline,
 )
 
+from services.mlb_api import extract_year_by_year_rows
+
 @app.get("/random-player")
 def random_player():
-    # reroll a few times to avoid rare "empty profile" edge cases
-    last_err = None
     for _ in range(15):
         pid = get_random_player_id("players_index.json")
         try:
             player = get_player_full(pid)
-            kind, statline = extract_career_statline(player)
             headshot_url = get_player_headshot_url(pid, size=420)
+            yby = extract_year_by_year_rows(player)
             return render_template(
                 "random_player.html",
                 player=player,
-                kind=kind,
-                statline=statline,
                 headshot_url=headshot_url,
+                yby=yby,
                 title="Random Player • Basenerd",
             )
-        except Exception as e:
-            last_err = e
+        except Exception:
             continue
+    return "Could not fetch a random player right now. Try again.", 500
 
-    # If everything failed, show something readable
-    return f"Random player generator failed: {last_err}", 500
 
 
 @app.get("/")
