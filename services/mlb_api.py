@@ -2,13 +2,32 @@ import time
 from typing import Any, Dict, Optional
 from datetime import datetime
 import requests
-
+import random
+import psycopg2
+import os
+import requests
 
 BASE = "https://statsapi.mlb.com/api/v1"
 
 # Simple in-memory cache so we don’t spam the API
 _cache: Dict[str, Dict[str, Any]] = {}
 CACHE_TTL_SECONDS = 60 * 5  # 5 minutes
+
+
+
+def get_random_player_id():
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM players_index ORDER BY RANDOM() LIMIT 1;")
+    pid = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    return pid
+
+
+def get_player_full(pid):
+    url = f"https://statsapi.mlb.com/api/v1/people/{pid}?hydrate=stats(group=[hitting,pitching],type=[career])"
+    return requests.get(url).json()["people"][0]
 
 def get_player(player_id: int):
     """
