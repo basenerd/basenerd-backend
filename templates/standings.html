@@ -142,7 +142,7 @@
   .bracket-wrap{ margin-top:14px; }
   .bracket-scroll{ overflow-x:auto; padding-bottom:6px; }
   .bracket{
-    min-width: 980px; /* lets mobile scroll instead of crushing */
+    min-width: 1100px; /* lets mobile scroll instead of crushing */
     display:grid;
     grid-template-columns: 1.15fr 1.15fr 1.15fr 1.05fr 1.15fr 1.15fr 1.15fr;
     gap:14px;
@@ -228,11 +228,14 @@
   
   .abbrlink{
     white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    min-width:0;
+    overflow:visible;
+    text-overflow:clip;
   }
   
+  .bracket-logo{
+    flex: 0 0 auto;
+  }
+
   /* Wins always sits on the right, fixed width */
   .winsbox{
     width:22px;
@@ -411,7 +414,7 @@
     border: 1px solid rgba(255,255,255,0.06);
     border-radius:14px;
     padding:10px;
-    min-width:0;
+    min-width:150px;
   }
   .bracket-title{
     font-size:11px;
