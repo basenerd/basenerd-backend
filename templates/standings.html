@@ -154,151 +154,161 @@
   }
 
   /* --------------------- */
-  /* Playoff Picture bracket */
-  /* --------------------- */
-  .bracket-wrap{ margin-top:14px; }
-  .bracket-scroll{ overflow-x:hidden; padding-bottom:0; }
-  .bracket{
-    display:grid;
-    grid-template-columns: 1.12fr 1.12fr 1.08fr 1.00fr 1.08fr 1.12fr 1.12fr;
-    gap:10px;
-    align-items:start;
-  }
+/* Playoff Picture bracket */
+/* --------------------- */
 
-  .bracket-col{
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius:14px;
-    padding:80px;
-    min-width: 0; /* prevents squeeze/cutoff */
-    position:relative;
-  }
-  .bracket-col.center{
-    background: rgba(255,255,255,0.03);
-    border-color: rgba(255,255,255,0.10);
-  }
+.bracket-wrap{ margin-top:14px; }
 
-  .bracket-title{
-    font-size:11px;
-    font-weight:900;
-    letter-spacing:0.3px;
-    opacity:0.8;
-    padding:0 2px 10px 2px;
-    border-bottom:1px solid rgba(255,255,255,0.08);
-    margin-bottom:12px;
-    text-align:center;
-    text-transform:uppercase;
-  }
+/* IMPORTANT: don't force a scroll container; let the grid reflow */
+.bracket-scroll{ overflow: hidden; padding-bottom:0; }
 
-  .series-card{
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius:14px;
-    padding:8px;
-    margin-bottom:14px;
-    position:relative;
-  }
-  .series-card:last-child{ margin-bottom:0; }
+/* Base: 7 columns on wide screens */
+.bracket{
+  display:grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap:12px;
+  align-items:start;
+}
 
-  /* Fix overlap: true 2-column layout (team | wins) */
-  .team-row{
-    display:grid;
-    grid-template-columns: 1fr 26px;
-    align-items:center;
-    column-gap:10px;
-    padding:6px 6px;
-    border-radius:10px;
-  }
-  .team-row.win{
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.08);
-  }
+/* Make columns a little tighter */
+.bracket-col{
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius:14px;
+  padding:8px;
+  min-width:0;              /* allow shrinking */
+  position:relative;
+}
 
-  .team-left{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    min-width:0;      /* key: keep wins column safe */
-    overflow:visible; /* don't clip logo/text */
-  }
+.bracket-col.center{
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.10);
+}
 
-  .seedpill{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    min-width:18px;
-    height:18px;
-    padding:0 6px;
-    border-radius:999px;
-    font-size:11px;
-    font-weight:900;
-    background: rgba(255,255,255,0.10);
-    border: 1px solid rgba(255,255,255,0.14);
-    color: rgba(255,255,255,0.85);
-    flex:0 0 auto;
-    opacity:0.95;
-    font-variant-numeric: tabular-nums;
-  }
+.bracket-title{
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:0.3px;
+  opacity:0.8;
+  padding:0 2px 10px 2px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  margin-bottom:10px;
+  text-align:center;
+  text-transform:uppercase;
+}
 
-  .bracket-logo{
-    height:18px;
-    width:auto;
-    display:block;
-    flex:0 0 auto; /* never shrink */
-  }
+/* Cards */
+.series-card{
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius:14px;
+  padding:8px;
+  margin-bottom:12px;
+  position:relative;
+}
+.series-card:last-child{ margin-bottom:0; }
 
-  .abbrlink{
-    text-decoration:none;
-    font-weight:900;
-    white-space:nowrap;
-    overflow:visible;
-    text-overflow:clip;
-  }
+/* Team row: fixed 2-col layout prevents overlap */
+.team-row{
+  display:grid;
+  grid-template-columns: 1fr 26px;
+  align-items:center;
+  column-gap:10px;
+  padding:6px 6px;
+  border-radius:10px;
+}
+.team-row.win{
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+}
 
-  .winsbox{
-    width:26px;
-    text-align:right;
-    font-weight:900;
-    justify-self:end;
-    opacity:0.9;
-  }
+.team-left{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;              /* lets the 1fr column behave */
+}
 
-  .series-winnerline{
-    margin-top:8px;
-    font-size:12px;
-    font-weight:900;
-    opacity:0.85;
-    text-align:center;
-  }
+.seedpill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:18px;
+  height:18px;
+  padding:0 6px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:900;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.85);
+  flex:0 0 auto;
+  opacity:0.95;
+  font-variant-numeric: tabular-nums;
+}
 
-  .champ-label{
-    margin-top:10px;
-    font-size:11px;
-    font-weight:900;
-    opacity:0.9;
-    text-align:center;
-    text-transform:uppercase;
-    letter-spacing:0.3px;
-  }
+.bracket-logo{
+  height:18px;
+  width:auto;
+  display:block;
+  flex:0 0 auto;
+}
 
-  .spacer-md{ height:46px; }
-  .spacer-lg{ height:92px; }
+.abbrlink{
+  text-decoration:none;
+  font-weight:900;
+  white-space:nowrap;
+  overflow:visible;
+}
 
-  /* Elbow connectors */
+.winsbox{
+  width:26px;
+  text-align:right;
+  font-weight:900;
+  justify-self:end;
+  opacity:0.9;
+}
+
+.series-winnerline{
+  margin-top:8px;
+  font-size:12px;
+  font-weight:900;
+  opacity:0.85;
+  text-align:center;
+  white-space:nowrap; /* prevent weird wrapping */
+}
+
+.champ-label{
+  margin-top:10px;
+  font-size:11px;
+  font-weight:900;
+  opacity:0.9;
+  text-align:center;
+  text-transform:uppercase;
+  letter-spacing:0.3px;
+}
+
+.spacer-md{ height:40px; }
+.spacer-lg{ height:78px; }
+
+/* --------------------- */
+/* Bracket connectors (only show on wide screens where 7-col layout is used) */
+/* --------------------- */
+@media (min-width: 1100px){
   .series-pair{
     position:relative;
     display:flex;
     flex-direction:column;
-    gap:14px;
-    padding-right:18px; /* space for right connectors */
+    gap:12px;
+    padding-right:14px;
   }
 
   .series-pair.connect-right::after{
     content:"";
     position:absolute;
     top:50%;
-    right:-14px;
-    width:14px;
+    right:-10px;
+    width:10px;
     border-top:2px solid rgba(255,255,255,0.18);
   }
   .series-pair.connect-right::before{
@@ -314,21 +324,25 @@
     content:"";
     position:absolute;
     top:50%;
-    right:-18px;
-    width:18px;
+    right:-14px;
+    width:14px;
     border-top:2px solid rgba(255,255,255,0.18);
   }
 
   .series-pair.connect-left{
     padding-right:0;
-    padding-left:18px;
+    padding-left:14px;
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
   }
   .series-pair.connect-left::after{
     content:"";
     position:absolute;
     top:50%;
-    left:-14px;
-    width:14px;
+    left:-10px;
+    width:10px;
     border-top:2px solid rgba(255,255,255,0.18);
   }
   .series-pair.connect-left::before{
@@ -344,8 +358,8 @@
     content:"";
     position:absolute;
     top:50%;
-    left:-18px;
-    width:18px;
+    left:-14px;
+    width:14px;
     border-top:2px solid rgba(255,255,255,0.18);
   }
 
@@ -354,18 +368,52 @@
     content:"";
     position:absolute;
     top:50%;
-    right:-14px;
-    width:14px;
+    right:-10px;
+    width:10px;
     border-top:2px solid rgba(255,255,255,0.18);
   }
   .series-single.to-left::after{
     content:"";
     position:absolute;
     top:50%;
-    left:-14px;
-    width:14px;
+    left:-10px;
+    width:10px;
     border-top:2px solid rgba(255,255,255,0.18);
   }
+}
+
+/* --------------------- */
+/* Responsive reflow (NO horizontal scrollbar) */
+/* --------------------- */
+
+/* Medium screens: 4 columns (AL WC/DS/CS/WS) then 3 columns (NL CS/DS/WC) below */
+@media (max-width: 1099px){
+  .bracket{
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap:12px;
+  }
+
+  /* Hide connector lines when we’re not in true bracket columns */
+  .series-pair::before, .series-pair::after,
+  .series-card::after,
+  .series-single::after{ content:none !important; }
+
+  .bracket-col.center{
+    grid-column: 1 / -1;   /* WS spans full width */
+  }
+}
+
+/* Small screens: stack to 2 columns */
+@media (max-width: 760px){
+  .bracket{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap:10px;
+  }
+  .bracket-col.center{
+    grid-column: 1 / -1;
+  }
+}
+
 </style>
 
 {% macro teamchip(t) %}
