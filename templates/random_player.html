@@ -15,12 +15,31 @@
 
     {% if player %}
 
-      {% if headshot_url %}
-        <img src="{{ headshot_url }}"
+      <!-- Headshot w/ fallback placeholder -->
+      <div style="width:180px; margin:0 auto;">
+        <img id="playerHeadshot"
+             src="{{ headshot_url }}"
              alt="{{ player.fullName }} headshot"
-             style="width:180px; border-radius:14px;"
-             onerror="this.style.display='none';" />
-      {% endif %}
+             style="width:180px; border-radius:14px; display:block;" />
+
+        <div id="noPhotoFallback"
+             style="
+               display:none;
+               width:180px;
+               height:180px;
+               border-radius:14px;
+               background:#222;
+               color:#aaa;
+               font-weight:700;
+               font-size:14px;
+               align-items:center;
+               justify-content:center;
+               text-align:center;
+               padding:10px;
+             ">
+          No photo<br>available
+        </div>
+      </div>
 
       <div style="margin-top:10px; font-size:22px; font-weight:800;">
         {{ player.fullName }}
@@ -188,6 +207,17 @@
 </style>
 
 <script>
+  // Headshot fallback (only matters after a player is loaded)
+  const img = document.getElementById("playerHeadshot");
+  const fallback = document.getElementById("noPhotoFallback");
+  if (img && fallback) {
+    img.onerror = function() {
+      img.style.display = "none";
+      fallback.style.display = "flex";
+    };
+  }
+
+  // 2-second suspense before fetching next player
   const btn = document.getElementById("rollBtn");
   const overlay = document.getElementById("loadingOverlay");
 
