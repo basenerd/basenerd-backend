@@ -36,13 +36,52 @@ def get_random_player_id(path="players_index.json"):
 
 def get_player_full(pid: int):
     url = f"https://statsapi.mlb.com/api/v1/people/{pid}"
-    params = {"hydrate": "stats(group=[hitting,pitching],type=[career])"}
+    params = {"hydrate": "stats(group=[hitting,pitching],type=[yearByYear])"}
     r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
     people = r.json().get("people", [])
     if not people:
         raise ValueError("No player returned")
     return people[0]
+
+def extract_year_by_year_rows(player: dict):
+    rows = []
+    stats = player.get("stats", [])
+
+    for grp in stats:
+        group_name = (grp.get("group") or {}).get("displayName", "").lower()
+        splits = grp.get("splits") or []
+        if not splits:
+            continue
+
+        kind = "hitting" if "hitting" in group_name else ("pitching" if "pitching" in group_name else None)
+        if not kind:
+            continue
+
+        for s in splits:
+            stat = s.get("stat") or {}
+            season = s.get("season")  # "2019"
+            team = (s.get("team") or {}).get("name") or ""
+            league = (s.get("league") or {}).get("name") or ""
+            sport = (s.get("sport") or {}).get("name") or ""
+
+            # Skip non-MLB lines sometimes returned
+            if sport and "Major League Baseball" not in sport:
+                continue
+
+            base = {
+                "kind": kind,
+                "year": season,
+                "team": team,
+                "league": league,
+                "stat": stat
+            }
+            rows.append(base)
+
+    # Sort by year asc
+    rows.sort(key=lambda x: (x["kind"], x["year"] or "0", x["team"]))
+    return rows
+
 
 def get_player_headshot_url(pid: int, size=360):
     # MLB headshots usually exist here; some IDs won't have images
