@@ -109,8 +109,8 @@
             {% set s = r.stat %}
             <tr>
               <td>{{ r.year }}</td>
-              <td style="white-space:nowrap;">{{ r.team }}</td>
-              <td>{{ s.games or "—" }}</td>
+              <td style="min-width:220px;">{{ r.team }}</td>
+              <td>{{ s.gamesPlayed or "—" }}</td>
               <td>{{ s.plateAppearances or "—" }}</td>
               <td>{{ s.atBats or "—" }}</td>
               <td>{{ s.hits or "—" }}</td>
