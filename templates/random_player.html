@@ -8,51 +8,155 @@
   </div>
 
   <div style="padding:16px;">
-    <img src="{{ headshot_url }}"
-         alt="{{ player.fullName }} headshot"
-         style="width:180px; border-radius:14px;"
-         onerror="this.style.display='none';" />
+    {% if headshot_url %}
+      <img src="{{ headshot_url }}"
+           alt="{{ player.fullName }} headshot"
+           style="width:180px; border-radius:14px;"
+           onerror="this.style.display='none';" />
+    {% endif %}
 
     <div style="margin-top:10px; font-size:22px; font-weight:800;">
       {{ player.fullName }}
     </div>
 
     <div style="opacity:.85; margin-top:4px;">
-      {{ player.primaryPosition.name if player.primaryPosition else "" }}
+      {% if player.primaryPosition %}{{ player.primaryPosition.name }}{% endif %}
       {% if player.batSide and player.pitchHand %}
         • Bats: {{ player.batSide.description }} • Throws: {{ player.pitchHand.description }}
       {% endif %}
     </div>
 
-    {% if kind and statline %}
-      <div style="margin-top:14px; font-size:14px; line-height:1.6;">
-        <div style="font-weight:700; margin-bottom:6px;">
-          Career {{ "Hitting" if kind=="hitting" else "Pitching" }} Snapshot
-        </div>
-
-        {% if kind == "hitting" %}
-          AVG: {{ statline.avg or "—" }} •
-          HR: {{ statline.homeRuns or "—" }} •
-          RBI: {{ statline.rbi or "—" }} •
-          OPS: {{ statline.ops or "—" }}
-        {% else %}
-          ERA: {{ statline.era or "—" }} •
-          W-L: {{ statline.wins or "—" }}-{{ statline.losses or "—" }} •
-          SO: {{ statline.strikeOuts or "—" }} •
-          WHIP: {{ statline.whip or "—" }}
-        {% endif %}
-      </div>
-    {% else %}
-      <div style="margin-top:14px; opacity:.8;">
-        No career statline found for this player.
-      </div>
-    {% endif %}
-
     <div style="margin-top:18px; display:flex; gap:10px; justify-content:center;">
-      <a href="/random-player"><button class="btn">Roll Again 🎲</button></a>
-      <a href="/player/{{ player.id }}"><button class="btn">View Player Page →</button></a>
+      <button class="btn" id="rollBtn" type="button">Roll Again 🎲</button>
+      <a href="/player/{{ player.id }}"><button class="btn" type="button">View Player Page →</button></a>
     </div>
   </div>
 </div>
+
+{% if yby and (yby|length) > 0 %}
+  {% set has_hitting = (yby | selectattr("kind","equalto","hitting") | list | length) > 0 %}
+  {% set has_pitching = (yby | selectattr("kind","equalto","pitching") | list | length) > 0 %}
+
+  {% if has_hitting %}
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="card-title">Year-by-Year Hitting</div>
+    </div>
+
+    <div style="overflow:auto;">
+      <table class="table" style="width:100%; min-width:900px;">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th>Team</th>
+            <th>G</th><th>PA</th><th>AB</th><th>H</th><th>HR</th><th>RBI</th><th>SB</th>
+            <th>AVG</th><th>OBP</th><th>SLG</th><th>OPS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in yby if r.kind == "hitting" %}
+            {% set s = r.stat %}
+            <tr>
+              <td>{{ r.year }}</td>
+              <td style="white-space:nowrap;">{{ r.team }}</td>
+              <td>{{ s.games or "—" }}</td>
+              <td>{{ s.plateAppearances or "—" }}</td>
+              <td>{{ s.atBats or "—" }}</td>
+              <td>{{ s.hits or "—" }}</td>
+              <td>{{ s.homeRuns or "—" }}</td>
+              <td>{{ s.rbi or "—" }}</td>
+              <td>{{ s.stolenBases or "—" }}</td>
+              <td>{{ s.avg or "—" }}</td>
+              <td>{{ s.obp or "—" }}</td>
+              <td>{{ s.slg or "—" }}</td>
+              <td>{{ s.ops or "—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if has_pitching %}
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="card-title">Year-by-Year Pitching</div>
+    </div>
+
+    <div style="overflow:auto;">
+      <table class="table" style="width:100%; min-width:980px;">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th>Team</th>
+            <th>G</th><th>GS</th><th>IP</th><th>W</th><th>L</th><th>SV</th><th>SO</th>
+            <th>ERA</th><th>WHIP</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in yby if r.kind == "pitching" %}
+            {% set s = r.stat %}
+            <tr>
+              <td>{{ r.year }}</td>
+              <td style="white-space:nowrap;">{{ r.team }}</td>
+              <td>{{ s.gamesPitched or "—" }}</td>
+              <td>{{ s.gamesStarted or "—" }}</td>
+              <td>{{ s.inningsPitched or "—" }}</td>
+              <td>{{ s.wins or "—" }}</td>
+              <td>{{ s.losses or "—" }}</td>
+              <td>{{ s.saves or "—" }}</td>
+              <td>{{ s.strikeOuts or "—" }}</td>
+              <td>{{ s.era or "—" }}</td>
+              <td>{{ s.whip or "—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+{% endif %}
+
+<!-- Loading overlay (2s suspense) -->
+<div id="loadingOverlay" style="
+  display:none;
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.55);
+  align-items:center; justify-content:center;
+  z-index:9999;
+">
+  <div style="text-align:center;">
+    <div class="spinner" style="
+      width:54px; height:54px;
+      border:6px solid rgba(255,255,255,.25);
+      border-top-color: rgba(255,255,255,.95);
+      border-radius:50%;
+      animation:spin 0.9s linear infinite;
+      margin:0 auto 12px auto;
+    "></div>
+    <div style="color:white; font-weight:800; letter-spacing:.5px;">
+      Shuffling baseball cards…
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+  const btn = document.getElementById("rollBtn");
+  const overlay = document.getElementById("loadingOverlay");
+
+  btn?.addEventListener("click", () => {
+    overlay.style.display = "flex";
+    btn.disabled = true;
+
+    setTimeout(() => {
+      window.location.href = "/random-player";
+    }, 2000);
+  });
+</script>
 
 {% endblock %}
