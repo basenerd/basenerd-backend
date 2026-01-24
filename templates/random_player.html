@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card" style="text-align:center;">
+
+  <h2>🎲 Random MLB Player</h2>
+
+  <img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_200,q_100/v1/people/{{ player.id }}/headshot/67/current"
+       alt="{{ player.fullName }}">
+
+  <h3>{{ player.fullName }}</h3>
+
+  <div>{{ player.primaryPosition.name }}</div>
+  <div>Bats: {{ player.batSide.description }} • Throws: {{ player.pitchHand.description }}</div>
+
+  {% if player.stats %}
+    {% set career = player.stats[0].splits[0].stat %}
+    <div style="margin-top:12px;">
+      <strong>Career:</strong><br>
+      AVG: {{ career.avg or "—" }} • HR: {{ career.homeRuns or "—" }} • RBI: {{ career.rbi or "—" }}
+    </div>
+  {% endif %}
+
+  <div style="margin-top:18px;">
+    <a href="/random-player">
+      <button class="btn">Generate Another 🎲</button>
+    </a>
+  </div>
+
+</div>
+
+{% endblock %}
