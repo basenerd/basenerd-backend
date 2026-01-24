@@ -21,11 +21,38 @@ def about():
 
 from services.mlb_api import get_random_player_id, get_player_full
 
+from services.mlb_api import (
+    get_random_player_id,
+    get_player_full,
+    get_player_headshot_url,
+    extract_career_statline,
+)
+
 @app.get("/random-player")
 def random_player():
-    pid = get_random_player_id()
-    player = get_player_full(pid)
-    return render_template("random_player.html", player=player)
+    # reroll a few times to avoid rare "empty profile" edge cases
+    last_err = None
+    for _ in range(15):
+        pid = get_random_player_id("players_index.json")
+        try:
+            player = get_player_full(pid)
+            kind, statline = extract_career_statline(player)
+            headshot_url = get_player_headshot_url(pid, size=420)
+            return render_template(
+                "random_player.html",
+                player=player,
+                kind=kind,
+                statline=statline,
+                headshot_url=headshot_url,
+                title="Random Player • Basenerd",
+            )
+        except Exception as e:
+            last_err = e
+            continue
+
+    # If everything failed, show something readable
+    return f"Random player generator failed: {last_err}", 500
+
 
 @app.get("/")
 def home():
