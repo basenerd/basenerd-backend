@@ -13,21 +13,68 @@ BASE = "https://statsapi.mlb.com/api/v1"
 _cache: Dict[str, Dict[str, Any]] = {}
 CACHE_TTL_SECONDS = 60 * 5  # 5 minutes
 
+# services/mlb_api.py
+import json
+import os
+import random
+import requests
 
+_PLAYERS_CACHE = None
 
-def get_random_player_id():
-    conn = psycopg2.connect(os.environ["DATABASE_URL"])
-    cur = conn.cursor()
-    cur.execute("SELECT id FROM players_index ORDER BY RANDOM() LIMIT 1;")
-    pid = cur.fetchone()[0]
-    cur.close()
-    conn.close()
-    return pid
+def _load_player_pool(path="players_index.json"):
+    global _PLAYERS_CACHE
+    if _PLAYERS_CACHE is None:
+        # Resolve path relative to your project root so it works on Render too
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # /basenerd
+        full_path = os.path.join(base_dir, path)
+        with open(full_path, "r", encoding="utf-8") as f:
+            _PLAYERS_CACHE = json.load(f)  # list[int]
+    return _PLAYERS_CACHE
 
+def get_random_player_id(path="players_index.json"):
+    pool = _load_player_pool(path)
+    return int(random.choice(pool))
 
-def get_player_full(pid):
-    url = f"https://statsapi.mlb.com/api/v1/people/{pid}?hydrate=stats(group=[hitting,pitching],type=[career])"
-    return requests.get(url).json()["people"][0]
+def get_player_full(pid: int):
+    url = f"https://statsapi.mlb.com/api/v1/people/{pid}"
+    params = {"hydrate": "stats(group=[hitting,pitching],type=[career])"}
+    r = requests.get(url, params=params, timeout=30)
+    r.raise_for_status()
+    people = r.json().get("people", [])
+    if not people:
+        raise ValueError("No player returned")
+    return people[0]
+
+def get_player_headshot_url(pid: int, size=360):
+    # MLB headshots usually exist here; some IDs won't have images
+    return f"https://img.mlbstatic.com/mlb-photos/image/upload/w_{size},q_100/v1/people/{pid}/headshot/67/current"
+
+def extract_career_statline(player: dict):
+    """
+    Returns (kind, statdict) where kind is 'hitting', 'pitching', or None.
+    """
+    stats = player.get("stats", [])
+    # stats is a list of groups; each has splits; split[0].stat
+    # We'll prefer hitting if present, else pitching.
+    hitting = None
+    pitching = None
+
+    for grp in stats:
+        group = (grp.get("group") or {}).get("displayName", "").lower()
+        splits = grp.get("splits") or []
+        if not splits:
+            continue
+        stat = (splits[0].get("stat") or {})
+        if "hitting" in group:
+            hitting = stat
+        elif "pitching" in group:
+            pitching = stat
+
+    if hitting:
+        return "hitting", hitting
+    if pitching:
+        return "pitching", pitching
+    return None, None
 
 def get_player(player_id: int):
     """
