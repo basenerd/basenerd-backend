@@ -157,12 +157,11 @@
   /* Playoff Picture bracket */
   /* --------------------- */
   .bracket-wrap{ margin-top:14px; }
-  .bracket-scroll{ overflow-x:auto; padding-bottom:6px; }
+  .bracket-scroll{ overflow-x:hidden; padding-bottom:0; }
   .bracket{
-    min-width: 1150px; /* allow scroll instead of crushing */
     display:grid;
-    grid-template-columns: 1.15fr 1.15fr 1.15fr 1.05fr 1.15fr 1.15fr 1.15fr;
-    gap:14px;
+    grid-template-columns: 1.12fr 1.12fr 1.08fr 1.00fr 1.08fr 1.12fr 1.12fr;
+    gap:10px;
     align-items:start;
   }
 
@@ -170,8 +169,8 @@
     background: rgba(255,255,255,0.02);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius:14px;
-    padding:10px;
-    min-width:160px; /* prevents squeeze/cutoff */
+    padding:80px;
+    min-width: 0; /* prevents squeeze/cutoff */
     position:relative;
   }
   .bracket-col.center{
