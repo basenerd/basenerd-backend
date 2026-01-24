@@ -176,6 +176,7 @@ def build_accolade_pills(awards: list[dict]):
     # Count occurrences
     counts = {
         "mvp": 0,
+        "ws_mvp": 0,
         "cy_young": 0,
         "roy": 0,
         "gold_glove": 0,
@@ -194,10 +195,12 @@ def build_accolade_pills(awards: list[dict]):
         if not n:
             continue
 
-        if "most valuable player" in n or n == "mvp":
+        if ("most valuable player" in n or n == "mvp") and "world series" not in n and "ws" not in n:
             counts["mvp"] += 1
         elif "cy young" in n:
             counts["cy_young"] += 1
+        elif "world series most valuable player" in n or "world series mvp" in n:
+            counts["ws_mvp"] += 1
         elif "rookie of the year" in n:
             counts["roy"] += 1
         elif "gold glove" in n:
@@ -235,6 +238,7 @@ def build_accolade_pills(awards: list[dict]):
 
     pills = []
     if counts["mvp"]: pills.append({"key": "mvp", "label": _label("MVP", counts["mvp"])})
+    if counts["ws_mvp"]: pills.append({"key": "wsmvp", "label": _label("WS MVP", counts["ws_mvp"])})
     if counts["cy_young"]: pills.append({"key": "cyyoung", "label": _label("Cy Young", counts["cy_young"])})
     if counts["roy"]: pills.append({"key": "roy", "label": _label("ROY", counts["roy"])})
     if counts["gold_glove"]: pills.append({"key": "goldglove", "label": _label("Gold Glove", counts["gold_glove"])})
