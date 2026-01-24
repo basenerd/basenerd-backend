@@ -275,8 +275,11 @@
   font-weight:900;
   opacity:0.85;
   text-align:center;
-  white-space:nowrap; /* prevent weird wrapping */
+  white-space:nowrap;
+  display:block;
+  width:100%;
 }
+
 
 .champ-label{
   margin-top:10px;
@@ -547,8 +550,8 @@
           <div class="bracket-col">
             <div class="bracket-title">Wild Card</div>
             <div class="series-pair connect-right">
-              {{ series_card(playoff_picture.AL.wc_top) }}
               {{ series_card(playoff_picture.AL.wc_bot) }}
+              {{ series_card(playoff_picture.AL.wc_top) }}
             </div>
           </div>
 
@@ -609,8 +612,8 @@
           <div class="bracket-col">
             <div class="bracket-title">Wild Card</div>
             <div class="series-pair connect-left">
-              {{ series_card(playoff_picture.NL.wc_top) }}
               {{ series_card(playoff_picture.NL.wc_bot) }}
+              {{ series_card(playoff_picture.NL.wc_top) }}
             </div>
           </div>
 
