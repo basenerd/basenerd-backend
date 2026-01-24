@@ -2,7 +2,21 @@ from datetime import datetime
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request, jsonify
-from services.mlb_api import get_player, get_player_stats, get_standings, get_team_schedule
+from services.mlb_api import (
+    get_random_player_id,
+    get_player_full,
+    get_player_headshot_url,
+    extract_year_by_year_rows,
+    get_player_career_totals,
+    get_player_awards,
+    build_accolade_pills,
+    group_year_by_year,
+    get_player, 
+    get_player_stats, 
+    get_standings, 
+    get_team_schedule
+    )
+
 from services.articles import load_articles, get_article
 from services.articles import get_markdown_page
 from services.postseason import get_postseason_series, build_playoff_bracket
@@ -51,11 +65,28 @@ def random_player_play():
             headshot_url = get_player_headshot_url(pid, size=420)
             yby = extract_year_by_year_rows(player)
 
+            # group rows (one row per year + expandable team splits)
+            hitting_groups = group_year_by_year(yby, "hitting")
+            pitching_groups = group_year_by_year(yby, "pitching")
+
+            # true career totals from separate endpoint (no summing)
+            career_hitting = get_player_career_totals(pid, "hitting")
+            career_pitching = get_player_career_totals(pid, "pitching")
+
+            # accolades
+            awards = get_player_awards(pid)
+            accolades = build_accolade_pills(awards)
+
             return render_template(
                 "random_player.html",
                 player=player,
                 headshot_url=headshot_url,
                 yby=yby,
+                hitting_groups=hitting_groups,
+                pitching_groups=pitching_groups,
+                career_hitting=career_hitting,
+                career_pitching=career_pitching,
+                accolades=accolades,
                 title="Random Player • Basenerd"
             )
         except Exception:
