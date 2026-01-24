@@ -204,8 +204,18 @@ def build_accolade_pills(awards: list[dict]):
             counts["gold_glove"] += 1
         elif "silver slugger" in n:
             counts["silver_slugger"] += 1
-        elif "all-star" in n or "all star" in n:
-            counts["all_star"] += 1
+        elif ("all-star" in n or "all star" in n):
+            # Exclude non-MLB / noisy variants
+            bad = [
+                "milb", "minor", "triple-a", "triple a", "double-a", "double a",
+                "single-a", "single a", "high-a", "high a", "low-a", "low a",
+                "futures", "rookie", "prospects", "all-star team"
+            ]
+            if not any(b in n for b in bad):
+                # Prefer "selection" style wording if present
+                good = ["selection", "game", "all-star"]
+                if any(g in n for g in good):
+                    counts["all_star"] += 1
         elif "batting title" in n or "batting champion" in n:
             counts["batting_champ"] += 1
         elif "world series" in n and "champ" in n:
