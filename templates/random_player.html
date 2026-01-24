@@ -2,31 +2,57 @@
 {% block content %}
 
 <div class="card" style="text-align:center;">
-
-  <h2>🎲 Random MLB Player</h2>
-
-  <img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_200,q_100/v1/people/{{ player.id }}/headshot/67/current"
-       alt="{{ player.fullName }}">
-
-  <h3>{{ player.fullName }}</h3>
-
-  <div>{{ player.primaryPosition.name }}</div>
-  <div>Bats: {{ player.batSide.description }} • Throws: {{ player.pitchHand.description }}</div>
-
-  {% if player.stats %}
-    {% set career = player.stats[0].splits[0].stat %}
-    <div style="margin-top:12px;">
-      <strong>Career:</strong><br>
-      AVG: {{ career.avg or "—" }} • HR: {{ career.homeRuns or "—" }} • RBI: {{ career.rbi or "—" }}
-    </div>
-  {% endif %}
-
-  <div style="margin-top:18px;">
-    <a href="/random-player">
-      <button class="btn">Generate Another 🎲</button>
-    </a>
+  <div class="card-header">
+    <div class="card-title">🎲 Random MLB Player</div>
+    <div class="card-subtitle">1990 → Present</div>
   </div>
 
+  <div style="padding:16px;">
+    <img src="{{ headshot_url }}"
+         alt="{{ player.fullName }} headshot"
+         style="width:180px; border-radius:14px;"
+         onerror="this.style.display='none';" />
+
+    <div style="margin-top:10px; font-size:22px; font-weight:800;">
+      {{ player.fullName }}
+    </div>
+
+    <div style="opacity:.85; margin-top:4px;">
+      {{ player.primaryPosition.name if player.primaryPosition else "" }}
+      {% if player.batSide and player.pitchHand %}
+        • Bats: {{ player.batSide.description }} • Throws: {{ player.pitchHand.description }}
+      {% endif %}
+    </div>
+
+    {% if kind and statline %}
+      <div style="margin-top:14px; font-size:14px; line-height:1.6;">
+        <div style="font-weight:700; margin-bottom:6px;">
+          Career {{ "Hitting" if kind=="hitting" else "Pitching" }} Snapshot
+        </div>
+
+        {% if kind == "hitting" %}
+          AVG: {{ statline.avg or "—" }} •
+          HR: {{ statline.homeRuns or "—" }} •
+          RBI: {{ statline.rbi or "—" }} •
+          OPS: {{ statline.ops or "—" }}
+        {% else %}
+          ERA: {{ statline.era or "—" }} •
+          W-L: {{ statline.wins or "—" }}-{{ statline.losses or "—" }} •
+          SO: {{ statline.strikeOuts or "—" }} •
+          WHIP: {{ statline.whip or "—" }}
+        {% endif %}
+      </div>
+    {% else %}
+      <div style="margin-top:14px; opacity:.8;">
+        No career statline found for this player.
+      </div>
+    {% endif %}
+
+    <div style="margin-top:18px; display:flex; gap:10px; justify-content:center;">
+      <a href="/random-player"><button class="btn">Roll Again 🎲</button></a>
+      <a href="/player/{{ player.id }}"><button class="btn">View Player Page →</button></a>
+    </div>
+  </div>
 </div>
 
 {% endblock %}
