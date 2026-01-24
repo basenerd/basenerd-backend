@@ -15,6 +15,7 @@
         {% endfor %}
       </select>
 
+      {# keep the selected view when changing season #}
       <input type="hidden" name="view" value="{{ view or 'division' }}">
 
       <button type="submit">Go</button>
@@ -38,257 +39,6 @@
 </div>
 
 <style>
-  /* --------------------- */
-  /* Bracket elbow lines */
-  /* --------------------- */
-  
-  .series-pair{
-    position:relative;
-    display:flex;
-    flex-direction:column;
-    gap:14px;
-    padding-right:18px;  /* space for right connectors */
-  }
-  
-  /* Right-facing pair connector (AL side) */
-  .series-pair.connect-right::after{
-    content:"";
-    position:absolute;
-    top:50%;
-    right:-14px;
-    width:14px;
-    border-top:2px solid rgba(255,255,255,0.18);
-  }
-  
-  /* Vertical line linking the two matchups in the pair */
-  .series-pair.connect-right::before{
-    content:"";
-    position:absolute;
-    right:0px;                 /* near the edge of the pair */
-    top:18px;                  /* near top of first card */
-    bottom:18px;               /* near bottom of second card */
-    width:0;
-    border-right:2px solid rgba(255,255,255,0.18);
-  }
-  
-  /* Each card in a pair gets a little horizontal line into the vertical */
-  .series-pair.connect-right .series-card{
-    position:relative;
-  }
-  .series-pair.connect-right .series-card::after{
-    content:"";
-    position:absolute;
-    top:50%;
-    right:-18px;
-    width:18px;
-    border-top:2px solid rgba(255,255,255,0.18);
-  }
-  
-  /* Mirror for LEFT-facing pair connector (NL side) */
-  .series-pair.connect-left{
-    padding-right:0;
-    padding-left:18px;
-  }
-  .series-pair.connect-left::after{
-    content:"";
-    position:absolute;
-    top:50%;
-    left:-14px;
-    width:14px;
-    border-top:2px solid rgba(255,255,255,0.18);
-  }
-  .series-pair.connect-left::before{
-    content:"";
-    position:absolute;
-    left:0px;
-    top:18px;
-    bottom:18px;
-    width:0;
-    border-left:2px solid rgba(255,255,255,0.18);
-  }
-  .series-pair.connect-left .series-card::after{
-    content:"";
-    position:absolute;
-    top:50%;
-    left:-18px;
-    width:18px;
-    border-top:2px solid rgba(255,255,255,0.18);
-  }
-  
-  /* Single-series connector (CS -> WS) */
-  .series-single{
-    position:relative;
-  }
-  .series-single.to-right::after{
-    content:"";
-    position:absolute;
-    top:50%;
-    right:-14px;
-    width:14px;
-    border-top:2px solid rgba(255,255,255,0.18);
-  }
-  .series-single.to-left::after{
-    content:"";
-    position:absolute;
-    top:50%;
-    left:-14px;
-    width:14px;
-    border-top:2px solid rgba(255,255,255,0.18);
-  }
-
-  /* --------------------- */
-  /* Playoff Picture (true bracket) */
-  /* --------------------- */
-  .bracket-wrap{ margin-top:14px; }
-  .bracket-scroll{ overflow-x:auto; padding-bottom:6px; }
-  .bracket{
-    min-width: 1100px; /* lets mobile scroll instead of crushing */
-    display:grid;
-    grid-template-columns: 1.15fr 1.15fr 1.15fr 1.05fr 1.15fr 1.15fr 1.15fr;
-    gap:14px;
-    align-items:start;
-  }
-  
-  .bracket-col{
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius:14px;
-    padding:10px;
-    min-width:0;
-    position:relative;
-  }
-  .bracket-col.center{
-    background: rgba(255,255,255,0.03);
-    border-color: rgba(255,255,255,0.10);
-  }
-  
-  .bracket-title{
-    font-size:11px;
-    font-weight:900;
-    letter-spacing:0.3px;
-    opacity:0.8;
-    padding:0 2px 10px 2px;
-    border-bottom:1px solid rgba(255,255,255,0.08);
-    margin-bottom:12px;
-    text-align:center;
-    text-transform:uppercase;
-  }
-  
-  /* series cards */
-  .series-card{
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius:14px;
-    padding:8px;
-    margin-bottom:14px;
-    position:relative;
-  }
-  .series-card:last-child{ margin-bottom:0; }
-  
-  /* team rows */
-  .team-row{
-    display:grid;
-    grid-template-columns: 1fr 22px; /* left = team, right = wins */
-    align-items:center;
-    column-gap:10px;
-    padding:6px 6px;
-    border-radius:10px;
-  }
-  
-  .team-row.win{
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.08);
-  }
-  /* Ensure the left side can shrink without pushing wins into it */
-  .team-left{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    min-width:0;              /* IMPORTANT */
-  }
-    .seedpill{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    min-width:18px;
-    height:18px;
-    padding:0 6px;
-    border-radius:999px;
-    font-size:11px;
-    font-weight:900;
-    background: rgba(255,255,255,0.10);
-    border: 1px solid rgba(255,255,255,0.14);
-    color: rgba(255,255,255,0.85);
-    flex:0 0 auto;
-    opacity:0.95;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .bracket-logo{ height:18px; width:auto; display:block; flex:0 0 auto; }
-  
-  .abbrlink{
-    white-space:nowrap;
-    overflow:visible;
-    text-overflow:clip;
-  }
-  
-  .bracket-logo{
-    flex: 0 0 auto;
-  }
-
-  /* Wins always sits on the right, fixed width */
-  .winsbox{
-    width:22px;
-    text-align:right;
-    font-weight:900;
-    justify-self:end;
-  }
-  
-  /* winner line under matchup */
-  .series-winnerline{
-    margin-top:8px;
-    font-size:12px;
-    font-weight:900;
-    opacity:0.85;
-    text-align:center;
-  }
-  
-  /* champion label */
-  .champ-label{
-    margin-top:10px;
-    font-size:11px;
-    font-weight:900;
-    opacity:0.9;
-    text-align:center;
-    text-transform:uppercase;
-    letter-spacing:0.3px;
-  }
-  
-  /* spacing to mimic bracket vertical rhythm */
-  .spacer-sm{ height:22px; }
-  .spacer-md{ height:46px; }
-  .spacer-lg{ height:92px; }
-  
-  /* simple connector lines (clean + theme-aligned) */
-  .series-card.to-right::after{
-    content:"";
-    position:absolute;
-    top:50%;
-    right:-14px;
-    width:14px;
-    height:0;
-    border-top:2px solid rgba(255,255,255,0.16);
-  }
-  .series-card.to-left::after{
-    content:"";
-    position:absolute;
-    top:50%;
-    left:-14px;
-    width:14px;
-    height:0;
-    border-top:2px solid rgba(255,255,255,0.16);
-  }
-
   .pctcell{
     border-radius:8px;
     padding:4px 8px;
@@ -297,6 +47,7 @@
     text-align:right;
   }
 
+  /* Kill any pseudo-element "dot" on pct cells */
   td.pctcol::after, td.pctcol::before,
   th.pctcol::after, th.pctcol::before,
   td.pctcol *::after, td.pctcol *::before{
@@ -325,13 +76,15 @@
     display:inline-block;
     width:18px;
     text-align:center;
-    font-size:16px;
+    font-size:16px;   /* bigger 👑🃏 */
     line-height:1;
   }
 
-  .rundiff-pos{ color:#18a558; font-weight:800; }
-  .rundiff-neg{ color:#e03a3a; font-weight:800; }
+  /* Run diff colors */
+  .rundiff-pos{ color:#18a558; font-weight:800; } /* green */
+  .rundiff-neg{ color:#e03a3a; font-weight:800; } /* red */
 
+  /* TOP playoff block (division leaders + WC chips) */
   .pp-block{
     padding:12px 12px 10px;
     border-top:1px solid rgba(255,255,255,0.08);
@@ -376,10 +129,13 @@
     border: 1px solid rgba(255,255,255,0.14);
     color: rgba(255,255,255,0.85);
     flex: 0 0 auto;
-    width:28px;
+    width:28px; /* E/C/W */
   }
-  .pp-pill.wc{ width:42px; }
+  .pp-pill.wc{
+    width:42px; /* WC1/WC2/WC3 */
+  }
 
+  /* Tabs (Division vs Wild Card vs Playoffs) */
   .standings-tabs{
     display:flex;
     gap:22px;
@@ -398,24 +154,31 @@
   }
 
   /* --------------------- */
-  /* Playoff Picture styles */
+  /* Playoff Picture bracket */
   /* --------------------- */
-  .bracket-wrap{
-    margin-top:14px;
-  }
-  .bracket-grid{
+  .bracket-wrap{ margin-top:14px; }
+  .bracket-scroll{ overflow-x:auto; padding-bottom:6px; }
+  .bracket{
+    min-width: 1150px; /* allow scroll instead of crushing */
     display:grid;
-    grid-template-columns: 1fr 1fr 1fr 0.9fr 1fr 1fr 1fr;
-    gap:12px;
+    grid-template-columns: 1.15fr 1.15fr 1.15fr 1.05fr 1.15fr 1.15fr 1.15fr;
+    gap:14px;
     align-items:start;
   }
+
   .bracket-col{
     background: rgba(255,255,255,0.02);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius:14px;
     padding:10px;
-    min-width:150px;
+    min-width:160px; /* prevents squeeze/cutoff */
+    position:relative;
   }
+  .bracket-col.center{
+    background: rgba(255,255,255,0.03);
+    border-color: rgba(255,255,255,0.10);
+  }
+
   .bracket-title{
     font-size:11px;
     font-weight:900;
@@ -423,7 +186,7 @@
     opacity:0.8;
     padding:0 2px 10px 2px;
     border-bottom:1px solid rgba(255,255,255,0.08);
-    margin-bottom:10px;
+    margin-bottom:12px;
     text-align:center;
     text-transform:uppercase;
   }
@@ -432,25 +195,18 @@
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius:14px;
-    padding:8px 8px;
-    margin-bottom:10px;
+    padding:8px;
+    margin-bottom:14px;
+    position:relative;
   }
   .series-card:last-child{ margin-bottom:0; }
 
-  .series-meta{
-    display:flex;
-    justify-content:space-between;
-    gap:10px;
-    font-size:11px;
-    opacity:0.75;
-    margin-bottom:6px;
-  }
-
+  /* Fix overlap: true 2-column layout (team | wins) */
   .team-row{
-    display:flex;
+    display:grid;
+    grid-template-columns: 1fr 26px;
     align-items:center;
-    justify-content:space-between;
-    gap:10px;
+    column-gap:10px;
     padding:6px 6px;
     border-radius:10px;
   }
@@ -463,8 +219,10 @@
     display:flex;
     align-items:center;
     gap:8px;
-    min-width:0;
+    min-width:0;      /* key: keep wins column safe */
+    overflow:visible; /* don't clip logo/text */
   }
+
   .seedpill{
     display:inline-flex;
     align-items:center;
@@ -478,30 +236,136 @@
     background: rgba(255,255,255,0.10);
     border: 1px solid rgba(255,255,255,0.14);
     color: rgba(255,255,255,0.85);
-    flex: 0 0 auto;
+    flex:0 0 auto;
+    opacity:0.95;
+    font-variant-numeric: tabular-nums;
   }
+
   .bracket-logo{
-    height:16px;
+    height:18px;
     width:auto;
     display:block;
-    flex:0 0 auto;
+    flex:0 0 auto; /* never shrink */
   }
+
   .abbrlink{
     text-decoration:none;
     font-weight:900;
     white-space:nowrap;
+    overflow:visible;
+    text-overflow:clip;
   }
+
   .winsbox{
-    font-weight:900;
-    min-width:18px;
+    width:26px;
     text-align:right;
+    font-weight:900;
+    justify-self:end;
     opacity:0.9;
   }
 
-  /* Center column should feel special */
-  .bracket-col.center{
-    background: rgba(255,255,255,0.03);
-    border-color: rgba(255,255,255,0.10);
+  .series-winnerline{
+    margin-top:8px;
+    font-size:12px;
+    font-weight:900;
+    opacity:0.85;
+    text-align:center;
+  }
+
+  .champ-label{
+    margin-top:10px;
+    font-size:11px;
+    font-weight:900;
+    opacity:0.9;
+    text-align:center;
+    text-transform:uppercase;
+    letter-spacing:0.3px;
+  }
+
+  .spacer-md{ height:46px; }
+  .spacer-lg{ height:92px; }
+
+  /* Elbow connectors */
+  .series-pair{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    padding-right:18px; /* space for right connectors */
+  }
+
+  .series-pair.connect-right::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    right:-14px;
+    width:14px;
+    border-top:2px solid rgba(255,255,255,0.18);
+  }
+  .series-pair.connect-right::before{
+    content:"";
+    position:absolute;
+    right:0px;
+    top:18px;
+    bottom:18px;
+    width:0;
+    border-right:2px solid rgba(255,255,255,0.18);
+  }
+  .series-pair.connect-right .series-card::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    right:-18px;
+    width:18px;
+    border-top:2px solid rgba(255,255,255,0.18);
+  }
+
+  .series-pair.connect-left{
+    padding-right:0;
+    padding-left:18px;
+  }
+  .series-pair.connect-left::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    left:-14px;
+    width:14px;
+    border-top:2px solid rgba(255,255,255,0.18);
+  }
+  .series-pair.connect-left::before{
+    content:"";
+    position:absolute;
+    left:0px;
+    top:18px;
+    bottom:18px;
+    width:0;
+    border-left:2px solid rgba(255,255,255,0.18);
+  }
+  .series-pair.connect-left .series-card::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    left:-18px;
+    width:18px;
+    border-top:2px solid rgba(255,255,255,0.18);
+  }
+
+  .series-single{ position:relative; }
+  .series-single.to-right::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    right:-14px;
+    width:14px;
+    border-top:2px solid rgba(255,255,255,0.18);
+  }
+  .series-single.to-left::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    left:-14px;
+    width:14px;
+    border-top:2px solid rgba(255,255,255,0.18);
   }
 </style>
 
@@ -532,6 +396,7 @@
       {% set bg = "rgba(70, 140, 255, " ~ (0.10 + 0.35 * a) ~ ")" %}
     {% endif %}
 
+    {# Render exactly like ".432" (no leading 0) #}
     {% set s = "%.3f"|format(p) %}
     <span class="pctcell" style="background: {{ bg }};">{{ s[1:] }}</span>
   {% endif %}
@@ -594,18 +459,21 @@
   </div>
 {% endmacro %}
 
-{% macro series_card(series, connector_class="") %}
+{% macro series_card(series) %}
   {% if series %}
-    <div class="series-card {{ connector_class }}">
+    <div class="series-card">
       {% for tm in series.teams %}
         <div class="team-row {% if tm.is_winner %}win{% endif %}">
           <div class="team-left">
-            <span class="seedpill">{{ tm.seed if tm.seed is not none else "—" }}</span> 
+            <span class="seedpill">{{ tm.seed if tm.seed is not none else "—" }}</span>
+
             {% if tm.logo_url %}
               <img class="bracket-logo" src="{{ tm.logo_url }}" alt="{{ tm.abbrev }} logo">
             {% endif %}
+
             <a class="abbrlink" href="/team/{{ tm.team_id }}">{{ tm.abbrev }}</a>
           </div>
+
           <div class="winsbox">{{ tm.wins }}</div>
         </div>
       {% endfor %}
@@ -617,8 +485,8 @@
   {% endif %}
 {% endmacro %}
 
-
 {% if (view or 'division') == 'playoffs' %}
+
   <div class="card bracket-wrap">
     <div class="card-header">
       <div><div class="card-title">Playoff Picture</div></div>
@@ -636,7 +504,7 @@
               {{ series_card(playoff_picture.AL.wc_bot) }}
             </div>
           </div>
-          
+
           <!-- ALDS -->
           <div class="bracket-col">
             <div class="bracket-title">ALDS</div>
@@ -645,7 +513,7 @@
               {{ series_card(playoff_picture.AL.ds_bot) }}
             </div>
           </div>
-          
+
           <!-- ALCS -->
           <div class="bracket-col">
             <div class="bracket-title">ALCS</div>
@@ -654,21 +522,16 @@
               {{ series_card(playoff_picture.AL.cs) }}
             </div>
           </div>
-          
+
           <!-- World Series (center) -->
           <div class="bracket-col center">
             <div class="bracket-title">World Series</div>
             <div class="spacer-lg"></div>
             {{ series_card(playoff_picture.WS.ws) }}
-          
+
             {% if playoff_picture.WS.champion %}
               <div class="champ-label">World Series Champion</div>
               <div style="display:flex; justify-content:center; gap:10px; align-items:center; margin-top:10px;">
-                {# Optional: show champion seed too if you want #}
-                {% if playoff_picture.WS.champion.seed is not none %}
-                  <span class="seedpill">{{ playoff_picture.WS.champion.seed }}</span>
-                {% endif %}
-          
                 {% if playoff_picture.WS.champion.logo_url %}
                   <img class="bracket-logo" src="{{ playoff_picture.WS.champion.logo_url }}" alt="{{ playoff_picture.WS.champion.abbrev }} logo" style="height:22px;">
                 {% endif %}
@@ -676,7 +539,7 @@
               </div>
             {% endif %}
           </div>
-          
+
           <!-- NLCS -->
           <div class="bracket-col">
             <div class="bracket-title">NLCS</div>
@@ -685,7 +548,7 @@
               {{ series_card(playoff_picture.NL.cs) }}
             </div>
           </div>
-          
+
           <!-- NLDS -->
           <div class="bracket-col">
             <div class="bracket-title">NLDS</div>
@@ -694,7 +557,7 @@
               {{ series_card(playoff_picture.NL.ds_bot) }}
             </div>
           </div>
-          
+
           <!-- NL Wild Card -->
           <div class="bracket-col">
             <div class="bracket-title">Wild Card</div>
@@ -703,82 +566,27 @@
               {{ series_card(playoff_picture.NL.wc_bot) }}
             </div>
           </div>
+
         </div>
       </div>
     </div>
   </div>
+
 {% else %}
 
-<div class="grid-2">
+  <div class="grid-2">
 
-  <!-- American League -->
-  <div class="card">
-    <div class="card-header">
-      <div><div class="card-title">American League</div></div>
-    </div>
-
-    {{ playoff_render(al_playoff) }}
-
-    {% if (view or 'division') == 'wildcard' %}
-      <div class="subcard">
-        <div class="subcard-title">AL Wild Card</div>
-        <div class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th class="tagcol"></th>
-                <th>Team</th>
-                <th class="num">W</th>
-                <th class="num">L</th>
-                <th class="num pctcol">Pct</th>
-                <th class="num">GB</th>
-                <th class="num">Streak</th>
-                <th class="num">Run Diff</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for t in al_wc %}
-                {% set p = (t.pct|float if t.pct is not none else none) %}
-                {% set wcr = (t.wild_card_rank|default(0)|int) %}
-                {% set rd = (t.run_diff|int(0)) %}
-                <tr>
-                  <td class="tagcol">
-                    {% if wcr in (1,2,3) %}
-                      <span class="pp-pill wc" style="height:20px;">WC{{ wcr }}</span>
-                    {% endif %}
-                  </td>
-                  <td class="teamcell">
-                    {% if t.logo_url %}
-                      <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
-                    {% endif %}
-                    <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
-                  </td>
-                  <td class="num">{{ t.w }}</td>
-                  <td class="num">{{ t.l }}</td>
-                  <td class="num pctcol">{{ pct_badge(p) }}</td>
-                  <td class="num">{{ t.wc_gb if t.wc_gb is not none and t.wc_gb != "" else "—" }}</td>
-                  <td class="num">{{ streak_cell(t.streak) }}</td>
-                  <td class="num">
-                    {% if rd > 0 %}
-                      <span class="rundiff-pos">{{ rd }}</span>
-                    {% elif rd < 0 %}
-                      <span class="rundiff-neg">{{ rd }}</span>
-                    {% else %}
-                      <span>{{ rd }}</span>
-                    {% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+    <!-- American League -->
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">American League</div></div>
       </div>
-    {% else %}
-      {% for d in al_divs %}
+
+      {{ playoff_render(al_playoff) }}
+
+      {% if (view or 'division') == 'wildcard' %}
         <div class="subcard">
-          <div class="subcard-title">
-            {{ d.name|replace("American League", "AL")|replace("National League", "NL") }}
-          </div>
+          <div class="subcard-title">AL Wild Card</div>
           <div class="table-wrap">
             <table class="table">
               <thead>
@@ -789,21 +597,20 @@
                   <th class="num">L</th>
                   <th class="num pctcol">Pct</th>
                   <th class="num">GB</th>
-                  <th class="num">WC GB</th>
                   <th class="num">Streak</th>
                   <th class="num">Run Diff</th>
                 </tr>
               </thead>
               <tbody>
-                {% for t in d.teams %}
-                  {% set is_winner = ((t.division_rank|default(0)|int) == 1) %}
-                  {% set is_wc = ((t.wild_card_rank|default(0)|int) in (1,2,3)) and (not is_winner) %}
+                {% for t in al_wc %}
                   {% set p = (t.pct|float if t.pct is not none else none) %}
+                  {% set wcr = (t.wild_card_rank|default(0)|int) %}
                   {% set rd = (t.run_diff|int(0)) %}
                   <tr>
                     <td class="tagcol">
-                      {% if is_winner %}<span class="tagicon" title="Division leader">👑</span>{% endif %}
-                      {% if is_wc %}<span class="tagicon" title="Wild card">🃏</span>{% endif %}
+                      {% if wcr in (1,2,3) %}
+                        <span class="pp-pill wc" style="height:20px;">WC{{ wcr }}</span>
+                      {% endif %}
                     </td>
                     <td class="teamcell">
                       {% if t.logo_url %}
@@ -814,7 +621,6 @@
                     <td class="num">{{ t.w }}</td>
                     <td class="num">{{ t.l }}</td>
                     <td class="num pctcol">{{ pct_badge(p) }}</td>
-                    <td class="num">{{ t.gb }}</td>
                     <td class="num">{{ t.wc_gb if t.wc_gb is not none and t.wc_gb != "" else "—" }}</td>
                     <td class="num">{{ streak_cell(t.streak) }}</td>
                     <td class="num">
@@ -832,78 +638,80 @@
             </table>
           </div>
         </div>
-      {% endfor %}
-    {% endif %}
-  </div>
-
-  <!-- National League -->
-  <div class="card">
-    <div class="card-header">
-      <div><div class="card-title">National League</div></div>
+      {% else %}
+        {% for d in al_divs %}
+          <div class="subcard">
+            <div class="subcard-title">
+              {{ d.name|replace("American League", "AL")|replace("National League", "NL") }}
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th class="tagcol"></th>
+                    <th>Team</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num pctcol">Pct</th>
+                    <th class="num">GB</th>
+                    <th class="num">WC GB</th>
+                    <th class="num">Streak</th>
+                    <th class="num">Run Diff</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for t in d.teams %}
+                    {% set is_winner = ((t.division_rank|default(0)|int) == 1) %}
+                    {% set is_wc = ((t.wild_card_rank|default(0)|int) in (1,2,3)) and (not is_winner) %}
+                    {% set p = (t.pct|float if t.pct is not none else none) %}
+                    {% set rd = (t.run_diff|int(0)) %}
+                    <tr>
+                      <td class="tagcol">
+                        {% if is_winner %}<span class="tagicon" title="Division leader">👑</span>{% endif %}
+                        {% if is_wc %}<span class="tagicon" title="Wild card">🃏</span>{% endif %}
+                      </td>
+                      <td class="teamcell">
+                        {% if t.logo_url %}
+                          <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
+                        {% endif %}
+                        <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
+                      </td>
+                      <td class="num">{{ t.w }}</td>
+                      <td class="num">{{ t.l }}</td>
+                      <td class="num pctcol">{{ pct_badge(p) }}</td>
+                      <td class="num">{{ t.gb }}</td>
+                      <td class="num">{{ t.wc_gb if t.wc_gb is not none and t.wc_gb != "" else "—" }}</td>
+                      <td class="num">{{ streak_cell(t.streak) }}</td>
+                      <td class="num">
+                        {% if rd > 0 %}
+                          <span class="rundiff-pos">{{ rd }}</span>
+                        {% elif rd < 0 %}
+                          <span class="rundiff-neg">{{ rd }}</span>
+                        {% else %}
+                          <span>{{ rd }}</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
     </div>
 
-    {{ playoff_render(nl_playoff) }}
-
-    {% if (view or 'division') == 'wildcard' %}
-      <div class="subcard">
-        <div class="subcard-title">NL Wild Card</div>
-        <div class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th class="tagcol"></th>
-                <th>Team</th>
-                <th class="num">W</th>
-                <th class="num">L</th>
-                <th class="num pctcol">Pct</th>
-                <th class="num">GB</th>
-                <th class="num">Streak</th>
-                <th class="num">Run Diff</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for t in nl_wc %}
-                {% set p = (t.pct|float if t.pct is not none else none) %}
-                {% set wcr = (t.wild_card_rank|default(0)|int) %}
-                {% set rd = (t.run_diff|int(0)) %}
-                <tr>
-                  <td class="tagcol">
-                    {% if wcr in (1,2,3) %}
-                      <span class="pp-pill wc" style="height:20px;">WC{{ wcr }}</span>
-                    {% endif %}
-                  </td>
-                  <td class="teamcell">
-                    {% if t.logo_url %}
-                      <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
-                    {% endif %}
-                    <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
-                  </td>
-                  <td class="num">{{ t.w }}</td>
-                  <td class="num">{{ t.l }}</td>
-                  <td class="num pctcol">{{ pct_badge(p) }}</td>
-                  <td class="num">{{ t.wc_gb if t.wc_gb is not none and t.wc_gb != "" else "—" }}</td>
-                  <td class="num">{{ streak_cell(t.streak) }}</td>
-                  <td class="num">
-                    {% if rd > 0 %}
-                      <span class="rundiff-pos">{{ rd }}</span>
-                    {% elif rd < 0 %}
-                      <span class="rundiff-neg">{{ rd }}</span>
-                    {% else %}
-                      <span>{{ rd }}</span>
-                    {% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+    <!-- National League -->
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">National League</div></div>
       </div>
-    {% else %}
-      {% for d in nl_divs %}
+
+      {{ playoff_render(nl_playoff) }}
+
+      {% if (view or 'division') == 'wildcard' %}
         <div class="subcard">
-          <div class="subcard-title">
-            {{ d.name|replace("American League", "AL")|replace("National League", "NL") }}
-          </div>
+          <div class="subcard-title">NL Wild Card</div>
           <div class="table-wrap">
             <table class="table">
               <thead>
@@ -914,21 +722,20 @@
                   <th class="num">L</th>
                   <th class="num pctcol">Pct</th>
                   <th class="num">GB</th>
-                  <th class="num">WC GB</th>
                   <th class="num">Streak</th>
                   <th class="num">Run Diff</th>
                 </tr>
               </thead>
               <tbody>
-                {% for t in d.teams %}
-                  {% set is_winner = ((t.division_rank|default(0)|int) == 1) %}
-                  {% set is_wc = ((t.wild_card_rank|default(0)|int) in (1,2,3)) and (not is_winner) %}
+                {% for t in nl_wc %}
                   {% set p = (t.pct|float if t.pct is not none else none) %}
+                  {% set wcr = (t.wild_card_rank|default(0)|int) %}
                   {% set rd = (t.run_diff|int(0)) %}
                   <tr>
                     <td class="tagcol">
-                      {% if is_winner %}<span class="tagicon" title="Division leader">👑</span>{% endif %}
-                      {% if is_wc %}<span class="tagicon" title="Wild card">🃏</span>{% endif %}
+                      {% if wcr in (1,2,3) %}
+                        <span class="pp-pill wc" style="height:20px;">WC{{ wcr }}</span>
+                      {% endif %}
                     </td>
                     <td class="teamcell">
                       {% if t.logo_url %}
@@ -939,7 +746,6 @@
                     <td class="num">{{ t.w }}</td>
                     <td class="num">{{ t.l }}</td>
                     <td class="num pctcol">{{ pct_badge(p) }}</td>
-                    <td class="num">{{ t.gb }}</td>
                     <td class="num">{{ t.wc_gb if t.wc_gb is not none and t.wc_gb != "" else "—" }}</td>
                     <td class="num">{{ streak_cell(t.streak) }}</td>
                     <td class="num">
@@ -957,11 +763,70 @@
             </table>
           </div>
         </div>
-      {% endfor %}
-    {% endif %}
-  </div>
+      {% else %}
+        {% for d in nl_divs %}
+          <div class="subcard">
+            <div class="subcard-title">
+              {{ d.name|replace("American League", "AL")|replace("National League", "NL") }}
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th class="tagcol"></th>
+                    <th>Team</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num pctcol">Pct</th>
+                    <th class="num">GB</th>
+                    <th class="num">WC GB</th>
+                    <th class="num">Streak</th>
+                    <th class="num">Run Diff</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for t in d.teams %}
+                    {% set is_winner = ((t.division_rank|default(0)|int) == 1) %}
+                    {% set is_wc = ((t.wild_card_rank|default(0)|int) in (1,2,3)) and (not is_winner) %}
+                    {% set p = (t.pct|float if t.pct is not none else none) %}
+                    {% set rd = (t.run_diff|int(0)) %}
+                    <tr>
+                      <td class="tagcol">
+                        {% if is_winner %}<span class="tagicon" title="Division leader">👑</span>{% endif %}
+                        {% if is_wc %}<span class="tagicon" title="Wild card">🃏</span>{% endif %}
+                      </td>
+                      <td class="teamcell">
+                        {% if t.logo_url %}
+                          <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
+                        {% endif %}
+                        <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
+                      </td>
+                      <td class="num">{{ t.w }}</td>
+                      <td class="num">{{ t.l }}</td>
+                      <td class="num pctcol">{{ pct_badge(p) }}</td>
+                      <td class="num">{{ t.gb }}</td>
+                      <td class="num">{{ t.wc_gb if t.wc_gb is not none and t.wc_gb != "" else "—" }}</td>
+                      <td class="num">{{ streak_cell(t.streak) }}</td>
+                      <td class="num">
+                        {% if rd > 0 %}
+                          <span class="rundiff-pos">{{ rd }}</span>
+                        {% elif rd < 0 %}
+                          <span class="rundiff-neg">{{ rd }}</span>
+                        {% else %}
+                          <span>{{ rd }}</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
 
-</div>
+  </div>
 
 {% endif %}
 
