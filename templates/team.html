@@ -579,7 +579,7 @@
     if (!txs.length){
       return `<div class="muted" style="font-size:13px;">No transactions found for this range.</div>`;
     }
-
+  
     const header = `
       <div class="tx-row tx-header">
         <div>Date</div>
@@ -587,26 +587,34 @@
       </div>
       <div class="tx-body">
     `;
-
+  
     const rows = txs.map(t => {
       const date = fmtLocalDateOnly(t.date);
-
-      const desc = safeText(t.description);
-      const playerName = safeText(t.player?.name);
-      const playerId = t.player?.id;
-
-      // Keep description as-is, but if we have a player id, make the player's name clickable in the description.
-      let descHtml = escapeHtml(desc);
-      if (playerId && playerName && playerName !== "—"){
-        const linked = `<a href="/player/${playerId}">${escapeHtml(playerName)}</a>`;
-        // Replace first occurrence only (safe-ish; if name isn't present, we prepend)
-        if (descHtml.includes(escapeHtml(playerName))){
-          descHtml = descHtml.replace(escapeHtml(playerName), linked);
-        } else {
-          descHtml = `${linked} <span class="muted">—</span> ${descHtml}`;
+  
+      const descRaw = safeText(t.description);
+      let descHtml = escapeHtml(descRaw);
+  
+      const players = (t.players || []).filter(p => p && p.id && p.name);
+  
+      // Replace each player name occurrence with a link (first occurrence each)
+      for (const p of players){
+        const nameEsc = escapeHtml(p.name);
+        const linked = `<a href="/player/${p.id}">${nameEsc}</a>`;
+        if (descHtml.includes(nameEsc)){
+          descHtml = descHtml.replace(nameEsc, linked);
         }
       }
-
+  
+      // If none of the player names were found in the text (some descriptions don’t include them),
+      // prepend a linked player list.
+      const anyLinked = players.some(p => descHtml.includes(`/player/${p.id}`));
+      if (players.length && !anyLinked){
+        const plist = players
+          .map(p => `<a href="/player/${p.id}">${escapeHtml(p.name)}</a>`)
+          .join(", ");
+        descHtml = `${plist} <span class="muted">—</span> ${descHtml}`;
+      }
+  
       return `
         <div class="tx-row data-row">
           <div>${date}</div>
@@ -614,9 +622,10 @@
         </div>
       `;
     }).join("");
-
+  
     return header + rows + `</div>`;
   }
+
 
   async function loadTransactions(){
     const days = document.getElementById("txDays").value;
