@@ -263,6 +263,56 @@ def build_accolade_pills(awards: list[dict]):
             counts["wschamp"].add(season)
             continue
 
+    def build_award_year_map(awards: list[dict]):
+    """
+    Returns { "2021": ["mvp","goldglove"], ... }
+    using same classification rules as build_accolade_pills.
+    """
+    if not awards:
+        return {}
+
+    def clean_name(a):
+        return (a.get("name") or "").strip().lower()
+
+    def season_of(a):
+        return str(a.get("season") or a.get("year") or "")
+
+    year_map = {}
+
+    for a in awards:
+        n = clean_name(a)
+        season = season_of(a)
+        if not season:
+            continue
+
+        key = None
+
+        if n == "al mvp" or n == "nl mvp":
+            key = "mvp"
+        elif n == "al cy young" or n == "nl cy young":
+            key = "cyyoung"
+        elif "rookie of the year" in n or "jackie robinson" in n:
+            key = "roy"
+        elif "gold glove" in n:
+            key = "goldglove"
+        elif "silver slugger" in n:
+            key = "silverslugger"
+        elif "home run derby" in n and "winner" in n:
+            key = "hrderby"
+        elif "world series" in n and "mvp" in n:
+            key = "wsmvp"
+        elif "world series championship" in n:
+            key = "wschamp"
+        elif n == "hall of fame":
+            key = "hof"
+        elif "all-star" in n and ("al" in n or "nl" in n):
+            key = "allstar"
+
+        if key:
+            year_map.setdefault(season, []).append(key)
+
+    return year_map
+
     # ---------- output formatting ----------
 
     def label(name, c):
