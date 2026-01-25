@@ -76,6 +76,7 @@ def random_player_play():
             # accolades
             awards = get_player_awards(pid)
             accolades = build_accolade_pills(awards)
+            award_year_map = build_award_year_map(awards)
 
             return render_template(
                 "random_player.html",
@@ -87,6 +88,7 @@ def random_player_play():
                 career_hitting=career_hitting,
                 career_pitching=career_pitching,
                 accolades=accolades,
+                award_year_map=award_year_map
                 title="Random Player • Basenerd"
             )
         except Exception:
