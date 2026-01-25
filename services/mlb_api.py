@@ -240,7 +240,7 @@ def build_accolade_pills(awards: list[dict]):
 
         # ---- All-Star ----
         if "al all-star" in n or "nl all-star" in n:
-                counts["allstar"].add(season)
+            counts["allstar"].add(season)
             continue
 
         # ---- Batting Champion ----
