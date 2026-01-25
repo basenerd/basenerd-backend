@@ -166,89 +166,169 @@ def group_year_by_year(rows: list[dict], kind: str):
 
 def build_accolade_pills(awards: list[dict]):
     """
-    Convert StatsAPI awards objects into simple pills.
-    Keep this mapping basic for now; we can refine as you like.
-    Returns list of {"key": "...", "label": "..."}.
+    Deterministic award normalizer for Random Player page.
+    Converts raw StatsAPI awards into Basenerd accolade pills.
     """
+
     if not awards:
         return []
 
-    # Count occurrences
+    # ---------- helpers ----------
+
+    def clean_name(a):
+        return (a.get("name") or "").strip().lower()
+
+    def season_of(a):
+        return str(a.get("season") or a.get("year") or "")
+
+    # ---------- counters ----------
+
     counts = {
-        "mvp": 0,
-        "ws_mvp": 0,
-        "cy_young": 0,
-        "roy": 0,
-        "gold_glove": 0,
-        "silver_slugger": 0,
-        "all_star": 0,
-        "batting_champ": 0,
-        "ws_champ": 0,
-        "hof": 0,
+        "mvp": set(),
+        "cyyoung": set(),
+        "roy": set(),
+        "goldglove": set(),
+        "platinumglove": set(),
+        "silverslugger": set(),
+        "allstar": set(),
+        "battingchamp": set(),
+        "hrderby": set(),
+        "wsmvp": set(),
+        "wschamp": set(),
+        "hof": set(),
     }
 
-    def _name(a):
-        return (a.get("name") or "").strip()
+    # ---------- classification ----------
 
     for a in awards:
-        n = _name(a).lower()
-        if not n:
+        n = clean_name(a)
+        season = season_of(a)
+
+        # ---- Hall of Fame ----
+        if "hall of fame" in n:
+            counts["hof"].add("HOF")
             continue
 
-        if ("most valuable player" in n or n == "mvp") and "world series" not in n and "ws" not in n:
-            counts["mvp"] += 1
-        elif "cy young" in n:
-            counts["cy_young"] += 1
-        elif "world series most valuable player" in n or "world series mvp" in n:
-            counts["ws_mvp"] += 1
-        elif "rookie of the year" in n:
-            counts["roy"] += 1
-        elif "gold glove" in n:
-            counts["gold_glove"] += 1
-        elif "silver slugger" in n:
-            counts["silver_slugger"] += 1
-        elif ("all-star" in n or "all star" in n):
-            # Only count MLB All-Star (AL/NL). MiLB all-stars create false positives (e.g., Tim Locastro).
-            league_id = ((a.get("league") or {}).get("id")) or a.get("leagueId")
-            sport_id  = ((a.get("sport") or {}).get("id")) or a.get("sportId")
-        
-            # MLB leagues: AL=103, NL=104. MLB sportId is 1.
-            is_mlb_context = (league_id in (103, 104)) or (sport_id == 1)
-        
-            # Exclude known noisy variants even if context is missing
-            bad = [
-                "milb", "minor", "triple-a", "triple a", "double-a", "double a",
-                "single-a", "single a", "high-a", "high a", "low-a", "low a",
-                "international league", "pacific coast league", "texas league",
-                "southern league", "eastern league", "midwest league", "futures",
-                "rookie", "prospects", "all-star team", "all-star rookie"
-            ]
-        
-            if is_mlb_context and not any(b in n for b in bad):
-                counts["all_star"] += 1
-        elif "batting title" in n or "batting champion" in n:
-            counts["batting_champ"] += 1
-        elif "world series" in n and "champ" in n:
-            counts["ws_champ"] += 1
-        elif "hall of fame" in n:
-            counts["hof"] += 1
+        # ---- MVP ----
+        if (
+            "mvp" in n
+            or "most valuable player" in n
+            or n.endswith("mvp award")
+            or "most valuable award" in n
+        ):
+            # Exclude World Series MVP (separate)
+            if "world series" not in n:
+                counts["mvp"].add(season)
+                continue
 
-    def _label(base, c):
-        return f"{base}×{c}" if c > 1 else base
+        # ---- Cy Young ----
+        if "cy young" in n:
+            counts["cyyoung"].add(season)
+            continue
+
+        # ---- Rookie of the Year ----
+        if "rookie of the year" in n or "jackie robinson" in n:
+            counts["roy"].add(season)
+            continue
+
+        # ---- Gold Glove ----
+        if "gold glove" in n:
+            # Platinum sometimes contains "platinum"
+            if "platinum" in n:
+                counts["platinumglove"].add(season)
+            else:
+                counts["goldglove"].add(season)
+            continue
+
+        # ---- Silver Slugger ----
+        if "silver slugger" in n:
+            counts["silverslugger"].add(season)
+            continue
+
+        # ---- All-Star ----
+        if "all-star" in n or "all star" in n:
+            # Filter minor-league & weird contexts
+            bad = [
+                "minor", "triple", "double", "single",
+                "futures", "mex", "intl", "pcl", "fsl"
+            ]
+            if not any(b in n for b in bad):
+                counts["allstar"].add(season)
+            continue
+
+        # ---- Batting Champion ----
+        if "batting" in n and ("champ" in n or "title" in n):
+            counts["battingchamp"].add(season)
+            continue
+
+        # ---- Home Run Derby Winner ----
+        if "home run derby" in n and "winner" in n:
+            counts["hrderby"].add(season)
+            continue
+
+        # ---- World Series MVP ----
+        if "world series" in n and "mvp" in n:
+            counts["wsmvp"].add(season)
+            continue
+
+        # ---- World Series Championship (rings) ----
+        if "world series championship" in n:
+            counts["wschamp"].add(season)
+            continue
+
+    # ---------- output formatting ----------
+
+    def label(name, c):
+        return f"{name}×{c}" if c > 1 else name
 
     pills = []
-    if counts["mvp"]: pills.append({"key": "mvp", "label": _label("MVP", counts["mvp"])})
-    if counts["ws_mvp"]: pills.append({"key": "wsmvp", "label": _label("WS MVP", counts["ws_mvp"])})
-    if counts["cy_young"]: pills.append({"key": "cyyoung", "label": _label("Cy Young", counts["cy_young"])})
-    if counts["roy"]: pills.append({"key": "roy", "label": _label("ROY", counts["roy"])})
-    if counts["gold_glove"]: pills.append({"key": "goldglove", "label": _label("Gold Glove", counts["gold_glove"])})
-    if counts["silver_slugger"]: pills.append({"key": "silverslugger", "label": _label("Silver Slugger", counts["silver_slugger"])})
-    if counts["all_star"]: pills.append({"key": "allstar", "label": _label("All-Star", counts["all_star"])})
-    if counts["batting_champ"]: pills.append({"key": "battingchamp", "label": _label("Batting Champ", counts["batting_champ"])})
-    if counts["ws_champ"]: pills.append({"key": "wschamp", "label": _label("WS Champ", counts["ws_champ"])})
-    if counts["hof"]: pills.append({"key": "hof", "label": _label("HOF", counts["hof"])})
+
+    if counts["mvp"]:
+        pills.append({"key": "mvp", "label": label("MVP", len(counts["mvp"]))})
+
+    if counts["cyyoung"]:
+        pills.append({"key": "cyyoung", "label": label("Cy Young", len(counts["cyyoung"]))})
+
+    if counts["roy"]:
+        pills.append({"key": "roy", "label": label("ROY", len(counts["roy"]))})
+
+    if counts["goldglove"]:
+        pills.append({"key": "goldglove", "label": label("Gold Glove", len(counts["goldglove"]))})
+
+    if counts["platinumglove"]:
+        pills.append({"key": "platinumglove", "label": label("Platinum Glove", len(counts["platinumglove"]))})
+
+    if counts["silverslugger"]:
+        pills.append({"key": "silverslugger", "label": label("Silver Slugger", len(counts["silverslugger"]))})
+
+    if counts["allstar"]:
+        pills.append({"key": "allstar", "label": label("All-Star", len(counts["allstar"]))})
+
+    if counts["battingchamp"]:
+        pills.append({"key": "battingchamp", "label": label("Batting Champ", len(counts["battingchamp"])))
+
+    if counts["hrderby"]:
+        pills.append({"key": "hrderby", "label": label("HR Derby Winner", len(counts["hrderby"])))
+
+    if counts["wsmvp"]:
+        pills.append({"key": "wsmvp", "label": label("WS MVP", len(counts["wsmvp"])))
+
+    if counts["wschamp"]:
+        pills.append({"key": "wschamp", "label": label("WS Champ", len(counts["wschamp"])))
+
+    if counts["hof"]:
+        pills.append({"key": "hof", "label": "HOF"})
+
+    # Optional: consistent ordering
+    order = [
+        "hof","mvp","cyyoung","roy","goldglove","platinumglove",
+        "silverslugger","battingchamp","allstar","hrderby",
+        "wsmvp","wschamp"
+    ]
+    pills.sort(key=lambda p: order.index(p["key"]) if p["key"] in order else 999)
 
     return pills
+
 
 def extract_year_by_year_rows(player: dict):
     rows = []
