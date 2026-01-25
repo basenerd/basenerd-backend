@@ -66,15 +66,20 @@ def random_player_play():
             player = get_player_full(pid)
             headshot_url = get_player_headshot_url(pid, size=420)
             yby = extract_year_by_year_rows(player)
-            role, _ = extract_career_statline(player)
-            hitting_groups = group_year_by_year(yby, "hitting") if role == "hitting" else []
-            pitching_groups = group_year_by_year(yby, "pitching") if role == "pitching" else []
-
-
+            role = get_player_role(player)
+            if role == "pitching":
+                pitching_groups = group_year_by_year(yby, "pitching")
+                hitting_groups = []
+            elif role == "hitting":
+                hitting_groups = group_year_by_year(yby, "hitting")
+                pitching_groups = []
+            else:
+                # two-way: show both (if you’d rather force one, tell me which)
+                hitting_groups = group_year_by_year(yby, "hitting")
+                pitching_groups = group_year_by_year(yby, "pitching")
             # true career totals from separate endpoint (no summing)
-            career_hitting = get_player_career_totals(pid, "hitting")
-            career_pitching = get_player_career_totals(pid, "pitching")
-
+            career_hitting = get_player_career_totals(pid, "hitting") if role != "pitching" else None
+            career_pitching = get_player_career_totals(pid, "pitching") if role != "hitting" else None
             # accolades
             awards = get_player_awards(pid)
             accolades = build_accolade_pills(awards)
