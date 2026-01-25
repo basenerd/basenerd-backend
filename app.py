@@ -293,7 +293,8 @@ from datetime import timedelta
 
 @app.get("/team/<int:team_id>/transactions_json")
 def team_transactions_json(team_id):
-    # Allowed ranges (days)
+    from datetime import timedelta
+
     allowed = {7, 14, 30, 60}
     days = request.args.get("days", default=30, type=int)
     if days not in allowed:
@@ -308,8 +309,15 @@ def team_transactions_json(team_id):
     data = get_team_transactions(team_id, start_date, end_date)
 
     out = []
+    seen = set()
+
+    def _norm_desc(s: str) -> str:
+        s = (s or "").strip().lower()
+        # collapse whitespace
+        s = " ".join(s.split())
+        return s
+
     for t in (data.get("transactions") or []):
-        # Date fields can vary by type; keep a few fallbacks
         date_str = (
             t.get("effectiveDate")
             or t.get("resolutionDate")
@@ -322,7 +330,6 @@ def team_transactions_json(team_id):
         player_id = person.get("id") or None
         player_name = person.get("fullName") or t.get("player") or t.get("playerName") or "—"
 
-        # Type / description fields can vary
         tx_type = t.get("type") or t.get("transactionType") or t.get("transactionTypeDescription") or "—"
         desc = t.get("description") or t.get("note") or t.get("notes") or "—"
 
@@ -332,7 +339,6 @@ def team_transactions_json(team_id):
         def _team_label(team_obj):
             if not team_obj:
                 return "—"
-            # Try common fields
             return (
                 team_obj.get("abbreviation")
                 or team_obj.get("teamCode")
@@ -341,16 +347,23 @@ def team_transactions_json(team_id):
                 or "—"
             )
 
-        out.append({
+        row = {
             "date": date_str,
             "player": {"id": player_id, "name": player_name},
             "type": tx_type,
             "from": _team_label(from_team),
             "to": _team_label(to_team),
             "description": desc,
-        })
+        }
 
-    # Sort newest-first (best-effort: string sort works for YYYY-MM-DD)
+        # Dedupe key: date + player + normalized description
+        key = (row["date"] or "", str(player_id or ""), _norm_desc(row["description"]))
+        if key in seen:
+            continue
+        seen.add(key)
+
+        out.append(row)
+
     out.sort(key=lambda x: (x.get("date") or ""), reverse=True)
 
     return jsonify({
@@ -360,6 +373,7 @@ def team_transactions_json(team_id):
         "endDate": end_date,
         "transactions": out,
     })
+
 
 @app.get("/players")
 def players():
