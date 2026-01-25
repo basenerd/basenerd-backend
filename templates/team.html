@@ -168,7 +168,39 @@
   </div>
 </div>
 
-<!-- Local styles for dropdown + schedule + status pills -->
+<!-- ===================== -->
+<!-- TRANSACTIONS DROPDOWN -->
+<!-- ===================== -->
+
+<div class="card" style="margin-top:18px;">
+  <div class="card-header">
+    <details class="roster-details" id="txDetails">
+      <summary class="roster-summary">
+        <div style="display:flex; align-items:baseline; gap:12px; flex:1;">
+          <div class="card-title" style="margin:0;">Transactions</div>
+
+          <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+            <select id="txDays" class="season-select" aria-label="Select transaction range">
+              <option value="7">Last 7 days</option>
+              <option value="14">Last 14 days</option>
+              <option value="30" selected>Last 30 days</option>
+              <option value="60">Last 60 days</option>
+            </select>
+            <span class="muted" style="font-size:12px;">Click to expand</span>
+          </div>
+        </div>
+      </summary>
+
+      <div class="card-body" style="padding-top:10px;">
+        <div id="txContent">
+          <div class="muted" style="font-size:13px;">Select a range to load transactions.</div>
+        </div>
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- Local styles for dropdown + schedule + status pills + transactions -->
 <style>
   .roster-details { width: 100%; }
   .roster-summary {
@@ -208,7 +240,7 @@
     border: 1px solid rgba(255,255,255,0.12);
   }
 
-  /* Schedule styles */
+  /* Shared select style (schedule + transactions) */
   .season-select{
     padding:6px 10px;
     border-radius:10px;
@@ -218,6 +250,7 @@
     font-size: 13px;
   }
 
+  /* Schedule styles */
   .schedule-section-title{
     margin-top: 10px;
     margin-bottom: 6px;
@@ -274,6 +307,43 @@
     flex-direction:column;
     line-height:1.05;
   }
+
+  /* Transactions styles */
+  .tx-row{
+    display:grid;
+    grid-template-columns: 120px 170px 160px 90px 90px 1fr;
+    gap:6px;
+    padding:3px 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    align-items:center;
+    font-size: 11px;
+    line-height: 1.1;
+  }
+
+  .tx-header{
+    font-weight:600;
+    opacity:0.9;
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    padding:6px 6px;
+    font-size: 11px;
+  }
+
+  .tx-body .data-row:nth-child(even){
+    background: rgba(255,255,255,0.06);
+  }
+
+  .tx-player a{
+    text-decoration:none;
+  }
+  .tx-player a:hover{
+    text-decoration:underline;
+  }
+
+  .tx-desc{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
 </style>
 
 <script>
@@ -283,6 +353,9 @@
     return `https://www.mlbstatic.com/team-logos/${teamId}.svg`;
   }
 
+  // ----------------------------
+  // Schedule
+  // ----------------------------
   function buildSeasons(){
     const sel = document.getElementById("scheduleSeason");
     const currentYear = new Date().getFullYear();
@@ -468,7 +541,7 @@
     }
   }
 
-  // Init
+  // Init schedule years
   buildSeasons();
 
   // Load when user expands Schedule
@@ -483,6 +556,96 @@
   document.getElementById("scheduleSeason").addEventListener("change", () => {
     if (scheduleDetails.open){
       loadSchedule();
+    }
+  });
+
+  // ----------------------------
+  // Transactions
+  // ----------------------------
+  function fmtLocalDateOnly(isoOrYmd){
+    if (!isoOrYmd) return "—";
+    const d = new Date(isoOrYmd);
+    if (isNaN(d.getTime())) return isoOrYmd; // fallback to raw string
+    return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
+  }
+
+  function safeText(x){
+    return (x == null || x === "") ? "—" : String(x);
+  }
+
+  function escapeAttr(s){
+    return safeText(s).replaceAll('"', "&quot;");
+  }
+
+  function renderTransactions(txs){
+    if (!txs.length){
+      return `<div class="muted" style="font-size:13px;">No transactions found for this range.</div>`;
+    }
+
+    const header = `
+      <div class="tx-row tx-header">
+        <div>Date</div>
+        <div>Player</div>
+        <div>Type</div>
+        <div>From</div>
+        <div>To</div>
+        <div>Description</div>
+      </div>
+      <div class="tx-body">
+    `;
+
+    const rows = txs.map(t => {
+      const date = fmtLocalDateOnly(t.date);
+      const playerName = safeText(t.player?.name);
+      const playerId = t.player?.id;
+
+      const playerHtml = (playerId)
+        ? `<a href="/player/${playerId}">${playerName}</a>`
+        : playerName;
+
+      return `
+        <div class="tx-row data-row">
+          <div>${date}</div>
+          <div class="tx-player" style="white-space:nowrap;">${playerHtml}</div>
+          <div style="white-space:nowrap;">${safeText(t.type)}</div>
+          <div style="white-space:nowrap;">${safeText(t.from)}</div>
+          <div style="white-space:nowrap;">${safeText(t.to)}</div>
+          <div class="tx-desc" title="${escapeAttr(t.description)}">${safeText(t.description)}</div>
+        </div>
+      `;
+    }).join("");
+
+    return header + rows + `</div>`;
+  }
+
+  async function loadTransactions(){
+    const days = document.getElementById("txDays").value;
+    const container = document.getElementById("txContent");
+    container.innerHTML = `<div class="muted" style="font-size:13px;">Loading transactions…</div>`;
+
+    try{
+      const res = await fetch(`/team/${TEAM_ID}/transactions_json?days=${encodeURIComponent(days)}`);
+      const data = await res.json();
+      const txs = data.transactions || [];
+      container.innerHTML = renderTransactions(txs);
+    } catch(e){
+      console.error(e);
+      container.innerHTML = `<div class="muted" style="font-size:13px;">Error loading transactions.</div>`;
+    }
+  }
+
+  // Load when user expands Transactions
+  const txDetails = document.getElementById("txDetails");
+  txDetails.addEventListener("toggle", () => {
+    if (txDetails.open){
+      loadTransactions();
+    }
+  });
+
+  // Reload when range changes (even if already open)
+  document.getElementById("txDays").addEventListener("change", () => {
+    if (txDetails.open){
+      loadTransactions();
     }
   });
 </script>
