@@ -210,14 +210,12 @@ def build_accolade_pills(awards: list[dict]):
             continue
 
         # ---- MVP ----
-        if n == "AL MVP"
-            or n == "NL MVP":
+        if n == "al mvp" or n == "nl mvp":
                 counts["mvp"].add(season)
                 continue
 
         # ---- Cy Young ----
-        if n == "nl cy young"
-            or n == "al cy young":
+        if n == "nl cy young" or n == "al cy young":
             counts["cyyoung"].add(season)
             continue
 
@@ -227,8 +225,7 @@ def build_accolade_pills(awards: list[dict]):
             continue
 
         # ---- Gold Glove ----
-        if "al gold glove" in n
-            OR "nl gold glove" in n:
+        if "al gold glove" in n or "nl gold glove" in n:
             # Platinum sometimes contains "platinum"
             if "platinum" in n:
                 counts["platinumglove"].add(season)
@@ -242,8 +239,7 @@ def build_accolade_pills(awards: list[dict]):
             continue
 
         # ---- All-Star ----
-        if "al all-star" in n
-            OR "nl all-star" in n:
+        if "al all-star" in n or "nl all-star" in n:
                 counts["allstar"].add(season)
             continue
 
