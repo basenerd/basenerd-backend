@@ -64,10 +64,10 @@ def random_player_play():
             player = get_player_full(pid)
             headshot_url = get_player_headshot_url(pid, size=420)
             yby = extract_year_by_year_rows(player)
+            role, _ = extract_career_statline(player)
+            hitting_groups = group_year_by_year(yby, "hitting") if role == "hitting" else []
+            pitching_groups = group_year_by_year(yby, "pitching") if role == "pitching" else []
 
-            # group rows (one row per year + expandable team splits)
-            hitting_groups = group_year_by_year(yby, "hitting")
-            pitching_groups = group_year_by_year(yby, "pitching")
 
             # true career totals from separate endpoint (no summing)
             career_hitting = get_player_career_totals(pid, "hitting")
