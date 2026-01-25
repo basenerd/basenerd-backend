@@ -291,10 +291,11 @@ def team_schedule_json(team_id):
 
 from datetime import timedelta
 
+from datetime import timedelta
+import re
+
 @app.get("/team/<int:team_id>/transactions_json")
 def team_transactions_json(team_id):
-    from datetime import timedelta
-
     allowed = {7, 14, 30, 60}
     days = request.args.get("days", default=30, type=int)
     if days not in allowed:
@@ -302,68 +303,98 @@ def team_transactions_json(team_id):
 
     end_dt = datetime.utcnow().date()
     start_dt = end_dt - timedelta(days=days)
-
     start_date = start_dt.strftime("%Y-%m-%d")
     end_date = end_dt.strftime("%Y-%m-%d")
 
     data = get_team_transactions(team_id, start_date, end_date)
+    txs = (data.get("transactions") or [])
 
-    out = []
-    seen = set()
-
-    def _norm_desc(s: str) -> str:
-        s = (s or "").strip().lower()
-        # collapse whitespace
-        s = " ".join(s.split())
-        return s
-
-    for t in (data.get("transactions") or []):
-        date_str = (
+    def pick_date(t: dict) -> str:
+        s = (
             t.get("effectiveDate")
+            or t.get("transactionDate")
             or t.get("resolutionDate")
             or t.get("date")
-            or t.get("transactionDate")
             or ""
         )
+        return s[:10] if len(s) >= 10 else s
+
+    def team_label(team_obj: dict) -> str:
+        if not team_obj:
+            return "—"
+        return (
+            team_obj.get("abbreviation")
+            or team_obj.get("teamCode")
+            or team_obj.get("name")
+            or team_obj.get("locationName")
+            or "—"
+        )
+
+    def norm(s: str) -> str:
+        s = (s or "").strip().lower()
+        s = re.sub(r"\s+", " ", s)
+        return s
+
+    def strip_player_from_desc(desc: str, player_name: str) -> str:
+        """
+        Remove the player's name from the description so multi-player trades group together.
+        Do a case-insensitive replace; also collapse whitespace after.
+        """
+        if not desc:
+            return ""
+        if not player_name:
+            return desc
+        # Escape name for regex safety; remove first occurrence
+        pat = re.compile(re.escape(player_name), re.IGNORECASE)
+        out = pat.sub("", desc, count=1)
+        out = re.sub(r"\s+", " ", out).strip()
+        return out
+
+    grouped = {}  # key -> group dict
+
+    for t in txs:
+        date_ymd = pick_date(t)
 
         person = t.get("person") or {}
         player_id = person.get("id") or None
-        player_name = person.get("fullName") or t.get("player") or t.get("playerName") or "—"
+        player_name = (person.get("fullName") or "").strip()
 
         tx_type = t.get("type") or t.get("transactionType") or t.get("transactionTypeDescription") or "—"
         desc = t.get("description") or t.get("note") or t.get("notes") or "—"
 
-        from_team = t.get("fromTeam") or {}
-        to_team = t.get("toTeam") or {}
+        from_team = team_label(t.get("fromTeam") or {})
+        to_team = team_label(t.get("toTeam") or {})
 
-        def _team_label(team_obj):
-            if not team_obj:
-                return "—"
-            return (
-                team_obj.get("abbreviation")
-                or team_obj.get("teamCode")
-                or team_obj.get("name")
-                or team_obj.get("locationName")
-                or "—"
-            )
+        base_desc = strip_player_from_desc(desc, player_name)
 
-        row = {
-            "date": date_str,
-            "player": {"id": player_id, "name": player_name},
-            "type": tx_type,
-            "from": _team_label(from_team),
-            "to": _team_label(to_team),
-            "description": desc,
-        }
+        # Group key (tuned for trade-style “one row per asset” responses)
+        key = "|".join([
+            norm(date_ymd),
+            norm(tx_type),
+            norm(from_team),
+            norm(to_team),
+            norm(base_desc),
+        ])
 
-        # Dedupe key: date + player + normalized description
-        key = (row["date"] or "", str(player_id or ""), _norm_desc(row["description"]))
-        if key in seen:
-            continue
-        seen.add(key)
+        if key not in grouped:
+            grouped[key] = {
+                "date": date_ymd,
+                "type": tx_type,
+                "from": from_team,
+                "to": to_team,
+                # Keep one “representative” description (we’ll link all players in it client-side)
+                "description": desc,
+                "players": [],
+            }
 
-        out.append(row)
+        if player_id and player_name:
+            # Avoid duplicate players in the same group
+            if not any(p.get("id") == player_id for p in grouped[key]["players"]):
+                grouped[key]["players"].append({"id": player_id, "name": player_name})
 
+    out = list(grouped.values())
+
+    # Sort newest-first
     out.sort(key=lambda x: (x.get("date") or ""), reverse=True)
 
     return jsonify({
@@ -372,6 +403,8 @@ def team_transactions_json(team_id):
         "startDate": start_date,
         "endDate": end_date,
         "transactions": out,
+        "rawCount": len(txs),
+        "groupedCount": len(out),
     })
 
 
