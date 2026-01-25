@@ -1,52 +1,121 @@
-import time
-from typing import Any, Dict, Optional
-from datetime import datetime
-import requests
-import random
-import os
-import requests
-
-BASE = "https://statsapi.mlb.com/api/v1"
-
-# Simple in-memory cache so we don’t spam the API
-_cache: Dict[str, Dict[str, Any]] = {}
-CACHE_TTL_SECONDS = 60 * 5  # 5 minutes
-
 # services/mlb_api.py
+
+import time
 import json
 import os
 import random
+from datetime import datetime
+from typing import Any, Dict, Optional, List, Tuple
+
 import requests
 
+BASE = "https://statsapi.mlb.com/api/v1"
+MLB_API_BASE = BASE  # for older helpers that reference MLB_API_BASE
+
+# ----------------------------
+# Simple in-memory cache
+# ----------------------------
+_cache: Dict[str, Dict[str, Any]] = {}
+CACHE_TTL_SECONDS = 60 * 5  # 5 minutes
+
+
+def _get_cached(key: str):
+    item = _cache.get(key)
+    if not item:
+        return None
+    if time.time() - item["ts"] > CACHE_TTL_SECONDS:
+        return None
+    return item["data"]
+
+
+def _set_cached(key: str, data):
+    _cache[key] = {"ts": time.time(), "data": data}
+
+
+# ----------------------------
+# Random player pool
+# ----------------------------
 _PLAYERS_CACHE = None
 
-def _load_player_pool(path="players_index.json"):
+
+def _load_player_pool(path: str = "players_index.json") -> List[int]:
+    """
+    Loads a list[int] of player IDs from a JSON file.
+    Resolved relative to project root so it works on Render.
+    """
     global _PLAYERS_CACHE
     if _PLAYERS_CACHE is None:
-        # Resolve path relative to your project root so it works on Render too
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # /basenerd
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # project root
         full_path = os.path.join(base_dir, path)
         with open(full_path, "r", encoding="utf-8") as f:
-            _PLAYERS_CACHE = json.load(f)  # list[int]
+            _PLAYERS_CACHE = json.load(f)
     return _PLAYERS_CACHE
 
-def get_random_player_id(path="players_index.json"):
+
+def get_random_player_id(path: str = "players_index.json") -> int:
     pool = _load_player_pool(path)
     return int(random.choice(pool))
 
-def get_player_full(pid: int):
-    url = f"https://statsapi.mlb.com/api/v1/people/{pid}"
+
+# ----------------------------
+# Player fetch + stats hydration
+# ----------------------------
+def get_player_full(pid: int) -> dict:
+    """
+    Full player hydration used for Random Player:
+      /people/{id}?hydrate=stats(group=[hitting,pitching],type=[yearByYear])
+    """
+    url = f"{BASE}/people/{pid}"
     params = {"hydrate": "stats(group=[hitting,pitching],type=[yearByYear])"}
     r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
-    people = r.json().get("people", [])
+    people = r.json().get("people", []) or []
     if not people:
         raise ValueError("No player returned")
     return people[0]
 
-_TEAM_ABBREV_CACHE = {}
 
-def get_team_abbrev(team_id: int):
+def get_player_headshot_url(pid: int, size: int = 360) -> str:
+    return (
+        "https://img.mlbstatic.com/mlb-photos/image/upload/"
+        f"w_{size},q_100/v1/people/{pid}/headshot/67/current"
+    )
+
+
+def extract_career_statline(player: dict) -> Tuple[Optional[str], Optional[dict]]:
+    """
+    Returns (kind, statdict) where kind is 'hitting', 'pitching', or None.
+    Uses the hydrated stats in get_player_full.
+    """
+    stats = player.get("stats", []) or []
+    hitting = None
+    pitching = None
+
+    for grp in stats:
+        group = ((grp.get("group") or {}).get("displayName") or "").lower()
+        splits = grp.get("splits") or []
+        if not splits:
+            continue
+        stat = splits[0].get("stat") or {}
+        if "hitting" in group:
+            hitting = stat
+        elif "pitching" in group:
+            pitching = stat
+
+    if hitting:
+        return "hitting", hitting
+    if pitching:
+        return "pitching", pitching
+    return None, None
+
+
+# ----------------------------
+# Team abbrev helper (used in year-by-year rows)
+# ----------------------------
+_TEAM_ABBREV_CACHE: Dict[int, str] = {}
+
+
+def get_team_abbrev(team_id: int) -> str:
     if not team_id:
         return ""
     if team_id in _TEAM_ABBREV_CACHE:
@@ -55,18 +124,113 @@ def get_team_abbrev(team_id: int):
     url = f"{BASE}/teams/{team_id}"
     r = requests.get(url, timeout=10)
     r.raise_for_status()
-    data = r.json()
+    data = r.json() or {}
     team = (data.get("teams") or [{}])[0]
-    abbrev = team.get("abbreviation") or ""
+    abbrev = (team.get("abbreviation") or "").upper()
+
     _TEAM_ABBREV_CACHE[team_id] = abbrev
     return abbrev
 
-def get_player_career_totals(pid: int, kind: str):
+
+# ----------------------------
+# Year-by-year extraction + grouping
+# ----------------------------
+def extract_year_by_year_rows(player: dict) -> List[dict]:
     """
-    Pull true career totals from StatsAPI (separate endpoint),
-    instead of summing year-by-year rows.
+    Flattens hydrated yearByYear splits into rows like:
+      {"kind":"hitting","year":"2019","team":"NYY","stat":{...},"team_id":147}
+    Includes both hitting and pitching groups when present.
+    Filters out non-MLB sport lines.
+    """
+    rows: List[dict] = []
+    stats = player.get("stats", []) or []
+
+    for grp in stats:
+        group_name = ((grp.get("group") or {}).get("displayName") or "").lower()
+        splits = grp.get("splits") or []
+        if not splits:
+            continue
+
+        kind = "hitting" if "hitting" in group_name else ("pitching" if "pitching" in group_name else None)
+        if not kind:
+            continue
+
+        for s in splits:
+            stat = s.get("stat") or {}
+            season = s.get("season")  # "2019"
+            team_obj = s.get("team") or {}
+            team_id = team_obj.get("id")
+            team = get_team_abbrev(team_id)
+            league = (s.get("league") or {}).get("name") or ""
+            sport = (s.get("sport") or {}).get("name") or ""
+
+            # Skip non-MLB lines sometimes returned
+            if sport and "Major League Baseball" not in sport:
+                continue
+
+            rows.append(
+                {
+                    "kind": kind,
+                    "year": season,
+                    "team": team,
+                    "league": league,
+                    "stat": stat,
+                    "team_id": team_id,
+                }
+            )
+
+    rows.sort(key=lambda x: (x["kind"], x["year"] or "0", x["team"] or ""))
+    return rows
+
+
+def group_year_by_year(rows: List[dict], kind: str) -> List[dict]:
+    """
+    Groups extract_year_by_year_rows output into:
+      [
+        {"year":"2025","total": row_or_None, "parts":[team_rows...]},
+        ...
+      ]
+    - If the blank-team total row exists, we call it team='Total'
+    - Otherwise single-team year shows as total with no parts
+    """
+    krows = [r for r in (rows or []) if r.get("kind") == kind]
+    by_year: Dict[str, List[dict]] = {}
+
+    for r in krows:
+        year = str(r.get("year") or "")
+        if not year:
+            continue
+        by_year.setdefault(year, []).append(r)
+
+    groups: List[dict] = []
+    for year, yr_rows in by_year.items():
+        total_row = next((x for x in yr_rows if not (x.get("team") or "").strip()), None)
+        parts = [x for x in yr_rows if (x.get("team") or "").strip()]
+
+        if total_row:
+            total_row = dict(total_row)
+            total_row["team"] = "Total"
+        else:
+            if len(parts) == 1:
+                total_row = parts[0]
+                parts = []
+            elif len(parts) > 1:
+                total_row = dict(parts[0])
+                total_row["team"] = "Total"
+
+        groups.append({"year": year, "total": total_row, "parts": parts})
+
+    groups.sort(key=lambda g: g["year"])
+    return groups
+
+
+# ----------------------------
+# Career totals (true career endpoint)
+# ----------------------------
+def get_player_career_totals(pid: int, kind: str) -> Optional[dict]:
+    """
+    Pull true career totals from StatsAPI, rather than summing year-by-year.
     kind: "hitting" or "pitching"
-    Returns stat dict or None.
     """
     if kind not in ("hitting", "pitching"):
         return None
@@ -77,28 +241,27 @@ def get_player_career_totals(pid: int, kind: str):
         return cached
 
     url = f"{BASE}/people/{pid}/stats"
-    params = {
-        "stats": "career",
-        "group": kind,
-    }
+    params = {"stats": "career", "group": kind}
 
     r = requests.get(url, params=params, timeout=20)
     r.raise_for_status()
     data = r.json() or {}
     stats = data.get("stats", []) or []
 
-    # Expected shape: stats[0].splits[0].stat
     out = None
     if stats and (stats[0].get("splits") or []):
-        out = (stats[0]["splits"][0].get("stat") or None)
+        out = stats[0]["splits"][0].get("stat") or None
 
     _set_cached(cache_key, out)
     return out
 
 
-def get_player_awards(pid: int):
+# ----------------------------
+# Awards
+# ----------------------------
+def get_player_awards(pid: int) -> List[dict]:
     """
-    Pull awards for accolade pills.
+    Raw awards feed: /people/{id}/awards
     """
     cache_key = f"player_awards:{pid}"
     cached = _get_cached(cache_key)
@@ -115,65 +278,22 @@ def get_player_awards(pid: int):
     return awards
 
 
-def group_year_by_year(rows: list[dict], kind: str):
+def build_award_year_map(awards: List[dict]) -> Dict[str, List[str]]:
     """
-    Takes your extract_year_by_year_rows output and returns a structure
-    that supports:
-      - one visible row per year (the blank-team 'total' row becomes team='Total')
-      - expandable child rows for team splits in that year
-    Output:
-      [
-        {"year": "2025", "total": row_or_None, "parts": [rows...]},
-        ...
-      ]
+    Returns { "2021": ["mvp","goldglove"], ... }
+    Keys match pill keys:
+      mvp, cyyoung, roy, goldglove, platinumglove, silverslugger, allstar,
+      battingchamp, hrderby, wsmvp, wschamp, hof
+
+    Your rules:
+      - WS Champ counted per ring (per season occurrence)
+      - All-Star counted as total selections
+      - AL/NL MVP treated the same
+      - Fielding awards ONLY: Gold/Platinum
+      - Add HR Derby Winner
     """
-    # filter kind
-    krows = [r for r in (rows or []) if r.get("kind") == kind]
-
-    # group by season/year
-    by_year = {}
-    for r in krows:
-        year = str(r.get("year") or "")
-        if not year:
-            continue
-        by_year.setdefault(year, []).append(r)
-
-    groups = []
-    for year, yr_rows in by_year.items():
-        # "total row" is the one with blank team (multi-team totals)
-        total_row = next((x for x in yr_rows if not (x.get("team") or "").strip()), None)
-        parts = [x for x in yr_rows if (x.get("team") or "").strip()]
-
-        if total_row:
-            total_row = dict(total_row)
-            total_row["team"] = "Total"
-        else:
-            # If there’s only one team row, use it as the visible row, no expand.
-            # If there are multiple team rows and no total row (rare), we still show first as "Total".
-            if len(parts) == 1:
-                total_row = parts[0]
-                parts = []
-            elif len(parts) > 1:
-                total_row = dict(parts[0])
-                total_row["team"] = "Total"
-
-        groups.append({"year": year, "total": total_row, "parts": parts})
-
-    # sort years ascending
-    groups.sort(key=lambda g: g["year"])
-    return groups
-
-
-def build_accolade_pills(awards: list[dict]):
-    """
-    Deterministic award normalizer for Random Player page.
-    Converts raw StatsAPI awards into Basenerd accolade pills.
-    """
-
     if not awards:
-        return []
-
-    # ---------- helpers ----------
+        return {}
 
     def clean_name(a):
         return (a.get("name") or "").strip().lower()
@@ -181,7 +301,71 @@ def build_accolade_pills(awards: list[dict]):
     def season_of(a):
         return str(a.get("season") or a.get("year") or "")
 
-    # ---------- counters ----------
+    year_map: Dict[str, List[str]] = {}
+
+    for a in awards:
+        n = clean_name(a)
+        season = season_of(a)
+        if not season:
+            continue
+
+        key = None
+
+        if n == "hall of fame":
+            key = "hof"
+
+        elif n in ("al mvp", "nl mvp"):
+            key = "mvp"
+
+        elif n in ("al cy young", "nl cy young"):
+            key = "cyyoung"
+
+        # ROY: Jackie Robinson AL/NL and other ROY strings
+        elif "rookie of the year" in n:
+            key = "roy"
+
+        # Gloves: only gold/platinum
+        elif "gold glove" in n:
+            key = "platinumglove" if "platinum" in n else "goldglove"
+
+        elif "silver slugger" in n:
+            key = "silverslugger"
+
+        elif n in ("al all-star", "nl all-star"):
+            key = "allstar"
+
+        elif ("batting champion" in n) or ("batting title" in n) or ("batting" in n and "champ" in n):
+            key = "battingchamp"
+
+        elif "home run derby" in n and "winner" in n:
+            key = "hrderby"
+
+        elif "world series" in n and "mvp" in n:
+            key = "wsmvp"
+
+        elif "world series championship" in n:
+            key = "wschamp"
+
+        if key:
+            year_map.setdefault(season, []).append(key)
+
+    return year_map
+
+
+def build_accolade_pills(awards: List[dict]) -> List[dict]:
+    """
+    Deterministic award normalizer for Random Player page.
+    Produces pills with counts (All-Star×N, WS Champ×N, etc.).
+    """
+
+    if not awards:
+        return []
+
+    def clean_name(a):
+        return (a.get("name") or "").strip().lower()
+
+    def season_of(a):
+        return str(a.get("season") or a.get("year") or "")
 
     counts = {
         "mvp": set(),
@@ -194,131 +378,69 @@ def build_accolade_pills(awards: list[dict]):
         "battingchamp": set(),
         "hrderby": set(),
         "wsmvp": set(),
-        "wschamp": set(),
+        "wschamp": set(),  # rings counted per season
         "hof": set(),
     }
-
-    # ---------- classification ----------
 
     for a in awards:
         n = clean_name(a)
         season = season_of(a)
 
-        # ---- Hall of Fame ----
         if n == "hall of fame":
             counts["hof"].add("HOF")
             continue
 
-        # ---- MVP ----
-        if n == "al mvp" or n == "nl mvp":
-                counts["mvp"].add(season)
-                continue
+        if n in ("al mvp", "nl mvp"):
+            counts["mvp"].add(season)
+            continue
 
-        # ---- Cy Young ----
-        if n == "nl cy young" or n == "al cy young":
+        if n in ("al cy young", "nl cy young"):
             counts["cyyoung"].add(season)
             continue
 
-        # ---- Rookie of the Year ----
-        if "rookie of the year" in n and "jackie robinson" in n:
+        if "rookie of the year" in n:
             counts["roy"].add(season)
             continue
 
-        # ---- Gold Glove ----
-        if "al gold glove" in n or "nl gold glove" in n:
-            # Platinum sometimes contains "platinum"
+        # ONLY fielding awards: gold/platinum gloves
+        if "gold glove" in n:
             if "platinum" in n:
                 counts["platinumglove"].add(season)
             else:
                 counts["goldglove"].add(season)
             continue
 
-        # ---- Silver Slugger ----
         if "silver slugger" in n:
             counts["silverslugger"].add(season)
             continue
 
-        # ---- All-Star ----
-        if "al all-star" in n or "nl all-star" in n:
+        if n in ("al all-star", "nl all-star"):
             counts["allstar"].add(season)
             continue
 
-        # ---- Batting Champion ----
-        if "batting" in n and ("champ" in n or "title" in n):
+        if ("batting champion" in n) or ("batting title" in n) or ("batting" in n and "champ" in n):
             counts["battingchamp"].add(season)
             continue
 
-        # ---- Home Run Derby Winner ----
         if "home run derby" in n and "winner" in n:
             counts["hrderby"].add(season)
             continue
 
-        # ---- World Series MVP ----
         if "world series" in n and "mvp" in n:
             counts["wsmvp"].add(season)
             continue
 
-        # ---- World Series Championship (rings) ----
         if "world series championship" in n:
             counts["wschamp"].add(season)
             continue
 
-    def build_award_year_map(awards: list[dict]):
-        """
-        Returns { "2021": ["mvp","goldglove"], ... }
-        using same classification rules as build_accolade_pills.
-        """
-        if not awards:
-            return {}
-    
-        def clean_name(a):
-            return (a.get("name") or "").strip().lower()
-    
-        def season_of(a):
-            return str(a.get("season") or a.get("year") or "")
-    
-        year_map = {}
-    
-        for a in awards:
-            n = clean_name(a)
-            season = season_of(a)
-            if not season:
-                continue
-    
-            key = None
-    
-            if n == "al mvp" or n == "nl mvp":
-                key = "mvp"
-            elif n == "al cy young" or n == "nl cy young":
-                key = "cyyoung"
-            elif "rookie of the year" in n or "jackie robinson" in n:
-                key = "roy"
-            elif "gold glove" in n:
-                key = "goldglove"
-            elif "silver slugger" in n:
-                key = "silverslugger"
-            elif "home run derby" in n and "winner" in n:
-                key = "hrderby"
-            elif "world series" in n and "mvp" in n:
-                key = "wsmvp"
-            elif "world series championship" in n:
-                key = "wschamp"
-            elif n == "hall of fame":
-                key = "hof"
-            elif "all-star" in n and ("al" in n or "nl" in n):
-                key = "allstar"
-    
-            if key:
-                year_map.setdefault(season, []).append(key)
-    
-        return year_map
-
-    # ---------- output formatting ----------
-
-    def label(name, c):
+    def label(name: str, c: int) -> str:
         return f"{name}×{c}" if c > 1 else name
 
-    pills = []
+    pills: List[dict] = []
+
+    if counts["hof"]:
+        pills.append({"key": "hof", "label": "HOF"})
 
     if counts["mvp"]:
         pills.append({"key": "mvp", "label": label("MVP", len(counts["mvp"]))})
@@ -338,177 +460,43 @@ def build_accolade_pills(awards: list[dict]):
     if counts["silverslugger"]:
         pills.append({"key": "silverslugger", "label": label("Silver Slugger", len(counts["silverslugger"]))})
 
+    if counts["battingchamp"]:
+        pills.append({"key": "battingchamp", "label": label("Batting Champ", len(counts["battingchamp"]))})
+
     if counts["allstar"]:
         pills.append({"key": "allstar", "label": label("All-Star", len(counts["allstar"]))})
 
-    if counts["battingchamp"]:
-        pills.append({
-            "key": "battingchamp",
-            "label": label("Batting Champ", len(counts["battingchamp"]))
-        })
-
     if counts["hrderby"]:
-        pills.append({
-            "key": "hrderby",
-            "label": label("HR Derby Winner", len(counts["hrderby"]))
-        })
+        pills.append({"key": "hrderby", "label": label("HR Derby Winner", len(counts["hrderby"]))})
 
     if counts["wsmvp"]:
-        pills.append({
-            "key": "wsmvp",
-            "label": label("WS MVP", len(counts["wsmvp"]))
-        })
+        pills.append({"key": "wsmvp", "label": label("WS MVP", len(counts["wsmvp"]))})
 
     if counts["wschamp"]:
-        pills.append({
-            "key": "wschamp",
-            "label": label("WS Champ", len(counts["wschamp"]))
-        })
+        pills.append({"key": "wschamp", "label": label("WS Champ", len(counts["wschamp"]))})
 
-    if counts["hof"]:
-        pills.append({"key": "hof", "label": "HOF"})
-
-    # Optional: consistent ordering
+    # consistent ordering
     order = [
-        "hof","mvp","cyyoung","roy","goldglove","platinumglove",
-        "silverslugger","battingchamp","allstar","hrderby",
-        "wsmvp","wschamp"
+        "hof",
+        "mvp",
+        "cyyoung",
+        "roy",
+        "goldglove",
+        "platinumglove",
+        "silverslugger",
+        "battingchamp",
+        "allstar",
+        "hrderby",
+        "wsmvp",
+        "wschamp",
     ]
     pills.sort(key=lambda p: order.index(p["key"]) if p["key"] in order else 999)
-
     return pills
 
 
-def extract_year_by_year_rows(player: dict):
-    rows = []
-    stats = player.get("stats", [])
-
-    for grp in stats:
-        group_name = (grp.get("group") or {}).get("displayName", "").lower()
-        splits = grp.get("splits") or []
-        if not splits:
-            continue
-
-        kind = "hitting" if "hitting" in group_name else ("pitching" if "pitching" in group_name else None)
-        if not kind:
-            continue
-
-        for s in splits:
-            stat = s.get("stat") or {}
-            season = s.get("season")  # "2019"
-            team_obj = s.get("team") or {}
-            team_id = team_obj.get("id")
-            team = get_team_abbrev(team_id)  # ← abbreviated version
-            league = (s.get("league") or {}).get("name") or ""
-            sport = (s.get("sport") or {}).get("name") or ""
-
-            # Skip non-MLB lines sometimes returned
-            if sport and "Major League Baseball" not in sport:
-                continue
-
-            base = {
-                "kind": kind,
-                "year": season,
-                "team": team,
-                "league": league,
-                "stat": stat,
-                "team_id": team_id
-            }
-            rows.append(base)
-
-    # Sort by year asc
-    rows.sort(key=lambda x: (x["kind"], x["year"] or "0", x["team"]))
-    return rows
-
-
-def get_player_headshot_url(pid: int, size=360):
-    # MLB headshots usually exist here; some IDs won't have images
-    return f"https://img.mlbstatic.com/mlb-photos/image/upload/w_{size},q_100/v1/people/{pid}/headshot/67/current"
-
-def extract_career_statline(player: dict):
-    """
-    Returns (kind, statdict) where kind is 'hitting', 'pitching', or None.
-    """
-    stats = player.get("stats", [])
-    # stats is a list of groups; each has splits; split[0].stat
-    # We'll prefer hitting if present, else pitching.
-    hitting = None
-    pitching = None
-
-    for grp in stats:
-        group = (grp.get("group") or {}).get("displayName", "").lower()
-        splits = grp.get("splits") or []
-        if not splits:
-            continue
-        stat = (splits[0].get("stat") or {})
-        if "hitting" in group:
-            hitting = stat
-        elif "pitching" in group:
-            pitching = stat
-
-    if hitting:
-        return "hitting", hitting
-    if pitching:
-        return "pitching", pitching
-    return None, None
-
-def get_player(player_id: int):
-    """
-    Player bio + current team hydration.
-    Cached like teams.
-    """
-    cache_key = f"player:{player_id}"
-    cached = _get_cached(cache_key)
-    if cached is not None:
-        return cached
-
-    url = f"{MLB_API_BASE}/people/{player_id}"
-    resp = requests.get(url, params={"hydrate": "currentTeam"}, timeout=10)
-    resp.raise_for_status()
-    person = resp.json().get("people", [{}])[0]
-
-    _set_cached(cache_key, person)
-    return person
-
-
-def get_player_stats(player_id: int, season: int | None = None):
-    """
-    Season stats for hitting/pitching/fielding (whatever applies).
-    Cached.
-    """
-    season = season or datetime.now().year
-    cache_key = f"player_stats:{player_id}:{season}"
-    cached = _get_cached(cache_key)
-    if cached is not None:
-        return cached
-
-    url = f"{MLB_API_BASE}/people/{player_id}/stats"
-    resp = requests.get(
-        url,
-        params={"stats": "season", "group": "hitting,pitching,fielding", "season": season},
-        timeout=10
-    )
-    resp.raise_for_status()
-    stats = resp.json().get("stats", [])
-
-    _set_cached(cache_key, stats)
-    return stats
-
-def _get_cached(key: str) -> Optional[dict]:
-    item = _cache.get(key)
-    if not item:
-        return None
-    if time.time() - item["ts"] > CACHE_TTL_SECONDS:
-        return None
-    return item["data"]
-
-
-def _set_cached(key: str, data: dict) -> None:
-    _cache[key] = {"ts": time.time(), "data": data}
-
-
-import requests
-
+# ----------------------------
+# Standings / Teams / Team / Schedule
+# ----------------------------
 def get_standings(season_year: int) -> dict:
     cache_key = f"standings:{season_year}"
     cached = _get_cached(cache_key)
@@ -517,7 +505,6 @@ def get_standings(season_year: int) -> dict:
 
     url = f"{BASE}/standings"
     headers = {"User-Agent": "Mozilla/5.0 (Basenerd)"}
-
     params = {
         "leagueId": "103,104",
         "season": str(season_year),
@@ -534,28 +521,17 @@ def get_standings(season_year: int) -> dict:
             return data
         return {"records": []}
     except Exception as e:
-        # Return an empty-but-valid payload so the page renders with an error message upstream
         print(f"[get_standings] failed season={season_year}: {e}")
         return {"records": [], "error": str(e)}
 
 
-
-# Adding API helper to get list of teams for any given season. This will be used to populate the team directory page
 def get_teams(season: int) -> dict:
-    """
-    Fetch MLB teams for a given season (includes division/league hydration).
-    """
     cache_key = f"teams:{season}"
     cached = _get_cached(cache_key)
     if cached:
         return cached
 
-    params = {
-        "sportId": 1,  # MLB
-        "season": season,
-        "hydrate": "division,league",
-    }
-
+    params = {"sportId": 1, "season": season, "hydrate": "division,league"}
     r = requests.get(f"{BASE}/teams", params=params, timeout=10)
     r.raise_for_status()
     data = r.json()
@@ -565,18 +541,12 @@ def get_teams(season: int) -> dict:
 
 
 def get_team(team_id: int) -> dict:
-    """
-    Fetch details for a single team.
-    """
     cache_key = f"team:{team_id}"
     cached = _get_cached(cache_key)
     if cached:
         return cached
 
-    params = {
-        "hydrate": "division,league,venue",
-    }
-
+    params = {"hydrate": "division,league,venue"}
     r = requests.get(f"{BASE}/teams/{team_id}", params=params, timeout=10)
     r.raise_for_status()
     data = r.json()
@@ -585,32 +555,19 @@ def get_team(team_id: int) -> dict:
     return data
 
 
-    _set_cached(cache_key, data)
-    return data
-
 def get_team_schedule(team_id: int, season: int) -> dict:
-    """
-    Fetch schedule for a team + season.
-    Includes Spring Training, Regular Season, Postseason.
-    Cached.
-    """
     cache_key = f"team_schedule:{team_id}:{season}"
     cached = _get_cached(cache_key)
     if cached:
         return cached
 
-    # Schedule endpoint lives under api/v1/schedule
     url = f"{BASE}/schedule"
-
-    # Include Spring + Regular + Postseason (and exhibition just in case)
-    # E=Exhibition, S=Spring, R=Regular, F=Wild Card, D=DS, L=LCS, W=WS
     params = {
         "sportId": 1,
         "teamId": team_id,
         "season": season,
         "gameTypes": "E,S,R,F,D,L,W",
-        # hydrate gives us probable pitchers & decisions when available
-        "hydrate": "probablePitchers,decisions,team"
+        "hydrate": "probablePitchers,decisions,team",
     }
 
     r = requests.get(url, params=params, timeout=20)
@@ -620,14 +577,11 @@ def get_team_schedule(team_id: int, season: int) -> dict:
     _set_cached(cache_key, data)
     return data
 
-# --- Players ---
 
-def search_players(query: str):
-    """
-    Search players by name via StatsAPI.
-    Returns a list of people dicts (id, fullName, currentTeam, primaryPosition, etc.)
-    Cached briefly because users might search the same names repeatedly.
-    """
+# ----------------------------
+# Player directory / player page helpers
+# ----------------------------
+def search_players(query: str) -> List[dict]:
     q = (query or "").strip()
     if not q:
         return []
@@ -640,227 +594,42 @@ def search_players(query: str):
     url = f"{MLB_API_BASE}/people/search"
     resp = requests.get(url, params={"names": q}, timeout=10)
     resp.raise_for_status()
-    people = resp.json().get("people", [])
+    people = resp.json().get("people", []) or []
 
     _set_cached(cache_key, people)
     return people
 
-# services/db.py
-import os
-from urllib.parse import urlparse
 
-import psycopg
+def get_player(player_id: int) -> dict:
+    cache_key = f"player:{player_id}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
 
-def get_conn():
-    db_url = os.getenv("DATABASE_URL")
-    if not db_url:
-        raise RuntimeError("DATABASE_URL is not set")
+    url = f"{MLB_API_BASE}/people/{player_id}"
+    resp = requests.get(url, params={"hydrate": "currentTeam"}, timeout=10)
+    resp.raise_for_status()
+    person = (resp.json() or {}).get("people", [{}])[0]
 
-    # Render sometimes provides postgres:// — psycopg expects postgresql://
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
-
-    return psycopg.connect(db_url)
-
-def get_standings_from_db(season: int):
-    sql = """
-      SELECT season, league, division, team_id, team_abbrev, team_name,
-             w, l, pct, gb, wc_gb, rs, ra, streak, last_updated
-      FROM standings
-      WHERE season = %s
-      ORDER BY league, division, w DESC, pct DESC, team_name;
-    """
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(sql, (season,))
-            cols = [d.name for d in cur.description]
-            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
-    return rows
-
-import requests
-from collections import defaultdict
-
-from collections import defaultdict
-import requests
-
-import requests
-
-STATSAPI_BASE = "https://statsapi.mlb.com/api/v1"
-
-def get_postseason_series(season: int):
-    """
-    Returns postseason schedule grouped by series for a given season.
-    Uses: /schedule/postseason/series
-    """
-    url = f"{STATSAPI_BASE}/schedule/postseason/series"
-    params = {"season": str(season), "sportId": "1"}
-    r = requests.get(url, params=params, timeout=20)
-    r.raise_for_status()
-    return r.json()
+    _set_cached(cache_key, person)
+    return person
 
 
-def build_playoff_bracket(series_json: dict):
-    """
-    Normalizes the StatsAPI response into something easy to render.
+def get_player_stats(player_id: int, season: Optional[int] = None) -> List[dict]:
+    season = season or datetime.now().year
+    cache_key = f"player_stats:{player_id}:{season}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
 
-    Output shape:
-    {
-      "AL": { "Wild Card Series": [...], "Division Series": [...], "League Championship Series": [...], "World Series": [...] },
-      "NL": { ... },
-      "WS": { "World Series": [...] }   # optional convenience
-    }
-    """
-    out = {"AL": {}, "NL": {}, "WS": {}}
+    url = f"{MLB_API_BASE}/people/{player_id}/stats"
+    resp = requests.get(
+        url,
+        params={"stats": "season", "group": "hitting,pitching,fielding", "season": season},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    stats = (resp.json() or {}).get("stats", []) or []
 
-    series_list = series_json.get("series", []) or []
-
-    for s in series_list:
-        # These keys can vary a bit by season; we keep this defensive.
-        # Common fields typically include round/name-like descriptors and teams.
-        round_name = (
-            s.get("round", {}).get("name")
-            or s.get("roundName")
-            or s.get("seriesDescription")
-            or s.get("name")
-            or "Postseason"
-        )
-
-        # league label (AL/NL/WS). Sometimes it’s nested, sometimes not present.
-        lg = (
-            (s.get("league") or {}).get("abbreviation")
-            or (s.get("league") or {}).get("name")
-            or s.get("leagueName")
-            or ""
-        )
-        lg = "AL" if "American" in lg or lg == "AL" else "NL" if "National" in lg or lg == "NL" else "WS"
-
-        matchup = {
-            "seriesNumber": s.get("seriesNumber"),
-            "bestOf": s.get("gamesInSeries") or s.get("bestOf") or None,
-            "status": (s.get("status") or {}).get("detailedState") or (s.get("status") or {}).get("abstractGameState") or None,
-            "teams": [],
-            "link": s.get("link"),
-        }
-
-        # teams may appear as 'teams' or 'matchupTeams' depending on season
-        teams_blob = s.get("teams") or s.get("matchupTeams") or {}
-
-        # attempt to read both sides (home/away OR team1/team2)
-        candidates = []
-        if isinstance(teams_blob, dict):
-            for k in ["home", "away", "team1", "team2"]:
-                if teams_blob.get(k):
-                    candidates.append(teams_blob.get(k))
-
-        for t in candidates:
-            team_obj = t.get("team") or t.get("club") or {}
-            team_id = team_obj.get("id")
-            abbrev = (team_obj.get("abbreviation") or team_obj.get("abbrev") or "").upper()
-
-            wins = t.get("wins") if t.get("wins") is not None else (t.get("seriesWins") or t.get("score"))
-            # some seasons store as 'isWinner' bool
-            is_winner = t.get("isWinner")
-
-            matchup["teams"].append({
-                "team_id": team_id,
-                "abbrev": abbrev,
-                "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None,
-                "wins": wins,
-                "is_winner": is_winner,
-            })
-
-        out[lg].setdefault(round_name, []).append(matchup)
-
-    return out
-
-
-from collections import defaultdict
-import requests
-
-def get_40man_roster_grouped(team_id: int):
-    """
-    Groups into exactly: Pitcher, Catcher, Infielder, Outfielder.
-    Sorts each group by jersey number asc; missing jersey numbers last.
-    Pitchers show Pos as RHP/LHP based on throwing hand.
-    Also populates bt (bats/throws) and status if available.
-    """
-    url = f"https://statsapi.mlb.com/api/v1/teams/{team_id}/roster/40Man"
-
-    # Hydrate person so batSide/pitchHand come through reliably
-    params = {"hydrate": "person"}
-    r = requests.get(url, params=params, timeout=20)
-    r.raise_for_status()
-    data = r.json()
-
-    roster = data.get("roster", []) or []
-
-    buckets = ["Pitcher", "Catcher", "Infielder", "Outfielder"]
-    grouped = {b: [] for b in buckets}
-    other = []
-
-    def jersey_sort_val(j):
-        # Missing jerseys go last
-        try:
-            return (0, int(j))
-        except Exception:
-            return (1, 9999)
-
-    for item in roster:
-        person = item.get("person") or {}
-        position = item.get("position") or {}
-
-        # B/T
-        bat_obj = person.get("batSide") or {}
-        throw_obj = person.get("pitchHand") or {}
-        bats = bat_obj.get("code")
-        throws = throw_obj.get("code")
-        bt = f"{bats}/{throws}" if bats and throws else None
-
-        # Status (try multiple likely locations)
-        status = item.get("status") or {}
-        status_code = status.get("code") or item.get("statusCode") or item.get("rosterStatus")
-        status_desc = status.get("description") or status.get("status") or None
-
-        # Bucket selection
-        pos_type = position.get("type")  # Pitcher/Infielder/Outfielder/Catcher/Two-Way
-        if pos_type not in buckets:
-            # try primary position type if present
-            primary = person.get("primaryPosition") or {}
-            primary_type = primary.get("type")
-            pos_type = primary_type if primary_type in buckets else "Other"
-
-        # Position column
-        pos_abbrev = position.get("abbreviation") or position.get("name") or None
-        if pos_type == "Pitcher":
-            if throws == "R":
-                pos_abbrev = "RHP"
-            elif throws == "L":
-                pos_abbrev = "LHP"
-            else:
-                pos_abbrev = "P"
-
-        row = {
-            "id": person.get("id"),
-            "name": person.get("fullName"),
-            "jersey": item.get("jerseyNumber"),
-            "bt": bt,
-            "pos": pos_abbrev,
-            "status_code": status_code,
-            "status_desc": status_desc,
-        }
-
-        if pos_type in grouped:
-            grouped[pos_type].append(row)
-        else:
-            other.append(row)
-
-    # Sort each bucket by jersey number only (missing last). Tie-breaker: name.
-    for b in grouped:
-        grouped[b].sort(key=lambda x: (jersey_sort_val(x.get("jersey")), (x.get("name") or "")))
-
-    other.sort(key=lambda x: (jersey_sort_val(x.get("jersey")), (x.get("name") or "")))
-
-    return grouped, other
-
-
-
+    _set_cached(cache_key, stats)
+    return stats
