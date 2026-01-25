@@ -151,7 +151,6 @@
         <div style="display:flex; align-items:baseline; gap:12px; flex:1;">
           <div class="card-title" style="margin:0;">Schedule</div>
 
-          <!-- Season dropdown on the right side of title bar -->
           <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
             <select id="scheduleSeason" class="season-select" aria-label="Select season"></select>
             <span class="muted" style="font-size:12px;">Click to expand</span>
@@ -261,7 +260,6 @@
 
   .schedule-table { width:100%; }
 
-  /* TIGHTER ROWS */
   .schedule-row{
     display:grid;
     grid-template-columns: 100px 70px 1.8fr 150px 95px 1.3fr 78px;
@@ -281,7 +279,6 @@
     font-size: 11px;
   }
 
-  /* Alternating row shading like table tbody zebra */
   .schedule-body .data-row:nth-child(odd){
     background: rgba(255,255,255,0.00);
   }
@@ -301,23 +298,22 @@
   .rightlink a { text-decoration:none; }
   .rightlink a:hover { text-decoration:underline; }
 
-  /* Tight stacked pitchers */
   .pitchers-stack{
     display:flex;
     flex-direction:column;
     line-height:1.05;
   }
 
-  /* Transactions styles */
+  /* Transactions styles (Date + Description only) */
   .tx-row{
     display:grid;
-    grid-template-columns: 120px 170px 160px 90px 90px 1fr;
-    gap:6px;
-    padding:3px 6px;
+    grid-template-columns: 120px 1fr;
+    gap:10px;
+    padding:4px 6px;
     border-bottom: 1px solid rgba(255,255,255,0.06);
     align-items:center;
     font-size: 11px;
-    line-height: 1.1;
+    line-height: 1.15;
   }
 
   .tx-header{
@@ -332,17 +328,17 @@
     background: rgba(255,255,255,0.06);
   }
 
-  .tx-player a{
+  .tx-desc a{
     text-decoration:none;
   }
-  .tx-player a:hover{
+  .tx-desc a:hover{
     text-decoration:underline;
   }
 
   .tx-desc{
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
   }
 </style>
 
@@ -541,10 +537,8 @@
     }
   }
 
-  // Init schedule years
   buildSeasons();
 
-  // Load when user expands Schedule
   const scheduleDetails = document.getElementById("scheduleDetails");
   scheduleDetails.addEventListener("toggle", () => {
     if (scheduleDetails.open){
@@ -552,7 +546,6 @@
     }
   });
 
-  // Reload when season changes (even if already open)
   document.getElementById("scheduleSeason").addEventListener("change", () => {
     if (scheduleDetails.open){
       loadSchedule();
@@ -565,7 +558,7 @@
   function fmtLocalDateOnly(isoOrYmd){
     if (!isoOrYmd) return "—";
     const d = new Date(isoOrYmd);
-    if (isNaN(d.getTime())) return isoOrYmd; // fallback to raw string
+    if (isNaN(d.getTime())) return isoOrYmd;
     return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
   }
 
@@ -573,8 +566,13 @@
     return (x == null || x === "") ? "—" : String(x);
   }
 
-  function escapeAttr(s){
-    return safeText(s).replaceAll('"', "&quot;");
+  function escapeHtml(s){
+    return safeText(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
   }
 
   function renderTransactions(txs){
@@ -585,10 +583,6 @@
     const header = `
       <div class="tx-row tx-header">
         <div>Date</div>
-        <div>Player</div>
-        <div>Type</div>
-        <div>From</div>
-        <div>To</div>
         <div>Description</div>
       </div>
       <div class="tx-body">
@@ -596,21 +590,27 @@
 
     const rows = txs.map(t => {
       const date = fmtLocalDateOnly(t.date);
+
+      const desc = safeText(t.description);
       const playerName = safeText(t.player?.name);
       const playerId = t.player?.id;
 
-      const playerHtml = (playerId)
-        ? `<a href="/player/${playerId}">${playerName}</a>`
-        : playerName;
+      // Keep description as-is, but if we have a player id, make the player's name clickable in the description.
+      let descHtml = escapeHtml(desc);
+      if (playerId && playerName && playerName !== "—"){
+        const linked = `<a href="/player/${playerId}">${escapeHtml(playerName)}</a>`;
+        // Replace first occurrence only (safe-ish; if name isn't present, we prepend)
+        if (descHtml.includes(escapeHtml(playerName))){
+          descHtml = descHtml.replace(escapeHtml(playerName), linked);
+        } else {
+          descHtml = `${linked} <span class="muted">—</span> ${descHtml}`;
+        }
+      }
 
       return `
         <div class="tx-row data-row">
           <div>${date}</div>
-          <div class="tx-player" style="white-space:nowrap;">${playerHtml}</div>
-          <div style="white-space:nowrap;">${safeText(t.type)}</div>
-          <div style="white-space:nowrap;">${safeText(t.from)}</div>
-          <div style="white-space:nowrap;">${safeText(t.to)}</div>
-          <div class="tx-desc" title="${escapeAttr(t.description)}">${safeText(t.description)}</div>
+          <div class="tx-desc">${descHtml}</div>
         </div>
       `;
     }).join("");
@@ -634,7 +634,6 @@
     }
   }
 
-  // Load when user expands Transactions
   const txDetails = document.getElementById("txDetails");
   txDetails.addEventListener("toggle", () => {
     if (txDetails.open){
@@ -642,7 +641,6 @@
     }
   });
 
-  // Reload when range changes (even if already open)
   document.getElementById("txDays").addEventListener("change", () => {
     if (txDetails.open){
       loadTransactions();
