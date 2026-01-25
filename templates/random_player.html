@@ -112,7 +112,7 @@
             <th>Team</th>
             <th>G</th><th>PA</th><th>AB</th><th>H</th>
             <th>HR</th><th>RBI</th><th>SB</th>
-            <th>AVG</th><th>OBP</th><th>SLG</th><th>OPS</th>
+            <th>AVG</th><th>OBP</th><th>SLG</th><th>OPS</th><th>Awards</th>
           </tr>
         </thead>
         <tbody>
@@ -150,6 +150,16 @@
                 <td>{{ s.obp or "—" }}</td>
                 <td>{{ s.slg or "—" }}</td>
                 <td>{{ s.ops or "—" }}</td>
+                <td>
+                  {% set y = g.year %}
+                  {% if award_year_map[y] is defined %}
+                    {% for k in award_year_map[y] %}
+                      <span class="acc-pill acc-{{ k }}" style="font-size:10px; padding:2px 6px;">
+                        {{ k|upper }}
+                      </span>
+                    {% endfor %}
+                  {% endif %}
+                </td>
               </tr>
 
               {% if has_parts %}
@@ -213,7 +223,7 @@
             <th>Team</th>
             <th>G</th><th>GS</th><th>IP</th>
             <th>W</th><th>L</th><th>SV</th><th>SO</th>
-            <th>ERA</th><th>WHIP</th>
+            <th>ERA</th><th>WHIP</th><th>Awards</th>
           </tr>
         </thead>
         <tbody>
@@ -249,8 +259,17 @@
                 <td>{{ s.strikeOuts or "—" }}</td>
                 <td>{{ s.era or "—" }}</td>
                 <td>{{ s.whip or "—" }}</td>
+                <td>
+                  {% set y = g.year %}
+                  {% if award_year_map[y] is defined %}
+                    {% for k in award_year_map[y] %}
+                      <span class="acc-pill acc-{{ k }}" style="font-size:10px; padding:2px 6px;">
+                        {{ k|upper }}
+                      </span>
+                    {% endfor %}
+                  {% endif %}
+                </td>
               </tr>
-
               {% if has_parts %}
                 {% for p in g.parts %}
                   {% set ps = p.stat %}
