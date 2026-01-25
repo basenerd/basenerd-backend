@@ -312,7 +312,7 @@ def build_award_year_map(awards: List[dict]) -> Dict[str, List[str]]:
             key = "mvp"
         elif n in ("al cy young", "nl cy young"):
             key = "cyyoung"
-        elif "rookie of the year" in n:
+        elif "rookie of the year" in n and "jackie robinson" in n:
             key = "roy"
         elif "gold glove" in n:
             key = "platinumglove" if "platinum" in n else "goldglove"
