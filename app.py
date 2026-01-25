@@ -367,7 +367,6 @@ def team_transactions_json(team_id):
 
         base_desc = strip_player_from_desc(desc, player_name)
 
-        # Group key (tuned for trade-style “one row per asset” responses)
         key = "|".join([
             norm(date_ymd),
             norm(tx_type),
@@ -375,15 +374,15 @@ def team_transactions_json(team_id):
             norm(to_team),
             norm(base_desc),
         ])
-
+        
         if key not in grouped:
             grouped[key] = {
                 "date": date_ymd,
                 "type": tx_type,
                 "from": from_team,
                 "to": to_team,
-                # Keep one “representative” description (we’ll link all players in it client-side)
-                "description": desc,
+                # Store the CLEAN base description, not per-player desc
+                "base_description": base_desc,
                 "players": [],
             }
 
@@ -392,7 +391,21 @@ def team_transactions_json(team_id):
             if not any(p.get("id") == player_id for p in grouped[key]["players"]):
                 grouped[key]["players"].append({"id": player_id, "name": player_name})
 
-    out = list(grouped.values())
+    out = []
+    for g in grouped.values():
+        # Build final description once per group
+        desc = g["base_description"]
+    
+        # If base_description ended up empty (rare), fall back safely
+        if not desc or desc == "—":
+            desc = g.get("type", "Transaction")
+    
+        out.append({
+            "date": g["date"],
+            "description": desc,
+            "players": g["players"]
+        })
+    
 
     # Sort newest-first
     out.sort(key=lambda x: (x.get("date") or ""), reverse=True)
