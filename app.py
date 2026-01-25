@@ -14,6 +14,7 @@ from services.mlb_api import (
     group_year_by_year,
     get_player, 
     get_player_stats, 
+    get_player_role, 
     get_standings, 
     get_team_schedule
     )
