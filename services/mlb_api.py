@@ -376,12 +376,12 @@ def build_accolade_pills(awards: List[dict]) -> List[dict]:
             counts["cyyoung"].add(season)
             continue
 
-        if "rookie of the year" in n:
+        if "rookie of the year" in n and "jackie robinson" in n:
             counts["roy"].add(season)
             continue
 
         # ONLY fielding awards: gold/platinum gloves
-        if "gold glove" in n:
+        if "al gold glove" in n or "nl gold glove" in n:
             if "platinum" in n:
                 counts["platinumglove"].add(season)
             else:
@@ -396,11 +396,11 @@ def build_accolade_pills(awards: List[dict]) -> List[dict]:
             counts["allstar"].add(season)
             continue
 
-        if ("batting champion" in n) or ("batting title" in n) or ("batting" in n and "champ" in n):
+        if ("nl batting champion" in n) or ("al batting champion" in n):
             counts["battingchamp"].add(season)
             continue
 
-        if "home run derby" in n and "winner" in n:
+        if n == "home run derby winner":
             counts["hrderby"].add(season)
             continue
 
