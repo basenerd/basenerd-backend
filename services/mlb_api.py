@@ -305,16 +305,28 @@ def build_accolade_pills(awards: list[dict]):
         pills.append({"key": "allstar", "label": label("All-Star", len(counts["allstar"]))})
 
     if counts["battingchamp"]:
-        pills.append({"key": "battingchamp", "label": label("Batting Champ", len(counts["battingchamp"])))
+        pills.append({
+            "key": "battingchamp",
+            "label": label("Batting Champ", len(counts["battingchamp"]))
+        })
 
     if counts["hrderby"]:
-        pills.append({"key": "hrderby", "label": label("HR Derby Winner", len(counts["hrderby"])))
+        pills.append({
+            "key": "hrderby",
+            "label": label("HR Derby Winner", len(counts["hrderby"]))
+        })
 
     if counts["wsmvp"]:
-        pills.append({"key": "wsmvp", "label": label("WS MVP", len(counts["wsmvp"])))
+        pills.append({
+            "key": "wsmvp",
+            "label": label("WS MVP", len(counts["wsmvp"]))
+        })
 
     if counts["wschamp"]:
-        pills.append({"key": "wschamp", "label": label("WS Champ", len(counts["wschamp"])))
+        pills.append({
+            "key": "wschamp",
+            "label": label("WS Champ", len(counts["wschamp"]))
+        })
 
     if counts["hof"]:
         pills.append({"key": "hof", "label": "HOF"})
