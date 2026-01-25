@@ -18,6 +18,24 @@ MLB_API_BASE = BASE  # for older helpers that reference MLB_API_BASE
 _cache: Dict[str, Dict[str, Any]] = {}
 CACHE_TTL_SECONDS = 60 * 5  # 5 minutes
 
+def get_player_role(player: dict) -> str:
+    """
+    Returns: "pitching" or "hitting" (or "two-way")
+    Uses primaryPosition.type first (most reliable), falls back to stats.
+    """
+    pos = (player.get("primaryPosition") or {})
+    pos_type = (pos.get("type") or "").lower()
+    pos_name = (pos.get("name") or "").lower()
+
+    # Most reliable:
+    if pos_type == "pitcher" or pos_name == "pitcher":
+        return "pitching"
+
+    # Some players might show as "Two-Way Player"
+    if "two-way" in pos_name or "two way" in pos_name:
+        return "two-way"
+
+    return "hitting"
 
 def _get_cached(key: str):
     item = _cache.get(key)
