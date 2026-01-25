@@ -309,6 +309,14 @@ def team_transactions_json(team_id):
     data = get_team_transactions(team_id, start_date, end_date)
     txs = (data.get("transactions") or [])
 
+    # --- Helpers ---
+
+    POS_CODES = [
+        "RHP","LHP","P","C","1B","2B","3B","SS",
+        "LF","CF","RF","OF","IF","DH","INF","UT","PH","PR"
+    ]
+    _pos_re = "|".join(POS_CODES)
+
     def pick_date(t: dict) -> str:
         s = (
             t.get("effectiveDate")
@@ -319,38 +327,29 @@ def team_transactions_json(team_id):
         )
         return s[:10] if len(s) >= 10 else s
 
-    def team_label(team_obj: dict) -> str:
-        if not team_obj:
-            return "—"
-        return (
-            team_obj.get("abbreviation")
-            or team_obj.get("teamCode")
-            or team_obj.get("name")
-            or team_obj.get("locationName")
-            or "—"
-        )
-
-    def norm(s: str) -> str:
-        s = (s or "").strip().lower()
-        s = re.sub(r"\s+", " ", s)
-        return s
-
-    def strip_player_from_desc(desc: str, player_name: str) -> str:
+    def canonical_trade_signature(desc: str) -> str:
         """
-        Remove the player's name from the description so multi-player trades group together.
-        Do a case-insensitive replace; also collapse whitespace after.
+        Convert trade descriptions so multi-player rows collapse to one signature.
+        Replaces 'POS Player Name' with 'POS PLAYER'.
         """
         if not desc:
             return ""
-        if not player_name:
-            return desc
-        # Escape name for regex safety; remove first occurrence
-        pat = re.compile(re.escape(player_name), re.IGNORECASE)
-        out = pat.sub("", desc, count=1)
-        out = re.sub(r"\s+", " ", out).strip()
-        return out
 
-    grouped = {}  # key -> group dict
+        s = desc.strip()
+
+        # Replace "RHP Freddy Peralta", "SS Jett Williams", etc.
+        s = re.sub(
+            rf"\b({_pos_re})\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+(?:\s+(?:Jr\.|Sr\.|II|III|IV))?)\b",
+            r"\1 PLAYER",
+            s
+        )
+
+        s = re.sub(r"\s+", " ", s).strip().lower()
+        return s
+
+    # --- Grouping ---
+
+    grouped = {}
 
     for t in txs:
         date_ymd = pick_date(t)
@@ -359,55 +358,40 @@ def team_transactions_json(team_id):
         player_id = person.get("id") or None
         player_name = (person.get("fullName") or "").strip()
 
-        tx_type = t.get("type") or t.get("transactionType") or t.get("transactionTypeDescription") or "—"
-        desc = t.get("description") or t.get("note") or t.get("notes") or "—"
+        desc = (
+            t.get("description")
+            or t.get("note")
+            or t.get("notes")
+            or "—"
+        )
 
-        from_team = team_label(t.get("fromTeam") or {})
-        to_team = team_label(t.get("toTeam") or {})
+        # Build grouping key
+        sig = canonical_trade_signature(desc)
+        key = f"{date_ymd}|{sig}"
 
-        base_desc = strip_player_from_desc(desc, player_name)
-
-        key = "|".join([
-            norm(date_ymd),
-            norm(tx_type),
-            norm(from_team),
-            norm(to_team),
-            norm(base_desc),
-        ])
-        
+        # Create group if new
         if key not in grouped:
             grouped[key] = {
                 "date": date_ymd,
-                "type": tx_type,
-                "from": from_team,
-                "to": to_team,
-                # Store the CLEAN base description, not per-player desc
-                "base_description": base_desc,
-                "players": [],
+                # Keep the longest description we encounter as canonical display text
+                "description": desc,
+                "players": []
             }
+        else:
+            if len(desc or "") > len(grouped[key]["description"] or ""):
+                grouped[key]["description"] = desc
 
+        # Collect involved players
         if player_id and player_name:
-            # Avoid duplicate players in the same group
-            if not any(p.get("id") == player_id for p in grouped[key]["players"]):
-                grouped[key]["players"].append({"id": player_id, "name": player_name})
+            if not any(p["id"] == player_id for p in grouped[key]["players"]):
+                grouped[key]["players"].append({
+                    "id": player_id,
+                    "name": player_name
+                })
 
-    out = []
-    for g in grouped.values():
-        # Build final description once per group
-        desc = g["base_description"]
-    
-        # If base_description ended up empty (rare), fall back safely
-        if not desc or desc == "—":
-            desc = g.get("type", "Transaction")
-    
-        out.append({
-            "date": g["date"],
-            "description": desc,
-            "players": g["players"]
-        })
-    
+    # --- Final output ---
 
-    # Sort newest-first
+    out = list(grouped.values())
     out.sort(key=lambda x: (x.get("date") or ""), reverse=True)
 
     return jsonify({
@@ -415,9 +399,9 @@ def team_transactions_json(team_id):
         "days": days,
         "startDate": start_date,
         "endDate": end_date,
-        "transactions": out,
         "rawCount": len(txs),
         "groupedCount": len(out),
+        "transactions": out
     })
 
 
