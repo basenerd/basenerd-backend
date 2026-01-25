@@ -153,9 +153,23 @@
                 <td>
                   {% set y = g.year %}
                   {% if award_year_map[y] is defined %}
+                    {% set award_labels = {
+                      "mvp":"MVP",
+                      "cyyoung":"CY",
+                      "roy":"ROY",
+                      "goldglove":"GG",
+                      "platinumglove":"PG",
+                      "silverslugger":"SS",
+                      "allstar":"AS",
+                      "battingchamp":"BC",
+                      "hrderby":"HRD",
+                      "wsmvp":"WS-MVP",
+                      "wschamp":"WS",
+                      "hof":"HOF"
+                    } %}
                     {% for k in award_year_map[y] %}
                       <span class="acc-pill acc-{{ k }}" style="font-size:10px; padding:2px 6px;">
-                        {{ k|upper }}
+                        {{ award_labels[k] if award_labels[k] is defined else k|upper }}
                       </span>
                     {% endfor %}
                   {% endif %}
@@ -262,9 +276,23 @@
                 <td>
                   {% set y = g.year %}
                   {% if award_year_map[y] is defined %}
+                    {% set award_labels = {
+                      "mvp":"MVP",
+                      "cyyoung":"CY",
+                      "roy":"ROY",
+                      "goldglove":"GG",
+                      "platinumglove":"PG",
+                      "silverslugger":"SS",
+                      "allstar":"AS",
+                      "battingchamp":"BC",
+                      "hrderby":"HRD",
+                      "wsmvp":"WS-MVP",
+                      "wschamp":"WS",
+                      "hof":"HOF"
+                    } %}                    
                     {% for k in award_year_map[y] %}
                       <span class="acc-pill acc-{{ k }}" style="font-size:10px; padding:2px 6px;">
-                        {{ k|upper }}
+                        {{ award_labels[k] if award_labels[k] is defined else k|upper }}
                       </span>
                     {% endfor %}
                   {% endif %}
