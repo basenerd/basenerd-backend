@@ -205,34 +205,30 @@ def build_accolade_pills(awards: list[dict]):
         season = season_of(a)
 
         # ---- Hall of Fame ----
-        if "hall of fame" in n:
+        if n == "hall of fame":
             counts["hof"].add("HOF")
             continue
 
         # ---- MVP ----
-        if (
-            "mvp" in n
-            or "most valuable player" in n
-            or n.endswith("mvp award")
-            or "most valuable award" in n
-        ):
-            # Exclude World Series MVP (separate)
-            if "world series" not in n:
+        if n == "AL MVP"
+            or n == "NL MVP":
                 counts["mvp"].add(season)
                 continue
 
         # ---- Cy Young ----
-        if "cy young" in n:
+        if n == "nl cy young"
+            or n == "al cy young":
             counts["cyyoung"].add(season)
             continue
 
         # ---- Rookie of the Year ----
-        if "rookie of the year" in n or "jackie robinson" in n:
+        if "rookie of the year" in n and "jackie robinson" in n:
             counts["roy"].add(season)
             continue
 
         # ---- Gold Glove ----
-        if "gold glove" in n:
+        if "al gold glove" in n
+            OR "nl gold glove" in n:
             # Platinum sometimes contains "platinum"
             if "platinum" in n:
                 counts["platinumglove"].add(season)
@@ -246,13 +242,8 @@ def build_accolade_pills(awards: list[dict]):
             continue
 
         # ---- All-Star ----
-        if "all-star" in n or "all star" in n:
-            # Filter minor-league & weird contexts
-            bad = [
-                "minor", "triple", "double", "single",
-                "futures", "mex", "intl", "pcl", "fsl"
-            ]
-            if not any(b in n for b in bad):
+        if "al all-star" in n
+            OR "nl all-star" in n:
                 counts["allstar"].add(season)
             continue
 
