@@ -88,7 +88,7 @@ def random_player_play():
                 career_hitting=career_hitting,
                 career_pitching=career_pitching,
                 accolades=accolades,
-                award_year_map=award_year_map
+                award_year_map=award_year_map,
                 title="Random Player • Basenerd"
             )
         except Exception:
