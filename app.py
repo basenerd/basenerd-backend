@@ -16,7 +16,8 @@ from services.mlb_api import (
     get_player_stats, 
     get_player_role, 
     get_standings, 
-    get_team_schedule
+    get_team_schedule,
+    get_team_transactions
     )
 
 from services.articles import load_articles, get_article
@@ -287,6 +288,78 @@ def team_schedule_json(team_id):
             })
 
     return jsonify({"teamId": team_id, "season": season, "games": games_out})
+
+from datetime import timedelta
+
+@app.get("/team/<int:team_id>/transactions_json")
+def team_transactions_json(team_id):
+    # Allowed ranges (days)
+    allowed = {7, 14, 30, 60}
+    days = request.args.get("days", default=30, type=int)
+    if days not in allowed:
+        days = 30
+
+    end_dt = datetime.utcnow().date()
+    start_dt = end_dt - timedelta(days=days)
+
+    start_date = start_dt.strftime("%Y-%m-%d")
+    end_date = end_dt.strftime("%Y-%m-%d")
+
+    data = get_team_transactions(team_id, start_date, end_date)
+
+    out = []
+    for t in (data.get("transactions") or []):
+        # Date fields can vary by type; keep a few fallbacks
+        date_str = (
+            t.get("effectiveDate")
+            or t.get("resolutionDate")
+            or t.get("date")
+            or t.get("transactionDate")
+            or ""
+        )
+
+        person = t.get("person") or {}
+        player_id = person.get("id") or None
+        player_name = person.get("fullName") or t.get("player") or t.get("playerName") or "—"
+
+        # Type / description fields can vary
+        tx_type = t.get("type") or t.get("transactionType") or t.get("transactionTypeDescription") or "—"
+        desc = t.get("description") or t.get("note") or t.get("notes") or "—"
+
+        from_team = t.get("fromTeam") or {}
+        to_team = t.get("toTeam") or {}
+
+        def _team_label(team_obj):
+            if not team_obj:
+                return "—"
+            # Try common fields
+            return (
+                team_obj.get("abbreviation")
+                or team_obj.get("teamCode")
+                or team_obj.get("name")
+                or team_obj.get("locationName")
+                or "—"
+            )
+
+        out.append({
+            "date": date_str,
+            "player": {"id": player_id, "name": player_name},
+            "type": tx_type,
+            "from": _team_label(from_team),
+            "to": _team_label(to_team),
+            "description": desc,
+        })
+
+    # Sort newest-first (best-effort: string sort works for YYYY-MM-DD)
+    out.sort(key=lambda x: (x.get("date") or ""), reverse=True)
+
+    return jsonify({
+        "teamId": team_id,
+        "days": days,
+        "startDate": start_date,
+        "endDate": end_date,
+        "transactions": out,
+    })
 
 @app.get("/players")
 def players():
