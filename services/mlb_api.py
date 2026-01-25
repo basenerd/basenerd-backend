@@ -619,6 +619,37 @@ def get_40man_roster_grouped(team_id: int):
 
     return grouped, other
 
+# ----------------------------
+# Transactions (team)
+# ----------------------------
+def get_team_transactions(team_id: int, start_date: str, end_date: str) -> dict:
+    """
+    Fetch MLB transactions for a team within a date range.
+    Dates must be YYYY-MM-DD.
+
+    Endpoint: /transactions?teamId=...&startDate=...&endDate=...
+    """
+    cache_key = f"team_tx:{team_id}:{start_date}:{end_date}"
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached
+
+    url = f"{BASE}/transactions"
+    params = {
+        "sportId": 1,
+        "teamId": team_id,
+        "startDate": start_date,
+        "endDate": end_date,
+        # hydrate can help ensure person/team objects are present when available
+        "hydrate": "person,fromTeam,toTeam",
+    }
+
+    r = requests.get(url, params=params, timeout=20)
+    r.raise_for_status()
+    data = r.json() or {}
+
+    _set_cached(cache_key, data)
+    return data
 
 # ----------------------------
 # Player directory / player page helpers
