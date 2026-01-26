@@ -1,13 +1,103 @@
 {% extends "base.html" %}
 {% block content %}
+
+  <!-- Top intro -->
   <div class="card">
     <div class="card-header">
-      <div class="card-title">Welcome</div>
-      <div class="card-subtitle">Modern baseball analytics, built up over time.</div>
+      <div>
+        <div class="card-title">basenerd</div>
+        <div class="card-subtitle">Modern baseball analytics, built up over time.</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="muted" style="max-width:860px;">
+        Standings, teams, players, articles, and tools — all in one clean, stats-first dashboard.
+      </div>
+    </div>
+  </div>
+
+  <!-- Main dashboard -->
+  <div class="grid-2" style="margin-top:14px;">
+    <!-- Left: Navigation tiles -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Explore</div>
+        <div class="card-subtitle">Jump into the site</div>
+      </div>
+
+      <div class="card-body">
+        <div class="home-tiles">
+          <a class="home-tile" href="/standings">
+            <div class="home-tile-title">Standings</div>
+            <div class="home-tile-sub">Division + wild card views</div>
+          </a>
+
+          <a class="home-tile" href="/teams">
+            <div class="home-tile-title">Teams</div>
+            <div class="home-tile-sub">Rosters, info, schedules</div>
+          </a>
+
+          <a class="home-tile" href="/players">
+            <div class="home-tile-title">Players</div>
+            <div class="home-tile-sub">Stats, awards, profiles</div>
+          </a>
+
+          <a class="home-tile" href="/articles">
+            <div class="home-tile-title">Articles</div>
+            <div class="home-tile-sub">Writeups + analysis</div>
+          </a>
+
+          <a class="home-tile" href="/random-player">
+            <div class="home-tile-title">Random Player Generator</div>
+            <div class="home-tile-sub">Discover a new profile</div>
+          </a>
+
+          <a class="home-tile home-tile-secondary" href="/about">
+            <div class="home-tile-title">About</div>
+            <div class="home-tile-sub">What this project is</div>
+          </a>
+        </div>
+      </div>
     </div>
 
-    <p>We’ll add standings, today’s games, team pages, player pages, and custom leaderboards.</p>
+    <!-- Right: Recent articles -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Recent Articles</div>
+          <div class="card-subtitle">Latest from basenerd</div>
+        </div>
+        <a href="/articles" class="small">View all →</a>
+      </div>
 
-    <div class="small">Next: Standings layout → real data.</div>
+      <div class="card-body">
+        {% if articles and articles|length > 0 %}
+          <div class="home-articles">
+            {% for a in articles[:8] %}
+              <a class="home-article" href="{{ a.url if a.url is defined else ('/article/' ~ a.slug) }}">
+                <div class="home-article-title">{{ a.title }}</div>
+                <div class="home-article-meta">
+                  {% if a.date is defined and a.date %}{{ a.date }}{% endif %}
+                  {% if a.read_time is defined and a.read_time %}
+                    {% if a.date is defined and a.date %} • {% endif %}{{ a.read_time }}
+                  {% endif %}
+                </div>
+                {% if a.snippet is defined and a.snippet %}
+                  <div class="home-article-snippet">{{ a.snippet }}</div>
+                {% endif %}
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="muted">
+            No articles yet — once you publish, your latest posts will show up here automatically.
+          </div>
+          <div style="margin-top:10px;">
+            <a href="/articles" class="small">Go to Articles →</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
   </div>
+
 {% endblock %}
