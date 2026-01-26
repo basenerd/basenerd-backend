@@ -46,19 +46,23 @@ hr{ border:0; border-top:1px solid var(--border); margin:16px 0; }
 .site-banner-wrap{
   height: 95px;
   border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: center;   /* center horizontally */
-  align-items: center;       /* center vertically */
-  background: #0b0e13;       /* or whatever matches your theme */
+  background: #0b0e13;
   overflow: hidden;
 }
 
 .site-banner{
-  height: 95px;              /* lock height */
-  width: auto;               /* keep aspect ratio */
-  max-width: 1500px;         /* don't upscale beyond native */
+  width: 100%;
+  height: 100%;
   display: block;
+  object-fit: cover;        /* fills the 95px strip cleanly */
+  object-position: center;  /* centers the crop */
 }
+
+/* shrink on mobile */
+@media (max-width: 900px){
+  .site-banner-wrap{ height: 70px; }
+}
+
 
 /* ===== Header (if you use a top header anywhere) ===== */
 header.site-header{
