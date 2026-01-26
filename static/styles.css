@@ -389,3 +389,17 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   height: auto;
 }
 
+.home-nav-card{
+  text-decoration:none;
+  color:inherit;
+  transition: transform .06s ease, box-shadow .06s ease, border-color .06s ease;
+}
+
+.home-nav-card:hover{
+  transform: translateY(-1px);
+  border-color: rgba(11,92,171,.25);
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+  text-decoration:none;
+}
+
+
