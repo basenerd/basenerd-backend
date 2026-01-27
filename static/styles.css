@@ -734,4 +734,11 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   font-size:12px;
   white-space:nowrap;
 }
+.team-line-top{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  flex-wrap:wrap;
+}
 
