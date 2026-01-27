@@ -717,6 +717,18 @@ def get_team(team_id: int) -> dict:
     _set_cached(cache_key, data)
     return data
 
+def league_name_to_short(league_name):
+    """
+    Convert StatsAPI league names to short codes.
+    """
+    if not league_name:
+        return None
+    name = league_name.lower()
+    if "american" in name:
+        return "AL"
+    if "national" in name:
+        return "NL"
+    return None
 
 def get_team_schedule(team_id: int, season: int) -> dict:
     cache_key = f"team_schedule:{team_id}:{season}"
