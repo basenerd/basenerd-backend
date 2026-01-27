@@ -300,11 +300,12 @@ def get_player_game_log(player_id: int, season: int) -> List[dict]:
 
 def extract_game_log_rows(game_log_blocks: List[dict]) -> Dict[str, List[dict]]:
     """
-    Returns dict with keys 'hitting' and/or 'pitching':
+    Returns:
       {
         "hitting": [{"date":"2025-04-02","opponent":"@ LAD","stat":{...}}, ...],
         "pitching": [...]
       }
+    Always forces opponent abbreviations using team ID.
     """
     out = {"hitting": [], "pitching": []}
 
@@ -316,21 +317,41 @@ def extract_game_log_rows(game_log_blocks: List[dict]) -> Dict[str, List[dict]]:
 
         for s in block.get("splits") or []:
             stat = s.get("stat") or {}
+
+            # Date
             d = (s.get("date") or s.get("gameDate") or "")[:10] or ""
+
+            # Opponent abbreviation
             opp = ""
-            # common fields seen in StatsAPI gamelog splits
-            is_home = s.get("isHome")
             opponent = s.get("opponent") or {}
-            opp_name = (opponent.get("name") or opponent.get("teamName") or opponent.get("abbreviation") or "").strip()
-            if opp_name:
+            opp_id = opponent.get("id")
+
+            if opp_id:
+                try:
+                    # reuse your existing helper
+                    from services.mlb_api import get_team_abbrev
+                    opp_abbrev = get_team_abbrev(opp_id)
+                except Exception:
+                    opp_abbrev = opponent.get("abbreviation") or opponent.get("name") or ""
+
+                is_home = s.get("isHome")
                 prefix = "vs" if is_home else "@"
-                opp = f"{prefix} {opp_name}"
-            out[kind].append({"date": d, "opponent": opp, "stat": stat})
+                opp = f"{prefix} {opp_abbrev}"
+            else:
+                opp = ""
+
+            out[kind].append({
+                "date": d,
+                "opponent": opp,
+                "stat": stat
+            })
 
     # newest first
     out["hitting"].sort(key=lambda r: r.get("date") or "", reverse=True)
     out["pitching"].sort(key=lambda r: r.get("date") or "", reverse=True)
+
     return out
+
 
 def build_award_year_map(awards: List[dict]) -> Dict[str, List[str]]:
     if not awards:
