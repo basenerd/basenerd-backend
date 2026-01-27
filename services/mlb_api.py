@@ -4,7 +4,7 @@ import time
 import json
 import os
 import random
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any, Dict, Optional, List, Tuple
 
 import requests
@@ -686,6 +686,195 @@ def get_player(player_id: int) -> dict:
 
     _set_cached(cache_key, person)
     return person
+    
+
+# --- ADD helper: compute age ---
+def _calc_age(birth_date_str: Optional[str]) -> Optional[int]:
+    if not birth_date_str:
+        return None
+    try:
+        b = datetime.strptime(birth_date_str[:10], "%Y-%m-%d").date()
+        today = date.today()
+        return today.year - b.year - ((today.month, today.day) < (b.month, b.day))
+    except Exception:
+        return None
+
+
+# --- ADD: uncached season stats fetch (live each request) ---
+def get_player_season_stats_live(
+    player_id: int,
+    season: int,
+    stat_type: str = "season",  # "season" or "seasonAdvanced"
+    groups: str = "hitting,pitching,fielding",
+) -> List[dict]:
+    """
+    Live pull every request (NO cache) per your requirement.
+    Returns the raw 'stats' array from /people/{id}/stats.
+    """
+    url = f"{MLB_API_BASE}/people/{player_id}/stats"
+    resp = requests.get(
+        url,
+        params={"stats": stat_type, "group": groups, "season": season},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return (resp.json() or {}).get("stats", []) or []
+
+
+# --- ADD: game logs ---
+def get_player_game_log(player_id: int, season: int, groups: str = "hitting,pitching") -> List[dict]:
+    """
+    /people/{id}/stats?stats=gameLog&group=hitting,pitching&season=YYYY
+    """
+    url = f"{MLB_API_BASE}/people/{player_id}/stats"
+    resp = requests.get(
+        url,
+        params={"stats": "gameLog", "group": groups, "season": season},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return (resp.json() or {}).get("stats", []) or []
+
+
+# --- ADD: player transactions ---
+def get_player_transactions(player_id: int) -> List[dict]:
+    """
+    Uses /transactions with playerId.
+    Returns newest-first.
+    """
+    # cache is OK here, but you said LIVE only for season stats.
+    # We'll keep a short cache to avoid hammering transactions.
+    cache_key = f"player_transactions:{player_id}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{BASE}/transactions"
+    resp = requests.get(
+        url,
+        params={"sportId": 1, "playerId": player_id, "hydrate": "person,fromTeam,toTeam"},
+        timeout=20,
+    )
+    resp.raise_for_status()
+    txs = (resp.json() or {}).get("transactions", []) or []
+
+    def pick_date(t: dict) -> str:
+        # try a few common fields
+        for k in ("date", "transactionDate", "effectiveDate"):
+            v = t.get(k)
+            if v:
+                return str(v)[:10]
+        return ""
+
+    out = []
+    for t in txs:
+        person = t.get("person") or {}
+        desc = (t.get("description") or t.get("note") or t.get("notes") or "").strip()
+        out.append(
+            {
+                "date": pick_date(t),
+                "description": desc or "—",
+                "player": {
+                    "id": person.get("id"),
+                    "name": (person.get("fullName") or "").strip(),
+                },
+                # optional extras if you want later:
+                "type": (t.get("type") or {}).get("name"),
+                "fromTeam": (t.get("fromTeam") or {}).get("name"),
+                "toTeam": (t.get("toTeam") or {}).get("name"),
+            }
+        )
+
+    out.sort(key=lambda x: (x.get("date") or ""), reverse=True)
+    _set_cached(cache_key, out)
+    return out
+
+
+# --- ADD: find best season with stats (current -> back to debut year) ---
+def find_best_season_with_stats(
+    player_id: int,
+    debut_year: Optional[int],
+    role: str,
+    start_year: int,
+    stat_type: str = "season",
+) -> Tuple[Optional[int], List[dict]]:
+    """
+    Walk backward from start_year until we find a season that has splits.
+    Stops at debut_year (inclusive).
+    role: "hitting" | "pitching" | "two-way"
+    """
+    if not debut_year:
+        debut_year = 1900
+
+    for yr in range(start_year, debut_year - 1, -1):
+        try:
+            blocks = get_player_season_stats_live(
+                player_id,
+                season=yr,
+                stat_type=stat_type,
+                groups="hitting,pitching,fielding",
+            )
+        except Exception:
+            blocks = []
+
+        def _has_group(group_display: str) -> bool:
+            for b in blocks:
+                g = ((b.get("group") or {}).get("displayName") or "").lower()
+                if group_display in g:
+                    splits = b.get("splits") or []
+                    if splits and splits[0].get("stat"):
+                        return True
+            return False
+
+        if role == "two-way":
+            if _has_group("hitting") or _has_group("pitching"):
+                return yr, blocks
+        elif role == "pitching":
+            if _has_group("pitching"):
+                return yr, blocks
+        else:
+            if _has_group("hitting"):
+                return yr, blocks
+
+    return None, []
+
+
+# --- OPTIONAL: enrich bio in one place (used by player page) ---
+def build_player_header(bio: dict) -> dict:
+    """
+    Normalizes header fields + hides missing later in template.
+    """
+    debut = (bio.get("mlbDebutDate") or "")[:10] or None
+    debut_year = None
+    if debut:
+        try:
+            debut_year = int(debut[:4])
+        except Exception:
+            debut_year = None
+
+    return {
+        "id": bio.get("id"),
+        "fullName": bio.get("fullName"),
+        "currentTeam": (bio.get("currentTeam") or {}).get("name"),
+        "currentTeamId": (bio.get("currentTeam") or {}).get("id"),
+        "primaryPosition": (bio.get("primaryPosition") or {}).get("name"),
+        "batSide": (bio.get("batSide") or {}).get("code") or (bio.get("batSide") or {}).get("description"),
+        "pitchHand": (bio.get("pitchHand") or {}).get("code") or (bio.get("pitchHand") or {}).get("description"),
+        "height": bio.get("height"),
+        "weight": bio.get("weight"),
+        "birthDate": (bio.get("birthDate") or "")[:10] or None,
+        "age": _calc_age(bio.get("birthDate")),
+        "birthCity": bio.get("birthCity"),
+        "birthStateProvince": bio.get("birthStateProvince"),
+        "birthCountry": bio.get("birthCountry"),
+        "mlbDebutDate": debut,
+        "debutYear": debut_year,
+        # these exist for many players; template will hide if missing:
+        "draftYear": bio.get("draftYear"),
+        "draftPick": bio.get("draftPick"),
+        "draftRound": bio.get("draftRound"),
+        "education": bio.get("education"),
+    }
 
 
 def get_player_stats(player_id: int, season: Optional[int] = None) -> List[dict]:
