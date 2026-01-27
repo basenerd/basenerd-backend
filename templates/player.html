@@ -9,9 +9,9 @@
 {# -----------------------
    Mini stat cards
    ----------------------- #}
-{% macro stat_cell(val, bg, align='right') %}
+{% macro stat_cell(val, bg) %}
   {% if bg %}
-    <span class="statcell" style="background: {{ bg }}; text-align:{{ align }};">{{ val }}</span>
+    <span class="statcell" style="background: {{ bg }};">{{ val }}</span>
   {% else %}
     {{ val }}
   {% endif %}
