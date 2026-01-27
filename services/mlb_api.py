@@ -1342,9 +1342,16 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
             away_rec = _record_str(away)
             win_p = (decisions.get("winner") or {}).get("fullName")
             lose_p = (decisions.get("loser") or {}).get("fullName")
-
             venue = g.get("venue") or {}
-            venue_name = venue.get("name")
+            venue_name = venue.get("name")        
+            venue_loc = ""
+            city = venue.get("city")
+            state = venue.get("state") or venue.get("stateAbbrev")
+            if city and state:
+                venue_loc = f"{city}, {state}"
+            elif city:
+                venue_loc = city
+
 
             home_abbrev = (home_team.get("abbreviation") or "").upper()
             away_abbrev = (away_team.get("abbreviation") or "").upper()
@@ -1417,6 +1424,7 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
                     "loser": lose_p,
                 },
                 "venue": venue_name,
+                "venueLocation": venue_loc,
             })
 
     # Sort by local time when possible
