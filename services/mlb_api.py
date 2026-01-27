@@ -1251,37 +1251,43 @@ def _build_series_line(game: dict, home_abbrev: str, away_abbrev: str) -> str:
       - "LAD leads 2-1"
       - "LAD wins 3-1"
       - "Series tied 1-1"
-    Uses seriesStatus when available.
+    Uses seriesStatus when available (multiple schema variants).
     """
     ss = (game.get("seriesStatus") or {})
+
+    # Many schedule responses already include a nice human-ready string:
+    # e.g., ss.shortDescription == "LAD leads 2-1" / "LAD wins 3-1"
+    short = (ss.get("shortDescription") or ss.get("result") or "").strip()
+    if short:
+        return short
+
+    # Fallback to numeric wins schema (when present)
     home_w = ss.get("homeWins")
     away_w = ss.get("awayWins")
-
-    # If not available, no series line
     if home_w is None or away_w is None:
         return ""
 
-    # Determine if series is over
     is_over = bool(ss.get("isOver"))
-    winning_team = ss.get("winningTeam") or {}
-    winning_id = winning_team.get("id")
 
-    # Map ids to abbrev (best-effort)
-    teams = game.get("teams") or {}
-    home_team = (teams.get("home") or {}).get("team") or {}
-    away_team = (teams.get("away") or {}).get("team") or {}
-    home_id = home_team.get("id")
-    away_id = away_team.get("id")
-
-    winner_abbrev = None
-    if winning_id and winning_id == home_id:
-        winner_abbrev = home_abbrev
-    elif winning_id and winning_id == away_id:
-        winner_abbrev = away_abbrev
-
+    # If series is over, try winner
     if is_over:
-        if not winner_abbrev:
+        winning_team = ss.get("winningTeam") or {}
+        winning_id = winning_team.get("id")
+
+        teams = game.get("teams") or {}
+        home_team = (teams.get("home") or {}).get("team") or {}
+        away_team = (teams.get("away") or {}).get("team") or {}
+        home_id = home_team.get("id")
+        away_id = away_team.get("id")
+
+        winner_abbrev = None
+        if winning_id and winning_id == home_id:
+            winner_abbrev = home_abbrev
+        elif winning_id and winning_id == away_id:
+            winner_abbrev = away_abbrev
+        else:
             winner_abbrev = home_abbrev if home_w > away_w else away_abbrev if away_w > home_w else None
+
         if winner_abbrev:
             return f"{winner_abbrev} wins {max(home_w, away_w)}-{min(home_w, away_w)}"
         return f"Series decided {max(home_w, away_w)}-{min(home_w, away_w)}"
@@ -1291,6 +1297,7 @@ def _build_series_line(game: dict, home_abbrev: str, away_abbrev: str) -> str:
         return f"Series tied {home_w}-{away_w}"
     lead_abbrev = home_abbrev if home_w > away_w else away_abbrev
     return f"{lead_abbrev} leads {max(home_w, away_w)}-{min(home_w, away_w)}"
+
 
 def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[dict]:
     """
@@ -1326,8 +1333,13 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
             # probables / decisions
             probables = g.get("probablePitchers") or {}
             decisions = g.get("decisions") or {}
-            home_prob = (probables.get("home") or {}).get("fullName")
-            away_prob = (probables.get("away") or {}).get("fullName")
+            season = _season_from_date(date_ymd)
+            home_pp_obj = (probables.get("home") or {})
+            away_pp_obj = (probables.get("away") or {})
+            home_pp = _pp_text(home_pp_obj, season)
+            away_pp = _pp_text(away_pp_obj, season)
+            home_rec = _record_str(home)
+            away_rec = _record_str(away)
             win_p = (decisions.get("winner") or {}).get("fullName")
             lose_p = (decisions.get("loser") or {}).get("fullName")
 
@@ -1386,6 +1398,8 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
                     "id": home_id,
                     "name": home_team.get("name"),
                     "abbrev": home_abbrev,
+                    "record": home_rec,
+                    "pp": home_pp,
                     "logo": f"https://www.mlbstatic.com/team-logos/{home_id}.svg" if home_id else None,
                     "score": home_score,
                 },
@@ -1393,12 +1407,12 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
                     "id": away_id,
                     "name": away_team.get("name"),
                     "abbrev": away_abbrev,
+                    "record": away_rec,
+                    "pp": away_pp,
                     "logo": f"https://www.mlbstatic.com/team-logos/{away_id}.svg" if away_id else None,
                     "score": away_score,
                 },
                 "pitching": {
-                    "homeProbable": home_prob,
-                    "awayProbable": away_prob,
                     "winner": win_p,
                     "loser": lose_p,
                 },
@@ -1596,6 +1610,69 @@ def get_schedule_game_by_pk(game_pk: int) -> Optional[dict]:
 
     _set_cached(cache_key, game)
     return game
+
+def _season_from_date(date_ymd: str) -> int:
+    try:
+        return int((date_ymd or "")[:4])
+    except Exception:
+        return datetime.utcnow().year
+
+def get_pitcher_season_line(person_id: int, season: int) -> dict:
+    """
+    Returns {'w': int|None, 'l': int|None, 'era': str|None}
+    Cached.
+    """
+    if not person_id:
+        return {"w": None, "l": None, "era": None}
+
+    cache_key = f"pstats:{person_id}:{season}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        url = f"{BASE}/people/{person_id}/stats"
+        params = {"stats": "season", "group": "pitching", "season": season}
+        r = requests.get(url, params=params, timeout=20)
+        r.raise_for_status()
+        data = r.json() or {}
+
+        splits = (((data.get("stats") or [])[0] or {}).get("splits") or [])
+        stat = (splits[0].get("stat") if splits else {}) or {}
+
+        out = {
+            "w": _safe_int(stat.get("wins")),
+            "l": _safe_int(stat.get("losses")),
+            "era": str(stat.get("era")) if stat.get("era") is not None else None,
+        }
+    except Exception:
+        out = {"w": None, "l": None, "era": None}
+
+    _set_cached(cache_key, out)
+    return out
+
+def _pp_text(pp_obj: dict, season: int) -> str:
+    """
+    pp_obj is schedule probablePitchers.home/away object (may include id + fullName).
+    """
+    if not pp_obj:
+        return "PP: TBD"
+
+    name = (pp_obj.get("fullName") or "").strip()
+    pid = pp_obj.get("id")
+
+    if not name:
+        return "PP: TBD"
+
+    line = get_pitcher_season_line(pid, season) if pid else {"w": None, "l": None, "era": None}
+    w = line.get("w")
+    l = line.get("l")
+    era = line.get("era")
+
+    if w is None or l is None or not era:
+        return f"PP: {name}"
+
+    return f"PP: {name} ({w}-{l} • {era})"
 
 def get_player_stats(player_id: int, season: Optional[int] = None) -> List[dict]:
     season = season or datetime.now().year
