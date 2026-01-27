@@ -1526,10 +1526,18 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     status = gd.get("status") or {}
 
     # Fallback: if feed is empty-ish, try schedule endpoint (you already have this helper)
+    # Fallback: if feed is empty-ish, try schedule endpoint (must NEVER throw)
     if not gd:
-        g = get_schedule_game_by_pk(_safe(feed, "gamePk", default=None) or 0)
+        try:
+            g = get_schedule_game_by_pk(_safe(feed, "gamePk", default=None) or 0)
+        except Exception:
+            g = None
+    
         if not g:
             return {"gamePk": None, "detailedState": "Game not found", "linescore": {}}
+    
+        # ... keep the rest of your existing schedule-based return logic ...
+
 
         date_ymd = (g.get("gameDate") or "")[:10]
         season = _season_from_date(date_ymd)
