@@ -426,101 +426,98 @@ from services.mlb_api import (
     build_player_header,
 )
 
+from datetime import datetime
+from flask import request, render_template
+
+from services.mlb_api import (
+    get_player,
+    get_player_full,
+    get_player_role,
+    get_player_career_totals,
+    extract_year_by_year_rows,
+    get_player_game_log,
+    extract_game_log_rows,
+)
+
 @app.get("/player/<int:player_id>")
 def player(player_id):
     now = datetime.utcnow()
     current_year = now.year
-    # optional query params
+
+    # tabs
     log_year = request.args.get("log_year", type=int)
-    show = (request.args.get("show", "stats") or "stats").lower()  # "stats" or "adv"
 
-    bio_raw = get_player(player_id)
-    header = build_player_header(bio_raw)
+    bio = get_player(player_id)
+    role = get_player_role(bio)
 
-    role = get_player_role(bio_raw)  # uses primaryPosition (and "two-way" if present)
+    # debut year (stop searching after debut year)
+    debut = (bio.get("mlbDebutDate") or "")[:10]
+    debut_year = int(debut[:4]) if debut else (current_year - 25)
 
-    debut_year = header.get("debutYear")
-    # if debut missing, we'll still walk back a bit instead of infinite
-    if not debut_year:
-        debut_year = current_year - 25
-
-    # Season stats: try current -> back to debut
-    season_found, stats_blocks = find_best_season_with_stats(
-        player_id=player_id,
-        debut_year=debut_year,
-        role=role,
-        start_year=current_year,
-        stat_type="season",
-    )
-
-    # Advanced stats for that same found season (if any)
-    adv_blocks = []
-    if season_found:
+    # Determine best season with stats: try current -> back to debut
+    # We'll use the existing cached get_player_stats for now only to detect existence quickly,
+    # but you told me you want season stats live every request eventually.
+    # For v1: we’ll just walk back until we find a season with any splits.
+    from services.mlb_api import get_player_stats
+    season_found = None
+    season_blocks = []
+    for y in range(current_year, debut_year - 1, -1):
         try:
-            adv_blocks = get_player_season_stats_live(
-                player_id,
-                season=season_found,
-                stat_type="seasonAdvanced",
-                groups="hitting,pitching",
-            )
+            blocks = get_player_stats(player_id, season=y)  # cached 5 min
+            has_any = any((b.get("splits") or []) for b in (blocks or []))
+            if has_any:
+                season_found = y
+                season_blocks = blocks
+                break
         except Exception:
-            adv_blocks = []
+            continue
 
-    # Year-by-year + career totals (using your existing “full hydration” helpers)
-    player_full = None
-    yby_rows = []
-    hitting_groups = []
-    pitching_groups = []
-    career_hitting = None
-    career_pitching = None
-    try:
-        player_full = get_player_full(player_id)
-        yby_rows = extract_year_by_year_rows(player_full)
-        if role in ("hitting", "two-way"):
-            hitting_groups = group_year_by_year(yby_rows, "hitting")
-            career_hitting = get_player_career_totals(player_id, "hitting")
-        if role in ("pitching", "two-way"):
-            pitching_groups = group_year_by_year(yby_rows, "pitching")
-            career_pitching = get_player_career_totals(player_id, "pitching")
-    except Exception:
-        pass
+    # Career totals (true endpoint)
+    career_hitting = get_player_career_totals(player_id, "hitting") if role != "pitching" else None
+    career_pitching = get_player_career_totals(player_id, "pitching") if role != "hitting" else None
 
-    # Game log year dropdown: debut -> current
-    years = list(range(int(debut_year), int(current_year) + 1))
+    # Year-by-year rows (hydrated)
+    # This is the same machinery your random player uses. :contentReference[oaicite:3]{index=3}
+    player_full = get_player_full(player_id)
+    yby = extract_year_by_year_rows(player_full)
+
+    # Game logs — dropdown season
+    years = list(range(debut_year, current_year + 1))
     years.reverse()
     if not log_year:
         log_year = season_found or current_year
 
     game_log_blocks = []
     try:
-        game_log_blocks = get_player_game_log(player_id, season=log_year, groups="hitting,pitching")
+        game_log_blocks = get_player_game_log(player_id, season=log_year)
     except Exception:
         game_log_blocks = []
 
-    # Transactions: entire history newest-first
+    game_logs = extract_game_log_rows(game_log_blocks)
+
+    # TODO: player transactions (we’ll wire next; leaving here so template stays stable)
+    # If you already added get_player_transactions in your code, plug it in here.
+    transactions = []
     try:
+        from services.mlb_api import get_player_transactions
         transactions = get_player_transactions(player_id)
     except Exception:
         transactions = []
 
     return render_template(
         "player.html",
-        title=f"{header.get('fullName','Player')} • Basenerd",
-        header=header,
+        bio=bio,
         role=role,
         season_found=season_found,
-        show=show,
-        stats_blocks=stats_blocks,
-        adv_blocks=adv_blocks,
-        years=years,
-        log_year=log_year,
-        game_log_blocks=game_log_blocks,
-        transactions=transactions,
-        # year-by-year / career
-        hitting_groups=hitting_groups,
-        pitching_groups=pitching_groups,
+        season_blocks=season_blocks,
         career_hitting=career_hitting,
         career_pitching=career_pitching,
+        yby=yby,
+        years=years,
+        log_year=log_year,
+        game_logs=game_logs,
+        transactions=transactions,
+        title=f"{bio.get('fullName','Player')} • Basenerd",
     )
 
 
