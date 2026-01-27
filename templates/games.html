@@ -12,13 +12,7 @@
     </div>
 
     <form method="get" action="/games" style="display:flex; gap:10px; align-items:center;">
-      <input
-        class="input"
-        type="date"
-        name="date"
-        value="{{ date }}"
-        aria-label="Pick date"
-      />
+      <input class="input" type="date" name="date" value="{{ date }}" aria-label="Pick date" />
       <button class="btn" type="submit">Go</button>
     </form>
   </div>
@@ -47,25 +41,51 @@
         </div>
 
         <div class="matchup">
+
+          <!-- AWAY -->
           <div class="team-row">
             <div class="team-left">
               {% if g.away.logo %}
                 <img class="team-logo" src="{{ g.away.logo }}" alt="{{ g.away.abbrev }} logo">
               {% endif %}
-              <div class="team-abbrev">{{ g.away.abbrev }}</div>
+
+              <div class="team-line">
+                <div class="team-line-top">
+                  <span class="team-abbrev">{{ g.away.abbrev }}</span>
+                  {% if g.away.record %}
+                    <span class="muted mono" style="font-size:12px;">{{ g.away.record }}</span>
+                  {% endif %}
+                  <span class="muted" style="opacity:.6;">•</span>
+                  <span class="small muted">{{ g.away.pp or "PP: TBD" }}</span>
+                </div>
+              </div>
             </div>
+
             <div class="team-score mono">{{ g.away.score if g.away.score is not none else "—" }}</div>
           </div>
 
+          <!-- HOME -->
           <div class="team-row">
             <div class="team-left">
               {% if g.home.logo %}
                 <img class="team-logo" src="{{ g.home.logo }}" alt="{{ g.home.abbrev }} logo">
               {% endif %}
-              <div class="team-abbrev">{{ g.home.abbrev }}</div>
+
+              <div class="team-line">
+                <div class="team-line-top">
+                  <span class="team-abbrev">{{ g.home.abbrev }}</span>
+                  {% if g.home.record %}
+                    <span class="muted mono" style="font-size:12px;">{{ g.home.record }}</span>
+                  {% endif %}
+                  <span class="muted" style="opacity:.6;">•</span>
+                  <span class="small muted">{{ g.home.pp or "PP: TBD" }}</span>
+                </div>
+              </div>
             </div>
+
             <div class="team-score mono">{{ g.home.score if g.home.score is not none else "—" }}</div>
           </div>
+
         </div>
 
         <div class="game-meta">
@@ -77,13 +97,7 @@
             <div class="muted">{{ g.venue }}</div>
           {% endif %}
 
-          {% if g.statusPill == "Scheduled" %}
-            <div class="small muted">
-              {% if g.pitching.awayProbable or g.pitching.homeProbable %}
-                Probables: {{ g.pitching.awayProbable or "TBD" }} vs {{ g.pitching.homeProbable or "TBD" }}
-              {% endif %}
-            </div>
-          {% elif g.statusPill == "Final" %}
+          {% if g.statusPill == "Final" %}
             <div class="small muted">
               {% if g.pitching.winner or g.pitching.loser %}
                 W: {{ g.pitching.winner or "—" }} • L: {{ g.pitching.loser or "—" }}
