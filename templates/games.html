@@ -37,7 +37,7 @@
             {% endif %}
             <div class="pill">{{ g.statusPill }}</div>
           </div>
-          <div class="muted mono">{{ g.timeLocal }}</div>
+          <div class="muted mono game-time">{{ g.timeLocal }}</div>
         </div>
 
         <div class="matchup">
@@ -89,9 +89,6 @@
         </div>
 
         <div class="game-meta">
-          {% if g.subline %}
-            <div class="small muted">{{ g.subline }}</div>
-          {% endif %}
 
           {% if g.venue %}
             <div class="muted">
