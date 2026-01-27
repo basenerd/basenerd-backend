@@ -478,8 +478,8 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   border-radius:8px;
   padding:3px 8px;
   display:inline-block;
-  min-width:56px;
-  text-align:right;
+  min-width:0;
+  text-align:inherit;
 }
 .tabs{
   display:flex;
