@@ -1289,7 +1289,7 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
 
 def get_game_feed(game_pk: int) -> dict:
     """
-    Raw live feed (game.html). You can expand parsing later.
+    Try live feed. If not available (often 404 for future games), fall back to schedule.
     """
     cache_key = f"gamefeed:{game_pk}"
     cached = _get_cached(cache_key)
@@ -1297,39 +1297,112 @@ def get_game_feed(game_pk: int) -> dict:
         return cached
 
     url = f"{BASE}/game/{game_pk}/feed/live"
-    r = requests.get(url, timeout=30)
-    r.raise_for_status()
-    data = r.json() or {}
+    try:
+        r = requests.get(url, timeout=30)
+        r.raise_for_status()
+        data = r.json() or {}
+        _set_cached(cache_key, data)
+        return data
+    except requests.HTTPError as e:
+        status = getattr(getattr(e, "response", None), "status_code", None)
+        if status == 404:
+            sched_game = get_schedule_game_by_pk(game_pk)
+            data = {"scheduleOnly": True, "scheduleGame": sched_game}
+            _set_cached(cache_key, data)
+            return data
+        raise
 
-    _set_cached(cache_key, data)
-    return data
 
 def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     """
     Produce a clean object for game.html.
+
+    Handles two inputs:
+      1) Live feed from /game/{gamePk}/feed/live
+      2) Fallback "scheduleOnly" payload from /schedule?gamePk=...
     """
+
+    # ----------------------------
+    # Fallback: scheduled game via /schedule?gamePk=...
+    # ----------------------------
+    if feed.get("scheduleOnly"):
+        g = feed.get("scheduleGame") or {}
+        teams = g.get("teams") or {}
+        home_wrap = teams.get("home") or {}
+        away_wrap = teams.get("away") or {}
+        home = home_wrap.get("team") or {}
+        away = away_wrap.get("team") or {}
+
+        status = g.get("status") or {}
+        venue = (g.get("venue") or {}).get("name")
+
+        dt_local = _to_user_tz(g.get("gameDate") or "", tz_name)
+        when = dt_local.strftime("%a • %b %-d • %-I:%M %p") if dt_local else ""
+
+        home_id = home.get("id")
+        away_id = away.get("id")
+
+        pill = _status_pill_text({"status": status, "linescore": {}})
+
+        return {
+            "gamePk": g.get("gamePk"),
+            "when": when,
+            "statusPill": pill,
+            "detailedState": status.get("detailedState") or "",
+            "venue": venue,
+            "weather": {},
+            "home": {
+                "id": home_id,
+                "name": home.get("name"),
+                "abbrev": (home.get("abbreviation") or "").upper(),
+                "logo": f"https://www.mlbstatic.com/team-logos/{home_id}.svg" if home_id else None,
+                "score": None,
+            },
+            "away": {
+                "id": away_id,
+                "name": away.get("name"),
+                "abbrev": (away.get("abbreviation") or "").upper(),
+                "logo": f"https://www.mlbstatic.com/team-logos/{away_id}.svg" if away_id else None,
+                "score": None,
+            },
+            "linescore": {},  # not available yet
+        }
+
+    # ----------------------------
+    # Normal: live feed parsing
+    # ----------------------------
     gd = (feed.get("gameData") or {})
     live = (feed.get("liveData") or {})
     linescore = (live.get("linescore") or {})
     status = (gd.get("status") or {})
+
     teams = (gd.get("teams") or {})
     home = (teams.get("home") or {})
     away = (teams.get("away") or {})
 
-    game_dt_local = _to_user_tz((gd.get("datetime") or {}).get("dateTime") or "", tz_name)
+    # Prefer gameData.datetime.dateTime; fallback to gameDate (sometimes present)
+    dt_raw = (gd.get("datetime") or {}).get("dateTime") or gd.get("gameDate") or ""
+    game_dt_local = _to_user_tz(dt_raw, tz_name)
     when = game_dt_local.strftime("%a • %b %-d • %-I:%M %p") if game_dt_local else ""
 
-    # inning / state
     pill = _status_pill_text({"status": status, "linescore": linescore})
 
-    # scores
-    home_runs = (linescore.get("teams") or {}).get("home", {}).get("runs")
-    away_runs = (linescore.get("teams") or {}).get("away", {}).get("runs")
+    # Scores (linescore is best)
+    teams_ls = (linescore.get("teams") or {})
+    home_runs = (teams_ls.get("home") or {}).get("runs")
+    away_runs = (teams_ls.get("away") or {}).get("runs")
 
+    # Venue / weather
     venue = (gd.get("venue") or {}).get("name")
-    weather = (gd.get("weather") or {}).get("condition")
-    temp = (gd.get("weather") or {}).get("temp")
-    wind = (gd.get("weather") or {}).get("wind")
+    w = (gd.get("weather") or {})
+    weather = {
+        "condition": w.get("condition"),
+        "temp": w.get("temp"),
+        "wind": w.get("wind"),
+    }
+
+    home_id = home.get("id")
+    away_id = away.get("id")
 
     return {
         "gamePk": gd.get("gamePk"),
@@ -1337,27 +1410,55 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
         "statusPill": pill,
         "detailedState": status.get("detailedState") or "",
         "venue": venue,
-        "weather": {
-            "condition": weather,
-            "temp": temp,
-            "wind": wind,
-        },
+        "weather": weather,
         "home": {
-            "id": home.get("id"),
+            "id": home_id,
             "name": home.get("name"),
             "abbrev": (home.get("abbreviation") or "").upper(),
-            "logo": f"https://www.mlbstatic.com/team-logos/{home.get('id')}.svg" if home.get("id") else None,
+            "logo": f"https://www.mlbstatic.com/team-logos/{home_id}.svg" if home_id else None,
             "score": home_runs,
         },
         "away": {
-            "id": away.get("id"),
+            "id": away_id,
             "name": away.get("name"),
             "abbrev": (away.get("abbreviation") or "").upper(),
-            "logo": f"https://www.mlbstatic.com/team-logos/{away.get('id')}.svg" if away.get("id") else None,
+            "logo": f"https://www.mlbstatic.com/team-logos/{away_id}.svg" if away_id else None,
             "score": away_runs,
         },
-        "linescore": linescore,  # keep raw; template can use innings
+        # Keep raw linescore so game.html can render innings/hits/errors if present
+        "linescore": linescore,
     }
+
+
+def get_schedule_game_by_pk(game_pk: int) -> Optional[dict]:
+    """
+    Fallback for scheduled games where feed/live may 404.
+    Returns the schedule 'game' object (the one inside dates[].games[]).
+    """
+    cache_key = f"schedule_game:{game_pk}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{BASE}/schedule"
+    params = {
+        "sportId": 1,
+        "gamePk": game_pk,
+        "hydrate": "team,probablePitchers,venue",
+    }
+    r = requests.get(url, params=params, timeout=20)
+    r.raise_for_status()
+    data = r.json() or {}
+
+    game = None
+    for d in (data.get("dates") or []):
+        games = d.get("games") or []
+        if games:
+            game = games[0]
+            break
+
+    _set_cached(cache_key, game)
+    return game
 
 def get_player_stats(player_id: int, season: Optional[int] = None) -> List[dict]:
     season = season or datetime.now().year
