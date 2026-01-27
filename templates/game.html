@@ -31,7 +31,7 @@
       </div>
     </div>
 
-    {% set innings = game.linescore.innings or [] %}
+    {% set innings = (game.linescore.innings if game.linescore and game.linescore.innings is defined else []) %}
     {% if innings %}
       <div class="card" style="margin-top:14px;">
         <div class="card-header">
