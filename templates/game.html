@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% if error %}
+  <div class="card" style="border:1px solid rgba(239,68,68,.35); margin-bottom:14px;">
+    <div class="card-header">
+      <div class="card-title">Debug error</div>
+      <div class="card-subtitle mono">{{ error }}</div>
+    </div>
+  </div>
+{% endif %}
+
 <!-- TOP: Matchup card -->
 <div class="card">
   <div class="card-header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
