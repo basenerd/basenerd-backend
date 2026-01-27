@@ -1,9 +1,100 @@
 {% extends "base.html" %}
 {% block content %}
-  <div class="card">
-    <div class="card-header">
-      <div class="card-title">Game {{ game_pk }}</div>
-      <div class="card-subtitle">Coming soon</div>
+
+<div class="card">
+  <div class="card-header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <div>
+      <div class="card-title">{{ game.away.abbrev }} @ {{ game.home.abbrev }}</div>
+      <div class="card-subtitle">{{ game.when }} • {{ game.venue or "—" }} • Times in {{ user_tz }}</div>
     </div>
+    <div class="pill">{{ game.statusPill }}</div>
   </div>
+
+  <div style="padding: 0 16px 16px 16px;">
+    <div class="scoreboard">
+      <div class="sb-team">
+        {% if game.away.logo %}<img class="team-logo-lg" src="{{ game.away.logo }}" alt="{{ game.away.abbrev }} logo">{% endif %}
+        <div>
+          <div class="sb-abbrev">{{ game.away.abbrev }}</div>
+          <div class="muted small">{{ game.away.name }}</div>
+        </div>
+        <div class="sb-score mono">{{ game.away.score if game.away.score is not none else "—" }}</div>
+      </div>
+
+      <div class="sb-team">
+        {% if game.home.logo %}<img class="team-logo-lg" src="{{ game.home.logo }}" alt="{{ game.home.abbrev }} logo">{% endif %}
+        <div>
+          <div class="sb-abbrev">{{ game.home.abbrev }}</div>
+          <div class="muted small">{{ game.home.name }}</div>
+        </div>
+        <div class="sb-score mono">{{ game.home.score if game.home.score is not none else "—" }}</div>
+      </div>
+    </div>
+
+    {% set innings = game.linescore.innings or [] %}
+    {% if innings %}
+      <div class="card" style="margin-top:14px;">
+        <div class="card-header">
+          <div class="card-title">Linescore</div>
+          <div class="card-subtitle">Inning-by-inning</div>
+        </div>
+
+        <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
+          <table class="table" style="min-width:620px;">
+            <thead>
+              <tr>
+                <th>Team</th>
+                {% for inn in innings %}
+                  <th class="mono" style="text-align:center;">{{ inn.num }}</th>
+                {% endfor %}
+                <th class="mono" style="text-align:center;">R</th>
+                <th class="mono" style="text-align:center;">H</th>
+                <th class="mono" style="text-align:center;">E</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">{{ game.away.abbrev }}</td>
+                {% for inn in innings %}
+                  <td class="mono" style="text-align:center;">{{ (inn.away or {}).runs if (inn.away or {}).runs is not none else "" }}</td>
+                {% endfor %}
+                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.away or {}).runs if (game.linescore.teams and game.linescore.teams.away) else "" }}</td>
+                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.away or {}).hits if (game.linescore.teams and game.linescore.teams.away) else "" }}</td>
+                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.away or {}).errors if (game.linescore.teams and game.linescore.teams.away) else "" }}</td>
+              </tr>
+              <tr>
+                <td class="mono">{{ game.home.abbrev }}</td>
+                {% for inn in innings %}
+                  <td class="mono" style="text-align:center;">{{ (inn.home or {}).runs if (inn.home or {}).runs is not none else "" }}</td>
+                {% endfor %}
+                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.home or {}).runs if (game.linescore.teams and game.linescore.teams.home) else "" }}</td>
+                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.home or {}).hits if (game.linescore.teams and game.linescore.teams.home) else "" }}</td>
+                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.home or {}).errors if (game.linescore.teams and game.linescore.teams.home) else "" }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Game info</div>
+        <div class="card-subtitle">{{ game.detailedState }}</div>
+      </div>
+      <div style="padding: 0 16px 16px 16px;">
+        {% if game.weather and (game.weather.condition or game.weather.temp or game.weather.wind) %}
+          <div class="small muted">
+            Weather:
+            {{ game.weather.condition or "—" }}
+            {% if game.weather.temp %} • {{ game.weather.temp }}°{% endif %}
+            {% if game.weather.wind %} • Wind {{ game.weather.wind }}{% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
 {% endblock %}
