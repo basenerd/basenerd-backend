@@ -285,6 +285,52 @@ def get_player_awards(pid: int) -> List[dict]:
     _set_cached(cache_key, awards)
     return awards
 
+def get_player_game_log(player_id: int, season: int) -> List[dict]:
+    """
+    Raw StatsAPI gamelog blocks.
+    """
+    url = f"{MLB_API_BASE}/people/{player_id}/stats"
+    resp = requests.get(
+        url,
+        params={"stats": "gameLog", "group": "hitting,pitching", "season": season},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return (resp.json() or {}).get("stats", []) or []
+
+def extract_game_log_rows(game_log_blocks: List[dict]) -> Dict[str, List[dict]]:
+    """
+    Returns dict with keys 'hitting' and/or 'pitching':
+      {
+        "hitting": [{"date":"2025-04-02","opponent":"@ LAD","stat":{...}}, ...],
+        "pitching": [...]
+      }
+    """
+    out = {"hitting": [], "pitching": []}
+
+    for block in game_log_blocks or []:
+        gname = ((block.get("group") or {}).get("displayName") or "").lower()
+        kind = "pitching" if "pitching" in gname else ("hitting" if "hitting" in gname else None)
+        if not kind:
+            continue
+
+        for s in block.get("splits") or []:
+            stat = s.get("stat") or {}
+            d = (s.get("date") or s.get("gameDate") or "")[:10] or ""
+            opp = ""
+            # common fields seen in StatsAPI gamelog splits
+            is_home = s.get("isHome")
+            opponent = s.get("opponent") or {}
+            opp_name = (opponent.get("name") or opponent.get("teamName") or opponent.get("abbreviation") or "").strip()
+            if opp_name:
+                prefix = "vs" if is_home else "@"
+                opp = f"{prefix} {opp_name}"
+            out[kind].append({"date": d, "opponent": opp, "stat": stat})
+
+    # newest first
+    out["hitting"].sort(key=lambda r: r.get("date") or "", reverse=True)
+    out["pitching"].sort(key=lambda r: r.get("date") or "", reverse=True)
+    return out
 
 def build_award_year_map(awards: List[dict]) -> Dict[str, List[str]]:
     if not awards:
