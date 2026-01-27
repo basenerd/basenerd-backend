@@ -449,8 +449,6 @@ from services.mlb_api import (
     extract_year_by_year_rows,
     group_year_by_year,
     get_player_career_totals,
-    get_player_season_stats_live,
-    find_best_season_with_stats,
     get_player_game_log,
     extract_game_log_rows,
     get_player_transactions,
@@ -464,10 +462,7 @@ def player(player_id: int):
     now = datetime.utcnow()
     current_year = now.year
 
-    # optional: force the snapshot season (useful for debugging / future UI)
-    season_override = request.args.get("season", type=int)
-
-    # game log selector
+    # optional query params
     log_year = request.args.get("log_year", type=int)
 
     bio = get_player(player_id)
@@ -481,49 +476,12 @@ def player(player_id: int):
         debut_year = current_year - 25
 
     # -------------------------
-    # Season snapshot (LIVE)
-    # -------------------------
-    season_found = None
-    season_blocks = []
-
-    if season_override:
-        # force a year (still live)
-        try:
-            season_blocks = get_player_season_stats_live(
-                player_id,
-                season=season_override,
-                stat_type="season",
-                groups="hitting,pitching,fielding",
-            )
-            season_found = season_override
-        except Exception:
-            season_found = None
-            season_blocks = []
-    else:
-        # current -> debut (live) using your helper
-        try:
-            season_found, season_blocks = find_best_season_with_stats(
-                player_id=player_id,
-                debut_year=debut_year,
-                role=role,
-                start_year=current_year,
-                stat_type="season",
-            )
-        except Exception:
-            season_found, season_blocks = None, []
-
-    # -------------------------
-    # Career totals
-    # -------------------------
-    career_hitting = get_player_career_totals(player_id, "hitting") if role != "pitching" else None
-    career_pitching = get_player_career_totals(player_id, "pitching") if role != "hitting" else None
-
-    # -------------------------
-    # Year-by-year + awards (match Random Player)
+    # Year-by-year source (single source of truth)
     # -------------------------
     player_full = get_player_full(player_id)
     yby = extract_year_by_year_rows(player_full)
 
+    # Build groups (same as random player)
     if role == "pitching":
         pitching_groups = group_year_by_year(yby, "pitching")
         hitting_groups = []
@@ -534,6 +492,78 @@ def player(player_id: int):
         hitting_groups = group_year_by_year(yby, "hitting")
         pitching_groups = group_year_by_year(yby, "pitching")
 
+    # -------------------------
+    # Season snapshot (derived from yby rows)
+    # If gamesPlayed is null/0 -> go back a year
+    # -------------------------
+    def _to_int(x):
+        try:
+            return int(x)
+        except Exception:
+            return 0
+
+    # Prefer Total row when a year has multiple teams
+    # key: (year, kind) -> row dict
+    by_year_kind = {}
+    for r in (yby or []):
+        yr = r.get("year")
+        kind = r.get("kind")  # "hitting" / "pitching"
+        if not yr or kind not in ("hitting", "pitching"):
+            continue
+
+        key = (yr, kind)
+        cur = by_year_kind.get(key)
+
+        if cur is None:
+            by_year_kind[key] = r
+        else:
+            # prefer Total
+            if r.get("team") == "Total" and cur.get("team") != "Total":
+                by_year_kind[key] = r
+
+    def games_ok(stat: dict) -> bool:
+        if not stat:
+            return False
+        return _to_int(stat.get("gamesPlayed")) > 0
+
+    season_found = None
+    snapshot_hitting = {}
+    snapshot_pitching = {}
+
+    for yr in range(current_year, debut_year - 1, -1):
+        hit_row = by_year_kind.get((yr, "hitting"))
+        pit_row = by_year_kind.get((yr, "pitching"))
+
+        hit_stat = (hit_row or {}).get("stat") or {}
+        pit_stat = (pit_row or {}).get("stat") or {}
+
+        if role == "two-way":
+            # choose the year if either has games
+            if games_ok(hit_stat) or games_ok(pit_stat):
+                season_found = yr
+                snapshot_hitting = hit_stat if games_ok(hit_stat) else {}
+                snapshot_pitching = pit_stat if games_ok(pit_stat) else {}
+                break
+        elif role == "pitching":
+            if games_ok(pit_stat):
+                season_found = yr
+                snapshot_pitching = pit_stat
+                break
+        else:
+            if games_ok(hit_stat):
+                season_found = yr
+                snapshot_hitting = hit_stat
+                break
+
+    # -------------------------
+    # Career totals (mini cards)
+    # -------------------------
+    career_hitting = get_player_career_totals(player_id, "hitting") if role != "pitching" else None
+    career_pitching = get_player_career_totals(player_id, "pitching") if role != "hitting" else None
+
+    # -------------------------
+    # Awards (for year-by-year pills)
+    # -------------------------
     awards = []
     accolades = []
     award_year_map = {}
@@ -545,7 +575,7 @@ def player(player_id: int):
         pass
 
     # -------------------------
-    # Game logs (year dropdown)
+    # Game logs (dropdown)
     # -------------------------
     years = list(range(debut_year, current_year + 1))
     years.reverse()
@@ -555,12 +585,12 @@ def player(player_id: int):
 
     try:
         game_log_blocks = get_player_game_log(player_id, season=log_year)
-        game_logs = extract_game_log_rows(game_log_blocks)  # already forces opponent abbreviations
+        game_logs = extract_game_log_rows(game_log_blocks)  # opponent abbreviations enforced in helper
     except Exception:
         game_logs = {"hitting": [], "pitching": []}
 
     # -------------------------
-    # Transactions (entire history, newest first)
+    # Transactions
     # -------------------------
     try:
         transactions = get_player_transactions(player_id)
@@ -572,20 +602,32 @@ def player(player_id: int):
         title=f"{bio.get('fullName','Player')} • Basenerd",
         bio=bio,
         role=role,
+
+        # season snapshot derived from yby
         season_found=season_found,
-        season_blocks=season_blocks,
+        snapshot_hitting=snapshot_hitting,
+        snapshot_pitching=snapshot_pitching,
+
+        # career
         career_hitting=career_hitting,
         career_pitching=career_pitching,
+
+        # year-by-year (random-player table compatibility)
         yby=yby,
         hitting_groups=hitting_groups,
         pitching_groups=pitching_groups,
         accolades=accolades,
         award_year_map=award_year_map,
+
+        # game logs
         years=years,
         log_year=log_year,
         game_logs=game_logs,
+
+        # transactions
         transactions=transactions,
     )
+
 
 
 @app.get("/articles")
