@@ -723,3 +723,15 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
 }
 
+.tag{
+  display:inline-flex;
+  align-items:center;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background: rgba(248,250,252,.9);
+  font-weight:900;
+  font-size:12px;
+  white-space:nowrap;
+}
+
