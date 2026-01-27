@@ -1448,7 +1448,8 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
 
 def get_game_feed(game_pk: int) -> dict:
     """
-    Try live feed. If not available (often 404 for future games), fall back to schedule.
+    Try live feed. If not available (404 for future games) OR any network/API error,
+    fall back to schedule lookup.
     """
     cache_key = f"gamefeed:{game_pk}"
     cached = _get_cached(cache_key)
@@ -1456,20 +1457,40 @@ def get_game_feed(game_pk: int) -> dict:
         return cached
 
     url = f"{BASE}/game/{game_pk}/feed/live"
+
     try:
         r = requests.get(url, timeout=30)
-        r.raise_for_status()
-        data = r.json() or {}
-        _set_cached(cache_key, data)
-        return data
-    except requests.HTTPError as e:
-        status = getattr(getattr(e, "response", None), "status_code", None)
-        if status == 404:
+
+        # If MLB returns non-JSON HTML sometimes (rare), guard it
+        if r.status_code == 200:
+            data = r.json() or {}
+            _set_cached(cache_key, data)
+            return data
+
+        # If not 200, treat as fallback case
+        if r.status_code == 404:
             sched_game = get_schedule_game_by_pk(game_pk)
             data = {"scheduleOnly": True, "scheduleGame": sched_game}
             _set_cached(cache_key, data)
             return data
-        raise
+
+        # Any other status: fallback
+        sched_game = get_schedule_game_by_pk(game_pk)
+        data = {"scheduleOnly": True, "scheduleGame": sched_game, "_fallback_reason": f"feed_status={r.status_code}"}
+        _set_cached(cache_key, data)
+        return data
+
+    except Exception as e:
+        # Timeout / connection / JSON decode / etc -> fallback
+        sched_game = None
+        try:
+            sched_game = get_schedule_game_by_pk(game_pk)
+        except Exception:
+            pass
+
+        data = {"scheduleOnly": True, "scheduleGame": sched_game, "_fallback_reason": f"exception={type(e).__name__}"}
+        _set_cached(cache_key, data)
+        return data
 
 
 def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
