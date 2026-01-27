@@ -9,7 +9,15 @@
 {# -----------------------
    Mini stat cards
    ----------------------- #}
-{% macro mini_cards(stat, kind) %}
+{% macro stat_cell(val, bg, align='right') %}
+  {% if bg %}
+    <span class="statcell" style="background: {{ bg }}; text-align:{{ align }};">{{ val }}</span>
+  {% else %}
+    {{ val }}
+  {% endif %}
+{% endmacro %}
+
+{% macro mini_cards(stat, kind, bg_map) %}
   <div class="headline-grid">
     {% if kind == "pitching" %}
       {% for key, label in [
@@ -19,7 +27,7 @@
         ('gamesPlayed','G'),('gamesStarted','GS')
       ] %}
         {% if stat and stat.get(key) is not none and stat.get(key) != '' %}
-          <div class="headline-stat">
+          <div class="headline-stat" {% set _bg = (bg_map.get(key) if bg_map is defined and bg_map else None) %}{% if _bg %}style="background: {{ _bg }};"{% endif %}>
             <div class="k">{{ label }}</div>
             <div class="v">{{ stat.get(key) }}</div>
           </div>
@@ -32,7 +40,7 @@
         ('avg','AVG'),('obp','OBP'),('slg','SLG'),('ops','OPS')
       ] %}
         {% if stat and stat.get(key) is not none and stat.get(key) != '' %}
-          <div class="headline-stat">
+          <div class="headline-stat" {% set _bg = (bg_map.get(key) if bg_map is defined and bg_map else None) %}{% if _bg %}style="background: {{ _bg }};"{% endif %}>
             <div class="k">{{ label }}</div>
             <div class="v">{{ stat.get(key) }}</div>
           </div>
@@ -258,13 +266,13 @@
       {% if snapshot_hitting %}
         <div style="margin-bottom:10px;">
           <div class="subcard-title">Hitting</div>
-          {{ mini_cards(snapshot_hitting, "hitting") }}
+          {{ mini_cards(snapshot_hitting, "hitting", snapshot_bg_hitting) }}
         </div>
       {% endif %}
       {% if snapshot_pitching %}
         <div>
           <div class="subcard-title">Pitching</div>
-          {{ mini_cards(snapshot_pitching, "pitching") }}
+          {{ mini_cards(snapshot_pitching, "pitching", snapshot_bg_pitching) }}
         </div>
       {% endif %}
       {% if (not snapshot_hitting) and (not snapshot_pitching) %}
@@ -272,13 +280,13 @@
       {% endif %}
     {% elif role == "pitching" %}
       {% if snapshot_pitching %}
-        {{ mini_cards(snapshot_pitching, "pitching") }}
+        {{ mini_cards(snapshot_pitching, "pitching", snapshot_bg_pitching) }}
       {% else %}
         <div class="muted">No stats found.</div>
       {% endif %}
     {% else %}
       {% if snapshot_hitting %}
-        {{ mini_cards(snapshot_hitting, "hitting") }}
+        {{ mini_cards(snapshot_hitting, "hitting", snapshot_bg_hitting) }}
       {% else %}
         <div class="muted">No stats found.</div>
       {% endif %}
@@ -298,16 +306,16 @@
     {% if role == "two-way" %}
       <div style="margin-bottom:12px;">
         <div class="subcard-title">Hitting</div>
-        {% if career_hitting %}{{ mini_cards(career_hitting, "hitting") }}{% else %}<div class="muted">—</div>{% endif %}
+        {% if career_hitting %}{{ mini_cards(career_hitting, "hitting", {}) }}{% else %}<div class="muted">—</div>{% endif %}
       </div>
       <div>
         <div class="subcard-title">Pitching</div>
-        {% if career_pitching %}{{ mini_cards(career_pitching, "pitching") }}{% else %}<div class="muted">—</div>{% endif %}
+        {% if career_pitching %}{{ mini_cards(career_pitching, "pitching", {}) }}{% else %}<div class="muted">—</div>{% endif %}
       </div>
     {% elif role == "pitching" %}
-      {% if career_pitching %}{{ mini_cards(career_pitching, "pitching") }}{% else %}<div class="muted">—</div>{% endif %}
+      {% if career_pitching %}{{ mini_cards(career_pitching, "pitching", {}) }}{% else %}<div class="muted">—</div>{% endif %}
     {% else %}
-      {% if career_hitting %}{{ mini_cards(career_hitting, "hitting") }}{% else %}<div class="muted">—</div>{% endif %}
+      {% if career_hitting %}{{ mini_cards(career_hitting, "hitting", {}) }}{% else %}<div class="muted">—</div>{% endif %}
     {% endif %}
   </div>
 </div>
@@ -353,6 +361,7 @@
             {% if r %}
               {% set s = r.stat %}
               {% set has_parts = (g.parts and (g.parts|length) > 0) %}
+              {% set rk = g.year ~ ':Total' %}
 
               <tr class="year-row">
                 <td style="white-space:nowrap;">
@@ -369,17 +378,17 @@
 
                 <td style="min-width:220px;">{{ "Total" if has_parts else r.team }}</td>
 
-                <td>{{ s.gamesPlayed or "—" }}</td>
-                <td>{{ s.plateAppearances or "—" }}</td>
-                <td>{{ s.atBats or "—" }}</td>
-                <td>{{ s.hits or "—" }}</td>
-                <td>{{ s.homeRuns or "—" }}</td>
-                <td>{{ s.rbi or "—" }}</td>
-                <td>{{ s.stolenBases or "—" }}</td>
-                <td>{{ s.avg or "—" }}</td>
-                <td>{{ s.obp or "—" }}</td>
-                <td>{{ s.slg or "—" }}</td>
-                <td>{{ s.ops or "—" }}</td>
+                <td>{{ stat_cell(s.gamesPlayed or "—", (yby_bg_hitting.get(rk) or {}).get('gamesPlayed')) }}</td>
+                <td>{{ stat_cell(s.plateAppearances or "—", (yby_bg_hitting.get(rk) or {}).get('plateAppearances')) }}</td>
+                <td>{{ stat_cell(s.atBats or "—", (yby_bg_hitting.get(rk) or {}).get('atBats')) }}</td>
+                <td>{{ stat_cell(s.hits or "—", (yby_bg_hitting.get(rk) or {}).get('hits')) }}</td>
+                <td>{{ stat_cell(s.homeRuns or "—", (yby_bg_hitting.get(rk) or {}).get('homeRuns')) }}</td>
+                <td>{{ stat_cell(s.rbi or "—", (yby_bg_hitting.get(rk) or {}).get('rbi')) }}</td>
+                <td>{{ stat_cell(s.stolenBases or "—", (yby_bg_hitting.get(rk) or {}).get('stolenBases')) }}</td>
+                <td>{{ stat_cell(s.avg or "—", (yby_bg_hitting.get(rk) or {}).get('avg')) }}</td>
+                <td>{{ stat_cell(s.obp or "—", (yby_bg_hitting.get(rk) or {}).get('obp')) }}</td>
+                <td>{{ stat_cell(s.slg or "—", (yby_bg_hitting.get(rk) or {}).get('slg')) }}</td>
+                <td>{{ stat_cell(s.ops or "—", (yby_bg_hitting.get(rk) or {}).get('ops')) }}</td>
                 <td>
                   {% set y = g.year %}
                   {% if award_year_map is defined and award_year_map[y] is defined %}
@@ -409,20 +418,21 @@
               {% if has_parts %}
                 {% for p in g.parts %}
                   {% set ps = p.stat %}
+                  {% set rk2 = g.year ~ ':' ~ p.team %}
                   <tr class="ychild ychild-hitting ychild-{{ g.year }}" style="display:none; opacity:.92;">
                     <td style="white-space:nowrap; padding-left:16px;">{{ p.year }}</td>
                     <td style="min-width:220px;">{{ p.team }}</td>
-                    <td>{{ ps.gamesPlayed or "—" }}</td>
-                    <td>{{ ps.plateAppearances or "—" }}</td>
-                    <td>{{ ps.atBats or "—" }}</td>
-                    <td>{{ ps.hits or "—" }}</td>
-                    <td>{{ ps.homeRuns or "—" }}</td>
-                    <td>{{ ps.rbi or "—" }}</td>
-                    <td>{{ ps.stolenBases or "—" }}</td>
-                    <td>{{ ps.avg or "—" }}</td>
-                    <td>{{ ps.obp or "—" }}</td>
-                    <td>{{ ps.slg or "—" }}</td>
-                    <td>{{ ps.ops or "—" }}</td>
+                    <td>{{ stat_cell(ps.gamesPlayed or "—", (yby_bg_hitting.get(rk2) or {}).get('gamesPlayed')) }}</td>
+                    <td>{{ stat_cell(ps.plateAppearances or "—", (yby_bg_hitting.get(rk2) or {}).get('plateAppearances')) }}</td>
+                    <td>{{ stat_cell(ps.atBats or "—", (yby_bg_hitting.get(rk2) or {}).get('atBats')) }}</td>
+                    <td>{{ stat_cell(ps.hits or "—", (yby_bg_hitting.get(rk2) or {}).get('hits')) }}</td>
+                    <td>{{ stat_cell(ps.homeRuns or "—", (yby_bg_hitting.get(rk2) or {}).get('homeRuns')) }}</td>
+                    <td>{{ stat_cell(ps.rbi or "—", (yby_bg_hitting.get(rk2) or {}).get('rbi')) }}</td>
+                    <td>{{ stat_cell(ps.stolenBases or "—", (yby_bg_hitting.get(rk2) or {}).get('stolenBases')) }}</td>
+                    <td>{{ stat_cell(ps.avg or "—", (yby_bg_hitting.get(rk2) or {}).get('avg')) }}</td>
+                    <td>{{ stat_cell(ps.obp or "—", (yby_bg_hitting.get(rk2) or {}).get('obp')) }}</td>
+                    <td>{{ stat_cell(ps.slg or "—", (yby_bg_hitting.get(rk2) or {}).get('slg')) }}</td>
+                    <td>{{ stat_cell(ps.ops or "—", (yby_bg_hitting.get(rk2) or {}).get('ops')) }}</td>
                     <td></td>
                   </tr>
                 {% endfor %}
@@ -460,6 +470,7 @@
             {% if r %}
               {% set s = r.stat %}
               {% set has_parts = (g.parts and (g.parts|length) > 0) %}
+              {% set rk = g.year ~ ':Total' %}
 
               <tr class="year-row">
                 <td style="white-space:nowrap;">
@@ -477,14 +488,14 @@
                 <td style="white-space:nowrap;">{{ "Total" if has_parts else r.team }}</td>
 
                 <td>{{ s.gamesPitched or "—" }}</td>
-                <td>{{ s.gamesStarted or "—" }}</td>
-                <td>{{ s.inningsPitched or "—" }}</td>
-                <td>{{ s.wins or "—" }}</td>
-                <td>{{ s.losses or "—" }}</td>
-                <td>{{ s.saves or "—" }}</td>
-                <td>{{ s.strikeOuts or "—" }}</td>
-                <td>{{ s.era or "—" }}</td>
-                <td>{{ s.whip or "—" }}</td>
+                <td>{{ stat_cell(s.gamesStarted or "—", (yby_bg_pitching.get(rk) or {}).get('gamesStarted')) }}</td>
+                <td>{{ stat_cell(s.inningsPitched or "—", (yby_bg_pitching.get(rk) or {}).get('inningsPitched')) }}</td>
+                <td>{{ stat_cell(s.wins or "—", (yby_bg_pitching.get(rk) or {}).get('wins')) }}</td>
+                <td>{{ stat_cell(s.losses or "—", (yby_bg_pitching.get(rk) or {}).get('losses')) }}</td>
+                <td>{{ stat_cell(s.saves or "—", (yby_bg_pitching.get(rk) or {}).get('saves')) }}</td>
+                <td>{{ stat_cell(s.strikeOuts or "—", (yby_bg_pitching.get(rk) or {}).get('strikeOuts')) }}</td>
+                <td>{{ stat_cell(s.era or "—", (yby_bg_pitching.get(rk) or {}).get('era')) }}</td>
+                <td>{{ stat_cell(s.whip or "—", (yby_bg_pitching.get(rk) or {}).get('whip')) }}</td>
                 <td>
                   {% set y = g.year %}
                   {% if award_year_map is defined and award_year_map[y] is defined %}
@@ -514,18 +525,20 @@
               {% if has_parts %}
                 {% for p in g.parts %}
                   {% set ps = p.stat %}
+                  {% set rk2 = g.year ~ ':' ~ p.team %}
+                  {% set rk2 = g.year ~ ':' ~ p.team %}
                   <tr class="ychild ychild-pitching ychild-{{ g.year }}" style="display:none; opacity:.92;">
                     <td style="white-space:nowrap; padding-left:16px;">{{ p.year }}</td>
                     <td style="white-space:nowrap;">{{ p.team }}</td>
                     <td>{{ ps.gamesPitched or "—" }}</td>
-                    <td>{{ ps.gamesStarted or "—" }}</td>
-                    <td>{{ ps.inningsPitched or "—" }}</td>
-                    <td>{{ ps.wins or "—" }}</td>
-                    <td>{{ ps.losses or "—" }}</td>
-                    <td>{{ ps.saves or "—" }}</td>
-                    <td>{{ ps.strikeOuts or "—" }}</td>
-                    <td>{{ ps.era or "—" }}</td>
-                    <td>{{ ps.whip or "—" }}</td>
+                    <td>{{ stat_cell(ps.gamesStarted or "—", (yby_bg_pitching.get(rk2) or {}).get('gamesStarted')) }}</td>
+                    <td>{{ stat_cell(ps.inningsPitched or "—", (yby_bg_pitching.get(rk2) or {}).get('inningsPitched')) }}</td>
+                    <td>{{ stat_cell(ps.wins or "—", (yby_bg_pitching.get(rk2) or {}).get('wins')) }}</td>
+                    <td>{{ stat_cell(ps.losses or "—", (yby_bg_pitching.get(rk2) or {}).get('losses')) }}</td>
+                    <td>{{ stat_cell(ps.saves or "—", (yby_bg_pitching.get(rk2) or {}).get('saves')) }}</td>
+                    <td>{{ stat_cell(ps.strikeOuts or "—", (yby_bg_pitching.get(rk2) or {}).get('strikeOuts')) }}</td>
+                    <td>{{ stat_cell(ps.era or "—", (yby_bg_pitching.get(rk2) or {}).get('era')) }}</td>
+                    <td>{{ stat_cell(ps.whip or "—", (yby_bg_pitching.get(rk2) or {}).get('whip')) }}</td>
                     <td></td>
                   </tr>
                 {% endfor %}
