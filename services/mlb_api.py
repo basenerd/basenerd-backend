@@ -4,6 +4,7 @@ import time
 import json
 import os
 import random
+import bisect
 from datetime import datetime, date
 from typing import Any, Dict, Optional, List, Tuple
 
@@ -48,6 +49,141 @@ def _get_cached(key: str):
 
 def _set_cached(key: str, data):
     _cache[key] = {"ts": time.time(), "data": data}
+
+
+# ----------------------------
+# League-qualified stat pools (for gradients / percentiles)
+# ----------------------------
+
+_LEAGUE_SHORT_TO_ID = {"AL": 103, "NL": 104}
+
+def league_name_to_short(name: str) -> Optional[str]:
+    n = (name or "").lower()
+    if "american" in n:
+        return "AL"
+    if "national" in n:
+        return "NL"
+    return None
+
+def to_float(x) -> Optional[float]:
+    if x is None:
+        return None
+    if isinstance(x, (int, float)):
+        try:
+            return float(x)
+        except Exception:
+            return None
+    s = str(x).strip()
+    if not s or s == "—" or s == "-":
+        return None
+    try:
+        return float(s)
+    except Exception:
+        return None
+
+def pct_to_bg(p: float) -> str:
+    """Matches the standings pct_badge feel: red good / blue bad around 0.5."""
+    try:
+        p = float(p)
+    except Exception:
+        p = 0.5
+    if p < 0:
+        p = 0.0
+    if p > 1:
+        p = 1.0
+
+    if p >= 0.5:
+        a = (p - 0.5) / 0.5
+        if a > 1:
+            a = 1.0
+        alpha = 0.10 + 0.35 * a
+        return f"rgba(255, 70, 70, {alpha:.3f})"
+    else:
+        a = (0.5 - p) / 0.5
+        if a > 1:
+            a = 1.0
+        alpha = 0.10 + 0.35 * a
+        return f"rgba(70, 140, 255, {alpha:.3f})"
+
+def percentile_from_sorted(sorted_vals: List[float], v: float) -> float:
+    """Percentile rank in [0,1] using mid-rank for ties."""
+    if not sorted_vals:
+        return 0.5
+    if len(sorted_vals) == 1:
+        return 0.5
+    left = bisect.bisect_left(sorted_vals, v)
+    right = bisect.bisect_right(sorted_vals, v)
+    mid = (left + right - 1) / 2.0
+    return mid / (len(sorted_vals) - 1)
+
+def get_qualified_league_player_stats(season: int, kind: str, league_short: str) -> Dict[int, dict]:
+    """
+    Returns {player_id: stat_dict} for QUALIFIED players in the given league+season.
+
+    kind: "hitting" or "pitching"
+    league_short: "AL" or "NL"
+    """
+    league_id = _LEAGUE_SHORT_TO_ID.get((league_short or "").upper())
+    if kind not in ("hitting", "pitching") or not league_id:
+        return {}
+
+    key = f"qualpool:{season}:{kind}:{league_id}"
+    cached = _get_cached(key)
+    if cached is not None:
+        return cached
+
+    url = f"{BASE}/stats"
+    params = {
+        "stats": "season",
+        "group": kind,
+        "season": season,
+        "gameType": "R",
+        "sportIds": 1,
+        "playerPool": "QUALIFIED",
+        "limit": 10000,
+        "leagueId": league_id,
+    }
+    r = requests.get(url, params=params, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+
+    stats = (data.get("stats") or [])
+    splits = (stats[0].get("splits") if stats else []) or []
+
+    out: Dict[int, dict] = {}
+    for sp in splits:
+        pid = ((sp.get("player") or {}).get("id"))
+        if not pid:
+            continue
+        stat = sp.get("stat") or {}
+        try:
+            out[int(pid)] = stat
+        except Exception:
+            continue
+
+    _set_cached(key, out)
+    return out
+
+def build_stat_distributions(season: int, kind: str, league_short: str) -> Dict[str, List[float]]:
+    """
+    Builds {stat_key: sorted list of float values} from the qualified pool.
+    Cached via the underlying qualified pool fetch.
+    """
+    pool = get_qualified_league_player_stats(season, kind, league_short)
+    dists: Dict[str, List[float]] = {}
+
+    for stat in pool.values():
+        if not isinstance(stat, dict):
+            continue
+        for k, raw in stat.items():
+            v = to_float(raw)
+            if v is None:
+                continue
+            dists.setdefault(k, []).append(v)
+
+    for k in list(dists.keys()):
+        dists[k].sort()
+    return dists
 
 
 # ----------------------------
@@ -196,7 +332,8 @@ def extract_year_by_year_rows(player: dict) -> List[dict]:
                 }
             )
 
-    rows.sort(key=lambda x: (x["kind"], x["year"] or "0", x["team"] or ""))
+        # Keep API split order within each season (stable sort).
+    rows.sort(key=lambda x: (x["kind"], int(x["year"] or 0)))
     return rows
 
 
