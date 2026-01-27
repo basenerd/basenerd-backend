@@ -42,7 +42,7 @@
 {% macro pick_stat_from_blocks(blocks, want_kind) %}
   {# want_kind: "hitting" or "pitching" #}
   {% for b in blocks or [] %}
-    {% set g = ((b.group.displayName if b.group else "") or "") %}
+    {% set g = ((b.get('group') or {}).get('displayName') or "") %}
     {% if want_kind == "hitting" and "Hitting" in g %}
       {% if b.splits and b.splits|length and b.splits[0].stat %}
         {{ mini_cards(b.splits[0].stat, "hitting") }}
@@ -155,6 +155,35 @@
     {% endif %}
   </div>
 </div>
+<!-- =======================
+     Career Stats
+     ======================= -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Career Stats</div>
+  </div>
+
+  <div class="card-body">
+    {% if role == "two-way" %}
+      {% if career_hitting %}
+        <div style="margin-bottom:10px;">
+          <div class="subcard-title">Hitting</div>
+          {{ mini_cards(career_hitting, "hitting") }}
+        </div>
+      {% endif %}
+      {% if career_pitching %}
+        <div>
+          <div class="subcard-title">Pitching</div>
+          {{ mini_cards(career_pitching, "pitching") }}
+        </div>
+      {% endif %}
+    {% elif role == "pitching" %}
+      {{ mini_cards(career_pitching, "pitching") if career_pitching else "" }}
+    {% else %}
+      {{ mini_cards(career_hitting, "hitting") if career_hitting else "" }}
+    {% endif %}
+  </div>
+</div>
 
 <!-- ===== Tabs ===== -->
 <div class="tabs" style="margin-top:12px;">
@@ -167,41 +196,6 @@
      Year-by-Year + Career
      ======================= -->
 <div id="tab-yby" class="tab-panel active">
-
-  <!-- Career Stats mini-cards (same as season snapshot) -->
-  <div class="grid-2">
-    {% if role != "pitching" %}
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Career Stats</div>
-          <div class="card-subtitle">Hitting</div>
-        </div>
-        <div class="card-body">
-          {% if career_hitting %}
-            {{ mini_cards(career_hitting, "hitting") }}
-          {% else %}
-            <div class="muted">—</div>
-          {% endif %}
-        </div>
-      </div>
-    {% endif %}
-
-    {% if role != "hitting" %}
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Career Stats</div>
-          <div class="card-subtitle">Pitching</div>
-        </div>
-        <div class="card-body">
-          {% if career_pitching %}
-            {{ mini_cards(career_pitching, "pitching") }}
-          {% else %}
-            <div class="muted">—</div>
-          {% endif %}
-        </div>
-      </div>
-    {% endif %}
-  </div>
 
   <!-- Year-by-year tables -->
   {% set hitter_cols = ['G','AB','H','HR','RBI','R','SB','AVG','OBP','SLG','OPS'] %}
@@ -223,6 +217,8 @@
                 <th class="num">G</th>
                 <th class="num">AB</th>
                 <th class="num">H</th>
+                <th class="num">2B</th>
+                <th class="num">3B</th> 
                 <th class="num">HR</th>
                 <th class="num">RBI</th>
                 <th class="num">R</th>
@@ -242,6 +238,8 @@
                   <td class="num">{{ s.get('gamesPlayed','') }}</td>
                   <td class="num">{{ s.get('atBats','') }}</td>
                   <td class="num">{{ s.get('hits','') }}</td>
+                  <td class="num">{{ s.get('doubles','') }}</td>
+                  <td class="num">{{ s.get('triples','') }}</td>
                   <td class="num">{{ s.get('homeRuns','') }}</td>
                   <td class="num">{{ s.get('rbi','') }}</td>
                   <td class="num">{{ s.get('runs','') }}</td>
