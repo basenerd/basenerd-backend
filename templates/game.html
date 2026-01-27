@@ -1,3 +1,7 @@
+{% set away = game.away if game.away is defined else {} %}
+{% set home = game.home if game.home is defined else {} %}
+
+
 {% extends "base.html" %}
 {% block content %}
 
