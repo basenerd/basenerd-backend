@@ -1474,107 +1474,147 @@ def get_game_feed(game_pk: int) -> dict:
 
 def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     """
-    Produce a clean object for game.html.
-
-    Handles two inputs:
-      1) Live feed from /game/{gamePk}/feed/live
-      2) Fallback "scheduleOnly" payload from /schedule?gamePk=...
+    Normalizes /game/{gamePk}/feed/live for game.html.
+    Must work across statuses:
+      - Scheduled / Pre-game (may lack liveData pieces)
+      - Live / Final (has linescore/boxscore/plays)
     """
+    def _to_user_tz_iso(iso_str: str) -> str:
+        if not iso_str:
+            return ""
+        # You already have a similar helper elsewhere; keeping this defensive
+        try:
+            from datetime import timezone
+            import pytz
+            dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+            tz = pytz.timezone(tz_name)
+            return dt.astimezone(tz).strftime("%Y-%m-%d %I:%M %p %Z")
+        except Exception:
+            return iso_str
 
-    # ----------------------------
-    # Fallback: scheduled game via /schedule?gamePk=...
-    # ----------------------------
-    if feed.get("scheduleOnly"):
-        g = feed.get("scheduleGame") or {}
+    def _safe(obj, *keys, default=None):
+        cur = obj
+        for k in keys:
+            if not isinstance(cur, dict):
+                return default
+            cur = cur.get(k)
+        return cur if cur is not None else default
+
+    gd = (feed or {}).get("gameData") or {}
+    ld = (feed or {}).get("liveData") or {}
+    status = gd.get("status") or {}
+
+    # Fallback: if feed is empty-ish, try schedule endpoint (you already have this helper)
+    if not gd:
+        g = get_schedule_game_by_pk(_safe(feed, "gamePk", default=None) or 0)
+        if not g:
+            return {"gamePk": None, "detailedState": "Game not found", "linescore": {}}
+
+        date_ymd = (g.get("gameDate") or "")[:10]
+        season = _season_from_date(date_ymd)
         teams = g.get("teams") or {}
-        home_wrap = teams.get("home") or {}
-        away_wrap = teams.get("away") or {}
-        home = home_wrap.get("team") or {}
-        away = away_wrap.get("team") or {}
-
-        status = g.get("status") or {}
+        home = (teams.get("home") or {}).get("team") or {}
+        away = (teams.get("away") or {}).get("team") or {}
         venue = (g.get("venue") or {}).get("name")
 
-        dt_local = _to_user_tz(g.get("gameDate") or "", tz_name)
-        when = dt_local.strftime("%a • %b %-d • %-I:%M %p") if dt_local else ""
+        prob = g.get("probablePitchers") or {}
+        home_pp = _pp_text(prob.get("home") or {}, season)
+        away_pp = _pp_text(prob.get("away") or {}, season)
 
-        home_id = home.get("id")
-        away_id = away.get("id")
-
-        pill = _status_pill_text({"status": status, "linescore": {}})
+        when = _to_user_tz_iso(g.get("gameDate") or "")
 
         return {
             "gamePk": g.get("gamePk"),
             "when": when,
-            "statusPill": pill,
-            "detailedState": status.get("detailedState") or "",
+            "statusPill": (g.get("status") or {}).get("detailedState") or "Scheduled",
+            "detailedState": (g.get("status") or {}).get("detailedState") or "",
             "venue": venue,
-            "weather": {},
+            "weather": {"condition": None, "temp": None, "wind": None},
+            "probables": {"home": home_pp, "away": away_pp},
+            "decisions": {},
             "home": {
-                "id": home_id,
+                "id": home.get("id"),
                 "name": home.get("name"),
                 "abbrev": (home.get("abbreviation") or "").upper(),
-                "logo": f"https://www.mlbstatic.com/team-logos/{home_id}.svg" if home_id else None,
+                "logo": f"https://www.mlbstatic.com/team-logos/{home.get('id')}.svg" if home.get("id") else None,
+                "record": None,
                 "score": None,
             },
             "away": {
-                "id": away_id,
+                "id": away.get("id"),
                 "name": away.get("name"),
                 "abbrev": (away.get("abbreviation") or "").upper(),
-                "logo": f"https://www.mlbstatic.com/team-logos/{away_id}.svg" if away_id else None,
+                "logo": f"https://www.mlbstatic.com/team-logos/{away.get('id')}.svg" if away.get("id") else None,
+                "record": None,
                 "score": None,
             },
-            "linescore": {},  # not available yet
+            "linescore": {},
+            "box": None,
+            "scoring": None,
+            "pas": None,
+            "pbp": None,
         }
 
-    # ----------------------------
-    # Normal: live feed parsing
-    # ----------------------------
-    gd = (feed.get("gameData") or {})
-    live = (feed.get("liveData") or {})
-    linescore = (live.get("linescore") or {})
-    status = (gd.get("status") or {})
-
-    teams = (gd.get("teams") or {})
-    home = (teams.get("home") or {})
-    away = (teams.get("away") or {})
-
-    # Prefer gameData.datetime.dateTime; fallback to gameDate (sometimes present)
-    dt_raw = (gd.get("datetime") or {}).get("dateTime") or gd.get("gameDate") or ""
-    game_dt_local = _to_user_tz(dt_raw, tz_name)
-    when = game_dt_local.strftime("%a • %b %-d • %-I:%M %p") if game_dt_local else ""
-
-    pill = _status_pill_text({"status": status, "linescore": linescore})
-
-    # Scores (linescore is best)
-    teams_ls = (linescore.get("teams") or {})
-    home_runs = (teams_ls.get("home") or {}).get("runs")
-    away_runs = (teams_ls.get("away") or {}).get("runs")
-
-    # Venue / weather
+    # Base fields
+    when = _to_user_tz_iso(gd.get("datetime", {}).get("dateTime") or gd.get("gameDate") or "")
     venue = (gd.get("venue") or {}).get("name")
-    w = (gd.get("weather") or {})
+    w = (gd.get("weather") or {}) if isinstance(gd.get("weather"), dict) else {}
     weather = {
         "condition": w.get("condition"),
         "temp": w.get("temp"),
         "wind": w.get("wind"),
     }
 
+    linescore = ld.get("linescore") or {}
+    pill = _status_pill_text({"status": status, "linescore": linescore})
+
+    home = (gd.get("teams") or {}).get("home") or {}
+    away = (gd.get("teams") or {}).get("away") or {}
     home_id = home.get("id")
     away_id = away.get("id")
 
-    return {
+    # Scores (prefer linescore)
+    teams_ls = (linescore.get("teams") or {})
+    home_runs = (teams_ls.get("home") or {}).get("runs")
+    away_runs = (teams_ls.get("away") or {}).get("runs")
+
+    # Probables (from gameData probablePitchers when present)
+    prob = gd.get("probablePitchers") or {}
+    probables = {}
+    if prob:
+        # show just names here; your schedule-based _pp_text includes season line (fine to keep there)
+        hpp = (prob.get("home") or {}).get("fullName")
+        app = (prob.get("away") or {}).get("fullName")
+        probables = {
+            "home": f"PP: {hpp}" if hpp else None,
+            "away": f"PP: {app}" if app else None,
+        }
+
+    # Decisions
+    dec = gd.get("decisions") or {}
+    decisions = {}
+    if dec:
+        decisions = {
+            "winner": (dec.get("winner") or {}).get("fullName"),
+            "loser": (dec.get("loser") or {}).get("fullName"),
+            "save": (dec.get("save") or {}).get("fullName"),
+        }
+
+    out = {
         "gamePk": gd.get("gamePk"),
         "when": when,
         "statusPill": pill,
         "detailedState": status.get("detailedState") or "",
         "venue": venue,
         "weather": weather,
+        "probables": probables,
+        "decisions": decisions,
         "home": {
             "id": home_id,
             "name": home.get("name"),
             "abbrev": (home.get("abbreviation") or "").upper(),
             "logo": f"https://www.mlbstatic.com/team-logos/{home_id}.svg" if home_id else None,
+            "record": _safe(home, "record", "summary", default=None),
             "score": home_runs,
         },
         "away": {
@@ -1582,11 +1622,224 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             "name": away.get("name"),
             "abbrev": (away.get("abbreviation") or "").upper(),
             "logo": f"https://www.mlbstatic.com/team-logos/{away_id}.svg" if away_id else None,
+            "record": _safe(away, "record", "summary", default=None),
             "score": away_runs,
         },
-        # Keep raw linescore so game.html can render innings/hits/errors if present
         "linescore": linescore,
+        "extra_info": None,
+        "box": None,
+        "scoring": None,
+        "pas": None,
+        "pbp": None,
     }
+
+    # Boxscore
+    box = ld.get("boxscore") or {}
+    if box and isinstance(box, dict) and (box.get("teams") or {}):
+        teams_box = box.get("teams") or {}
+
+        def _player_obj(team_side: str, pid: int) -> dict:
+            players = (teams_box.get(team_side) or {}).get("players") or {}
+            return players.get(f"ID{pid}", {}) or {}
+
+        def _batting_rows(team_side: str) -> list:
+            t = teams_box.get(team_side) or {}
+            order = t.get("battingOrder") or []
+            players_map = t.get("players") or {}
+
+            # Build a stable list: starters in battingOrder first, then any other batters with stats
+            seen = set()
+            ids = []
+            for pid in order:
+                try:
+                    pid = int(pid)
+                    ids.append(pid)
+                    seen.add(pid)
+                except Exception:
+                    pass
+
+            # add other players with batting stats (bench, subs)
+            for k, pobj in players_map.items():
+                pid = pobj.get("person", {}).get("id")
+                if not pid or pid in seen:
+                    continue
+                bstat = (pobj.get("stats") or {}).get("batting")
+                if bstat:
+                    ids.append(pid)
+                    seen.add(pid)
+
+            rows = []
+            for pid in ids:
+                pobj = _player_obj(team_side, pid)
+                person = pobj.get("person") or {}
+                stats = (pobj.get("stats") or {}).get("batting") or {}
+                pos = (pobj.get("position") or {}).get("abbreviation")
+
+                rows.append({
+                    "playerId": pid,
+                    "name": person.get("fullName") or "",
+                    "pos": pos,
+                    "AB": stats.get("atBats"),
+                    "R": stats.get("runs"),
+                    "H": stats.get("hits"),
+                    "RBI": stats.get("rbi"),
+                    "BB": stats.get("baseOnBalls"),
+                    "SO": stats.get("strikeOuts"),
+                    "HR": stats.get("homeRuns"),
+                    "AVG": stats.get("avg"),
+                })
+            return rows
+
+        def _pitching_rows(team_side: str) -> list:
+            t = teams_box.get(team_side) or {}
+            pitchers = t.get("pitchers") or []
+            rows = []
+            for pid in pitchers:
+                try:
+                    pid = int(pid)
+                except Exception:
+                    continue
+                pobj = _player_obj(team_side, pid)
+                person = pobj.get("person") or {}
+                stats = (pobj.get("stats") or {}).get("pitching") or {}
+
+                # Mark decision if possible
+                note = None
+                if decisions.get("winner") and person.get("fullName") == decisions.get("winner"):
+                    note = "W"
+                elif decisions.get("loser") and person.get("fullName") == decisions.get("loser"):
+                    note = "L"
+                elif decisions.get("save") and person.get("fullName") == decisions.get("save"):
+                    note = "SV"
+
+                rows.append({
+                    "playerId": pid,
+                    "name": person.get("fullName") or "",
+                    "note": note,
+                    "IP": stats.get("inningsPitched"),
+                    "H": stats.get("hits"),
+                    "R": stats.get("runs"),
+                    "ER": stats.get("earnedRuns"),
+                    "BB": stats.get("baseOnBalls"),
+                    "SO": stats.get("strikeOuts"),
+                    "HR": stats.get("homeRuns"),
+                    "ERA": stats.get("era"),
+                })
+            return rows
+
+        out["box"] = {
+            "away": {
+                "batting": _batting_rows("away"),
+                "pitching": _pitching_rows("away"),
+            },
+            "home": {
+                "batting": _batting_rows("home"),
+                "pitching": _pitching_rows("home"),
+            },
+        }
+
+    # Plays: scoring / PBP / PAs + pitch-by-pitch
+    plays = ld.get("plays") or {}
+    all_plays = plays.get("allPlays") or []
+    if all_plays and isinstance(all_plays, list):
+
+        def _half_label(h):
+            h = (h or "").lower()
+            if h.startswith("top"): return "Top"
+            if h.startswith("bottom"): return "Bot"
+            return h.title() if h else ""
+
+        # scoring plays indexes -> play objects
+        scoring_idxs = plays.get("scoringPlays") or []
+        scoring = []
+        for idx in scoring_idxs:
+            try:
+                p = all_plays[int(idx)]
+            except Exception:
+                continue
+            about = p.get("about") or {}
+            res = p.get("result") or {}
+            scoring.append({
+                "inning": about.get("inning"),
+                "half": _half_label(about.get("halfInning")),
+                "description": res.get("description") or "",
+                "awayScore": res.get("awayScore"),
+                "homeScore": res.get("homeScore"),
+            })
+        out["scoring"] = scoring if scoring else None
+
+        # basic PBP (atBats only for now)
+        pbp = []
+        pas = []
+        for p in all_plays:
+            res = p.get("result") or {}
+            about = p.get("about") or {}
+            matchup = p.get("matchup") or {}
+
+            if res.get("type") != "atBat":
+                continue
+
+            half = _half_label(about.get("halfInning"))
+            inning = about.get("inning")
+
+            batter = (matchup.get("batter") or {})
+            pitcher = (matchup.get("pitcher") or {})
+
+            # pitch list
+            pitch_list = []
+            for ev in (p.get("playEvents") or []):
+                if not ev.get("isPitch"):
+                    continue
+                details = ev.get("details") or {}
+                pdat = ev.get("pitchData") or {}
+                coords = pdat.get("coordinates") or {}
+                count = ev.get("count") or {}
+
+                pitch_type = (details.get("type") or {}).get("description") or (details.get("type") or {}).get("code")
+                call = (details.get("call") or {}).get("description")
+                mph = pdat.get("startSpeed")
+
+                pitch_list.append({
+                    "n": ev.get("pitchNumber"),
+                    "type": pitch_type,
+                    "mph": mph,
+                    "call": call,
+                    "desc": details.get("description"),
+                    "px": coords.get("pX"),
+                    "pz": coords.get("pZ"),
+                    "balls": count.get("balls"),
+                    "strikes": count.get("strikes"),
+                })
+
+            item = {
+                "inning": inning,
+                "half": half,
+                "description": res.get("description") or "",
+                "awayScore": res.get("awayScore"),
+                "homeScore": res.get("homeScore"),
+            }
+            pbp.append(item)
+
+            pas.append({
+                "inning": inning,
+                "half": half,
+                "event": res.get("event"),
+                "description": res.get("description") or "",
+                "rbi": res.get("rbi"),
+                "awayScore": res.get("awayScore"),
+                "homeScore": res.get("homeScore"),
+                "batter": batter.get("fullName") or "",
+                "batterId": batter.get("id"),
+                "pitcher": pitcher.get("fullName") or "",
+                "pitcherId": pitcher.get("id"),
+                "pitches": pitch_list,
+            })
+
+        out["pbp"] = pbp if pbp else None
+        out["pas"] = pas if pas else None
+
+    return out
+
 
 
 def get_schedule_game_by_pk(game_pk: int) -> Optional[dict]:
