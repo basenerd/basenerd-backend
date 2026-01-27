@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <div>
+      <div class="card-title">Games</div>
+      <div class="card-subtitle">
+        Showing {{ date }}{% if auto_advanced %} • No games today — jumped to next slate{% endif %}
+        • Times in {{ user_tz }}
+      </div>
+    </div>
+
+    <form method="get" action="/games" style="display:flex; gap:10px; align-items:center;">
+      <input
+        class="input"
+        type="date"
+        name="date"
+        value="{{ date }}"
+        aria-label="Pick date"
+      />
+      <button class="btn" type="submit">Go</button>
+    </form>
+  </div>
+</div>
+
+{% if not games %}
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="card-title">No games found</div>
+      <div class="card-subtitle">Try another date.</div>
+    </div>
+  </div>
+{% else %}
+  <div class="games-grid" style="margin-top:14px;">
+    {% for g in games %}
+      <a class="game-card" href="/game/{{ g.gamePk }}">
+        <div class="game-card-top">
+          <div class="pill">{{ g.statusPill }}</div>
+          <div class="muted mono">{{ g.timeLocal }}</div>
+        </div>
+
+        <div class="matchup">
+          <div class="team-row">
+            <div class="team-left">
+              {% if g.away.logo %}<img class="team-logo" src="{{ g.away.logo }}" alt="{{ g.away.abbrev }} logo">{% endif %}
+              <div class="team-abbrev">{{ g.away.abbrev }}</div>
+            </div>
+            <div class="team-score mono">{{ g.away.score if g.away.score is not none else "—" }}</div>
+          </div>
+
+          <div class="team-row">
+            <div class="team-left">
+              {% if g.home.logo %}<img class="team-logo" src="{{ g.home.logo }}" alt="{{ g.home.abbrev }} logo">{% endif %}
+              <div class="team-abbrev">{{ g.home.abbrev }}</div>
+            </div>
+            <div class="team-score mono">{{ g.home.score if g.home.score is not none else "—" }}</div>
+          </div>
+        </div>
+
+        <div class="game-meta">
+          {% if g.venue %}<div class="muted">{{ g.venue }}</div>{% endif %}
+
+          {% if g.statusPill == "Scheduled" %}
+            <div class="small muted">
+              {% if g.pitching.awayProbable or g.pitching.homeProbable %}
+                Probables: {{ g.pitching.awayProbable or "TBD" }} vs {{ g.pitching.homeProbable or "TBD" }}
+              {% endif %}
+            </div>
+          {% elif g.statusPill == "Final" %}
+            <div class="small muted">
+              {% if g.pitching.winner or g.pitching.loser %}
+                W: {{ g.pitching.winner or "—" }} • L: {{ g.pitching.loser or "—" }}
+              {% endif %}
+            </div>
+          {% else %}
+            <div class="small muted">{{ g.detailedState }}</div>
+          {% endif %}
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% endblock %}
