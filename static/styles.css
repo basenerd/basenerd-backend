@@ -526,4 +526,67 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
 .tx-date{ font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; color:var(--muted); }
 .tx-desc{ min-width:0; }
 
+/* Player header: photo fills card height */
+.player-top .card-header{ padding:0; }
+.player-header-card{ padding:0 !important; }
+.player-header{
+  display:flex;
+  align-items:stretch;   /* key: makes headshot stretch full height */
+  gap:14px;
+}
+.player-headshot{
+  width:160px;
+  height:100%;
+  min-height:140px;      /* ensures the card has some height even if bio is short */
+  object-fit:cover;
+  border-radius:0;       /* photo feels like it is “part of the card” */
+  border-right:1px solid var(--border);
+}
+.player-meta{
+  padding:14px 14px 14px 0;
+  min-width:0;
+}
+.player-name{
+  font-size:18px;
+  font-weight:900;
+  margin-bottom:6px;
+}
+.player-lines > div{ margin:3px 0; line-height:1.2; }
+
+/* Mini stat cards row */
+.headline-grid{
+  display:grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap:10px;
+}
+@media(max-width:900px){
+  .headline-grid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.headline-stat{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:12px;
+  padding:8px 10px;
+  background:#fff;
+}
+.headline-stat .k{
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  font-size:10px;
+  color:var(--muted);
+  margin-bottom:2px;
+}
+.headline-stat .v{
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  font-size:13px;
+  font-weight:900;
+}
+
+/* Button match */
+.btn{
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:6px 10px;
+  background:#fff;
+  font-weight:900;
+  cursor:pointer;
+}
 
