@@ -1092,6 +1092,272 @@ def build_player_header(bio: dict) -> dict:
         "education": bio.get("education"),
     }
 
+# ----------------------------
+# Games / Schedule helpers
+# ----------------------------
+from datetime import timedelta
+from zoneinfo import ZoneInfo
+
+def _safe_int(x, default=None):
+    try:
+        return int(x)
+    except Exception:
+        return default
+
+def _to_user_tz(dt_str: str, tz_name: str) -> datetime:
+    """
+    StatsAPI schedule gameDate is ISO like '2026-03-01T20:10:00Z'
+    Convert to user tz.
+    """
+    if not dt_str:
+        return None
+    s = dt_str.strip()
+    # Normalize Z -> +00:00
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+    except Exception:
+        return None
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = ZoneInfo("America/Phoenix")
+    return dt.astimezone(tz)
+
+def get_schedule_for_dates(start_date_ymd: str, end_date_ymd: str) -> dict:
+    """
+    Fetch MLB schedule for a date range (inclusive).
+    Dates: YYYY-MM-DD
+    """
+    cache_key = f"schedule:{start_date_ymd}:{end_date_ymd}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{BASE}/schedule"
+    params = {
+        "sportId": 1,
+        "startDate": start_date_ymd,
+        "endDate": end_date_ymd,
+        # linescore gives inning info; probables/decisions are nice-to-have
+        "hydrate": "team,linescore,probablePitchers,decisions,venue",
+    }
+    r = requests.get(url, params=params, timeout=30)
+    r.raise_for_status()
+    data = r.json() or {}
+
+    _set_cached(cache_key, data)
+    return data
+
+def find_next_date_with_games(start_date_ymd: str, max_days_ahead: int = 365, chunk_days: int = 14) -> Optional[str]:
+    """
+    Starting at start_date_ymd, find the next date (>= start) that has at least one game.
+    Uses ranged schedule calls to avoid 365 single-day requests.
+    """
+    try:
+        start_dt = datetime.strptime(start_date_ymd, "%Y-%m-%d").date()
+    except Exception:
+        start_dt = datetime.utcnow().date()
+
+    end_limit = start_dt + timedelta(days=max_days_ahead)
+    cur = start_dt
+
+    while cur <= end_limit:
+        chunk_end = min(cur + timedelta(days=chunk_days - 1), end_limit)
+        data = get_schedule_for_dates(cur.strftime("%Y-%m-%d"), chunk_end.strftime("%Y-%m-%d"))
+
+        for d in (data.get("dates") or []):
+            games = d.get("games") or []
+            if games:
+                return d.get("date")  # YYYY-MM-DD
+
+        cur = chunk_end + timedelta(days=1)
+
+    return None
+
+def _status_pill_text(game: dict) -> str:
+    """
+    Returns a short status string:
+      - Live: 'Top 5' / 'Bot 9'
+      - Final: 'Final'
+      - Scheduled: 'Scheduled'
+      - Other: detailedState
+    """
+    status = (game.get("status") or {})
+    detailed = (status.get("detailedState") or "").strip()
+    abstract = (status.get("abstractGameState") or "").strip()  # Live/Final/Preview/etc.
+
+    # Live inning
+    if abstract.lower() == "live":
+        ls = game.get("linescore") or {}
+        inning = _safe_int(ls.get("currentInning"))
+        is_top = ls.get("isTopInning")
+        if inning:
+            return f"{'Top' if is_top else 'Bot'} {inning}"
+        # fallback
+        return "Live"
+
+    # Final
+    if abstract.lower() == "final" or "final" in detailed.lower():
+        return "Final"
+
+    # Preview / Scheduled
+    if abstract.lower() in ("preview", "pre-game") or "scheduled" in detailed.lower():
+        return "Scheduled"
+
+    return detailed or "—"
+
+def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[dict]:
+    """
+    Returns a list of normalized game cards for games.html.
+    """
+    data = get_schedule_for_dates(date_ymd, date_ymd)
+    out = []
+
+    for d in (data.get("dates") or []):
+        for g in (d.get("games") or []):
+            teams = g.get("teams") or {}
+            home = teams.get("home") or {}
+            away = teams.get("away") or {}
+            home_team = home.get("team") or {}
+            away_team = away.get("team") or {}
+
+            home_id = home_team.get("id")
+            away_id = away_team.get("id")
+
+            game_dt_local = _to_user_tz(g.get("gameDate") or "", tz_name)
+            time_local = game_dt_local.strftime("%-I:%M %p") if game_dt_local else ""
+
+            # status pill (includes inning for live)
+            pill = _status_pill_text(g)
+
+            # scores (may be None)
+            home_score = home.get("score")
+            away_score = away.get("score")
+
+            # probables / decisions
+            probables = g.get("probablePitchers") or {}
+            decisions = g.get("decisions") or {}
+            home_prob = (probables.get("home") or {}).get("fullName")
+            away_prob = (probables.get("away") or {}).get("fullName")
+            win_p = (decisions.get("winner") or {}).get("fullName")
+            lose_p = (decisions.get("loser") or {}).get("fullName")
+
+            venue = g.get("venue") or {}
+            venue_name = venue.get("name")
+
+            out.append({
+                "gamePk": g.get("gamePk"),
+                "date": date_ymd,
+                "timeLocal": time_local,
+                "statusPill": pill,
+                "detailedState": ((g.get("status") or {}).get("detailedState") or ""),
+                "home": {
+                    "id": home_id,
+                    "name": home_team.get("name"),
+                    "abbrev": (home_team.get("abbreviation") or "").upper(),
+                    "logo": f"https://www.mlbstatic.com/team-logos/{home_id}.svg" if home_id else None,
+                    "score": home_score,
+                },
+                "away": {
+                    "id": away_id,
+                    "name": away_team.get("name"),
+                    "abbrev": (away_team.get("abbreviation") or "").upper(),
+                    "logo": f"https://www.mlbstatic.com/team-logos/{away_id}.svg" if away_id else None,
+                    "score": away_score,
+                },
+                "pitching": {
+                    "homeProbable": home_prob,
+                    "awayProbable": away_prob,
+                    "winner": win_p,
+                    "loser": lose_p,
+                },
+                "venue": venue_name,
+            })
+
+    # Sort by local time when possible; fallback to gamePk
+    def _sort_key(x):
+        try:
+            # reconstruct a comparable time using the displayed time (ok for same-day sorting)
+            return x.get("timeLocal") or ""
+        except Exception:
+            return ""
+    out.sort(key=_sort_key)
+
+    return out
+
+def get_game_feed(game_pk: int) -> dict:
+    """
+    Raw live feed (game.html). You can expand parsing later.
+    """
+    cache_key = f"gamefeed:{game_pk}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{BASE}/game/{game_pk}/feed/live"
+    r = requests.get(url, timeout=30)
+    r.raise_for_status()
+    data = r.json() or {}
+
+    _set_cached(cache_key, data)
+    return data
+
+def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
+    """
+    Produce a clean object for game.html.
+    """
+    gd = (feed.get("gameData") or {})
+    live = (feed.get("liveData") or {})
+    linescore = (live.get("linescore") or {})
+    status = (gd.get("status") or {})
+    teams = (gd.get("teams") or {})
+    home = (teams.get("home") or {})
+    away = (teams.get("away") or {})
+
+    game_dt_local = _to_user_tz((gd.get("datetime") or {}).get("dateTime") or "", tz_name)
+    when = game_dt_local.strftime("%a • %b %-d • %-I:%M %p") if game_dt_local else ""
+
+    # inning / state
+    pill = _status_pill_text({"status": status, "linescore": linescore})
+
+    # scores
+    home_runs = (linescore.get("teams") or {}).get("home", {}).get("runs")
+    away_runs = (linescore.get("teams") or {}).get("away", {}).get("runs")
+
+    venue = (gd.get("venue") or {}).get("name")
+    weather = (gd.get("weather") or {}).get("condition")
+    temp = (gd.get("weather") or {}).get("temp")
+    wind = (gd.get("weather") or {}).get("wind")
+
+    return {
+        "gamePk": gd.get("gamePk"),
+        "when": when,
+        "statusPill": pill,
+        "detailedState": status.get("detailedState") or "",
+        "venue": venue,
+        "weather": {
+            "condition": weather,
+            "temp": temp,
+            "wind": wind,
+        },
+        "home": {
+            "id": home.get("id"),
+            "name": home.get("name"),
+            "abbrev": (home.get("abbreviation") or "").upper(),
+            "logo": f"https://www.mlbstatic.com/team-logos/{home.get('id')}.svg" if home.get("id") else None,
+            "score": home_runs,
+        },
+        "away": {
+            "id": away.get("id"),
+            "name": away.get("name"),
+            "abbrev": (away.get("abbreviation") or "").upper(),
+            "logo": f"https://www.mlbstatic.com/team-logos/{away.get('id')}.svg" if away.get("id") else None,
+            "score": away_runs,
+        },
+        "linescore": linescore,  # keep raw; template can use innings
+    }
 
 def get_player_stats(player_id: int, season: Optional[int] = None) -> List[dict]:
     season = season or datetime.now().year
