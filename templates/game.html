@@ -1,100 +1,542 @@
 {% extends "base.html" %}
 {% block content %}
 
+<!-- TOP: Matchup card -->
 <div class="card">
   <div class="card-header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
     <div>
-      <div class="card-title">{{ game.away.abbrev }} @ {{ game.home.abbrev }}</div>
-      <div class="card-subtitle">{{ game.when }} • {{ game.venue or "—" }} • Times in {{ user_tz }}</div>
+      <div class="card-title">
+        {{ game.away.abbrev }} @ {{ game.home.abbrev }}
+      </div>
+      <div class="card-subtitle">
+        {{ game.statusPill }}{% if game.when %} • {{ game.when }}{% endif %}
+        {% if game.venue %} • {{ game.venue }}{% endif %}
+      </div>
     </div>
-    <div class="pill">{{ game.statusPill }}</div>
+
+    <div class="mono muted" style="font-size:12px;">
+      gamePk: {{ game.gamePk }}
+    </div>
   </div>
 
-  <div style="padding: 0 16px 16px 16px;">
-    <div class="scoreboard">
-      <div class="sb-team">
-        {% if game.away.logo %}<img class="team-logo-lg" src="{{ game.away.logo }}" alt="{{ game.away.abbrev }} logo">{% endif %}
-        <div>
-          <div class="sb-abbrev">{{ game.away.abbrev }}</div>
-          <div class="muted small">{{ game.away.name }}</div>
+  <div style="padding: 0 14px 14px 14px;">
+    <div class="game-head">
+      <div class="team-side">
+        {% if game.away.logo %}
+          <img class="team-logo-lg" src="{{ game.away.logo }}" alt="{{ game.away.abbrev }} logo">
+        {% endif %}
+        <div class="team-meta">
+          <div class="team-abbrev-lg">{{ game.away.abbrev }}</div>
+          <div class="muted small">
+            {% if game.away.record %}{{ game.away.record }}{% endif %}
+            {% if game.probables and game.probables.away %}<span class="muted" style="opacity:.6;"> •</span> {{ game.probables.away }}{% endif %}
+          </div>
         </div>
-        <div class="sb-score mono">{{ game.away.score if game.away.score is not none else "—" }}</div>
+        <div class="team-score-lg mono">
+          {{ game.away.score if game.away.score is not none else "-" }}
+        </div>
       </div>
 
-      <div class="sb-team">
-        {% if game.home.logo %}<img class="team-logo-lg" src="{{ game.home.logo }}" alt="{{ game.home.abbrev }} logo">{% endif %}
-        <div>
-          <div class="sb-abbrev">{{ game.home.abbrev }}</div>
-          <div class="muted small">{{ game.home.name }}</div>
+      <div class="team-side">
+        {% if game.home.logo %}
+          <img class="team-logo-lg" src="{{ game.home.logo }}" alt="{{ game.home.abbrev }} logo">
+        {% endif %}
+        <div class="team-meta">
+          <div class="team-abbrev-lg">{{ game.home.abbrev }}</div>
+          <div class="muted small">
+            {% if game.home.record %}{{ game.home.record }}{% endif %}
+            {% if game.probables and game.probables.home %}<span class="muted" style="opacity:.6;"> •</span> {{ game.probables.home }}{% endif %}
+          </div>
         </div>
-        <div class="sb-score mono">{{ game.home.score if game.home.score is not none else "—" }}</div>
+        <div class="team-score-lg mono">
+          {{ game.home.score if game.home.score is not none else "-" }}
+        </div>
       </div>
     </div>
 
-    {% set innings = (game.linescore.innings if game.linescore and game.linescore.innings is defined else []) %}
-    {% if innings %}
-      <div class="card" style="margin-top:14px;">
-        <div class="card-header">
-          <div class="card-title">Linescore</div>
-          <div class="card-subtitle">Inning-by-inning</div>
-        </div>
-
-        <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
-          <table class="table" style="min-width:620px;">
-            <thead>
-              <tr>
-                <th>Team</th>
-                {% for inn in innings %}
-                  <th class="mono" style="text-align:center;">{{ inn.num }}</th>
-                {% endfor %}
-                <th class="mono" style="text-align:center;">R</th>
-                <th class="mono" style="text-align:center;">H</th>
-                <th class="mono" style="text-align:center;">E</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="mono">{{ game.away.abbrev }}</td>
-                {% for inn in innings %}
-                  <td class="mono" style="text-align:center;">{{ (inn.away or {}).runs if (inn.away or {}).runs is not none else "" }}</td>
-                {% endfor %}
-                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.away or {}).runs if (game.linescore.teams and game.linescore.teams.away) else "" }}</td>
-                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.away or {}).hits if (game.linescore.teams and game.linescore.teams.away) else "" }}</td>
-                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.away or {}).errors if (game.linescore.teams and game.linescore.teams.away) else "" }}</td>
-              </tr>
-              <tr>
-                <td class="mono">{{ game.home.abbrev }}</td>
-                {% for inn in innings %}
-                  <td class="mono" style="text-align:center;">{{ (inn.home or {}).runs if (inn.home or {}).runs is not none else "" }}</td>
-                {% endfor %}
-                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.home or {}).runs if (game.linescore.teams and game.linescore.teams.home) else "" }}</td>
-                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.home or {}).hits if (game.linescore.teams and game.linescore.teams.home) else "" }}</td>
-                <td class="mono" style="text-align:center;">{{ (game.linescore.teams.home or {}).errors if (game.linescore.teams and game.linescore.teams.home) else "" }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+    {% if game.decisions %}
+      <div class="muted small" style="margin-top:10px;">
+        {% if game.decisions.winner %}<span class="mono">W:</span> {{ game.decisions.winner }}{% endif %}
+        {% if game.decisions.loser %} <span class="muted" style="opacity:.6;">•</span> <span class="mono">L:</span> {{ game.decisions.loser }}{% endif %}
+        {% if game.decisions.save %} <span class="muted" style="opacity:.6;">•</span> <span class="mono">SV:</span> {{ game.decisions.save }}{% endif %}
       </div>
     {% endif %}
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs" style="margin-top:14px;">
+  <button class="tab-btn active" data-tab="overview">Overview</button>
+  <button class="tab-btn" data-tab="box">Box</button>
+  <button class="tab-btn" data-tab="scoring">Scoring</button>
+  <button class="tab-btn" data-tab="pas">Plate Appearances</button>
+  <button class="tab-btn" data-tab="pbp">Play-by-play</button>
+</div>
+
+<!-- OVERVIEW -->
+<div class="tab-panel active" id="tab-overview">
+  {% set innings = (game.linescore.innings if game.linescore and game.linescore.innings is defined else []) %}
+  {% if innings %}
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Linescore</div>
+        <div class="card-subtitle">Inning-by-inning</div>
+      </div>
+
+      <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
+        <table class="table" style="min-width:620px;">
+          <thead>
+            <tr>
+              <th>Team</th>
+              {% for inn in innings %}
+                <th class="mono" style="text-align:center;">{{ inn.num }}</th>
+              {% endfor %}
+              <th class="mono" style="text-align:center;">R</th>
+              <th class="mono" style="text-align:center;">H</th>
+              <th class="mono" style="text-align:center;">E</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">{{ game.away.abbrev }}</td>
+              {% for inn in innings %}
+                <td class="mono" style="text-align:center;">{{ (inn.away or {}).runs if (inn.away or {}).runs is not none else "" }}</td>
+              {% endfor %}
+              <td class="mono" style="text-align:center;">{{ (game.linescore.teams.away or {}).runs if (game.linescore.teams and game.linescore.teams.away) else "" }}</td>
+              <td class="mono" style="text-align:center;">{{ (game.linescore.teams.away or {}).hits if (game.linescore.teams and game.linescore.teams.away) else "" }}</td>
+              <td class="mono" style="text-align:center;">{{ (game.linescore.teams.away or {}).errors if (game.linescore.teams and game.linescore.teams.away) else "" }}</td>
+            </tr>
+            <tr>
+              <td class="mono">{{ game.home.abbrev }}</td>
+              {% for inn in innings %}
+                <td class="mono" style="text-align:center;">{{ (inn.home or {}).runs if (inn.home or {}).runs is not none else "" }}</td>
+              {% endfor %}
+              <td class="mono" style="text-align:center;">{{ (game.linescore.teams.home or {}).runs if (game.linescore.teams and game.linescore.teams.home) else "" }}</td>
+              <td class="mono" style="text-align:center;">{{ (game.linescore.teams.home or {}).hits if (game.linescore.teams and game.linescore.teams.home) else "" }}</td>
+              <td class="mono" style="text-align:center;">{{ (game.linescore.teams.home or {}).errors if (game.linescore.teams and game.linescore.teams.home) else "" }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="card-title">Game info</div>
+      <div class="card-subtitle">{{ game.detailedState }}</div>
+    </div>
+    <div style="padding: 0 16px 16px 16px;">
+      {% if game.weather and (game.weather.condition or game.weather.temp or game.weather.wind) %}
+        <div class="small">
+          <b>Weather:</b>
+          {{ game.weather.condition or "" }}
+          {% if game.weather.temp %} • {{ game.weather.temp }}{% endif %}
+          {% if game.weather.wind %} • {{ game.weather.wind }}{% endif %}
+        </div>
+      {% endif %}
+
+      {% if game.extra_info %}
+        <div class="small muted" style="margin-top:6px;">
+          {{ game.extra_info }}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- BOX -->
+<div class="tab-panel" id="tab-box">
+  {% if not game.box %}
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Box score</div>
+        <div class="card-subtitle">Not available for this status yet.</div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Batting</div>
+        <div class="card-subtitle">Starters first, then bench</div>
+      </div>
+      <div class="box-grid">
+        <!-- Away batting -->
+        <div class="box-panel">
+          <div class="box-panel-title">{{ game.away.abbrev }}</div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Player</th><th class="mono">AB</th><th class="mono">R</th><th class="mono">H</th><th class="mono">RBI</th><th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">AVG</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in game.box.away.batting %}
+                  <tr>
+                    <td>
+                      {% if r.playerId %}
+                        <a href="/player/{{ r.playerId }}">{{ r.name }}</a>
+                      {% else %}
+                        {{ r.name }}
+                      {% endif %}
+                      {% if r.pos %}<span class="muted"> •</span> <span class="mono muted">{{ r.pos }}</span>{% endif %}
+                    </td>
+                    <td class="mono">{{ r.AB }}</td><td class="mono">{{ r.R }}</td><td class="mono">{{ r.H }}</td><td class="mono">{{ r.RBI }}</td>
+                    <td class="mono">{{ r.BB }}</td><td class="mono">{{ r.SO }}</td><td class="mono">{{ r.HR }}</td><td class="mono">{{ r.AVG }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Home batting -->
+        <div class="box-panel">
+          <div class="box-panel-title">{{ game.home.abbrev }}</div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Player</th><th class="mono">AB</th><th class="mono">R</th><th class="mono">H</th><th class="mono">RBI</th><th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">AVG</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in game.box.home.batting %}
+                  <tr>
+                    <td>
+                      {% if r.playerId %}
+                        <a href="/player/{{ r.playerId }}">{{ r.name }}</a>
+                      {% else %}
+                        {{ r.name }}
+                      {% endif %}
+                      {% if r.pos %}<span class="muted"> •</span> <span class="mono muted">{{ r.pos }}</span>{% endif %}
+                    </td>
+                    <td class="mono">{{ r.AB }}</td><td class="mono">{{ r.R }}</td><td class="mono">{{ r.H }}</td><td class="mono">{{ r.RBI }}</td>
+                    <td class="mono">{{ r.BB }}</td><td class="mono">{{ r.SO }}</td><td class="mono">{{ r.HR }}</td><td class="mono">{{ r.AVG }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="card" style="margin-top:14px;">
       <div class="card-header">
-        <div class="card-title">Game info</div>
-        <div class="card-subtitle">{{ game.detailedState }}</div>
+        <div class="card-title">Pitching</div>
+        <div class="card-subtitle">IP / H / R / ER / BB / SO / HR / ERA</div>
       </div>
-      <div style="padding: 0 16px 16px 16px;">
-        {% if game.weather and (game.weather.condition or game.weather.temp or game.weather.wind) %}
-          <div class="small muted">
-            Weather:
-            {{ game.weather.condition or "—" }}
-            {% if game.weather.temp %} • {{ game.weather.temp }}°{% endif %}
-            {% if game.weather.wind %} • Wind {{ game.weather.wind }}{% endif %}
+      <div class="box-grid">
+        <div class="box-panel">
+          <div class="box-panel-title">{{ game.away.abbrev }}</div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Pitcher</th><th class="mono">IP</th><th class="mono">H</th><th class="mono">R</th><th class="mono">ER</th><th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">ERA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in game.box.away.pitching %}
+                  <tr>
+                    <td>
+                      {% if r.playerId %}
+                        <a href="/player/{{ r.playerId }}">{{ r.name }}</a>
+                      {% else %}
+                        {{ r.name }}
+                      {% endif %}
+                      {% if r.note %}<span class="muted"> •</span> <span class="mono muted">{{ r.note }}</span>{% endif %}
+                    </td>
+                    <td class="mono">{{ r.IP }}</td><td class="mono">{{ r.H }}</td><td class="mono">{{ r.R }}</td><td class="mono">{{ r.ER }}</td>
+                    <td class="mono">{{ r.BB }}</td><td class="mono">{{ r.SO }}</td><td class="mono">{{ r.HR }}</td><td class="mono">{{ r.ERA }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
-        {% endif %}
+        </div>
+
+        <div class="box-panel">
+          <div class="box-panel-title">{{ game.home.abbrev }}</div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Pitcher</th><th class="mono">IP</th><th class="mono">H</th><th class="mono">R</th><th class="mono">ER</th><th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">ERA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in game.box.home.pitching %}
+                  <tr>
+                    <td>
+                      {% if r.playerId %}
+                        <a href="/player/{{ r.playerId }}">{{ r.name }}</a>
+                      {% else %}
+                        {{ r.name }}
+                      {% endif %}
+                      {% if r.note %}<span class="muted"> •</span> <span class="mono muted">{{ r.note }}</span>{% endif %}
+                    </td>
+                    <td class="mono">{{ r.IP }}</td><td class="mono">{{ r.H }}</td><td class="mono">{{ r.R }}</td><td class="mono">{{ r.ER }}</td>
+                    <td class="mono">{{ r.BB }}</td><td class="mono">{{ r.SO }}</td><td class="mono">{{ r.HR }}</td><td class="mono">{{ r.ERA }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
-
-  </div>
+  {% endif %}
 </div>
+
+<!-- SCORING -->
+<div class="tab-panel" id="tab-scoring">
+  {% if not game.scoring %}
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Scoring plays</div>
+        <div class="card-subtitle">Not available for this status yet.</div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Scoring plays</div>
+        <div class="card-subtitle">{{ game.scoring|length }} plays</div>
+      </div>
+      <div style="padding: 0 14px 14px 14px;">
+        <div class="scoring-list">
+          {% for s in game.scoring %}
+            <div class="scoring-row">
+              <div class="mono muted">{{ s.half }} {{ s.inning }}</div>
+              <div class="scoring-desc">{{ s.description }}</div>
+              <div class="mono">{{ s.awayScore }}-{{ s.homeScore }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- PAs -->
+<div class="tab-panel" id="tab-pas">
+  {% if not game.pas %}
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Plate appearances</div>
+        <div class="card-subtitle">Not available for this status yet.</div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Plate appearances</div>
+        <div class="card-subtitle">Each PA includes pitch table + strike zone plot</div>
+      </div>
+
+      <div style="padding: 0 14px 14px 14px;">
+        {% for pa in game.pas %}
+          <details class="pa-details" {% if loop.index <= 3 %}open{% endif %}>
+            <summary class="pa-summary">
+              <div class="pa-left">
+                <span class="mono muted">{{ pa.half }} {{ pa.inning }}</span>
+                <span class="muted" style="opacity:.6;">•</span>
+                <span>
+                  {% if pa.batterId %}<a href="/player/{{ pa.batterId }}">{{ pa.batter }}</a>{% else %}{{ pa.batter }}{% endif %}
+                  <span class="muted">vs</span>
+                  {% if pa.pitcherId %}<a href="/player/{{ pa.pitcherId }}">{{ pa.pitcher }}</a>{% else %}{{ pa.pitcher }}{% endif %}
+                </span>
+              </div>
+              <div class="pa-right">
+                <span class="mono">{{ pa.event or "" }}</span>
+                {% if pa.rbi is not none %}<span class="muted" style="opacity:.6;">•</span><span class="mono muted">RBI {{ pa.rbi }}</span>{% endif %}
+                <span class="muted" style="opacity:.6;">•</span>
+                <span class="mono">{{ pa.awayScore }}-{{ pa.homeScore }}</span>
+              </div>
+            </summary>
+
+            <div class="pa-body">
+              {% if pa.description %}
+                <div class="small" style="margin-bottom:10px;">{{ pa.description }}</div>
+              {% endif %}
+
+              <div class="pa-grid">
+                <div class="zone-wrap">
+                  <div class="zone-title">Strike zone</div>
+                  <svg class="zone-plot"
+                       width="160" height="210"
+                       data-pitches='{{ pa.pitches|tojson }}'>
+                  </svg>
+                  <div class="muted small" style="margin-top:6px;">Dots are plotted from pX/pZ when available.</div>
+                </div>
+
+                <div class="pitch-wrap">
+                  <div class="zone-title">Pitches</div>
+                  <div class="table-wrap">
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th class="mono">#</th>
+                          <th>Type</th>
+                          <th class="mono">MPH</th>
+                          <th>Call</th>
+                          <th class="mono">pX</th>
+                          <th class="mono">pZ</th>
+                          <th class="mono">Count</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for p in pa.pitches %}
+                          <tr>
+                            <td class="mono">{{ p.n }}</td>
+                            <td>{{ p.type or "" }}</td>
+                            <td class="mono">{{ p.mph if p.mph is not none else "" }}</td>
+                            <td>{{ p.call or p.desc or "" }}</td>
+                            <td class="mono">{{ "%.2f"|format(p.px) if p.px is not none else "" }}</td>
+                            <td class="mono">{{ "%.2f"|format(p.pz) if p.pz is not none else "" }}</td>
+                            <td class="mono">{{ p.balls }}-{{ p.strikes }}</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </details>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- PBP -->
+<div class="tab-panel" id="tab-pbp">
+  {% if not game.pbp %}
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Play-by-play</div>
+        <div class="card-subtitle">Not available for this status yet.</div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Play-by-play</div>
+        <div class="card-subtitle">{{ game.pbp|length }} items</div>
+      </div>
+      <div style="padding: 0 14px 14px 14px;">
+        <div class="pbp-list">
+          {% for x in game.pbp %}
+            <div class="pbp-row">
+              <div class="mono muted">{{ x.half }} {{ x.inning }}</div>
+              <div class="pbp-desc">{{ x.description }}</div>
+              <div class="mono">{{ x.awayScore }}-{{ x.homeScore }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  // Tabs
+  (function(){
+    const btns = Array.from(document.querySelectorAll(".tab-btn"));
+    const panels = {
+      overview: document.getElementById("tab-overview"),
+      box: document.getElementById("tab-box"),
+      scoring: document.getElementById("tab-scoring"),
+      pas: document.getElementById("tab-pas"),
+      pbp: document.getElementById("tab-pbp"),
+    };
+
+    btns.forEach(b => {
+      b.addEventListener("click", () => {
+        btns.forEach(x => x.classList.remove("active"));
+        b.classList.add("active");
+        const t = b.getAttribute("data-tab");
+        Object.keys(panels).forEach(k => panels[k].classList.toggle("active", k === t));
+      });
+    });
+  })();
+
+  // Strike zone plots
+  (function(){
+    function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+    function drawZone(svg, pitches){
+      const w = svg.viewBox.baseVal && svg.viewBox.baseVal.width ? svg.viewBox.baseVal.width : svg.getAttribute("width");
+      const h = svg.viewBox.baseVal && svg.viewBox.baseVal.height ? svg.viewBox.baseVal.height : svg.getAttribute("height");
+
+      const W = Number(w), H = Number(h);
+
+      // Outer padding
+      const pad = 18;
+      const zx = pad, zy = pad;
+      const zw = W - pad*2, zh = H - pad*2;
+
+      // Clear
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+      // Background
+      const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
+      bg.setAttribute("x", 0); bg.setAttribute("y", 0);
+      bg.setAttribute("width", W); bg.setAttribute("height", H);
+      bg.setAttribute("rx", 14);
+      bg.setAttribute("fill", "rgba(255,255,255,.9)");
+      bg.setAttribute("stroke", "rgba(226,232,240,.9)");
+      svg.appendChild(bg);
+
+      // Strike zone rectangle (generic)
+      const zone = document.createElementNS("http://www.w3.org/2000/svg","rect");
+      zone.setAttribute("x", zx + zw*0.22);
+      zone.setAttribute("y", zy + zh*0.20);
+      zone.setAttribute("width", zw*0.56);
+      zone.setAttribute("height", zh*0.60);
+      zone.setAttribute("fill", "rgba(15,23,42,.04)");
+      zone.setAttribute("stroke", "rgba(15,23,42,.22)");
+      zone.setAttribute("rx", 10);
+      svg.appendChild(zone);
+
+      // Plot dots using pX/pZ if present.
+      // We map pX roughly [-1.5..1.5] to zone width, pZ [0..5] to zone height.
+      const xMin = -1.5, xMax = 1.5;
+      const zMin = 0.0, zMax = 5.0;
+
+      const zoneX = zx + zw*0.22;
+      const zoneY = zy + zh*0.20;
+      const zoneW = zw*0.56;
+      const zoneH = zh*0.60;
+
+      (pitches || []).forEach((p) => {
+        if (p.px == null || p.pz == null) return;
+
+        const x = zoneX + ( (clamp(p.px, xMin, xMax) - xMin) / (xMax - xMin) ) * zoneW;
+        const y = zoneY + (1.0 - ( (clamp(p.pz, zMin, zMax) - zMin) / (zMax - zMin) )) * zoneH;
+
+        const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+        c.setAttribute("cx", x);
+        c.setAttribute("cy", y);
+        c.setAttribute("r", 4.4);
+        c.setAttribute("fill", "rgba(37,99,235,.85)");
+        c.setAttribute("stroke", "rgba(15,23,42,.35)");
+        svg.appendChild(c);
+      });
+    }
+
+    document.querySelectorAll(".zone-plot").forEach(svg => {
+      let pitches = [];
+      try { pitches = JSON.parse(svg.getAttribute("data-pitches") || "[]"); } catch(e) {}
+      drawZone(svg, pitches);
+    });
+  })();
+</script>
 
 {% endblock %}
