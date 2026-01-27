@@ -741,4 +741,15 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   min-width:0;
   flex-wrap:wrap;
 }
+.game-card-top{
+  flex-wrap: nowrap;        /* keep top row single-line */
+}
+.game-time{
+  white-space: nowrap;      /* never wrap the time */
+  flex: 0 0 auto;
+}
+.game-card-top > div:first-child{
+  min-width: 0;             /* allow left group to shrink instead of pushing time */
+  flex: 1 1 auto;
+}
 
