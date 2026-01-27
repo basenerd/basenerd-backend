@@ -1141,7 +1141,7 @@ def get_schedule_for_dates(start_date_ymd: str, end_date_ymd: str) -> dict:
         "startDate": start_date_ymd,
         "endDate": end_date_ymd,
         # linescore gives inning info; probables/decisions are nice-to-have
-        "hydrate": "team,linescore,probablePitchers,decisions,venue",
+        "hydrate": "team,linescore,probablePitchers,decisions,venue,seriesStatus",
     }
     r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
@@ -1208,9 +1208,96 @@ def _status_pill_text(game: dict) -> str:
 
     return detailed or "—"
 
+def _series_short_label(series_desc: str) -> str:
+    """
+    Convert seriesDescription into a short label like NLDS/ALDS/NLCS/ALCS/WS/WC.
+    Falls back to series_desc if unknown.
+    """
+    s = (series_desc or "").lower()
+
+    if "world series" in s:
+        return "WS"
+    if "wild card" in s:
+        return "WC"
+
+    # League + round
+    is_al = "american league" in s or s.startswith("al ")
+    is_nl = "national league" in s or s.startswith("nl ")
+
+    if "division series" in s:
+        return ("ALDS" if is_al else "NLDS" if is_nl else "DS")
+    if "championship series" in s:
+        return ("ALCS" if is_al else "NLCS" if is_nl else "CS")
+
+    # Other postseason rounds or unknown:
+    # (keep it readable but short)
+    return (series_desc or "").strip()
+
+def _record_str(team_wrap: dict) -> str:
+    """
+    team_wrap is teams.home or teams.away object from schedule game.
+    leagueRecord is typically present for MLB schedule responses.
+    """
+    lr = (team_wrap or {}).get("leagueRecord") or {}
+    w = lr.get("wins")
+    l = lr.get("losses")
+    if w is None or l is None:
+        return ""
+    return f"{w}-{l}"
+
+def _build_series_line(game: dict, home_abbrev: str, away_abbrev: str) -> str:
+    """
+    Returns:
+      - "LAD leads 2-1"
+      - "LAD wins 3-1"
+      - "Series tied 1-1"
+    Uses seriesStatus when available.
+    """
+    ss = (game.get("seriesStatus") or {})
+    home_w = ss.get("homeWins")
+    away_w = ss.get("awayWins")
+
+    # If not available, no series line
+    if home_w is None or away_w is None:
+        return ""
+
+    # Determine if series is over
+    is_over = bool(ss.get("isOver"))
+    winning_team = ss.get("winningTeam") or {}
+    winning_id = winning_team.get("id")
+
+    # Map ids to abbrev (best-effort)
+    teams = game.get("teams") or {}
+    home_team = (teams.get("home") or {}).get("team") or {}
+    away_team = (teams.get("away") or {}).get("team") or {}
+    home_id = home_team.get("id")
+    away_id = away_team.get("id")
+
+    winner_abbrev = None
+    if winning_id and winning_id == home_id:
+        winner_abbrev = home_abbrev
+    elif winning_id and winning_id == away_id:
+        winner_abbrev = away_abbrev
+
+    if is_over:
+        if not winner_abbrev:
+            winner_abbrev = home_abbrev if home_w > away_w else away_abbrev if away_w > home_w else None
+        if winner_abbrev:
+            return f"{winner_abbrev} wins {max(home_w, away_w)}-{min(home_w, away_w)}"
+        return f"Series decided {max(home_w, away_w)}-{min(home_w, away_w)}"
+
+    # Not over
+    if home_w == away_w:
+        return f"Series tied {home_w}-{away_w}"
+    lead_abbrev = home_abbrev if home_w > away_w else away_abbrev
+    return f"{lead_abbrev} leads {max(home_w, away_w)}-{min(home_w, away_w)}"
+
 def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[dict]:
     """
     Returns a list of normalized game cards for games.html.
+    Adds:
+      - competitionLabel: "Spring Training" or "NLDS Game 4" etc.
+      - subline: regular season records OR postseason series score line
     """
     data = get_schedule_for_dates(date_ymd, date_ymd)
     out = []
@@ -1247,23 +1334,65 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
             venue = g.get("venue") or {}
             venue_name = venue.get("name")
 
+            home_abbrev = (home_team.get("abbreviation") or "").upper()
+            away_abbrev = (away_team.get("abbreviation") or "").upper()
+
+            # ---- Competition label + subline (records/series) ----
+            game_type = (g.get("gameType") or "").upper()  # R/S/P etc.
+            series_desc = (g.get("seriesDescription") or "").strip()
+            series_game_num = g.get("seriesGameNumber")
+            is_spring = (game_type == "S")
+            is_post = (game_type == "P") or ("series" in series_desc.lower()) or ("world series" in series_desc.lower()) or ("wild card" in series_desc.lower())
+
+            competition_label = ""
+            subline = ""
+
+            if is_spring:
+                competition_label = "Spring Training"
+                # spring training: show records if available (often 0-0 early)
+                hr = _record_str(home)
+                ar = _record_str(away)
+                if hr and ar:
+                    subline = f"{away_abbrev} {ar} • {home_abbrev} {hr}"
+
+            elif is_post:
+                short = _series_short_label(series_desc) or "Postseason"
+                if series_game_num:
+                    competition_label = f"{short} Game {series_game_num}"
+                else:
+                    competition_label = short
+
+                # postseason: series score line
+                subline = _build_series_line(g, home_abbrev=home_abbrev, away_abbrev=away_abbrev)
+
+            else:
+                # regular season
+                hr = _record_str(home)
+                ar = _record_str(away)
+                if hr and ar:
+                    subline = f"{away_abbrev} {ar} • {home_abbrev} {hr}"
+
             out.append({
                 "gamePk": g.get("gamePk"),
                 "date": date_ymd,
                 "timeLocal": time_local,
                 "statusPill": pill,
                 "detailedState": ((g.get("status") or {}).get("detailedState") or ""),
+                "competitionLabel": competition_label,
+                "subline": subline,
+                "isPostseason": is_post,
+                "isSpring": is_spring,
                 "home": {
                     "id": home_id,
                     "name": home_team.get("name"),
-                    "abbrev": (home_team.get("abbreviation") or "").upper(),
+                    "abbrev": home_abbrev,
                     "logo": f"https://www.mlbstatic.com/team-logos/{home_id}.svg" if home_id else None,
                     "score": home_score,
                 },
                 "away": {
                     "id": away_id,
                     "name": away_team.get("name"),
-                    "abbrev": (away_team.get("abbreviation") or "").upper(),
+                    "abbrev": away_abbrev,
                     "logo": f"https://www.mlbstatic.com/team-logos/{away_id}.svg" if away_id else None,
                     "score": away_score,
                 },
@@ -1275,6 +1404,14 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
                 },
                 "venue": venue_name,
             })
+
+    # Sort by local time when possible
+    def _sort_key(x):
+        return x.get("timeLocal") or ""
+    out.sort(key=_sort_key)
+
+    return out
+
 
     # Sort by local time when possible; fallback to gamePk
     def _sort_key(x):
