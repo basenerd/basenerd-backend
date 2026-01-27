@@ -872,3 +872,37 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   padding:10px 10px 8px 10px;
 }
 
+.inning-details{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:10px 12px;
+  margin-bottom:12px;
+}
+
+.inning-summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  cursor:pointer;
+  list-style:none;
+}
+.inning-summary::-webkit-details-marker{ display:none; }
+
+.inning-pill{
+  display:inline-flex;
+  align-items:center;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background: rgba(15,23,42,.03);
+  font-weight:900;
+}
+
+.half-header{
+  padding:6px 2px 10px 2px;
+  border-bottom:1px dashed rgba(226,232,240,.9);
+  margin-bottom:10px;
+}
+
