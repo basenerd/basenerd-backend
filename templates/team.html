@@ -55,13 +55,18 @@
                 </thead>
                 <tbody>
                   {% for p in players %}
+                    {% set pid = p.id or p.player_id %}
                     <tr>
                       <td style="text-align:right; font-variant-numeric: tabular-nums;">
                         {{ p.jersey or "—" }}
                       </td>
 
                       <td style="white-space:nowrap;">
-                        {{ p.name }}
+                        {% if pid %}
+                          <a class="playerlink" href="/player/{{ pid }}">{{ p.name }}</a>
+                        {% else %}
+                          {{ p.name }}
+                        {% endif %}
 
                         {% if p.status_code and p.status_code not in ["A"] %}
                           {% set code = p.status_code %}
@@ -107,11 +112,16 @@
               </thead>
               <tbody>
                 {% for p in roster_other %}
+                  {% set pid = p.id or p.player_id %}
                   <tr>
                     <td style="text-align:right; font-variant-numeric: tabular-nums;">{{ p.jersey or "—" }}</td>
 
                     <td style="white-space:nowrap;">
-                      {{ p.name }}
+                      {% if pid %}
+                        <a class="playerlink" href="/player/{{ pid }}">{{ p.name }}</a>
+                      {% else %}
+                        {{ p.name }}
+                      {% endif %}
 
                       {% if p.status_code and p.status_code not in ["A"] %}
                         {% set code = p.status_code %}
@@ -213,6 +223,15 @@
     list-style: none;
   }
   .roster-summary::-webkit-details-marker { display: none; }
+
+  /* Player links (roster + any other places you use .playerlink) */
+  a.playerlink{
+    color: inherit;
+    text-decoration: none;
+  }
+  a.playerlink:hover{
+    text-decoration: underline;
+  }
 
   .status-pill{
     display:inline-block;
@@ -579,7 +598,7 @@
     if (!txs.length){
       return `<div class="muted" style="font-size:13px;">No transactions found for this range.</div>`;
     }
-  
+
     const header = `
       <div class="tx-row tx-header">
         <div>Date</div>
@@ -587,24 +606,24 @@
       </div>
       <div class="tx-body">
     `;
-  
+
     const rows = txs.map(t => {
       const date = fmtLocalDateOnly(t.date);
-  
+
       const descRaw = safeText(t.description);
       let descHtml = escapeHtml(descRaw);
-  
+
       const players = (t.players || []).filter(p => p && p.id && p.name);
-  
-      // Replace each player name occurrence with a link (first occurrence each)
+
+      // Link EVERY occurrence of each player name (not just the first)
       for (const p of players){
         const nameEsc = escapeHtml(p.name);
         const linked = `<a href="/player/${p.id}">${nameEsc}</a>`;
         if (descHtml.includes(nameEsc)){
-          descHtml = descHtml.replace(nameEsc, linked);
+          descHtml = descHtml.split(nameEsc).join(linked);
         }
       }
-  
+
       // If none of the player names were found in the text (some descriptions don’t include them),
       // prepend a linked player list.
       const anyLinked = players.some(p => descHtml.includes(`/player/${p.id}`));
@@ -614,7 +633,7 @@
           .join(", ");
         descHtml = `${plist} <span class="muted">—</span> ${descHtml}`;
       }
-  
+
       return `
         <div class="tx-row data-row">
           <div>${date}</div>
@@ -622,10 +641,9 @@
         </div>
       `;
     }).join("");
-  
+
     return header + rows + `</div>`;
   }
-
 
   async function loadTransactions(){
     const days = document.getElementById("txDays").value;
