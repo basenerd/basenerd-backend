@@ -335,85 +335,203 @@
     <div class="card" style="margin-top:14px;">
       <div class="card-header">
         <div class="card-title">Plate appearances</div>
-        <div class="card-subtitle">Each PA includes pitch table + strike zone plot</div>
+        <div class="card-subtitle">Grouped by inning • each PA includes pitch table + strike zone</div>
       </div>
 
       <div style="padding: 0 14px 14px 14px;">
+
+        {# Build ordered unique inning list #}
+        {% set ns = namespace(innings=[]) %}
         {% for pa in game.pas %}
-          <details class="pa-details" {% if loop.index <= 3 %}open{% endif %}>
-            <summary class="pa-summary">
-              <div class="pa-left">
-                <span class="mono muted">{{ pa.half }} {{ pa.inning }}</span>
-                <span class="muted" style="opacity:.6;">•</span>
-                <span>
-                  {% if pa.batterId %}<a href="/player/{{ pa.batterId }}">{{ pa.batter }}</a>{% else %}{{ pa.batter }}{% endif %}
-                  <span class="muted">vs</span>
-                  {% if pa.pitcherId %}<a href="/player/{{ pa.pitcherId }}">{{ pa.pitcher }}</a>{% else %}{{ pa.pitcher }}{% endif %}
-                </span>
+          {% if pa.inning and (pa.inning not in ns.innings) %}
+            {% set _ = ns.innings.append(pa.inning) %}
+          {% endif %}
+        {% endfor %}
+
+        {% for inn in ns.innings %}
+          <details class="inning-details" {% if inn <= 2 %}open{% endif %}>
+            <summary class="inning-summary">
+              <div class="inning-left">
+                <span class="inning-pill mono">{{ inn }}{{ "st" if inn==1 else ("nd" if inn==2 else ("rd" if inn==3 else "th")) }} inning</span>
               </div>
-              <div class="pa-right">
-                <span class="mono">{{ pa.event or "" }}</span>
-                {% if pa.rbi is not none %}<span class="muted" style="opacity:.6;">•</span><span class="mono muted">RBI {{ pa.rbi }}</span>{% endif %}
-                <span class="muted" style="opacity:.6;">•</span>
-                <span class="mono">{{ pa.awayScore }}-{{ pa.homeScore }}</span>
+              <div class="inning-right muted small">
+                Click to {{ "collapse" if inn <= 2 else "expand" }}
               </div>
             </summary>
 
-            <div class="pa-body">
-              {% if pa.description %}
-                <div class="small" style="margin-bottom:10px;">{{ pa.description }}</div>
+            <div class="inning-body">
+
+              {# TOP HALF #}
+              <div class="half-header">
+                <span class="mono muted">Top {{ inn }}</span>
+              </div>
+
+              {% set any_top = false %}
+              {% for pa in game.pas %}
+                {% if pa.inning == inn and pa.half == "Top" %}
+                  {% set any_top = true %}
+                  <details class="pa-details" style="margin-bottom:10px;">
+                    <summary class="pa-summary">
+                      <div class="pa-left">
+                        <span>
+                          {% if pa.batterId %}<a href="/player/{{ pa.batterId }}">{{ pa.batter }}</a>{% else %}{{ pa.batter }}{% endif %}
+                          <span class="muted">vs</span>
+                          {% if pa.pitcherId %}<a href="/player/{{ pa.pitcherId }}">{{ pa.pitcher }}</a>{% else %}{{ pa.pitcher }}{% endif %}
+                        </span>
+                      </div>
+                      <div class="pa-right">
+                        <span class="mono">{{ pa.event or "" }}</span>
+                        {% if pa.rbi is not none %}<span class="muted" style="opacity:.6;">•</span><span class="mono muted">RBI {{ pa.rbi }}</span>{% endif %}
+                        <span class="muted" style="opacity:.6;">•</span>
+                        <span class="mono">{{ pa.awayScore }}-{{ pa.homeScore }}</span>
+                      </div>
+                    </summary>
+
+                    <div class="pa-body">
+                      {% if pa.description %}
+                        <div class="small" style="margin-bottom:10px;">{{ pa.description }}</div>
+                      {% endif %}
+
+                      <div class="pa-grid">
+                        <div class="zone-wrap">
+                          <div class="zone-title">Strike zone</div>
+                          <svg class="zone-plot"
+                               width="160" height="210"
+                               data-pitches='{{ pa.pitches|tojson }}'>
+                          </svg>
+                          <div class="muted small" style="margin-top:6px;">Dots are plotted from pX/pZ when available.</div>
+                        </div>
+
+                        <div class="pitch-wrap">
+                          <div class="zone-title">Pitches</div>
+                          <div class="table-wrap">
+                            <table class="table">
+                              <thead>
+                                <tr>
+                                  <th class="mono">#</th>
+                                  <th>Type</th>
+                                  <th class="mono">MPH</th>
+                                  <th>Call</th>
+                                  <th class="mono">pX</th>
+                                  <th class="mono">pZ</th>
+                                  <th class="mono">Count</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {% for p in pa.pitches %}
+                                  <tr>
+                                    <td class="mono">{{ p.n }}</td>
+                                    <td>{{ p.type or "" }}</td>
+                                    <td class="mono">{{ p.mph if p.mph is not none else "" }}</td>
+                                    <td>{{ p.call or p.desc or "" }}</td>
+                                    <td class="mono">{{ "%.2f"|format(p.px) if p.px is not none else "" }}</td>
+                                    <td class="mono">{{ "%.2f"|format(p.pz) if p.pz is not none else "" }}</td>
+                                    <td class="mono">{{ p.balls }}-{{ p.strikes }}</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                {% endif %}
+              {% endfor %}
+              {% if not any_top %}
+                <div class="muted small" style="margin: 6px 0 14px 0;">No plays recorded.</div>
               {% endif %}
 
-              <div class="pa-grid">
-                <div class="zone-wrap">
-                  <div class="zone-title">Strike zone</div>
-                  <svg class="zone-plot"
-                       width="160" height="210"
-                       data-pitches='{{ pa.pitches|tojson }}'>
-                  </svg>
-                  <div class="muted small" style="margin-top:6px;">Dots are plotted from pX/pZ when available.</div>
-                </div>
-
-                <div class="pitch-wrap">
-                  <div class="zone-title">Pitches</div>
-                  <div class="table-wrap">
-                    <table class="table">
-                      <thead>
-                        <tr>
-                          <th class="mono">#</th>
-                          <th>Type</th>
-                          <th class="mono">MPH</th>
-                          <th>Call</th>
-                          <th class="mono">pX</th>
-                          <th class="mono">pZ</th>
-                          <th class="mono">Count</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for p in pa.pitches %}
-                          <tr>
-                            <td class="mono">{{ p.n }}</td>
-                            <td>{{ p.type or "" }}</td>
-                            <td class="mono">{{ p.mph if p.mph is not none else "" }}</td>
-                            <td>{{ p.call or p.desc or "" }}</td>
-                            <td class="mono">{{ "%.2f"|format(p.px) if p.px is not none else "" }}</td>
-                            <td class="mono">{{ "%.2f"|format(p.pz) if p.pz is not none else "" }}</td>
-                            <td class="mono">{{ p.balls }}-{{ p.strikes }}</td>
-                          </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+              {# BOTTOM HALF #}
+              <div class="half-header" style="margin-top:10px;">
+                <span class="mono muted">Bot {{ inn }}</span>
               </div>
+
+              {% set any_bot = false %}
+              {% for pa in game.pas %}
+                {% if pa.inning == inn and pa.half == "Bot" %}
+                  {% set any_bot = true %}
+                  <details class="pa-details" style="margin-bottom:10px;">
+                    <summary class="pa-summary">
+                      <div class="pa-left">
+                        <span>
+                          {% if pa.batterId %}<a href="/player/{{ pa.batterId }}">{{ pa.batter }}</a>{% else %}{{ pa.batter }}{% endif %}
+                          <span class="muted">vs</span>
+                          {% if pa.pitcherId %}<a href="/player/{{ pa.pitcherId }}">{{ pa.pitcher }}</a>{% else %}{{ pa.pitcher }}{% endif %}
+                        </span>
+                      </div>
+                      <div class="pa-right">
+                        <span class="mono">{{ pa.event or "" }}</span>
+                        {% if pa.rbi is not none %}<span class="muted" style="opacity:.6;">•</span><span class="mono muted">RBI {{ pa.rbi }}</span>{% endif %}
+                        <span class="muted" style="opacity:.6;">•</span>
+                        <span class="mono">{{ pa.awayScore }}-{{ pa.homeScore }}</span>
+                      </div>
+                    </summary>
+
+                    <div class="pa-body">
+                      {% if pa.description %}
+                        <div class="small" style="margin-bottom:10px;">{{ pa.description }}</div>
+                      {% endif %}
+
+                      <div class="pa-grid">
+                        <div class="zone-wrap">
+                          <div class="zone-title">Strike zone</div>
+                          <svg class="zone-plot"
+                               width="160" height="210"
+                               data-pitches='{{ pa.pitches|tojson }}'>
+                          </svg>
+                          <div class="muted small" style="margin-top:6px;">Dots are plotted from pX/pZ when available.</div>
+                        </div>
+
+                        <div class="pitch-wrap">
+                          <div class="zone-title">Pitches</div>
+                          <div class="table-wrap">
+                            <table class="table">
+                              <thead>
+                                <tr>
+                                  <th class="mono">#</th>
+                                  <th>Type</th>
+                                  <th class="mono">MPH</th>
+                                  <th>Call</th>
+                                  <th class="mono">pX</th>
+                                  <th class="mono">pZ</th>
+                                  <th class="mono">Count</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {% for p in pa.pitches %}
+                                  <tr>
+                                    <td class="mono">{{ p.n }}</td>
+                                    <td>{{ p.type or "" }}</td>
+                                    <td class="mono">{{ p.mph if p.mph is not none else "" }}</td>
+                                    <td>{{ p.call or p.desc or "" }}</td>
+                                    <td class="mono">{{ "%.2f"|format(p.px) if p.px is not none else "" }}</td>
+                                    <td class="mono">{{ "%.2f"|format(p.pz) if p.pz is not none else "" }}</td>
+                                    <td class="mono">{{ p.balls }}-{{ p.strikes }}</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                {% endif %}
+              {% endfor %}
+              {% if not any_bot %}
+                <div class="muted small" style="margin: 6px 0 0 0;">No plays recorded.</div>
+              {% endif %}
 
             </div>
           </details>
         {% endfor %}
+
       </div>
     </div>
   {% endif %}
 </div>
+
 
 <!-- PBP -->
 <div class="tab-panel" id="tab-pbp">
