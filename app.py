@@ -17,7 +17,13 @@ from services.mlb_api import (
     get_player_role, 
     get_standings, 
     get_team_schedule,
-    get_team_transactions
+    get_team_transactions,
+    league_name_to_short,
+    build_stat_distributions,
+    get_qualified_league_player_stats,
+    pct_to_bg,
+    percentile_from_sorted,
+    to_float,
     )
 
 from services.articles import load_articles, get_article
@@ -93,6 +99,8 @@ def random_player_play():
                 yby=yby,
                 hitting_groups=hitting_groups,
                 pitching_groups=pitching_groups,
+        yby_bg_hitting=yby_bg_hitting,
+        yby_bg_pitching=yby_bg_pitching,
                 career_hitting=career_hitting,
                 career_pitching=career_pitching,
                 accolades=accolades,
@@ -560,7 +568,153 @@ def player(player_id: int):
                 snapshot_hitting = hit_stat
                 break
 
+    
     # -------------------------
+    # League-relative gradients (qualified pools by league)
+    # -------------------------
+    EXCLUDE_KEYS = {"gamesPlayed", "gamesStarted"}  # user: no gradients for games
+    # Rate stats (used only for the non-qualified gray rule)
+    HITTING_RATE_KEYS = {"avg", "obp", "slg", "ops", "babip", "woba"}
+    PITCHING_RATE_KEYS = {"era", "whip", "walksPer9Inn", "hitsPer9Inn", "homeRunsPer9Inn", "strikeoutsPer9Inn"}
+
+    _dist_cache = {}
+
+    def is_rate_stat(kind: str, key: str) -> bool:
+        if kind == "hitting":
+            if key in HITTING_RATE_KEYS:
+                return True
+            return key.endswith("Rate")
+        else:
+            if key in PITCHING_RATE_KEYS:
+                return True
+            return key.endswith("Rate") or "Per9" in key or "Per9Inn" in key
+
+    # Stat directions: lower is better (invert percentile)
+    HITTING_INVERT = {"strikeOutRate", "caughtStealingRate"}
+    PITCHING_INVERT = {"era", "whip", "walksPer9Inn", "hitsPer9Inn", "homeRunsPer9Inn", "earnedRuns", "runs", "homeRuns", "baseOnBalls", "hits"}
+
+    def invert_needed(kind: str, key: str) -> bool:
+        if kind == "hitting":
+            return key in HITTING_INVERT or key == "strikeOuts"  # if this ever shows up
+        return key in PITCHING_INVERT
+
+    def league_for_group(g: dict) -> str:
+        # If the player appeared in both leagues in the same year, use the league of the team they finished with.
+        parts = g.get("parts") or []
+        if parts:
+            last = parts[-1]
+            return league_name_to_short(last.get("league") or "") or ""
+        total = (g.get("total") or {})
+        return league_name_to_short(total.get("league") or "") or ""
+
+    def bg_for_value(season: int, kind: str, league_short: str, key: str, raw_val, qualified: bool):
+        if key in EXCLUDE_KEYS:
+            return None
+
+        v = to_float(raw_val)
+        if v is None:
+            return None
+
+        # non-qualified: gray out rate stats only; keep counting stats normal
+        if not qualified and is_rate_stat(kind, key):
+            return "rgba(0, 0, 0, 0.06)"
+
+        # If not qualified and not a rate stat → no gradient
+        if not qualified:
+            return None
+
+        ck = f"{season}:{kind}:{league_short}"
+        dists = _dist_cache.get(ck)
+        if dists is None:
+            dists = build_stat_distributions(season, kind, league_short)
+            _dist_cache[ck] = dists
+        arr = dists.get(key) or []
+        if not arr:
+            return None
+
+        p = percentile_from_sorted(arr, v)
+        if invert_needed(kind, key):
+            p = 1.0 - p
+        return pct_to_bg(p)
+
+    # Build background maps for:
+    # - snapshot card (season_found)
+    # - year-by-year table rows (total + team splits)
+    snapshot_bg_hitting = {}
+    snapshot_bg_pitching = {}
+    snapshot_qual_hitting = False
+    snapshot_qual_pitching = False
+
+    yby_bg_hitting = {}
+    yby_bg_pitching = {}
+
+    def build_row_bg(row_key: str, season: int, kind: str, league_short: str, stat: dict, qualified: bool):
+        out = {}
+        if not isinstance(stat, dict):
+            return out
+        for k, raw in stat.items():
+            bg = bg_for_value(season, kind, league_short, k, raw, qualified)
+            if bg:
+                out[k] = bg
+        return out
+
+    # Snapshot qualification (use qualified pool membership to match MLB rule)
+    if season_found:
+        y = str(season_found)
+        # Find league for that season from the grouped rows (prefers last team if multi-league)
+        hg_match = next((g for g in (hitting_groups or []) if str(g.get("year")) == y), None)
+        pg_match = next((g for g in (pitching_groups or []) if str(g.get("year")) == y), None)
+
+        if hg_match and snapshot_hitting:
+            lg = league_for_group(hg_match)
+            pool = get_qualified_league_player_stats(season_found, "hitting", lg)
+            snapshot_qual_hitting = (player_id in pool)
+            snapshot_bg_hitting = build_row_bg("snapshot", season_found, "hitting", lg, snapshot_hitting, snapshot_qual_hitting)
+
+        if pg_match and snapshot_pitching:
+            lg = league_for_group(pg_match)
+            pool = get_qualified_league_player_stats(season_found, "pitching", lg)
+            snapshot_qual_pitching = (player_id in pool)
+            snapshot_bg_pitching = build_row_bg("snapshot", season_found, "pitching", lg, snapshot_pitching, snapshot_qual_pitching)
+
+    # Year-by-year rows (total + parts)
+    for g in (hitting_groups or []):
+        season = int(g.get("year") or 0)
+        if not season:
+            continue
+        lg = league_for_group(g)
+        pool = get_qualified_league_player_stats(season, "hitting", lg)
+        qual = (player_id in pool)
+        total = (g.get("total") or {})
+        stat = total.get("stat") or {}
+        row_key = f"{season}:Total"
+        yby_bg_hitting[row_key] = build_row_bg(row_key, season, "hitting", lg, stat, qual)
+
+        for p in (g.get("parts") or []):
+            ps = (p.get("stat") or {})
+            team = (p.get("team") or "").strip() or "UNK"
+            rk = f"{season}:{team}"
+            yby_bg_hitting[rk] = build_row_bg(rk, season, "hitting", lg, ps, qual)
+
+    for g in (pitching_groups or []):
+        season = int(g.get("year") or 0)
+        if not season:
+            continue
+        lg = league_for_group(g)
+        pool = get_qualified_league_player_stats(season, "pitching", lg)
+        qual = (player_id in pool)
+        total = (g.get("total") or {})
+        stat = total.get("stat") or {}
+        row_key = f"{season}:Total"
+        yby_bg_pitching[row_key] = build_row_bg(row_key, season, "pitching", lg, stat, qual)
+
+        for p in (g.get("parts") or []):
+            ps = (p.get("stat") or {})
+            team = (p.get("team") or "").strip() or "UNK"
+            rk = f"{season}:{team}"
+            yby_bg_pitching[rk] = build_row_bg(rk, season, "pitching", lg, ps, qual)
+
+# -------------------------
     # Career totals (mini cards)
     # -------------------------
     career_hitting = get_player_career_totals(player_id, "hitting") if role != "pitching" else None
@@ -612,6 +766,10 @@ def player(player_id: int):
         season_found=season_found,
         snapshot_hitting=snapshot_hitting,
         snapshot_pitching=snapshot_pitching,
+        snapshot_bg_hitting=snapshot_bg_hitting,
+        snapshot_bg_pitching=snapshot_bg_pitching,
+        snapshot_qual_hitting=snapshot_qual_hitting,
+        snapshot_qual_pitching=snapshot_qual_pitching,
 
         # career
         career_hitting=career_hitting,
@@ -621,6 +779,8 @@ def player(player_id: int):
         yby=yby,
         hitting_groups=hitting_groups,
         pitching_groups=pitching_groups,
+        yby_bg_hitting=yby_bg_hitting,
+        yby_bg_pitching=yby_bg_pitching,
         accolades=accolades,
         award_year_map=award_year_map,
 
