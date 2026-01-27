@@ -1,43 +1,415 @@
 {% extends "base.html" %}
-
 {% block content %}
-<h1>{{ bio.fullName }}</h1>
 
-<p>
-  {% if bio.currentTeam %}{{ bio.currentTeam.name }}{% endif %}
-  {% if bio.primaryPosition %} • {{ bio.primaryPosition.name }}{% endif %}
-  {% if bio.batSide %} • Bats: {{ bio.batSide.description }}{% endif %}
-  {% if bio.pitchHand %} • Throws: {{ bio.pitchHand.description }}{% endif %}
-</p>
+<div class="card">
+  <div class="card-header" style="align-items:center;">
+    <div class="player-header">
+      <img class="player-headshot"
+           src="https://img.mlbstatic.com/mlb-photos/image/upload/w_360,q_100/v1/people/{{ header.id }}/headshot/67/current"
+           alt="{{ header.fullName }}">
+      <div class="player-meta">
+        <div class="player-name">{{ header.fullName }}</div>
 
-<img
-  src="https://img.mlbstatic.com/mlb-photos/image/upload/w_360,q_100/v1/people/{{ bio.id }}/headshot/67/current"
-  alt="{{ bio.fullName }}"
-  style="border-radius: 12px; max-width: 180px; margin: 10px 0;"
-/>
+        <div class="player-lines">
+          {% if header.currentTeam or header.primaryPosition %}
+            <div class="muted">
+              {% if header.currentTeam %}{{ header.currentTeam }}{% endif %}
+              {% if header.primaryPosition %} • {{ header.primaryPosition }}{% endif %}
+            </div>
+          {% endif %}
 
-<h2>Season stats{% if season %} ({{ season }}){% endif %}</h2>
+          {% if header.age or header.height or header.weight %}
+            <div class="muted">
+              {% if header.age %}Age {{ header.age }}{% endif %}
+              {% if header.height %}{% if header.age %} • {% endif %}{{ header.height }}{% endif %}
+              {% if header.weight %}{% if header.age or header.height %} • {% endif %}{{ header.weight }} lb{% endif %}
+            </div>
+          {% endif %}
 
-{% if stats %}
-  {% for block in stats %}
-    <h3>{{ block.group.displayName }}</h3>
-    {% if block.splits and block.splits|length > 0 %}
-      <table>
-        <tbody>
-          {% for k, v in block.splits[0].stat.items() %}
-            <tr>
-              <td style="padding-right:12px;"><strong>{{ k }}</strong></td>
-              <td>{{ v }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          {% if header.batSide or header.pitchHand %}
+            <div class="muted">
+              {% if header.batSide %}Bats: {{ header.batSide }}{% endif %}
+              {% if header.pitchHand %}{% if header.batSide %} • {% endif %}Throws: {{ header.pitchHand }}{% endif %}
+            </div>
+          {% endif %}
+
+          {% if header.mlbDebutDate %}
+            <div class="muted">MLB Debut: {{ header.mlbDebutDate }}</div>
+          {% endif %}
+
+          {% if header.birthCity or header.birthStateProvince or header.birthCountry %}
+            <div class="muted">
+              Born:
+              {% if header.birthCity %}{{ header.birthCity }}{% endif %}
+              {% if header.birthStateProvince %}{% if header.birthCity %}, {% endif %}{{ header.birthStateProvince }}{% endif %}
+              {% if header.birthCountry %}{% if header.birthCity or header.birthStateProvince %} • {% endif %}{{ header.birthCountry }}{% endif %}
+            </div>
+          {% endif %}
+
+          {% if header.education %}
+            <div class="muted">{{ header.education }}</div>
+          {% endif %}
+
+          {% if header.draftYear or header.draftRound or header.draftPick %}
+            <div class="muted">
+              Draft:
+              {% if header.draftYear %}{{ header.draftYear }}{% endif %}
+              {% if header.draftRound %}{% if header.draftYear %} • {% endif %}R{{ header.draftRound }}{% endif %}
+              {% if header.draftPick %}{% if header.draftYear or header.draftRound %} • {% endif %}Pick {{ header.draftPick }}{% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="muted small" style="text-align:right;">
+      {% if season_found %}
+        Stats season: <b>{{ season_found }}</b>
+      {% else %}
+        Stats season: <b>—</b>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ===== Top Stats Card (Stats / Advanced toggle) ===== -->
+<div class="card">
+  <div class="card-header" style="align-items:center;">
+    <div>
+      <div class="card-title">Season Snapshot</div>
+      <div class="card-subtitle">
+        Live from StatsAPI. If current year is blank, falls back to last season with stats (stops at debut year).
+      </div>
+    </div>
+
+    <div class="seg-toggle">
+      <a class="seg {% if show != 'adv' %}active{% endif %}" href="/player/{{ header.id }}?show=stats{% if log_year %}&log_year={{ log_year }}{% endif %}">Stats</a>
+      <a class="seg {% if show == 'adv' %}active{% endif %}" href="/player/{{ header.id }}?show=adv{% if log_year %}&log_year={{ log_year }}{% endif %}">Advanced</a>
+    </div>
+  </div>
+
+  <div class="card-body">
+    {% set blocks = adv_blocks if show == 'adv' else stats_blocks %}
+    {% if blocks and blocks|length > 0 %}
+      <div class="grid-2">
+        {% for block in blocks %}
+          <div class="subcard" style="border:1px solid var(--border); border-radius:12px;">
+            <div class="subcard-title" style="margin:0 0 8px 0;">{{ (block.group.displayName if block.group else "Stats") }}</div>
+
+            {% if block.splits and block.splits|length > 0 and block.splits[0].stat %}
+              <!-- Headline stats: v1 uses a pinned shortlist; anything missing is skipped -->
+              {% set s = block.splits[0].stat %}
+              <div class="headline-grid">
+                {% if block.group.displayName and 'Pitching' in block.group.displayName %}
+                  {% for key, label in [
+                    ('wins','W'),('losses','L'),('era','ERA'),('whip','WHIP'),
+                    ('inningsPitched','IP'),('strikeOuts','SO'),
+                    ('saves','SV'),('holds','HLD'),
+                    ('gamesPlayed','G'),('gamesStarted','GS'),
+                    ('completeGames','CG'),('shutouts','SHO')
+                  ] %}
+                    {% if s.get(key) is not none and s.get(key) != '' %}
+                      <div class="headline-stat">
+                        <div class="k">{{ label }}</div>
+                        <div class="v">{{ s.get(key) }}</div>
+                      </div>
+                    {% endif %}
+                  {% endfor %}
+                {% else %}
+                  {% for key, label in [
+                    ('gamesPlayed','G'),('atBats','AB'),('hits','H'),('homeRuns','HR'),
+                    ('rbi','RBI'),('runs','R'),('stolenBases','SB'),
+                    ('avg','AVG'),('obp','OBP'),('slg','SLG'),('ops','OPS')
+                  ] %}
+                    {% if s.get(key) is not none and s.get(key) != '' %}
+                      <div class="headline-stat">
+                        <div class="k">{{ label }}</div>
+                        <div class="v">{{ s.get(key) }}</div>
+                      </div>
+                    {% endif %}
+                  {% endfor %}
+                {% endif %}
+              </div>
+
+              <details style="margin-top:10px;">
+                <summary class="muted" style="cursor:pointer;">Show all fields</summary>
+                <div class="table-wrap" style="margin-top:10px;">
+                  <table class="table">
+                    <tbody>
+                      {% for k, v in s.items() %}
+                        {% if v is not none and v != '' %}
+                          <tr>
+                            <td style="width:55%;"><span class="muted">{{ k }}</span></td>
+                            <td class="num">{{ v }}</td>
+                          </tr>
+                        {% endif %}
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+
+            {% else %}
+              <div class="muted">No stats available.</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
     {% else %}
-      <p>No stats available.</p>
+      <div class="muted">No stats available.</div>
     {% endif %}
-  {% endfor %}
-{% else %}
-  <p>No stats available.</p>
-{% endif %}
+  </div>
+</div>
+
+<!-- ===== Tabs ===== -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="tab-yby">Year-by-Year</button>
+  <button class="tab-btn" data-tab="tab-gamelog">Game Logs</button>
+  <button class="tab-btn" data-tab="tab-tx">Transactions</button>
+</div>
+
+<!-- Year-by-Year -->
+<div id="tab-yby" class="tab-panel active">
+
+  <div class="grid-2">
+    {% if role != "pitching" %}
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Hitting • Career</div>
+            <div class="card-subtitle">Career totals (true career endpoint).</div>
+          </div>
+        </div>
+        <div class="card-body">
+          {% if career_hitting %}
+            <div class="table-wrap">
+              <table class="table">
+                <tbody>
+                  {% for k, v in career_hitting.items() %}
+                    {% if v is not none and v != '' %}
+                      <tr><td class="muted">{{ k }}</td><td class="num">{{ v }}</td></tr>
+                    {% endif %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="muted">—</div>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if role != "hitting" %}
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Pitching • Career</div>
+            <div class="card-subtitle">Career totals (true career endpoint).</div>
+          </div>
+        </div>
+        <div class="card-body">
+          {% if career_pitching %}
+            <div class="table-wrap">
+              <table class="table">
+                <tbody>
+                  {% for k, v in career_pitching.items() %}
+                    {% if v is not none and v != '' %}
+                      <tr><td class="muted">{{ k }}</td><td class="num">{{ v }}</td></tr>
+                    {% endif %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="muted">—</div>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  {% if role != "pitching" %}
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Hitting • Year-by-Year</div>
+          <div class="card-subtitle">Totals + team splits where applicable.</div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if hitting_groups and hitting_groups|length %}
+          {% for g in hitting_groups|reverse %}
+            <details style="margin-bottom:10px;">
+              <summary><b>{{ g.year }}</b></summary>
+              <div class="table-wrap" style="margin-top:8px;">
+                <table class="table">
+                  <tbody>
+                    {% if g.total and g.total.stat %}
+                      <tr><td colspan="2"><b>Total</b></td></tr>
+                      {% for k, v in g.total.stat.items() %}
+                        {% if v is not none and v != '' %}
+                          <tr><td class="muted">{{ k }}</td><td class="num">{{ v }}</td></tr>
+                        {% endif %}
+                      {% endfor %}
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          {% endfor %}
+        {% else %}
+          <div class="muted">—</div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if role != "hitting" %}
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Pitching • Year-by-Year</div>
+          <div class="card-subtitle">Totals + team splits where applicable.</div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if pitching_groups and pitching_groups|length %}
+          {% for g in pitching_groups|reverse %}
+            <details style="margin-bottom:10px;">
+              <summary><b>{{ g.year }}</b></summary>
+              <div class="table-wrap" style="margin-top:8px;">
+                <table class="table">
+                  <tbody>
+                    {% if g.total and g.total.stat %}
+                      <tr><td colspan="2"><b>Total</b></td></tr>
+                      {% for k, v in g.total.stat.items() %}
+                        {% if v is not none and v != '' %}
+                          <tr><td class="muted">{{ k }}</td><td class="num">{{ v }}</td></tr>
+                        {% endif %}
+                      {% endfor %}
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          {% endfor %}
+        {% else %}
+          <div class="muted">—</div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+
+<!-- Game Logs -->
+<div id="tab-gamelog" class="tab-panel">
+  <div class="card">
+    <div class="card-header" style="align-items:center;">
+      <div>
+        <div class="card-title">Game Logs</div>
+        <div class="card-subtitle">Select a season to view one year at a time.</div>
+      </div>
+      <form method="get" action="/player/{{ header.id }}" style="display:flex; gap:8px; align-items:center;">
+        <input type="hidden" name="show" value="{{ show }}">
+        <select name="log_year" class="select">
+          {% for y in years %}
+            <option value="{{ y }}" {% if y == log_year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn" type="submit">Load</button>
+      </form>
+    </div>
+
+    <div class="card-body">
+      {% if game_log_blocks and game_log_blocks|length %}
+        {% for block in game_log_blocks %}
+          <div style="margin-bottom:16px;">
+            <div class="subcard-title">{{ block.group.displayName if block.group else "Game Log" }}</div>
+
+            {% if block.splits and block.splits|length %}
+              <div class="table-wrap">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th class="num">Stats</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for s in block.splits %}
+                      {% set stat = s.stat or {} %}
+                      <tr>
+                        <td>{{ (s.date or s.gameDate or '')[:10] }}</td>
+                        <td class="num">
+                          {# v1: lightweight summary; expand later #}
+                          {% if block.group.displayName and 'Pitching' in block.group.displayName %}
+                            {% if stat.inningsPitched %}IP {{ stat.inningsPitched }}{% endif %}
+                            {% if stat.era %} • ERA {{ stat.era }}{% endif %}
+                            {% if stat.strikeOuts %} • SO {{ stat.strikeOuts }}{% endif %}
+                          {% else %}
+                            {% if stat.hits is not none and stat.atBats is not none %}{{ stat.hits }}-{{ stat.atBats }}{% endif %}
+                            {% if stat.homeRuns %} • HR {{ stat.homeRuns }}{% endif %}
+                            {% if stat.rbi %} • RBI {{ stat.rbi }}{% endif %}
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <div class="muted">No game logs found.</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="muted">No game logs found.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Transactions -->
+<div id="tab-tx" class="tab-panel">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Transactions</div>
+        <div class="card-subtitle">Entire history • newest first.</div>
+      </div>
+    </div>
+    <div class="card-body">
+      {% if transactions and transactions|length %}
+        <div class="tx-list">
+          {% for t in transactions %}
+            <div class="tx-row">
+              <div class="tx-date">{{ t.date }}</div>
+              <div class="tx-desc">{{ t.description }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="muted">No transactions found.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  // simple tabs
+  (function(){
+    const btns = document.querySelectorAll(".tab-btn");
+    const panels = document.querySelectorAll(".tab-panel");
+    btns.forEach(b => b.addEventListener("click", () => {
+      btns.forEach(x => x.classList.remove("active"));
+      panels.forEach(p => p.classList.remove("active"));
+      b.classList.add("active");
+      document.getElementById(b.dataset.tab).classList.add("active");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }));
+  })();
+</script>
 
 {% endblock %}
