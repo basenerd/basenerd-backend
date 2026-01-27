@@ -270,16 +270,18 @@ def games():
     )
 
 @app.get("/game/<int:game_pk>")
-def game(game_pk: int):
-    user_tz = "America/Phoenix"
-    feed = get_game_feed(game_pk)
-    game_obj = normalize_game_detail(feed, tz_name=user_tz)
-    return render_template(
-        "game.html",
-        title=f"{game_obj.get('away', {}).get('abbrev', '')} @ {game_obj.get('home', {}).get('abbrev', '')}",
-        game=game_obj,
-        user_tz=user_tz,
-    )
+def game_detail(game_pk: int):
+    try:
+        feed = get_game_feed(game_pk)
+        game_obj = normalize_game_detail(feed, tz_name=USER_TZ)
+        return render_template("game.html", title="Game", game=game_obj)
+    except Exception as e:
+        return render_template(
+            "game.html",
+            title="Game",
+            game={"gamePk": game_pk, "detailedState": "Error loading game", "statusPill": "Error", "home": {"abbrev":"", "score":None}, "away": {"abbrev":"", "score":None}, "linescore": {}},
+            error=str(e)
+        ), 200
 
 
 @app.get("/team/<int:team_id>/schedule_json")
