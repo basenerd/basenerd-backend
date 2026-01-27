@@ -619,9 +619,8 @@ def player(player_id: int):
         if not qualified and is_rate_stat(kind, key):
             return "rgba(0, 0, 0, 0.06)"
 
-        # If not qualified and not a rate stat → no gradient
-        if not qualified:
-            return None
+        # Even if not qualified, we still color COUNTING stats using the qualified pool distribution.
+        # Only rate stats are forced to gray when not qualified.
 
         ck = f"{season}:{kind}:{league_short}"
         dists = _dist_cache.get(ck)
