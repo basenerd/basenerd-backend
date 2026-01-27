@@ -2,10 +2,13 @@
 {% block content %}
 
 {# -----------------------
-   helpers inside template
+   Headshot URL
    ----------------------- #}
 {% set headshot = "https://img.mlbstatic.com/mlb-photos/image/upload/w_540,q_100/v1/people/" ~ (bio.id|string) ~ "/headshot/67/current" %}
 
+{# -----------------------
+   Mini stat cards
+   ----------------------- #}
 {% macro mini_cards(stat, kind) %}
   <div class="headline-grid">
     {% if kind == "pitching" %}
@@ -39,35 +42,18 @@
   </div>
 {% endmacro %}
 
-{% macro pick_stat_from_blocks(blocks, want_kind) %}
-  {# want_kind: "hitting" or "pitching" #}
-  {% for b in (blocks or []) %}
-    {% set g = (((b.get('group') or {}).get('displayName')) or '') %}
-    {% set splits = (b.get('splits') or []) %}
-    {% set stat0 = (splits[0].get('stat') if splits and splits|length else {}) %}
-
-    {% if want_kind == "hitting" and "Hitting" in g and stat0 %}
-      {{ mini_cards(stat0, "hitting") }}
-    {% endif %}
-
-    {% if want_kind == "pitching" and "Pitching" in g and stat0 %}
-      {{ mini_cards(stat0, "pitching") }}
-    {% endif %}
-  {% endfor %}
-{% endmacro %}
-
-
 <style>
   .player-header-card{ align-items:stretch; }
   .player-header{
     display:flex;
-    align-items:stretch;
+    align-items:stretch; /* key: photo fills card height */
     gap:14px;
     width:100%;
   }
   .player-headshot{
-    width:150px;
+    width:220px;
     height:100%;
+    min-height:170px;
     object-fit:cover;
     border-radius:12px;
     border:1px solid var(--border);
@@ -77,6 +63,7 @@
   .player-meta{ min-width:0; display:flex; flex-direction:column; justify-content:center; }
   .player-name{ font-size:18px; font-weight:800; letter-spacing:.2px; }
   .player-lines{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
+
   .headline-grid{
     display:grid;
     grid-template-columns: repeat(11, minmax(0, 1fr));
@@ -88,7 +75,7 @@
   }
   .headline-stat{
     border:1px solid var(--border);
-    background: #fff;
+    background:#fff;
     border-radius:10px;
     padding:8px 10px;
     overflow:hidden;
@@ -130,6 +117,14 @@
     font-weight:700;
     background:#fff;
   }
+  .btn{
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:7px 10px;
+    font-weight:800;
+    background:#fff;
+    cursor:pointer;
+  }
 
   /* transactions */
   .tx-list{ display:flex; flex-direction:column; gap:10px; }
@@ -151,7 +146,7 @@
   }
   .tx-desc{ font-size:12px; color:#111827; }
 
-  /* Year-by-year (same helpers as random player) */
+  /* Year-by-year expanders (mirrors random-player.html) */
   .yearcell{ display:inline-flex; align-items:center; gap:8px; }
   .yspacer{ display:inline-block; width:18px; height:18px; }
   .yexp{
@@ -169,7 +164,7 @@
     justify-content:center;
   }
   .yexp.open{ transform: rotate(180deg); }
-  .career-row td{ font-weight:900; }
+
   .acc-pill{
     font-size:10px;
     font-weight:900;
@@ -180,6 +175,7 @@
     color:#111827;
     display:inline-block;
     margin-right:6px;
+    margin-bottom:4px;
   }
 </style>
 
@@ -247,47 +243,59 @@
 </div>
 
 <!-- =======================
-     Season Snapshot
+     Season Snapshot (from year-by-year source)
      ======================= -->
 <div class="card">
   <div class="card-header">
     <div>
       <div class="card-title">{{ season_found if season_found else "—" }} Stats</div>
       <div class="card-subtitle">
-        Tries current year and falls back until stats exist (stops at debut year).
+        Uses year-by-year stats and falls back by year until games played &gt; 0 (stops at debut year).
       </div>
     </div>
   </div>
 
   <div class="card-body">
-    {% if season_blocks and season_blocks|length %}
-      {% if role == "two-way" %}
-        <div style="margin-bottom:12px;">
+    {% if role == "two-way" %}
+      {% if snapshot_hitting %}
+        <div style="margin-bottom:10px;">
           <div class="subcard-title">Hitting</div>
-          {{ pick_stat_from_blocks(season_blocks, "hitting") }}
+          {{ mini_cards(snapshot_hitting, "hitting") }}
         </div>
+      {% endif %}
+      {% if snapshot_pitching %}
         <div>
           <div class="subcard-title">Pitching</div>
-          {{ pick_stat_from_blocks(season_blocks, "pitching") }}
+          {{ mini_cards(snapshot_pitching, "pitching") }}
         </div>
-      {% elif role == "pitching" %}
-        {{ pick_stat_from_blocks(season_blocks, "pitching") }}
+      {% endif %}
+      {% if (not snapshot_hitting) and (not snapshot_pitching) %}
+        <div class="muted">No stats found.</div>
+      {% endif %}
+    {% elif role == "pitching" %}
+      {% if snapshot_pitching %}
+        {{ mini_cards(snapshot_pitching, "pitching") }}
       {% else %}
-        {{ pick_stat_from_blocks(season_blocks, "hitting") }}
+        <div class="muted">No stats found.</div>
       {% endif %}
     {% else %}
-      <div class="muted">No stats found.</div>
+      {% if snapshot_hitting %}
+        {{ mini_cards(snapshot_hitting, "hitting") }}
+      {% else %}
+        <div class="muted">No stats found.</div>
+      {% endif %}
     {% endif %}
   </div>
 </div>
 
 <!-- =======================
-     Career Stats (directly under season snapshot)
+     Career Stats (directly under snapshot)
      ======================= -->
 <div class="card">
   <div class="card-header">
     <div class="card-title">Career Stats</div>
   </div>
+
   <div class="card-body">
     {% if role == "two-way" %}
       <div style="margin-bottom:12px;">
@@ -314,7 +322,7 @@
 </div>
 
 <!-- =======================
-     Year-by-Year (EXACT same table style as random player page)
+     Year-by-Year (mirrors random-player.html)
      ======================= -->
 <div id="tab-yby" class="tab-panel active">
 
@@ -684,7 +692,7 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
     }));
 
-    // Expand/collapse year children (multi-team seasons) — matches random player
+    // Expand/collapse year children (multi-team seasons) — same behavior as random player
     document.querySelectorAll(".yexp").forEach(b => {
       b.addEventListener("click", () => {
         const year = b.getAttribute("data-year");
