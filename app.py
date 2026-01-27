@@ -24,6 +24,11 @@ from services.mlb_api import (
     pct_to_bg,
     percentile_from_sorted,
     to_float,
+    get_games_for_date,
+    find_next_date_with_games,
+    get_game_feed,
+    normalize_game_detail,
+
     )
 
 from services.articles import load_articles, get_article
@@ -229,9 +234,53 @@ def team(team_id):
         roster_other=roster_other
     )
 
+from datetime import timedelta
+
+@app.get("/games")
+def games():
+    """
+    Shows games for a chosen date.
+    - Default: today
+    - If no games today: auto-advance to next future date with games
+    """
+    # later: make this per-user; for now default to Phoenix (your requirement)
+    user_tz = "America/Phoenix"
+
+    picked = (request.args.get("date") or "").strip()  # YYYY-MM-DD
+    today_ymd = datetime.utcnow().date().strftime("%Y-%m-%d")
+
+    target = picked or today_ymd
+    games_list = get_games_for_date(target, tz_name=user_tz)
+
+    auto_advanced = False
+    if not picked and not games_list:
+        nxt = find_next_date_with_games(today_ymd, max_days_ahead=365, chunk_days=14)
+        if nxt:
+            target = nxt
+            games_list = get_games_for_date(target, tz_name=user_tz)
+            auto_advanced = True
+
+    return render_template(
+        "games.html",
+        title="Games",
+        date=target,
+        games=games_list,
+        auto_advanced=auto_advanced,
+        user_tz=user_tz,
+    )
+
 @app.get("/game/<int:game_pk>")
-def game(game_pk):
-    return render_template("game.html", title=f"Game {game_pk}", game_pk=game_pk)
+def game(game_pk: int):
+    user_tz = "America/Phoenix"
+    feed = get_game_feed(game_pk)
+    game_obj = normalize_game_detail(feed, tz_name=user_tz)
+    return render_template(
+        "game.html",
+        title=f"{game_obj.get('away', {}).get('abbrev', '')} @ {game_obj.get('home', {}).get('abbrev', '')}",
+        game=game_obj,
+        user_tz=user_tz,
+    )
+
 
 @app.get("/team/<int:team_id>/schedule_json")
 def team_schedule_json(team_id):
