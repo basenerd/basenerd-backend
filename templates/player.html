@@ -41,21 +41,21 @@
 
 {% macro pick_stat_from_blocks(blocks, want_kind) %}
   {# want_kind: "hitting" or "pitching" #}
-  {% for b in blocks or [] %}
-    {% set gname = (((b.get('group') or {}).get('displayName')) or '') %}
+  {% for b in (blocks or []) %}
+    {% set g = (((b.get('group') or {}).get('displayName')) or '') %}
     {% set splits = (b.get('splits') or []) %}
-    {% if want_kind == "hitting" and "Hitting" in gname %}
-      {% if splits and splits|length and (splits[0].get('stat') or {}) %}
-        {{ mini_cards(splits[0].get('stat'), "hitting") }}
-      {% endif %}
+    {% set stat0 = (splits[0].get('stat') if splits and splits|length else {}) %}
+
+    {% if want_kind == "hitting" and "Hitting" in g and stat0 %}
+      {{ mini_cards(stat0, "hitting") }}
     {% endif %}
-    {% if want_kind == "pitching" and "Pitching" in gname %}
-      {% if splits and splits|length and (splits[0].get('stat') or {}) %}
-        {{ mini_cards(splits[0].get('stat'), "pitching") }}
-      {% endif %}
+
+    {% if want_kind == "pitching" and "Pitching" in g and stat0 %}
+      {{ mini_cards(stat0, "pitching") }}
     {% endif %}
   {% endfor %}
 {% endmacro %}
+
 
 <style>
   .player-header-card{ align-items:stretch; }
