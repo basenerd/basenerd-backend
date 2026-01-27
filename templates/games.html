@@ -94,7 +94,12 @@
           {% endif %}
 
           {% if g.venue %}
-            <div class="muted">{{ g.venue }}</div>
+            <div class="muted">
+              {{ g.venue }}
+              {% if g.venueLocation %}
+                • {{ g.venueLocation }}
+              {% endif %}
+            </div>
           {% endif %}
 
           {% if g.statusPill == "Final" %}
