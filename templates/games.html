@@ -35,15 +35,23 @@
   <div class="games-grid" style="margin-top:14px;">
     {% for g in games %}
       <a class="game-card" href="/game/{{ g.gamePk }}">
+
         <div class="game-card-top">
-          <div class="pill">{{ g.statusPill }}</div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            {% if g.competitionLabel %}
+              <div class="tag">{{ g.competitionLabel }}</div>
+            {% endif %}
+            <div class="pill">{{ g.statusPill }}</div>
+          </div>
           <div class="muted mono">{{ g.timeLocal }}</div>
         </div>
 
         <div class="matchup">
           <div class="team-row">
             <div class="team-left">
-              {% if g.away.logo %}<img class="team-logo" src="{{ g.away.logo }}" alt="{{ g.away.abbrev }} logo">{% endif %}
+              {% if g.away.logo %}
+                <img class="team-logo" src="{{ g.away.logo }}" alt="{{ g.away.abbrev }} logo">
+              {% endif %}
               <div class="team-abbrev">{{ g.away.abbrev }}</div>
             </div>
             <div class="team-score mono">{{ g.away.score if g.away.score is not none else "—" }}</div>
@@ -51,7 +59,9 @@
 
           <div class="team-row">
             <div class="team-left">
-              {% if g.home.logo %}<img class="team-logo" src="{{ g.home.logo }}" alt="{{ g.home.abbrev }} logo">{% endif %}
+              {% if g.home.logo %}
+                <img class="team-logo" src="{{ g.home.logo }}" alt="{{ g.home.abbrev }} logo">
+              {% endif %}
               <div class="team-abbrev">{{ g.home.abbrev }}</div>
             </div>
             <div class="team-score mono">{{ g.home.score if g.home.score is not none else "—" }}</div>
@@ -59,7 +69,13 @@
         </div>
 
         <div class="game-meta">
-          {% if g.venue %}<div class="muted">{{ g.venue }}</div>{% endif %}
+          {% if g.subline %}
+            <div class="small muted">{{ g.subline }}</div>
+          {% endif %}
+
+          {% if g.venue %}
+            <div class="muted">{{ g.venue }}</div>
+          {% endif %}
 
           {% if g.statusPill == "Scheduled" %}
             <div class="small muted">
@@ -77,6 +93,7 @@
             <div class="small muted">{{ g.detailedState }}</div>
           {% endif %}
         </div>
+
       </a>
     {% endfor %}
   </div>
