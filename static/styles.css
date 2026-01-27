@@ -753,3 +753,122 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   flex: 1 1 auto;
 }
 
+/* ----------------------------- */
+/* GAME PAGE: tabs + PAs         */
+/* ----------------------------- */
+.tabs{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.tab-btn{
+  border:1px solid var(--border);
+  background:#fff;
+  border-radius:999px;
+  padding:6px 12px;
+  font-weight:900;
+  cursor:pointer;
+}
+.tab-btn.active{
+  background: rgba(15,23,42,.06);
+}
+
+.tab-panel{ display:none; }
+.tab-panel.active{ display:block; }
+
+.game-head{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+@media(max-width: 720px){
+  .game-head{ grid-template-columns: 1fr; }
+}
+.team-side{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  padding:10px 12px;
+  background:#fff;
+}
+.team-logo-lg{ width:34px; height:34px; display:block; }
+.team-meta{ min-width:0; }
+.team-abbrev-lg{ font-weight:900; font-size:16px; }
+.team-score-lg{ margin-left:auto; font-weight:900; font-size:18px; }
+
+.box-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+  padding: 0 14px 14px 14px;
+}
+@media(max-width: 980px){
+  .box-grid{ grid-template-columns: 1fr; }
+}
+.box-panel{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:10px 10px 8px 10px;
+  min-width:0;
+}
+.box-panel-title{
+  font-weight:900;
+  margin-bottom:8px;
+}
+.table-wrap{ overflow-x:auto; }
+
+.scoring-list, .pbp-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.scoring-row, .pbp-row{
+  display:grid;
+  grid-template-columns: 90px 1fr 80px;
+  gap:12px;
+  padding:10px 12px;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:12px;
+  background:#fff;
+}
+.scoring-desc, .pbp-desc{ min-width:0; }
+
+.pa-details{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:10px 12px;
+  margin-bottom:10px;
+}
+.pa-summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  cursor:pointer;
+  list-style:none;
+}
+.pa-summary::-webkit-details-marker{ display:none; }
+.pa-left{ display:flex; align-items:center; gap:10px; min-width:0; }
+.pa-right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+
+.pa-body{ margin-top:10px; }
+.pa-grid{
+  display:grid;
+  grid-template-columns: 220px 1fr;
+  gap:12px;
+}
+@media(max-width: 900px){
+  .pa-grid{ grid-template-columns: 1fr; }
+}
+.zone-title{ font-weight:900; margin-bottom:8px; }
+.zone-wrap, .pitch-wrap{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:10px 10px 8px 10px;
+}
+
