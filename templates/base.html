@@ -132,13 +132,16 @@
             <a href="/teams" class="{% if request.path.startswith('/teams') or request.path.startswith('/team/') %}active{% endif %}">
               Teams
             </a>
+            <a href="/games" class="{% if request.path.startswith('/games') or request.path.startswith('/game/') %}active{% endif %}">
+              Games
+            </a>
             <a href="/articles" class="{% if request.path.startswith('/articles') or request.path.startswith('/article/') %}active{% endif %}">
               Articles
             </a>
+            <a class="dropdown-item" href="/random-player">Random Player Generator</a>
             <a href="/about" class="{% if request.path.startswith('/about') %}active{% endif %}">
               About
             </a>
-            <a class="dropdown-item" href="/random-player">Random Player Generator</a>
           </nav>
 
           <div class="sidebar-footer">
