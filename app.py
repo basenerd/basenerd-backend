@@ -506,14 +506,19 @@ def player(player_id: int):
     # key: (year, kind) -> row dict
     by_year_kind = {}
     for r in (yby or []):
-        yr = r.get("year")
-        kind = r.get("kind")  # "hitting" / "pitching"
-        if not yr or kind not in ("hitting", "pitching"):
+        yr_raw = r.get("year")
+        try:
+            yr = int(yr_raw)
+        except Exception:
             continue
-
+    
+        kind = r.get("kind")  # "hitting" / "pitching"
+        if kind not in ("hitting", "pitching"):
+            continue
+    
         key = (yr, kind)
         cur = by_year_kind.get(key)
-
+    
         if cur is None:
             by_year_kind[key] = r
         else:
