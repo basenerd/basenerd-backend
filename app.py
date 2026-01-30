@@ -284,17 +284,10 @@ def games():
 def game_detail(game_pk: int):
     user_tz = "America/Phoenix"
 
-    # always start from schedule (same source powering team schedule)
-    sched_game = get_schedule_game_by_pk(game_pk)
-
-    if sched_game:
-        game_obj = normalize_schedule_game(sched_game, tz_name=user_tz)
-        # optionally enrich if Live/Final later
-        return render_template("game.html", title="Game", game=game_obj, user_tz=user_tz)
-
-    # if schedule lookup failed, fall back to feed/live
+    # Always use the feed (it falls back to schedule internally when needed)
     feed = get_game_feed(game_pk)
     game_obj = normalize_game_detail(feed, tz_name=user_tz)
+
     return render_template("game.html", title="Game", game=game_obj, user_tz=user_tz)
 
 
