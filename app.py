@@ -260,12 +260,16 @@ def games():
 
     auto_advanced = False
     if not picked and not games_list:
-        nxt = find_next_date_with_games(today_ymd, max_days_ahead=365, chunk_days=14)
+        try:
+            nxt = find_next_date_with_games(today_ymd, max_days_ahead=120)
+        except Exception:
+            nxt = None
+        
         if nxt:
             target = nxt
             games_list = get_games_for_date(target, tz_name=user_tz)
             auto_advanced = True
-
+            
     return render_template(
         "games.html",
         title="Games",
