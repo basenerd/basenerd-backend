@@ -5,7 +5,7 @@ import json
 import os
 import random
 import bisect
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Any, Dict, Optional, List, Tuple
 
 import requests
@@ -1095,7 +1095,7 @@ def build_player_header(bio: dict) -> dict:
 # ----------------------------
 # Games / Schedule helpers
 # ----------------------------
-from datetime import timedelta
+
 from zoneinfo import ZoneInfo
 
 def _safe_int(x, default=None):
@@ -1150,31 +1150,30 @@ def get_schedule_for_dates(start_date_ymd: str, end_date_ymd: str) -> dict:
     _set_cached(cache_key, data)
     return data
 
-def find_next_date_with_games(start_date_ymd: str, max_days_ahead: int = 365, chunk_days: int = 14) -> Optional[str]:
+def find_next_date_with_games(start_date_ymd: str, max_days_ahead: int = 120) -> Optional[str]:
     """
-    Starting at start_date_ymd, find the next date (>= start) that has at least one game.
-    Uses ranged schedule calls to avoid 365 single-day requests.
+    Fast: ONE schedule call from start_date -> start_date+max_days_ahead, then scan.
+    Avoids long multi-request loops that can cause Render 502 timeouts.
     """
     try:
         start_dt = datetime.strptime(start_date_ymd, "%Y-%m-%d").date()
     except Exception:
         start_dt = datetime.utcnow().date()
 
-    end_limit = start_dt + timedelta(days=max_days_ahead)
-    cur = start_dt
+    end_dt = start_dt + timedelta(days=max_days_ahead)
 
-    while cur <= end_limit:
-        chunk_end = min(cur + timedelta(days=chunk_days - 1), end_limit)
-        data = get_schedule_for_dates(cur.strftime("%Y-%m-%d"), chunk_end.strftime("%Y-%m-%d"))
+    try:
+        data = get_schedule_for_dates(start_dt.strftime("%Y-%m-%d"), end_dt.strftime("%Y-%m-%d"))
+    except Exception:
+        return None
 
-        for d in (data.get("dates") or []):
-            games = d.get("games") or []
-            if games:
-                return d.get("date")  # YYYY-MM-DD
-
-        cur = chunk_end + timedelta(days=1)
+    for d in (data.get("dates") or []):
+        games = d.get("games") or []
+        if games:
+            return d.get("date")  # YYYY-MM-DD
 
     return None
+
 
 def _status_pill_text(game: dict) -> str:
     """
