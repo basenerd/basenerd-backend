@@ -1931,12 +1931,29 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                 n += 1
                 pitch_list.append({
                     "n": n,
-                    "type": _safe(details, "type", "description", default=None),
+                
+                    # pitch type code is still included (table uses it),
+                    # but we're coloring by outcome on the plot.
+                    "type": _safe(details, "type", "code", default=None),  # e.g. FF, SL
+                
                     "mph": _safe(pitch, "startSpeed", default=None),
                     "call": _safe(details, "call", "description", default=None),
                     "desc": details.get("description"),
+                
+                    # Location (pX is feet from center; pZ is feet relative to vertical midpoint of zone)
                     "px": coords.get("pX"),
                     "pz": coords.get("pZ"),
+                
+                    # Hitter-specific strike zone edges (feet off ground).
+                    # JS will fall back to defaults if missing.
+                    "sz_top": pitch.get("strikeZoneTop") or pitch.get("sz_top") or coords.get("sz_top"),
+                    "sz_bot": pitch.get("strikeZoneBottom") or pitch.get("sz_bot") or coords.get("sz_bot"),
+                
+                    # Outcome helpers (for coloring)
+                    "isInPlay": details.get("isInPlay"),
+                    "isStrike": details.get("isStrike"),
+                    "isBall": details.get("isBall"),
+                
                     "balls": count.get("balls"),
                     "strikes": count.get("strikes"),
                 })
