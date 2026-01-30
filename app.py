@@ -28,7 +28,8 @@ from services.mlb_api import (
     find_next_date_with_games,
     get_game_feed,
     normalize_game_detail,
-
+    get_schedule_game_by_pk,
+    normalize_schedule_game,
     )
 
 from services.articles import load_articles, get_article
