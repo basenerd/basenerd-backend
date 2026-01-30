@@ -1463,17 +1463,25 @@ def get_game_feed(game_pk: int) -> dict:
     try:
         r = requests.get(url, timeout=30)
 
-        # If MLB returns non-JSON HTML sometimes (rare), guard it
         if r.status_code == 200:
             data = r.json() or {}
-            _set_cached(cache_key, data)
-            return data
-
-        # If not 200, treat as fallback case
-        if r.status_code == 404:
-            sched_game = get_schedule_game_by_pk(game_pk)
-            data = {"scheduleOnly": True, "scheduleGame": sched_game}
-            _set_cached(cache_key, data)
+        
+            status = ((data.get("gameData") or {}).get("status") or {})
+            state = (status.get("abstractGameState") or "").lower()
+        
+            # live → 30s
+            if state == "live":
+                ttl = 30
+        
+            # final → 24 hours
+            elif state == "final":
+                ttl = 60 * 60 * 24
+        
+            # scheduled / preview / other → 60s
+            else:
+                ttl = 60
+        
+            _set_cached(cache_key, data, ttl=ttl)
             return data
 
         # Any other status: fallback
