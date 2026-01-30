@@ -282,30 +282,44 @@ def games():
 @app.get("/game/<int:game_pk>")
 def game_detail(game_pk: int):
     user_tz = "America/Phoenix"
-    try:
+
+    # 1) Always start from the schedule API (same source as team pages)
+    sched_game = get_schedule_game_by_pk(game_pk)
+
+    # 2) If the schedule API does NOT know this gamePk, fall back to feed logic
+    if not sched_game:
         feed = get_game_feed(game_pk)
         game_obj = normalize_game_detail(feed, tz_name=user_tz)
         return render_template(
             "game.html",
-            title=f"{game_obj.get('away', {}).get('abbrev', '')} @ {game_obj.get('home', {}).get('abbrev', '')}",
-            game=game_obj,
-            user_tz=user_tz,
-        )
-    except Exception as e:
-        return render_template(
-            "game.html",
             title="Game",
-            game={
-                "gamePk": game_pk,
-                "detailedState": "Error loading game",
-                "statusPill": "Error",
-                "home": {"abbrev": "", "score": None},
-                "away": {"abbrev": "", "score": None},
-                "linescore": {},
-            },
-            user_tz=user_tz,
-            error=str(e),
-        ), 200
+            game=game_obj,
+            user_tz=user_tz
+        )
+
+    # 3) Build a base game object from schedule (works for scheduled/live/final)
+    game_obj = normalize_game_detail(
+        {
+            "scheduleOnly": True,
+            "gamePk": game_pk,
+            "scheduleGame": sched_game
+        },
+        tz_name=user_tz
+    )
+
+    # 4) If the game is live or final, enrich with live feed
+    status = (sched_game.get("status") or {}).get("abstractGameState")
+
+    if status in ("Live", "Final"):
+        feed = get_game_feed(game_pk)
+        game_obj = normalize_game_detail(feed, tz_name=user_tz)
+
+    return render_template(
+        "game.html",
+        title="Game",
+        game=game_obj,
+        user_tz=user_tz
+    )
 
 
 
