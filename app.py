@@ -283,43 +283,19 @@ def games():
 def game_detail(game_pk: int):
     user_tz = "America/Phoenix"
 
-    # 1) Always start from the schedule API (same source as team pages)
+    # always start from schedule (same source powering team schedule)
     sched_game = get_schedule_game_by_pk(game_pk)
 
-    # 2) If the schedule API does NOT know this gamePk, fall back to feed logic
-    if not sched_game:
-        feed = get_game_feed(game_pk)
-        game_obj = normalize_game_detail(feed, tz_name=user_tz)
-        return render_template(
-            "game.html",
-            title="Game",
-            game=game_obj,
-            user_tz=user_tz
-        )
+    if sched_game:
+        game_obj = normalize_schedule_game(sched_game, tz_name=user_tz)
+        # optionally enrich if Live/Final later
+        return render_template("game.html", title="Game", game=game_obj, user_tz=user_tz)
 
-    # 3) Build a base game object from schedule (works for scheduled/live/final)
-    game_obj = normalize_game_detail(
-        {
-            "scheduleOnly": True,
-            "gamePk": game_pk,
-            "scheduleGame": sched_game
-        },
-        tz_name=user_tz
-    )
+    # if schedule lookup failed, fall back to feed/live
+    feed = get_game_feed(game_pk)
+    game_obj = normalize_game_detail(feed, tz_name=user_tz)
+    return render_template("game.html", title="Game", game=game_obj, user_tz=user_tz)
 
-    # 4) If the game is live or final, enrich with live feed
-    status = (sched_game.get("status") or {}).get("abstractGameState")
-
-    if status in ("Live", "Final"):
-        feed = get_game_feed(game_pk)
-        game_obj = normalize_game_detail(feed, tz_name=user_tz)
-
-    return render_template(
-        "game.html",
-        title="Game",
-        game=game_obj,
-        user_tz=user_tz
-    )
 
 
 
