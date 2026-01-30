@@ -42,13 +42,16 @@ def _get_cached(key: str):
     item = _cache.get(key)
     if not item:
         return None
-    if time.time() - item["ts"] > CACHE_TTL_SECONDS:
+    ttl = item.get("ttl", CACHE_TTL_SECONDS)
+    if time.time() - item["ts"] > ttl:
         return None
     return item["data"]
 
-
-def _set_cached(key: str, data):
+def _set_cached(key: str, data, ttl: int = None):
     _cache[key] = {"ts": time.time(), "data": data}
+    if ttl is not None:
+        _cache[key]["ttl"] = int(ttl)
+
 
 
 # ----------------------------
@@ -1455,7 +1458,7 @@ def get_game_feed(game_pk: int) -> dict:
     if cached is not None:
         return cached
 
-    url = f"{BASE}/game/{game_pk}/feed/live"
+    url = f"https://statsapi.mlb.com/api/v1.1/game/{game_pk}/feed/live"
 
     try:
         r = requests.get(url, timeout=30)
