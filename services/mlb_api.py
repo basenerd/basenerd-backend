@@ -1498,7 +1498,14 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     Must work across statuses:
       - Scheduled / Pre-game (may lack liveData pieces)
       - Live / Final (has linescore/boxscore/plays)
-    """
+    """ 
+    def _safe(obj, *keys, default=None):
+        cur = obj
+        for k in keys:
+            if not isinstance(cur, dict):
+                return default
+            cur = cur.get(k)
+        return cur if cur is not None else default
     def _to_user_tz_iso(iso_str: str) -> str:
         if not iso_str:
             return ""
