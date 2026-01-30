@@ -1491,6 +1491,68 @@ def get_game_feed(game_pk: int) -> dict:
         _set_cached(cache_key, data)
         return data
 
+def normalize_schedule_game(g: dict, tz_name: str = "America/Phoenix") -> dict:
+    def _to_user_tz_iso(iso_str: str) -> str:
+        if not iso_str:
+            return ""
+        try:
+            import pytz
+            dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+            tz = pytz.timezone(tz_name)
+            return dt.astimezone(tz).strftime("%Y-%m-%d %I:%M %p %Z")
+        except Exception:
+            return iso_str
+
+    teams = g.get("teams") or {}
+    home_wrap = teams.get("home") or {}
+    away_wrap = teams.get("away") or {}
+    home = (home_wrap.get("team") or {})
+    away = (away_wrap.get("team") or {})
+
+    status = g.get("status") or {}
+    venue = (g.get("venue") or {}).get("name") or ""
+
+    date_ymd = (g.get("gameDate") or "")[:10]
+    season = _season_from_date(date_ymd)
+
+    prob = g.get("probablePitchers") or {}
+    home_pp = _pp_text(prob.get("home") or {}, season) if prob else None
+    away_pp = _pp_text(prob.get("away") or {}, season) if prob else None
+
+    home_id = home.get("id")
+    away_id = away.get("id")
+
+    return {
+        "gamePk": g.get("gamePk"),
+        "when": _to_user_tz_iso(g.get("gameDate") or ""),
+        "statusPill": status.get("detailedState") or "Scheduled",
+        "detailedState": status.get("detailedState") or "",
+        "venue": venue,
+        "weather": {"condition": None, "temp": None, "wind": None},
+        "probables": {"home": home_pp, "away": away_pp},
+        "decisions": {"winner": None, "loser": None, "save": None},
+        "home": {
+            "id": home_id,
+            "name": home.get("name") or "",
+            "abbrev": (home.get("abbreviation") or "").upper(),
+            "logo": f"https://www.mlbstatic.com/team-logos/{home_id}.svg" if home_id else None,
+            "record": None,
+            "score": (home_wrap.get("score") if isinstance(home_wrap, dict) else None),
+        },
+        "away": {
+            "id": away_id,
+            "name": away.get("name") or "",
+            "abbrev": (away.get("abbreviation") or "").upper(),
+            "logo": f"https://www.mlbstatic.com/team-logos/{away_id}.svg" if away_id else None,
+            "record": None,
+            "score": (away_wrap.get("score") if isinstance(away_wrap, dict) else None),
+        },
+        "linescore": {},
+        "box": None,
+        "scoring": None,
+        "pas": None,
+        "pbp": None,
+    }
 
 def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     """
