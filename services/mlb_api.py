@@ -1646,7 +1646,7 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
         }
 
     out = {
-        "gamePk": gd.get("gamePk"),
+        "gamePk": gamepk,
         "when": when,
         "statusPill": pill,
         "detailedState": status.get("detailedState") or "",
