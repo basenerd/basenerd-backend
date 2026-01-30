@@ -1561,6 +1561,18 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
       - Scheduled / Pre-game (may lack liveData pieces)
       - Live / Final (has linescore/boxscore/plays)
     """ 
+        # If the feed is a schedule-only fallback, normalize from schedule and return.
+    if (feed or {}).get("scheduleOnly"):
+        sg = (feed or {}).get("scheduleGame") or {}
+        if sg:
+            base = normalize_schedule_game(sg, tz_name=tz_name)
+            # Ensure fields your template checks exist, even if empty
+            base.setdefault("linescore", None)
+            base.setdefault("box", None)
+            base.setdefault("scoring", [])
+            base.setdefault("pas", [])
+            base.setdefault("pbp", [])
+            return base
     def _safe(obj, *keys, default=None):
         cur = obj
         for k in keys:
