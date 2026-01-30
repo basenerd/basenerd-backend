@@ -78,6 +78,7 @@ def random_player_play():
             player = get_player_full(pid)
             headshot_url = get_player_headshot_url(pid, size=420)
             yby = extract_year_by_year_rows(player)
+
             role = get_player_role(player)
             if role == "pitching":
                 pitching_groups = group_year_by_year(yby, "pitching")
@@ -86,16 +87,19 @@ def random_player_play():
                 hitting_groups = group_year_by_year(yby, "hitting")
                 pitching_groups = []
             else:
-                # two-way: show both (if you’d rather force one, tell me which)
                 hitting_groups = group_year_by_year(yby, "hitting")
                 pitching_groups = group_year_by_year(yby, "pitching")
-            # true career totals from separate endpoint (no summing)
+
             career_hitting = get_player_career_totals(pid, "hitting") if role != "pitching" else None
             career_pitching = get_player_career_totals(pid, "pitching") if role != "hitting" else None
-            # accolades
+
             awards = get_player_awards(pid)
             accolades = build_accolade_pills(awards)
             award_year_map = build_award_year_map(awards)
+
+            # ✅ prevent NameError (template can ignore these if unused)
+            yby_bg_hitting = {}
+            yby_bg_pitching = {}
 
             return render_template(
                 "random_player.html",
@@ -104,15 +108,17 @@ def random_player_play():
                 yby=yby,
                 hitting_groups=hitting_groups,
                 pitching_groups=pitching_groups,
-        yby_bg_hitting=yby_bg_hitting,
-        yby_bg_pitching=yby_bg_pitching,
+                yby_bg_hitting=yby_bg_hitting,
+                yby_bg_pitching=yby_bg_pitching,
                 career_hitting=career_hitting,
                 career_pitching=career_pitching,
                 accolades=accolades,
                 award_year_map=award_year_map,
                 title="Random Player • Basenerd"
             )
-        except Exception:
+
+        except Exception as e:
+            print(f"[random-player] failed pid={pid}: {e}")
             continue
 
     return "Could not fetch a random player right now.", 500
