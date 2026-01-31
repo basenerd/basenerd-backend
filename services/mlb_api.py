@@ -1645,8 +1645,23 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             suf = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
         return f"{n}{suf}"
 
-    def _inning_label(n: int) -> str:
-        return f"{_ordinal(n)} inning" if n else ""
+        def _inning_label(n: int) -> str:
+            return f"{_ordinal(n)} Inning" if n else ""
+    
+        def _spray_label(spray_angle: Optional[float]) -> Optional[str]:
+            """Rough pull/center/oppo label from spray angle (degrees)."""
+            if spray_angle is None:
+                return None
+            try:
+                a = float(spray_angle)
+            except Exception:
+                return None
+            if a <= -15:
+                return "Pull"
+            if a >= 15:
+                return "Oppo"
+            return "Center"
+
 
     def _pretty_pitch_type(pitch_data: dict, details: dict) -> str:
         # Prefer explicit pitch name when available
@@ -2009,30 +2024,35 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                     # --- your table fields ---
                     "pitchType": _pretty_pitch_type(pitch_data, details),
                     "mph": _safe_float(pitch_data.get("startSpeed"), default=None),
-                    "spinRate": _safe_float(pitch_data.get("spinRate"), default=None),
+                    "spinRate": _safe_float(
+                        pitch_data.get("spinRate") if pitch_data.get("spinRate") is not None else breaks.get("spinRate"),
+                        default=None
+                    ),
                     "vertMove": _safe_float(breaks.get("breakVertical"), default=None),
                     "horizMove": _safe_float(breaks.get("breakHorizontal"), default=None),
                 }
             )
 
         # batted ball info (only if ball put in play)
+                # batted ball info (only when hitData exists)
         batted_ball = None
         hit = p.get("hitData") or {}
         if isinstance(hit, dict) and hit:
             evv = _safe_float(hit.get("launchSpeed"), default=None)
-            dist = _safe_int(hit.get("totalDistance"), default=None)
+            la = _safe_float(hit.get("launchAngle"), default=None)
+            spray = _safe_float(hit.get("sprayAngle"), default=None)
 
-            direction = None
-            if hit.get("sprayAngle") is not None:
-                direction = hit.get("sprayAngle")
-            else:
-                coords = hit.get("coordinates") or {}
-                direction = coords.get("coordX") or coords.get("x")
+            # Statcast-ish expected BA (field name varies a bit by endpoint)
+            xba = _safe_float(hit.get("estimatedBA"), default=None)
+            if xba is None:
+                xba = _safe_float(hit.get("estimatedBattingAverage"), default=None)
 
             batted_ball = {
                 "exitVelo": evv,
-                "distance": dist,
-                "direction": direction,
+                "launchAngle": la,
+                "sprayAngle": spray,
+                "xBA": xba,
+                "directionLabel": _spray_label(spray),
             }
 
         pas_out.append(
