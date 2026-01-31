@@ -1565,6 +1565,132 @@ def normalize_schedule_game(g: dict, tz_name: str = "America/Phoenix") -> dict:
         "pbp": None,
     }
 
+def get_stats_leaderboard(
+    group: str,
+    season: int,
+    sort_stat: str,
+    order: str = "desc",
+    team_id: Optional[int] = None,
+    position: Optional[str] = None,
+    player_pool: str = "ALL",  # "ALL" or "QUALIFIED"
+    limit: int = 50,
+    offset: int = 0,
+    game_type: str = "R",
+) -> Dict[str, Any]:
+    """
+    Generic leaderboard pull via /api/v1/stats.
+
+    group: "hitting" | "pitching" | "fielding" | "running"
+    sort_stat: stat key to sort by (e.g., "ops", "homeRuns", "era", "stolenBases")
+    order: "asc" or "desc"
+    position: optional position code (e.g., "1B", "SS", "OF", "P")
+    player_pool: "ALL" or "QUALIFIED"
+    """
+    group = (group or "").strip().lower()
+    if group not in ("hitting", "pitching", "fielding", "running"):
+        group = "hitting"
+
+    order = (order or "desc").strip().lower()
+    if order not in ("asc", "desc"):
+        order = "desc"
+
+    player_pool = (player_pool or "ALL").strip().upper()
+    if player_pool not in ("ALL", "QUALIFIED"):
+        player_pool = "ALL"
+
+    try:
+        season = int(season)
+    except Exception:
+        season = datetime.utcnow().year
+
+    try:
+        limit = int(limit)
+    except Exception:
+        limit = 50
+    limit = max(1, min(limit, 200))
+
+    try:
+        offset = int(offset)
+    except Exception:
+        offset = 0
+    offset = max(0, offset)
+
+    sort_stat = (sort_stat or "").strip()
+    if not sort_stat:
+        # safe-ish defaults
+        sort_stat = "ops" if group == "hitting" else ("era" if group == "pitching" else ("fielding" if group == "fielding" else "stolenBases"))
+
+    cache_key = f"leaders:{group}:{season}:{sort_stat}:{order}:{team_id}:{position}:{player_pool}:{limit}:{offset}:{game_type}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{BASE}/stats"
+    params = {
+        "stats": "season",
+        "group": group,
+        "season": season,
+        "gameType": game_type,
+        "sportIds": 1,
+        "limit": limit,
+        "offset": offset,
+        "sortStat": sort_stat,
+        "order": order,
+        "playerPool": player_pool,
+        # hydrate person + team info for rendering
+        "hydrate": "person,currentTeam,team",
+    }
+    if team_id:
+        params["teamId"] = int(team_id)
+    if position:
+        params["position"] = position
+
+    r = requests.get(url, params=params, timeout=30)
+    r.raise_for_status()
+    data = r.json() or {}
+
+    # Normalize into a simple structure for the template/JSON
+    stats = (data.get("stats") or [])
+    splits = (stats[0].get("splits") if stats else []) or []
+
+    rows = []
+    for sp in splits:
+        person = sp.get("player") or sp.get("person") or {}
+        team = sp.get("team") or (sp.get("team") or {})
+        stat = sp.get("stat") or {}
+
+        pid = person.get("id")
+        tid = (team.get("id") if isinstance(team, dict) else None)
+
+        rows.append(
+            {
+                "playerId": pid,
+                "name": person.get("fullName") or person.get("name") or "—",
+                "teamId": tid,
+                "teamName": (team.get("name") if isinstance(team, dict) else None),
+                "stat": stat,
+                "headshot": get_player_headshot_url(int(pid), size=120) if pid else None,
+                "teamLogo": f"https://www.mlbstatic.com/team-logos/{tid}.svg" if tid else None,
+            }
+        )
+
+    out = {
+        "group": group,
+        "season": season,
+        "sortStat": sort_stat,
+        "order": order,
+        "teamId": team_id,
+        "position": position,
+        "playerPool": player_pool,
+        "limit": limit,
+        "offset": offset,
+        "rows": rows,
+        # Note: StatsAPI doesn't always return a total count here; we page by offset anyway.
+    }
+
+    _set_cached(cache_key, out, ttl=60)  # short cache is fine for leaderboards
+    return out
+
 def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     """
     Normalizes /api/v1.1/game/{gamePk}/feed/live for game.html.
