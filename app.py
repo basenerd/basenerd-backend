@@ -235,6 +235,11 @@ def stats_json():
     MAX_SCAN = 4000  # safety cap (raw rows scanned)
     target_start = (page - 1) * PAGE_SIZE
     target_end = target_start + PAGE_SIZE
+    
+    # Disallow sort keys that StatsAPI /stats can't sort by (person fields, non-stat fields)
+    UNSORTABLE = {"age", "numberOfPitches"}
+    if sort_stat in UNSORTABLE:
+        sort_stat = ""  # force default below
 
     # If no sortStat provided, pick a reasonable default for group
     if not sort_stat:
