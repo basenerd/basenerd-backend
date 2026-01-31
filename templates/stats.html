@@ -5,12 +5,16 @@
   <div class="card-header">
     <div>
       <div class="card-title">Stats</div>
-      <div class="card-subtitle">League leaderboards • filter, sort, paginate</div>
+      <div class="card-subtitle">Build your own leaderboard • choose columns • advanced filters • click to sort</div>
     </div>
   </div>
 
   <div class="card-body">
-    <div class="stats-controls">
+
+    <!-- ===================== -->
+    <!-- BASIC FILTERS -->
+    <!-- ===================== -->
+    <div class="stats-controls" style="margin-bottom:8px;">
       <select id="group" class="select">
         <option value="batting" {{ 'selected' if group=='batting' else '' }}>Batting</option>
         <option value="pitching" {{ 'selected' if group=='pitching' else '' }}>Pitching</option>
@@ -19,7 +23,6 @@
       </select>
 
       <select id="season" class="select">
-        {# simple season list: current back 25 years #}
         {% set start = season %}
         {% for y in range(start, start-26, -1) %}
           <option value="{{ y }}" {{ 'selected' if y==season else '' }}>{{ y }}</option>
@@ -48,19 +51,67 @@
         {% endfor %}
       </select>
 
+      <!-- Default to QUALIFIED -->
       <select id="pool" class="select">
-        <option value="ALL">All Players</option>
         <option value="QUALIFIED" selected>Qualified Only</option>
+        <option value="ALL">All Players</option>
       </select>
 
-      <select id="sort" class="select"></select>
-
-      <button id="toggleOrder" class="btn" data-order="desc">DESC</button>
-      <button id="apply" class="btn">Apply</button>
+      <button id="applyBasic" class="btn">Apply</button>
+      <span class="muted" id="statusText" style="margin-left:6px;"></span>
     </div>
 
-    <hr style="margin:12px 0;"/>
+    <!-- ===================== -->
+    <!-- ADVANCED FILTERING -->
+    <!-- ===================== -->
+    <details id="advancedBox" class="card" style="margin:10px 0; padding:12px;">
+      <summary style="cursor:pointer; font-weight:800;">
+        Advanced Filtering
+        <span class="muted" style="font-weight:600;">(columns + stat criteria)</span>
+      </summary>
 
+      <div style="margin-top:10px;">
+
+        <!-- Columns -->
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+          <div style="font-weight:800;">Columns to show</div>
+          <button id="colsAll" class="btn" type="button">Select all</button>
+          <button id="colsNone" class="btn" type="button">Select none</button>
+          <button id="colsReset" class="btn" type="button">Reset defaults</button>
+          <button id="colsApply" class="btn" type="button">Apply columns</button>
+          <span class="muted" id="colsCount"></span>
+        </div>
+
+        <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <input id="colSearch" class="select" style="height:34px; width:260px;" placeholder="Search columns (e.g., homeRuns, ops)" />
+          <span class="muted">Tip: click a header to sort by it</span>
+        </div>
+
+        <div id="colsWrap" style="margin-top:10px; border:1px solid var(--border); border-radius:12px; padding:10px; max-height:280px; overflow:auto;">
+          <div class="muted">Loading columns…</div>
+        </div>
+
+        <hr style="margin:14px 0;"/>
+
+        <!-- Filters -->
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+          <div style="font-weight:800;">Filters (AND only)</div>
+          <button id="addFilter" class="btn" type="button">Add filter</button>
+          <button id="clearFilters" class="btn" type="button">Clear</button>
+          <button id="applyFilters" class="btn" type="button">Apply filters</button>
+          <span class="muted" id="filterHint"></span>
+        </div>
+
+        <div id="filtersWrap" style="margin-top:10px;">
+          <!-- filter rows injected here -->
+        </div>
+
+      </div>
+    </details>
+
+    <!-- ===================== -->
+    <!-- TABLE -->
+    <!-- ===================== -->
     <div class="table-wrap">
       <table class="table stats-table">
         <thead id="thead"></thead>
@@ -70,6 +121,9 @@
       </table>
     </div>
 
+    <!-- ===================== -->
+    <!-- PAGER -->
+    <!-- ===================== -->
     <div class="pager">
       <button id="prev" class="btn">Prev</button>
       <button id="next" class="btn">Next</button>
@@ -78,6 +132,7 @@
     </div>
 
     <div class="pager" id="pageButtons"></div>
+
   </div>
 </div>
 
@@ -85,107 +140,367 @@
 (() => {
   const el = (id) => document.getElementById(id);
 
-  const sortOptions = {
-    batting: [
-      ["ops","OPS"],["avg","AVG"],["obp","OBP"],["slg","SLG"],
-      ["homeRuns","HR"],["rbi","RBI"],["hits","H"],["runs","R"],["stolenBases","SB"]
-    ],
-    pitching: [
-      ["era","ERA"],["whip","WHIP"],["strikeOuts","SO"],["wins","W"],
-      ["saves","SV"],["inningsPitched","IP"],["baseOnBalls","BB"],["hits","H"]
-    ],
-    fielding: [
-      ["fielding","Fld%"],["assists","A"],["putOuts","PO"],["errors","E"],
-      ["doublePlays","DP"]
-    ],
-    baserunning: [
-      ["stolenBases","SB"],["caughtStealing","CS"],["stolenBasePercentage","SB%"],
-      ["runs","R"]
-    ]
+  // ----------------------------
+  // Defaults: same idea as before
+  // ----------------------------
+  const defaultColsByGroup = {
+    batting: ["gamesPlayed","plateAppearances","avg","obp","slg","ops","homeRuns","rbi","runs","hits","stolenBases"],
+    pitching: ["wins","losses","era","whip","inningsPitched","strikeOuts","baseOnBalls","hits","homeRuns"],
+    fielding: ["games","innings","fielding","assists","putOuts","errors","doublePlays"],
+    baserunning: ["stolenBases","caughtStealing","stolenBasePercentage","runs"]
   };
 
-  // Defaults per group (used on reset + first load)
-  const defaultSort = {
-    batting: "ops",
-    pitching: "era",
-    fielding: "fielding",
-    baserunning: "stolenBases"
-  };
+  const opOptions = [">=","<=",">","<","=","!="];
 
-  function fillSortOptions(group){
-    const s = el("sort");
-    s.innerHTML = "";
-    (sortOptions[group] || sortOptions.batting).forEach(([v,label])=>{
-      const o = document.createElement("option");
-      o.value = v;
-      o.textContent = label;
-      s.appendChild(o);
-    });
-    s.value = defaultSort[group] || "ops";
+  // State
+  let page = 1;
+  let sortStat = "";     // backend sort
+  let sortOrder = "desc";
+  let availableKeys = [];     // from backend discovery
+  let selectedCols = [];      // user-chosen columns
+  let filters = [];           // [{stat, op, value}]
+  let lastMetaKey = "";       // used for localStorage scoping
+
+  // ---------------
+  // Storage helpers
+  // ---------------
+  function storageKeyBase(){
+    const g = el("group").value;
+    const season = el("season").value;
+    const lg = el("league_id").value || "";
+    const team = el("team_id").value || "";
+    const pos = el("position").value || "";
+    const pool = el("pool").value || "";
+    return `bn_stats:${g}:${season}:lg=${lg}:team=${team}:pos=${pos}:pool=${pool}`;
   }
 
-  function queryParams(page){
+  function loadPersisted(){
+    const base = storageKeyBase();
+    lastMetaKey = base;
+
+    try {
+      const colsRaw = localStorage.getItem(base + ":cols");
+      const filtersRaw = localStorage.getItem(base + ":filters");
+      const sortRaw = localStorage.getItem(base + ":sort");
+      const orderRaw = localStorage.getItem(base + ":order");
+
+      selectedCols = colsRaw ? JSON.parse(colsRaw) : [];
+      filters = filtersRaw ? JSON.parse(filtersRaw) : [];
+      sortStat = sortRaw || "";
+      sortOrder = orderRaw || "desc";
+    } catch (e) {
+      selectedCols = [];
+      filters = [];
+      sortStat = "";
+      sortOrder = "desc";
+    }
+
+    // ensure defaults
+    if (!Array.isArray(selectedCols) || selectedCols.length === 0) {
+      selectedCols = (defaultColsByGroup[el("group").value] || []).slice();
+    }
+    if (!Array.isArray(filters)) filters = [];
+    if (!sortOrder || (sortOrder !== "asc" && sortOrder !== "desc")) sortOrder = "desc";
+  }
+
+  function persist(){
+    const base = storageKeyBase();
+    lastMetaKey = base;
+    try {
+      localStorage.setItem(base + ":cols", JSON.stringify(selectedCols || []));
+      localStorage.setItem(base + ":filters", JSON.stringify(filters || []));
+      localStorage.setItem(base + ":sort", sortStat || "");
+      localStorage.setItem(base + ":order", sortOrder || "desc");
+    } catch (e) {}
+  }
+
+  // -------------------
+  // Build query params
+  // -------------------
+  function buildQuery(pageNum){
+    const p = new URLSearchParams();
+
     const group = el("group").value;
     const season = el("season").value;
     const league_id = el("league_id").value;
     const team_id = el("team_id").value;
     const position = el("position").value;
     const pool = el("pool").value;
-    const sort = el("sort").value;
-    const order = el("toggleOrder").dataset.order || "desc";
 
-    const p = new URLSearchParams();
     p.set("group", group);
     p.set("season", season);
     if (league_id) p.set("league_id", league_id);
     if (team_id) p.set("team_id", team_id);
     if (position) p.set("position", position);
     p.set("pool", pool);
-    p.set("sort", sort);
-    p.set("order", order);
-    p.set("page", String(page || 1));
+
+    p.set("page", String(pageNum || 1));
+
+    // sorting
+    if (sortStat) p.set("sort", sortStat);
+    p.set("order", sortOrder || "desc");
+
+    // selected columns + filters
+    if (selectedCols && selectedCols.length) p.set("cols", selectedCols.join(","));
+    if (filters && filters.length) p.set("filters", JSON.stringify(filters));
+
     return p.toString();
   }
 
-  function columnsFor(group){
-    if (group === "pitching"){
-      return [
-        ["wins","W"],["losses","L"],["era","ERA"],["whip","WHIP"],
-        ["inningsPitched","IP"],["strikeOuts","SO"],["baseOnBalls","BB"],["hits","H"],["homeRuns","HR"]
-      ];
+  // --------------
+  // Filter builder
+  // --------------
+  function renderFilters(){
+    const wrap = el("filtersWrap");
+    wrap.innerHTML = "";
+
+    if (!filters.length){
+      wrap.innerHTML = `<div class="muted">No filters. Example: homeRuns &ge; 20</div>`;
+      el("filterHint").textContent = "";
+      return;
     }
-    if (group === "fielding"){
-      return [
-        ["games","G"],["innings","Inn"],["fielding","Fld%"],["assists","A"],["putOuts","PO"],["errors","E"],["doublePlays","DP"]
-      ];
-    }
-    if (group === "baserunning"){
-      return [
-        ["stolenBases","SB"],["caughtStealing","CS"],["stolenBasePercentage","SB%"],["runs","R"]
-      ];
-    }
-    // batting default
-    return [
-      ["gamesPlayed","G"],["plateAppearances","PA"],["avg","AVG"],["obp","OBP"],["slg","SLG"],["ops","OPS"],
-      ["homeRuns","HR"],["rbi","RBI"],["runs","R"],["hits","H"],["stolenBases","SB"]
-    ];
+
+    el("filterHint").textContent = `${filters.length} active`;
+
+    filters.forEach((f, idx) => {
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.gap = "10px";
+      row.style.flexWrap = "wrap";
+      row.style.alignItems = "center";
+      row.style.marginBottom = "8px";
+
+      const statSel = document.createElement("select");
+      statSel.className = "select";
+      statSel.style.height = "34px";
+
+      // stat options = availableKeys (fallback to selectedCols if not loaded yet)
+      const keys = (availableKeys && availableKeys.length) ? availableKeys : (selectedCols || []);
+      const opt0 = document.createElement("option");
+      opt0.value = "";
+      opt0.textContent = "Choose stat…";
+      statSel.appendChild(opt0);
+
+      keys.forEach(k => {
+        const o = document.createElement("option");
+        o.value = k;
+        o.textContent = k;
+        if ((f.stat || "") === k) o.selected = true;
+        statSel.appendChild(o);
+      });
+
+      const opSel = document.createElement("select");
+      opSel.className = "select";
+      opSel.style.height = "34px";
+      opOptions.forEach(op => {
+        const o = document.createElement("option");
+        o.value = op;
+        o.textContent = op;
+        if ((f.op || "") === op) o.selected = true;
+        opSel.appendChild(o);
+      });
+
+      const valIn = document.createElement("input");
+      valIn.className = "select";
+      valIn.style.height = "34px";
+      valIn.style.width = "140px";
+      valIn.placeholder = "value";
+      valIn.value = (f.value !== undefined && f.value !== null) ? String(f.value) : "";
+
+      const rm = document.createElement("button");
+      rm.className = "btn";
+      rm.type = "button";
+      rm.textContent = "Remove";
+
+      statSel.addEventListener("change", () => {
+        filters[idx].stat = statSel.value;
+        persist();
+      });
+      opSel.addEventListener("change", () => {
+        filters[idx].op = opSel.value;
+        persist();
+      });
+      valIn.addEventListener("input", () => {
+        filters[idx].value = valIn.value;
+        persist();
+      });
+      rm.addEventListener("click", () => {
+        filters.splice(idx, 1);
+        persist();
+        renderFilters();
+      });
+
+      row.appendChild(statSel);
+      row.appendChild(opSel);
+      row.appendChild(valIn);
+      row.appendChild(rm);
+
+      wrap.appendChild(row);
+    });
   }
 
+  // -----------------
+  // Columns checklist
+  // -----------------
+  function normalizeColSet(){
+    const set = new Set();
+    (selectedCols || []).forEach(k => { if (k) set.add(k); });
+
+    // keep only keys that exist (once availableKeys is known)
+    if (availableKeys && availableKeys.length){
+      const allowed = new Set(availableKeys);
+      selectedCols = Array.from(set).filter(k => allowed.has(k));
+    } else {
+      selectedCols = Array.from(set);
+    }
+
+    if (!selectedCols.length){
+      selectedCols = (defaultColsByGroup[el("group").value] || []).slice();
+    }
+  }
+
+  function renderCols(){
+    const wrap = el("colsWrap");
+
+    if (!availableKeys || !availableKeys.length){
+      wrap.innerHTML = `<div class="muted">No columns discovered yet.</div>`;
+      el("colsCount").textContent = "";
+      return;
+    }
+
+    normalizeColSet();
+    const selected = new Set(selectedCols);
+
+    const q = (el("colSearch").value || "").trim().toLowerCase();
+    const keys = availableKeys.filter(k => !q || k.toLowerCase().includes(q));
+
+    const frag = document.createDocumentFragment();
+
+    const grid = document.createElement("div");
+    grid.style.display = "grid";
+    grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(220px, 1fr))";
+    grid.style.gap = "6px";
+
+    keys.forEach(k => {
+      const label = document.createElement("label");
+      label.style.display = "flex";
+      label.style.alignItems = "center";
+      label.style.gap = "8px";
+      label.style.padding = "6px 8px";
+      label.style.border = "1px solid var(--border)";
+      label.style.borderRadius = "10px";
+      label.style.background = "#fff";
+      label.style.cursor = "pointer";
+      label.style.userSelect = "none";
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = selected.has(k);
+
+      cb.addEventListener("change", () => {
+        if (cb.checked) selected.add(k);
+        else selected.delete(k);
+        selectedCols = Array.from(selected);
+        persist();
+        el("colsCount").textContent = `${selectedCols.length} selected`;
+      });
+
+      const span = document.createElement("span");
+      span.textContent = k;
+      span.style.fontWeight = "700";
+
+      label.appendChild(cb);
+      label.appendChild(span);
+      grid.appendChild(label);
+    });
+
+    frag.appendChild(grid);
+    wrap.innerHTML = "";
+    wrap.appendChild(frag);
+
+    el("colsCount").textContent = `${selectedCols.length} selected`;
+  }
+
+  // ----------
+  // Table build
+  // ----------
   function fmt(v){
     if (v === null || v === undefined || v === "") return "—";
     return String(v);
   }
 
-  // local player-name sort (only for current page)
-  function sortTableByPlayerName(order){
+  function buildThead(){
+    const cols = selectedCols || [];
+    const thead = el("thead");
+
+    // Build headers: Rank, Player, then selected stat columns
+    const arrow = (k) => {
+      if (!k) return "";
+      if (sortStat !== k) return "";
+      return sortOrder === "asc" ? " ▲" : " ▼";
+    };
+
+    const th = (label, key, isNum=true) => {
+      const cls = (isNum ? "num " : "") + "sortable";
+      return `<th class="${cls}" data-key="${key}">${label}${arrow(key)}</th>`;
+    };
+
+    const header = `
+      <tr>
+        ${th("#","__rank", true)}
+        ${th("Player","__player", false)}
+        ${cols.map(k => th(k, k, true)).join("")}
+      </tr>
+    `;
+    thead.innerHTML = header;
+
+    // click-to-sort
+    thead.querySelectorAll("th.sortable").forEach(node => {
+      node.style.cursor = "pointer";
+      node.addEventListener("click", () => {
+        const key = node.getAttribute("data-key") || "";
+
+        // Rank resets to group default
+        if (key === "__rank") {
+          const g = el("group").value;
+          sortStat = (defaultColsByGroup[g] || [])[0] || ""; // fallback
+          sortOrder = "desc";
+          persist();
+          page = 1;
+          load();
+          return;
+        }
+
+        // Player = local sort on current page only (no backend name sort)
+        if (key === "__player") {
+          const next = (sortOrder === "desc") ? "asc" : "desc";
+          sortOrder = next;
+          persist();
+          sortRowsByPlayer(next);
+          // rebuild header so arrow shows on player column? we keep it simple:
+          // we won't mark player as backend sort; just visually keep order toggle.
+          return;
+        }
+
+        // Stat columns = backend sort
+        if (sortStat === key) {
+          sortOrder = (sortOrder === "desc") ? "asc" : "desc";
+        } else {
+          sortStat = key;
+          sortOrder = "desc";
+        }
+        persist();
+        page = 1;
+        load();
+      });
+    });
+  }
+
+  function sortRowsByPlayer(order){
     const tbody = el("tbody");
     const rows = Array.from(tbody.querySelectorAll("tr"));
     if (!rows.length) return;
-
-    // ignore "No results" row
-    if (rows.length === 1 && (rows[0].querySelector("td")?.textContent || "").toLowerCase().includes("no results")) {
-      return;
-    }
+    if (rows.length === 1 && (rows[0].textContent || "").toLowerCase().includes("no results")) return;
 
     rows.sort((a,b)=>{
       const an = (a.querySelector(".pname")?.textContent || "").toLowerCase();
@@ -199,150 +514,18 @@
     rows.forEach(r => tbody.appendChild(r));
   }
 
-  function buildThead(group){
-    const cols = columnsFor(group);
-
-    const curSort = el("sort").value;
-    const curOrder = el("toggleOrder").dataset.order || "desc";
-
-    const arrow = (isActive) => {
-      if (!isActive) return "";
-      return (curOrder === "asc") ? " ▲" : " ▼";
-    };
-
-    const thStat = (label, statKey) => {
-      const isActive = statKey && curSort === statKey;
-      return `<th class="num sortable" data-stat="${statKey}">${label}${arrow(isActive)}</th>`;
-    };
-
-    // Rank + Player are "special" sorts:
-    // - Rank resets to group defaults and reloads
-    // - Player sorts locally A/Z for current page
-    const playerArrow = arrow(curSort === "__player");
-    const rankArrow = arrow(curSort === "__rank");
-
-    const headerHtml = `
-      <tr>
-        <th class="num sortable" data-stat="__rank" style="width:46px;">#${rankArrow}</th>
-        <th class="sortable" data-stat="__player" style="width:320px;">Player${playerArrow}</th>
-        ${cols.map(c => thStat(c[1], c[0])).join("")}
-      </tr>
-    `;
-    el("thead").innerHTML = headerHtml;
-
-    // attach click handlers
-    el("thead").querySelectorAll("th.sortable").forEach(node => {
-      node.style.cursor = "pointer";
-      node.addEventListener("click", () => {
-        const stat = node.getAttribute("data-stat") || "";
-
-        // Rank: reset to group default sort + desc + reload
-        if (stat === "__rank") {
-          fillSortOptions(el("group").value);
-          el("toggleOrder").dataset.order = "desc";
-          el("toggleOrder").textContent = "DESC";
-          load(1);
-          return;
-        }
-
-        // Player: local sort A/Z on current page
-        if (stat === "__player") {
-          const cur = el("toggleOrder").dataset.order || "desc";
-          const next = (cur === "desc") ? "asc" : "desc";
-          el("toggleOrder").dataset.order = next;
-          el("toggleOrder").textContent = next.toUpperCase();
-
-          // mark as player sort so arrow shows on Player column
-          el("sort").value = el("sort").value; // keep API sort unchanged
-          // We store a lightweight flag by setting sort to "__player" ONLY in UI
-          // but the API call uses el("sort").value, so we don't change it.
-          // Instead: just rebuild head with player arrow by temporarily tracking:
-          // We'll set a data attribute.
-          el("thead").dataset.playerSort = next;
-
-          sortTableByPlayerName(next);
-          // rebuild header with arrow indicator by pretending player sort active
-          // (we'll do this by setting a hidden "active sort" concept)
-          // simplest: override local rendering by re-calling buildThead after setting a marker
-          // We emulate active sort by storing a global:
-          activeSpecialSort = "__player";
-          buildThead(el("group").value);
-          return;
-        }
-
-        // Stat columns: set sort + toggle order if already active
-        const cur = el("sort").value;
-        if (stat && cur === stat) {
-          const o = el("toggleOrder").dataset.order || "desc";
-          const next = (o === "desc") ? "asc" : "desc";
-          el("toggleOrder").dataset.order = next;
-          el("toggleOrder").textContent = next.toUpperCase();
-        } else {
-          el("sort").value = stat;
-          el("toggleOrder").dataset.order = "desc";
-          el("toggleOrder").textContent = "DESC";
-        }
-
-        activeSpecialSort = ""; // leaving player sort
-        load(1);
-      });
-    });
-  }
-
-  // Tracks whether the UI is showing a "special" sort arrow (player/rank)
-  // without sending it to the backend.
-  let activeSpecialSort = "";
-
-  async function load(page){
-    page = page || 1;
-    const group = el("group").value;
-
-    // If we are currently in player-local sort mode, still fetch by API sort,
-    // then apply local sort after rendering.
-    const localPlayerOrder = (activeSpecialSort === "__player") ? (el("toggleOrder").dataset.order || "desc") : null;
-
-    // Ensure sort dropdown has a valid value
-    if (!el("sort").value) fillSortOptions(group);
-
-    buildThead(group);
-
-    const qs = queryParams(page);
-    const url = `/stats_json?${qs}`;
-
-    el("tbody").innerHTML = `<tr><td class="muted">Loading…</td></tr>`;
-
-    const res = await fetch(url);
-    const data = await res.json();
-
-    renderRows(group, data);
-
-    // Apply local sort if needed
-    if (localPlayerOrder) {
-      sortTableByPlayerName(localPlayerOrder);
-      // rebuild thead so Player arrow shows
-      buildThead(group);
-    }
-
-    el("range").textContent = data.rangeLabel || "—";
-    el("pageLabel").textContent = `Page ${data.page || page}`;
-    buildPageButtons(data.page || page);
-
-    // prev/next handlers
-    el("prev").onclick = () => load(Math.max(1, (data.page || page) - 1));
-    el("next").onclick = () => load((data.page || page) + 1);
-  }
-
-  function renderRows(group, data){
-    const cols = columnsFor(group);
+  function renderRows(data){
+    const cols = selectedCols || [];
     const rows = (data.rows || []);
+    const offsetRank = data.rankStart || ((data.offset || 0) + 1);
+
     if (!rows.length){
       el("tbody").innerHTML = `<tr><td colspan="${2 + cols.length}" class="muted">No results.</td></tr>`;
       return;
     }
 
-    const offset = data.offset || 0;
-    const html = rows.map((r, idx)=>{
-      const rank = offset + idx + 1;
+    const html = rows.map((r, idx) => {
+      const rank = offsetRank + idx;
       const pid = r.playerId;
       const name = r.name || "—";
       const headshot = r.headshot || "";
@@ -359,7 +542,7 @@
               <a class="pname teamlink" href="${pid ? `/player/${pid}` : '#'}">${name}</a>
             </div>
           </td>
-          ${cols.map(([k,label])=>`<td class="num">${fmt(stat[k])}</td>`).join("")}
+          ${cols.map(k => `<td class="num">${fmt(stat[k])}</td>`).join("")}
         </tr>
       `;
     }).join("");
@@ -379,41 +562,153 @@
       const lo = (p - 1) * 50 + 1;
       const hi = p * 50;
       b.textContent = `${lo}-${hi}`;
-      if (p === currentPage) {
-        b.style.borderColor = "#0b0e13";
-      }
-      b.addEventListener("click", () => load(p));
+      if (p === currentPage) b.style.borderColor = "#0b0e13";
+      b.addEventListener("click", () => { page = p; load(); });
       container.appendChild(b);
     }
   }
 
-  // Order toggle button (manual)
-  el("toggleOrder").addEventListener("click", () => {
-    const cur = el("toggleOrder").dataset.order || "desc";
-    const next = (cur === "desc") ? "asc" : "desc";
-    el("toggleOrder").dataset.order = next;
-    el("toggleOrder").textContent = next.toUpperCase();
+  // ----------
+  // Main loader
+  // ----------
+  async function load(){
+    // Ensure columns selected
+    if (!selectedCols || !selectedCols.length){
+      selectedCols = (defaultColsByGroup[el("group").value] || []).slice();
+    }
+
+    el("statusText").textContent = "Loading…";
+    el("tbody").innerHTML = `<tr><td class="muted">Loading…</td></tr>`;
+
+    const qs = buildQuery(page);
+    const url = `/stats_json?${qs}`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    // Keys for Option B checkbox list
+    availableKeys = (data.availableKeys || []).slice().sort();
+
+    // If user columns not set yet, initialize to defaults (checked)
+    if (!selectedCols || !selectedCols.length){
+      selectedCols = (data.defaultCols || defaultColsByGroup[el("group").value] || []).slice();
+    }
+
+    // If we have keys now, ensure selected cols are valid
+    normalizeColSet();
+
+    // Build table
+    buildThead();
+    renderRows(data);
+
+    // Pager labels
+    el("range").textContent = data.rangeLabel || "—";
+    el("pageLabel").textContent = `Page ${data.page || page}`;
+    buildPageButtons(data.page || page);
+
+    el("prev").onclick = () => { page = Math.max(1, (data.page || page) - 1); load(); };
+    el("next").onclick = () => { page = (data.page || page) + 1; load(); };
+
+    // Option B UI panels
+    renderCols();
+    renderFilters();
+
+    // Status
+    const scanned = data.scannedCount ? ` • scanned ${data.scannedCount}` : "";
+    const filtered = (data.filteredTotalApprox !== undefined) ? ` • matched ~${data.filteredTotalApprox}` : "";
+    el("statusText").textContent = `Showing ${data.rangeLabel || "—"}${filtered}${scanned}`;
+
+    persist();
+  }
+
+  // ----------------
+  // Button handlers
+  // ----------------
+  el("applyBasic").addEventListener("click", () => {
+    loadPersisted();
+    page = 1;
+    load();
   });
 
-  // Apply button
-  el("apply").addEventListener("click", () => {
-    activeSpecialSort = "";
-    load(1);
+  el("addFilter").addEventListener("click", () => {
+    filters = filters || [];
+    filters.push({stat:"", op:">=", value:""});
+    persist();
+    renderFilters();
   });
 
-  // Group change updates sort options + reload (and resets special sort)
+  el("clearFilters").addEventListener("click", () => {
+    filters = [];
+    persist();
+    renderFilters();
+  });
+
+  el("applyFilters").addEventListener("click", () => {
+    // prune invalid filter rows
+    filters = (filters || []).filter(f => (f.stat || "").trim() && (f.op || "").trim() && String(f.value).trim() !== "");
+    persist();
+    page = 1;
+    load();
+  });
+
+  el("colsAll").addEventListener("click", () => {
+    selectedCols = (availableKeys || []).slice();
+    persist();
+    renderCols();
+    buildThead();
+    load(); // reload so table uses the new columns
+  });
+
+  el("colsNone").addEventListener("click", () => {
+    selectedCols = [];
+    persist();
+    renderCols();
+  });
+
+  el("colsReset").addEventListener("click", () => {
+    selectedCols = (defaultColsByGroup[el("group").value] || []).slice();
+    persist();
+    renderCols();
+    buildThead();
+    load();
+  });
+
+  el("colsApply").addEventListener("click", () => {
+    normalizeColSet();
+    persist();
+    buildThead();
+    page = 1;
+    load();
+  });
+
+  el("colSearch").addEventListener("input", () => {
+    renderCols();
+  });
+
+  // On group change, reset defaults (but keep the user in control via persisted state per group)
   el("group").addEventListener("change", () => {
-    activeSpecialSort = "";
-    fillSortOptions(el("group").value);
-    el("toggleOrder").dataset.order = "desc";
-    el("toggleOrder").textContent = "DESC";
-    load(1);
+    page = 1;
+    // reset sort to something sane
+    sortStat = "";
+    sortOrder = "desc";
+
+    // load stored config for this new group
+    loadPersisted();
+    load();
   });
 
-  // init
-  fillSortOptions(el("group").value);
-  buildThead(el("group").value);
-  load(1);
+  // If season/filters change, re-scope storage and load
+  ["season","league_id","team_id","position","pool"].forEach(id => {
+    el(id).addEventListener("change", () => {
+      page = 1;
+      loadPersisted();
+      load();
+    });
+  });
+
+  // Init
+  loadPersisted();
+  load();
 })();
 </script>
 
