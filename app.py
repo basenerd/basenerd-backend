@@ -31,6 +31,7 @@ from services.mlb_api import (
     get_schedule_game_by_pk,
     normalize_schedule_game,
     get_stats_leaderboard,
+    get_teams,
     )
 
 from services.articles import load_articles, get_article
@@ -72,7 +73,8 @@ def random_player_landing():
     )
 
 @app.get("/stats")
-def:contentReference[oaicite:7]{index=7}"
+def stats_page():
+    """
     Stats leaderboard UI page.
     Data loads via /stats_json so we can paginate/sort/filter without reloading.
     """
