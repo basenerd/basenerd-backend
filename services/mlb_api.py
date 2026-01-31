@@ -1963,13 +1963,18 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             xba = _safe_float(hit.get("estimatedBA"), default=None)
             if xba is None:
                 xba = _safe_float(hit.get("estimatedBattingAverage"), default=None)
+            coords = hit.get("coordinates") if isinstance(hit.get("coordinates"), dict) else {}
+            coord_x = _safe_float(coords.get("coordX"), default=None)
+            coord_y = _safe_float(coords.get("coordY"), default=None)
 
             batted_ball = {
                 "exitVelo": evv,
                 "launchAngle": la,
-                "sprayAngle": spray,
-                "xBA": xba,
-                "directionLabel": _spray_label(spray),
+                "sprayAngle": spray,   # keep if you want
+                "xBA": xba,            # keep if you want (often None)
+                "directionLabel": _spray_label(spray),  # optional
+                "coordX": coord_x,
+                "coordY": coord_y,
             }
 
         pas_out.append(
