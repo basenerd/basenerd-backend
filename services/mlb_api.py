@@ -1644,9 +1644,20 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             return default
 
     def _half_norm(half_inning: str) -> str:
-        if half_inning in ("Top", "Bottom"):
-            return half_inning
-        return (half_inning or "").strip()
+        """
+        Normalize half inning labels to match template expectations:
+        template uses 'Top' and 'Bottom'
+        """
+        s = (half_inning or "").strip()
+        sl = s.lower()
+        if sl == "top":
+            return "Top"
+        if sl == "bottom":
+            return "Bottom"
+        # If it's already 'Top'/'Bottom' or something else, keep best-effort
+        if s in ("Top", "Bottom"):
+            return s
+        return s
 
     def _ordinal(n: int) -> str:
         if n is None:
