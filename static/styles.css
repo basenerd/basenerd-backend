@@ -858,7 +858,7 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
 .pa-body{ margin-top:10px; }
 .pa-grid{
   display:grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: auto 1fr;
   gap:12px;
 }
 @media(max-width: 900px){
@@ -866,6 +866,8 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
 }
 .zone-title{ font-weight:900; margin-bottom:8px; }
 .zone-wrap, .pitch-wrap{
+  /* gradient pills for velo / EV */
+  
   border:1px solid rgba(226,232,240,.9);
   border-radius:14px;
   background:#fff;
@@ -1062,3 +1064,24 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   gap:16px;
   flex-wrap:wrap;
 }
+
+
+/* ===== Gradient pills (velo / EV) ===== */
+.grad-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:2px 8px;
+  border-radius:999px;
+  font-variant-numeric:tabular-nums;
+  line-height:1.1;
+  white-space:nowrap;
+}
+
+/* Make strike-zone panel shrink to content width */
+.zone-wrap{ width: fit-content; }
+.strike-zone{ display:block; }
+
+/* Box score indentation + totals */
+.box-indent{ padding-left:14px; display:inline-block; }
+.tr-totals td{ font-weight:900; background:rgba(15,23,42,.02); }
