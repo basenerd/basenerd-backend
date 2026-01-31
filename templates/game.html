@@ -412,6 +412,16 @@
                           <svg class="strike-zone" data-pitches='{{ (pa.pitches or []) | tojson }}' width="200" height="240"></svg>
                         </div>
 
+                        <!-- Hit Location Plot (only when coordX/coordY exist) -->
+                        {% if pa.battedBall and (pa.battedBall.coordX is defined) and (pa.battedBall.coordY is defined) and (pa.battedBall.coordX is not none) and (pa.battedBall.coordY is not none) %}
+                          <div class="zone-wrap">
+                            <div class="zone-title">Hit Location</div>
+                            <svg class="hit-field"
+                                 data-hit='{{ {"x": pa.battedBall.coordX, "y": pa.battedBall.coordY} | tojson }}'
+                                 width="220" height="220"></svg>
+                          </div>
+                        {% endif %}
+
                         <!-- Pitch Table -->
                         {% if pa.pitches and (pa.pitches|length) > 0 %}
                           <div class="pitch-wrap">
@@ -446,7 +456,7 @@
                         {% endif %}
                       </div>
 
-                      {# Ball in play footer #}
+                      {# Ball in play footer (keep just EV/LA + optional xBA if present) #}
                       {% if pa.battedBall is defined and pa.battedBall %}
                         <div class="bb-row muted small">
                           <div><span class="mono">EV:</span> {{ dash(pa.battedBall.exitVelo) }}{% if pa.battedBall.exitVelo is not none %} mph{% endif %}</div>
@@ -456,14 +466,6 @@
                             {% if pa.battedBall.xBA is not none %}
                               {{ '%.3f'|format(pa.battedBall.xBA) }}
                             {% else %}-{% endif %}
-                          </div>
-                          <div>
-                            <span class="mono">Dir:</span>
-                            {% if pa.battedBall.sprayAngle is not none %}
-                              {{ '%.0f'|format(pa.battedBall.sprayAngle) }}°{% if pa.battedBall.directionLabel %} ({{ pa.battedBall.directionLabel }}){% endif %}
-                            {% else %}
-                              {{ dash(pa.battedBall.directionLabel) }}
-                            {% endif %}
                           </div>
                         </div>
                       {% endif %}
@@ -501,8 +503,6 @@
     const w = parseFloat(svg.getAttribute("width") || 200);
     const h = parseFloat(svg.getAttribute("height") || 240);
 
-    const pxs = pitches.map(p=>p.px).filter(v=>v!==null && v!==undefined);
-    const pzs = pitches.map(p=>p.pz).filter(v=>v!==null && v!==undefined);
     const tops = pitches.map(p=>p.sz_top).filter(v=>v!==null && v!==undefined);
     const bots = pitches.map(p=>p.sz_bot).filter(v=>v!==null && v!==undefined);
 
@@ -546,10 +546,83 @@
     });
   }
 
+  // hit location render (simple field wedge + point)
+  function renderField(svg, hit){
+    const w = parseFloat(svg.getAttribute("width") || 220);
+    const h = parseFloat(svg.getAttribute("height") || 220);
+
+    function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+    // Many feeds appear roughly 0..250 for coordX/coordY; clamp + scale.
+    const x = clamp(hit.x, 0, 250);
+    const y = clamp(hit.y, 0, 250);
+
+    const px = (x / 250) * w;
+    const py = h - (y / 250) * h; // invert so larger y plots "upfield"
+
+    svg.innerHTML = "";
+
+    // background
+    const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
+    bg.setAttribute("x", 0);
+    bg.setAttribute("y", 0);
+    bg.setAttribute("width", w);
+    bg.setAttribute("height", h);
+    bg.setAttribute("rx", 10);
+    bg.setAttribute("fill", "rgba(15,23,42,.02)");
+    bg.setAttribute("stroke", "rgba(226,232,240,.9)");
+    bg.setAttribute("stroke-width", "1");
+    svg.appendChild(bg);
+
+    // foul lines
+    const left = document.createElementNS("http://www.w3.org/2000/svg","line");
+    left.setAttribute("x1", w/2); left.setAttribute("y1", h);
+    left.setAttribute("x2", 0);   left.setAttribute("y2", 0);
+    left.setAttribute("stroke", "rgba(15,23,42,.10)");
+    left.setAttribute("stroke-width", "1");
+    svg.appendChild(left);
+
+    const right = document.createElementNS("http://www.w3.org/2000/svg","line");
+    right.setAttribute("x1", w/2); right.setAttribute("y1", h);
+    right.setAttribute("x2", w);   right.setAttribute("y2", 0);
+    right.setAttribute("stroke", "rgba(15,23,42,.10)");
+    right.setAttribute("stroke-width", "1");
+    svg.appendChild(right);
+
+    // home plate dot
+    const hp = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    hp.setAttribute("cx", w/2);
+    hp.setAttribute("cy", h);
+    hp.setAttribute("r", 2.5);
+    hp.setAttribute("fill", "rgba(91,101,119,.55)");
+    svg.appendChild(hp);
+
+    // hit point
+    const dot = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    dot.setAttribute("cx", px);
+    dot.setAttribute("cy", py);
+    dot.setAttribute("r", 5);
+    dot.setAttribute("fill", "rgba(34,197,94,.80)");
+    dot.setAttribute("stroke", "rgba(15,23,42,.25)");
+    dot.setAttribute("stroke-width", "0.8");
+    svg.appendChild(dot);
+  }
+
+  // render zones
   document.querySelectorAll("svg.strike-zone").forEach(svg=>{
     try{
       const pitches = JSON.parse(svg.getAttribute("data-pitches") || "[]");
       renderZone(svg, pitches);
+    }catch(e){}
+  });
+
+  // render hit fields
+  document.querySelectorAll("svg.hit-field").forEach(svg=>{
+    try{
+      const hit = JSON.parse(svg.getAttribute("data-hit") || "{}");
+      if(hit && hit.x != null && hit.y != null){
+        renderField(svg, hit);
+      }
     }catch(e){}
   });
 })();
