@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Stats</div>
+      <div class="card-subtitle">League leaderboards • filter, sort, paginate</div>
+    </div>
+  </div>
+
+  <div class="card-body">
+    <div class="stats-controls">
+      <select id="group" class="select">
+        <option value="batting" {{ 'selected' if group=='batting' else '' }}>Batting</option>
+        <option value="pitching" {{ 'selected' if group=='pitching' else '' }}>Pitching</option>
+        <option value="fielding" {{ 'selected' if group=='fielding' else '' }}>Fielding</option>
+        <option value="baserunning" {{ 'selected' if group=='baserunning' else '' }}>Baserunning</option>
+      </select>
+
+      <select id="season" class="select">
+        {# simple season list: current back 25 years #}
+        {% set start = season %}
+        {% for y in range(start, start-26, -1) %}
+          <option value="{{ y }}" {{ 'selected' if y==season else '' }}>{{ y }}</option>
+        {% endfor %}
+      </select>
+
+      <select id="team_id" class="select">
+        <option value="">All Teams</option>
+        {% for t in teams %}
+          <option value="{{ t.id }}">{{ t.name }}</option>
+        {% endfor %}
+      </select>
+
+      <select id="position" class="select">
+        <option value="">All Positions</option>
+        {% for p in positions %}
+          {% if p %}
+            <option value="{{ p }}">{{ p }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+
+      <select id="pool" class="select">
+        <option value="ALL">All Players</option>
+        <option value="QUALIFIED">Qualified Only</option>
+      </select>
+
+      <select id="sort" class="select"></select>
+
+      <button id="toggleOrder" class="btn" data-order="desc">Desc</button>
+      <button id="apply" class="btn">Apply</button>
+    </div>
+
+    <hr style="margin:12px 0;"/>
+
+    <div class="table-wrap">
+      <table class="table stats-table">
+        <thead id="thead"></thead>
+        <tbody id="tbody">
+          <tr><td class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pager">
+      <button id="prev" class="btn">Prev</button>
+      <button id="next" class="btn">Next</button>
+      <span id="range" class="range-pill">—</span>
+      <span class="muted" id="pageLabel"></span>
+    </div>
+
+    <div class="pager" id="pageButtons"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const el = (id) => document.getElementById(id);
+
+  const sortOptions = {
+    batting: [
+      ["ops","OPS"],["avg","AVG"],["obp","OBP"],["slg","SLG"],
+      ["homeRuns","HR"],["rbi","RBI"],["hits","H"],["runs","R"],["stolenBases","SB"]
+    ],
+    pitching: [
+      ["era","ERA"],["whip","WHIP"],["strikeOuts","SO"],["wins","W"],
+      ["saves","SV"],["inningsPitched","IP"],["walks","BB"],["hits","H"]
+    ],
+    fielding: [
+      ["fielding","Fld%"],["assists","A"],["putOuts","PO"],["errors","E"],
+      ["doublePlays","DP"]
+    ],
+    baserunning: [
+      ["stolenBases","SB"],["caughtStealing","CS"],["stolenBasePercentage","SB%"],
+      ["runs","R"]
+    ]
+  };
+
+  function fillSortOptions(group){
+    const s = el("sort");
+    s.innerHTML = "";
+    (sortOptions[group] || sortOptions.batting).forEach(([v,label])=>{
+      const o = document.createElement("option");
+      o.value = v;
+      o.textContent = label;
+      s.appendChild(o);
+    });
+    // set a default per group
+    if (group === "pitching") s.value = "era";
+    else if (group === "fielding") s.value = "fielding";
+    else if (group === "baserunning") s.value = "stolenBases";
+    else s.value = "ops";
+  }
+
+  function queryParams(page){
+    const group = el("group").value;
+    const season = el("season").value;
+    const team_id = el("team_id").value;
+    const position = el("position").value;
+    const pool = el("pool").value;
+    const sort = el("sort").value;
+    const order = el("toggleOrder").dataset.order || "desc";
+
+    const p = new URLSearchParams();
+    p.set("group", group);
+    p.set("season", season);
+    if (team_id) p.set("team_id", team_id);
+    if (position) p.set("position", position);
+    p.set("pool", pool);
+    p.set("sort", sort);
+    p.set("order", order);
+    p.set("page", String(page || 1));
+    return p.toString();
+  }
+
+  function columnsFor(group){
+    if (group === "pitching"){
+      return [
+        ["wins","W"],["losses","L"],["era","ERA"],["whip","WHIP"],
+        ["inningsPitched","IP"],["strikeOuts","SO"],["baseOnBalls","BB"],["hits","H"],["homeRuns","HR"]
+      ];
+    }
+    if (group === "fielding"){
+      return [
+        ["games","G"],["innings","Inn"],["fielding","Fld%"],["assists","A"],["putOuts","PO"],["errors","E"],["doublePlays","DP"]
+      ];
+    }
+    if (group === "baserunning"){
+      return [
+        ["stolenBases","SB"],["caughtStealing","CS"],["stolenBasePercentage","SB%"],["runs","R"]
+      ];
+    }
+    // batting default
+    return [
+      ["gamesPlayed","G"],["plateAppearances","PA"],["avg","AVG"],["obp","OBP"],["slg","SLG"],["ops","OPS"],
+      ["homeRuns","HR"],["rbi","RBI"],["runs","R"],["hits","H"],["stolenBases","SB"]
+    ];
+  }
+
+  function fmt(v){
+    if (v === null || v === undefined || v === "") return "—";
+    return String(v);
+  }
+
+  function buildThead(group){
+    const cols = columnsFor(group);
+    const h = `
+      <tr>
+        <th class="num" style="width:46px;">#</th>
+        <th style="width:320px;">Player</th>
+        ${cols.map(c=>`<th class="num">${c[1]}</th>`).join("")}
+      </tr>`;
+    el("thead").innerHTML = h;
+  }
+
+  function renderRows(group, data){
+    const cols = columnsFor(group);
+    const rows = (data.rows || []);
+    if (!rows.length){
+      el("tbody").innerHTML = `<tr><td colspan="${2 + cols.length}" class="muted">No results.</td></tr>`;
+      return;
+    }
+
+    const offset = data.offset || 0;
+    const html = rows.map((r, idx)=>{
+      const rank = offset + idx + 1;
+      const pid = r.playerId;
+      const name = r.name || "—";
+      const headshot = r.headshot || "";
+      const teamLogo = r.teamLogo || "";
+      const stat = r.stat || {};
+
+      return `
+        <tr>
+          <td class="num">${rank}</td>
+          <td>
+            <div class="player-chip">
+              ${headshot ? `<img class="mini-headshot" src="${headshot}" alt="">` : ``}
+              ${teamLogo ? `<img class="mini-teamlogo" src="${teamLogo}" alt="">` : ``}
+              <a class="pname teamlink" href="${pid ? `/player/${pid}` : '#'}">${name}</a>
+            </div>
+          </td>
+          ${cols.map(([k,label])=>`<td class="num">${fmt(stat[k])}</td>`).join("")}
+        </tr>
+      `;
+    }).join("");
+
+    el("tbody").innerHTML = html;
+  }
+
+  function buildPageButtons(currentPage){
+    // show a small strip like: 1 (1-50), 2 (51-100) ... up to 6 buttons around current
+    const container = el("pageButtons");
+    container.innerHTML = "";
+    const start = Math.max(1, currentPage - 3);
+    const end = start + 6;
+
+    for (let p = start; p <= end; p++){
+      const b = document.createElement("button");
+      b.className = "btn";
+      const lo = (p - 1) * 50 + 1;
+      const hi = p * 50;
+      b.textContent = `${lo}-${hi}`;
+      if (p === currentPage) {
+        b.style.borderColor = "#0b0e13";
+      }
+      b.addEventListener("click", () => load(p));
+      container.appendChild(b);
+    }
+  }
+
+  async function load(page){
+    page = page || 1;
+    const qs = queryParams(page);
+    const url = `/stats_json?${qs}`;
+
+    el("tbody").innerHTML = `<tr><td class="muted">Loading…</td></tr>`;
+
+    const group = el("group").value;
+    buildThead(group);
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    renderRows(group, data);
+
+    el("range").textContent = data.rangeLabel || "—";
+    el("pageLabel").textContent = `Page ${data.page || page}`;
+    buildPageButtons(data.page || page);
+
+    // prev/next handlers
+    el("prev").onclick = () => load(Math.max(1, (data.page || page) - 1));
+    el("next").onclick = () => load((data.page || page) + 1);
+  }
+
+  // Order toggle
+  el("toggleOrder").addEventListener("click", () => {
+    const cur = el("toggleOrder").dataset.order || "desc";
+    const next = (cur === "desc") ? "asc" : "desc";
+    el("toggleOrder").dataset.order = next;
+    el("toggleOrder").textContent = next.toUpperCase();
+  });
+
+  // Apply button
+  el("apply").addEventListener("click", () => load(1));
+
+  // Group change updates sort options + reload
+  el("group").addEventListener("change", () => {
+    fillSortOptions(el("group").value);
+    load(1);
+  });
+
+  // init
+  fillSortOptions(el("group").value);
+  buildThead(el("group").value);
+  load(1);
+})();
+</script>
+
+{% endblock %}
