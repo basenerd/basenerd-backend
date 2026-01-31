@@ -2214,6 +2214,7 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             xba = _safe_float(hit.get("estimatedBA"), default=None)
             if xba is None:
                 xba = _safe_float(hit.get("estimatedBattingAverage"), default=None)
+
             coords = hit.get("coordinates") if isinstance(hit.get("coordinates"), dict) else {}
             coord_x = _safe_float(coords.get("coordX"), default=None)
             coord_y = _safe_float(coords.get("coordY"), default=None)
@@ -2221,17 +2222,18 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             batted_ball = {
                 "exitVelo": evv,
                 "launchAngle": la,
-                "sprayAngle": spray,   # keep if you want
-                "xBA": xba,            # keep if you want (often None)
+                "sprayAngle": spray,
+                "xBA": xba,
                 "distance": _safe_float(hit.get("totalDistance"), default=None),
                 "evStyle": _grad_style(evv, 88.0, span=12.0),
                 "evFire": (evv is not None and evv >= 100.0),
-                "directionLabel": _spray_label(spray),  # optional
+                "directionLabel": _spray_label(spray),
                 "coordX": coord_x,
                 "coordY": coord_y,
             }
 
-                matchup = p.get("matchup") or {}
+        # ✅ IMPORTANT: matchup must be OUTSIDE the hit_ev / batted_ball block
+        matchup = p.get("matchup") or {}
         batter_obj = matchup.get("batter") or {}
         pitcher_obj = matchup.get("pitcher") or {}
 
@@ -2253,6 +2255,7 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                 "pitcherName": (pitcher_obj.get("fullName") or "").strip(),
             }
         )
+
 
 
     game_obj["pas"] = pas_out
