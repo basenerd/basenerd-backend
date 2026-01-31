@@ -172,7 +172,7 @@
 </div>
 
 {# -----------------------------
-   Linescore moved UNDER game details card
+   Linescore
    ----------------------------- #}
 {% set innings = (game.linescore.innings if game.linescore and game.linescore.innings is defined else []) %}
 {% if innings %}
@@ -228,6 +228,7 @@
 
 <!-- Tabs -->
 <div class="tabs" style="margin-top:14px;">
+  {# ✅ default to Overview active #}
   <button class="tab-btn active" data-tab="overview">Overview</button>
   <button class="tab-btn" data-tab="box">Box</button>
   <button class="tab-btn" data-tab="scoring">Scoring</button>
@@ -239,9 +240,6 @@
 
   {# -----------------------------
      Build Overview datasets
-     Requirements:
-       - uses game.pas (with batterId/batterName/pitcherId/pitcherName added in backend)
-       - uses box batting/pitching for Top Performers
      ----------------------------- #}
 
   {# Top Exit Velos (from game.pas[].battedBall) #}
@@ -282,7 +280,7 @@
   {% set pv_sorted = (pv_rows.items|sort(attribute="mph", reverse=true)) %}
   {% set top_pv = pv_sorted[:10] %}
 
-  {# Top Performers (3 best overall, hitter or pitcher) #}
+  {# Top Performers (5 best overall, hitter or pitcher) #}
   {% set perf = namespace(items=[]) %}
 
   {% if game.box %}
@@ -296,7 +294,15 @@
           {% set rbi = (r.RBI|int) %}
           {% set score = (hr*100) + (rbi*10) + (h*2) %}
           {% set line = (h|string) ~ "-" ~ (ab|string) ~ " • " ~ (hr|string) ~ " HR • " ~ (rbi|string) ~ " RBI" %}
-          {% set _ = perf.items.append({"kind":"bat","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
+          {% set _ = perf.items.append({
+            "kind":"bat",
+            "pid":r.playerId,
+            "name":r.name,
+            "score":score,
+            "line":line,
+            "team_abbrev": away.abbrev,
+            "team_logo": away.logo_url
+          }) %}
         {% endif %}
       {% endif %}
     {% endfor %}
@@ -311,7 +317,15 @@
           {% set rbi = (r.RBI|int) %}
           {% set score = (hr*100) + (rbi*10) + (h*2) %}
           {% set line = (h|string) ~ "-" ~ (ab|string) ~ " • " ~ (hr|string) ~ " HR • " ~ (rbi|string) ~ " RBI" %}
-          {% set _ = perf.items.append({"kind":"bat","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
+          {% set _ = perf.items.append({
+            "kind":"bat",
+            "pid":r.playerId,
+            "name":r.name,
+            "score":score,
+            "line":line,
+            "team_abbrev": home.abbrev,
+            "team_logo": home.logo_url
+          }) %}
         {% endif %}
       {% endif %}
     {% endfor %}
@@ -326,7 +340,15 @@
           {% set h = (r.H|int) %}
           {% set score = (outs*10) + (so*6) - (er*30) - (h*6) %}
           {% set line = (dash(r.IP)) ~ " IP • " ~ (h|string) ~ " H • " ~ (er|string) ~ " ER • " ~ (so|string) ~ " Ks" %}
-          {% set _ = perf.items.append({"kind":"pit","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
+          {% set _ = perf.items.append({
+            "kind":"pit",
+            "pid":r.playerId,
+            "name":r.name,
+            "score":score,
+            "line":line,
+            "team_abbrev": away.abbrev,
+            "team_logo": away.logo_url
+          }) %}
         {% endif %}
       {% endif %}
     {% endfor %}
@@ -341,16 +363,30 @@
           {% set h = (r.H|int) %}
           {% set score = (outs*10) + (so*6) - (er*30) - (h*6) %}
           {% set line = (dash(r.IP)) ~ " IP • " ~ (h|string) ~ " H • " ~ (er|string) ~ " ER • " ~ (so|string) ~ " Ks" %}
-          {% set _ = perf.items.append({"kind":"pit","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
+          {% set _ = perf.items.append({
+            "kind":"pit",
+            "pid":r.playerId,
+            "name":r.name,
+            "score":score,
+            "line":line,
+            "team_abbrev": home.abbrev,
+            "team_logo": home.logo_url
+          }) %}
         {% endif %}
       {% endif %}
     {% endfor %}
   {% endif %}
 
   {% set perf_sorted = (perf.items|sort(attribute="score", reverse=true)) %}
-  {% set top_perf = perf_sorted[:3] %}
+  {% set top_perf = perf_sorted[:5] %}
 
-  <div class="grid2" style="margin-top:14px;">
+  {# -----------------------------
+     Layout:
+       [Top Performers]   [Scoring Summary]
+       [Top Exit Velos]   [Top Pitching Velos]
+     ----------------------------- #}
+
+  <div class="grid2" style="margin-top:14px; align-items:stretch;">
     <!-- Top Performers -->
     <div class="card">
       <div class="card-header">
@@ -360,14 +396,24 @@
         </div>
       </div>
 
-      <div style="padding: 12px 12px 14px 12px;">
+      <div style="padding: 8px 12px 10px 12px;">
         {% if top_perf and (top_perf|length) > 0 %}
           {% for tp in top_perf %}
-            <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(226,232,240,.6);">
-              <img src="{{ headshot_url(tp.pid, 80) }}" alt="{{ tp.name }}" style="width:34px;height:34px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
+            <div style="display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid rgba(226,232,240,.55);">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <img src="{{ headshot_url(tp.pid, 80) }}" alt="{{ tp.name }}" style="width:32px;height:32px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
+                {% if tp.team_logo %}
+                  <img src="{{ tp.team_logo }}" alt="{{ tp.team_abbrev }} logo" style="width:20px;height:20px;object-fit:contain;">
+                {% endif %}
+              </div>
+
               <div style="min-width:0;">
-                <div class="mono" style="font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                  {{ tp.name }}
+                <div class="mono" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  {% if tp.pid %}
+                    <a href="/player/{{ tp.pid }}">{{ tp.name }}</a>
+                  {% else %}
+                    {{ tp.name }}
+                  {% endif %}
                 </div>
                 <div class="mono muted small" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                   {{ tp.line }}
@@ -375,13 +421,45 @@
               </div>
             </div>
           {% endfor %}
-          <div style="height:2px;"></div>
         {% else %}
-          <div class="muted">Not available yet.</div>
+          <div class="muted" style="padding:4px 0;">Not available yet.</div>
         {% endif %}
       </div>
     </div>
 
+    <!-- Scoring Summary -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Scoring Summary</div>
+          <div class="card-subtitle">Quick scoring overview</div>
+        </div>
+      </div>
+
+      <div style="padding: 8px 12px 10px 12px;">
+        {% if game.scoring and (game.scoring|length) > 0 %}
+          {% set ss = game.scoring[:8] %}
+          {% for s in ss %}
+            <div style="display:flex; gap:10px; align-items:flex-start; padding:6px 0; border-bottom:1px solid rgba(226,232,240,.55);">
+              <div class="mono muted" style="min-width:64px;">{{ s.inningLabel }}</div>
+              <div style="flex:1; min-width:0;">
+                <div class="small" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                  {{ s.description }}
+                </div>
+              </div>
+              <div class="mono" style="min-width:54px; text-align:right;">
+                {{ dash(s.awayScore) }}-{{ dash(s.homeScore) }}
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="muted" style="padding:4px 0;">No scoring plays yet.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:14px; align-items:stretch;">
     <!-- Top Exit Velocities -->
     <div class="card">
       <div class="card-header">
@@ -413,7 +491,11 @@
                     <img src="{{ headshot_url(r.pid, 60) }}" alt="{{ r.name }}" style="width:26px;height:26px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
                   </td>
                   <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                    <span class="mono" style="font-weight:800;">{{ r.name }}</span>
+                    {% if r.pid %}
+                      <a class="mono" href="/player/{{ r.pid }}">{{ r.name }}</a>
+                    {% else %}
+                      <span class="mono">{{ r.name }}</span>
+                    {% endif %}
                   </td>
                   <td class="mono">{{ dash(r.inning) }}</td>
                   <td class="mono">
@@ -434,52 +516,56 @@
         {% endif %}
       </div>
     </div>
-  </div>
 
-  <!-- Top Pitch Velocities -->
-  <div class="card" style="margin-top:14px;">
-    <div class="card-header">
-      <div>
-        <div class="card-title">Top Velocities</div>
-        <div class="card-subtitle">Top 10 pitches by velocity</div>
+    <!-- Top Pitching Velocities -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Top Pitching Velocities</div>
+          <div class="card-subtitle">Top 10 pitches by velocity</div>
+        </div>
       </div>
-    </div>
 
-    <div style="padding: 0 12px 12px 12px; overflow-x:auto;">
-      {% if top_pv and (top_pv|length) > 0 %}
-        <table class="tbl">
-          <thead>
-            <tr>
-              <th></th>
-              <th>Pitcher</th>
-              <th class="mono">Inn</th>
-              <th class="mono">Velo</th>
-              <th>Pitch Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in top_pv %}
+      <div style="padding: 0 12px 12px 12px; overflow-x:auto;">
+        {% if top_pv and (top_pv|length) > 0 %}
+          <table class="tbl">
+            <thead>
               <tr>
-                <td style="width:34px;">
-                  <img src="{{ headshot_url(r.pid, 60) }}" alt="{{ r.name }}" style="width:26px;height:26px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
-                </td>
-                <td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                  <span class="mono" style="font-weight:800;">{{ r.name }}</span>
-                </td>
-                <td class="mono">{{ dash(r.inning) }}</td>
-                <td class="mono">
-                  {% if r.mph is not none %}
-                    <span class="grad-pill">{{ '%.1f'|format(r.mph) }}{% if r.mph >= 98 %} 🔥{% endif %}</span>
-                  {% else %}-{% endif %}
-                </td>
-                <td>{{ r.pitchType }}</td>
+                <th></th>
+                <th>Pitcher</th>
+                <th class="mono">Inn</th>
+                <th class="mono">Velo</th>
+                <th>Pitch Type</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <div style="padding:12px 0;" class="muted">Not available yet.</div>
-      {% endif %}
+            </thead>
+            <tbody>
+              {% for r in top_pv %}
+                <tr>
+                  <td style="width:34px;">
+                    <img src="{{ headshot_url(r.pid, 60) }}" alt="{{ r.name }}" style="width:26px;height:26px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
+                  </td>
+                  <td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    {% if r.pid %}
+                      <a class="mono" href="/player/{{ r.pid }}">{{ r.name }}</a>
+                    {% else %}
+                      <span class="mono">{{ r.name }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="mono">{{ dash(r.inning) }}</td>
+                  <td class="mono">
+                    {% if r.mph is not none %}
+                      <span class="grad-pill">{{ '%.1f'|format(r.mph) }}{% if r.mph >= 98 %} 🔥{% endif %}</span>
+                    {% else %}-{% endif %}
+                  </td>
+                  <td>{{ r.pitchType }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div style="padding:12px 0;" class="muted">Not available yet.</div>
+        {% endif %}
+      </div>
     </div>
   </div>
 
@@ -815,6 +901,15 @@
   // tabs
   const tabs = document.querySelectorAll(".tab-btn");
   const panels = document.querySelectorAll(".tab-panel");
+
+  // ✅ ensure Overview is the default on load
+  tabs.forEach(b=>b.classList.remove("active"));
+  panels.forEach(p=>p.classList.remove("active"));
+  const ovBtn = document.querySelector('.tab-btn[data-tab="overview"]');
+  const ovPanel = document.getElementById("tab-overview");
+  if(ovBtn) ovBtn.classList.add("active");
+  if(ovPanel) ovPanel.classList.add("active");
+
   tabs.forEach(btn=>{
     btn.addEventListener("click", ()=>{
       tabs.forEach(b=>b.classList.remove("active"));
