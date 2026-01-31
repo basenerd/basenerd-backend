@@ -1156,4 +1156,18 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   text-decoration: underline;
   opacity: 0.9;
 }
+/* Stats table: allow horizontal scroll when many columns are selected */
+.table-wrap{
+  overflow-x: auto;
+}
+
+.stats-table{
+  width: max-content;   /* expands to fit columns */
+  min-width: 100%;      /* but never smaller than container */
+}
+
+.stats-table th,
+.stats-table td{
+  white-space: nowrap;  /* prevents cutoffs/wrapping */
+}
 
