@@ -1085,3 +1085,70 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
 /* Box score indentation + totals */
 .box-indent{ padding-left:14px; display:inline-block; }
 .tr-totals td{ font-weight:900; background:rgba(15,23,42,.02); }
+
+/* ----------------------STATS LEADERBOARD*/
+/* ----------------------------- */
+.stats-controls{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.stats-controls .select,
+.stats-controls .btn{
+  height:34px;
+}
+
+.stats-table td{
+  vertical-align:middle;
+}
+
+.player-chip{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+}
+
+.player-chip .mini-headshot{
+  width:26px;
+  height:26px;
+  border-radius:999px;
+  object-fit:cover;
+  border:1px solid var(--border);
+  flex:0 0 auto;
+}
+
+.player-chip .mini-teamlogo{
+  width:18px;
+  height:18px;
+  flex:0 0 auto;
+}
+
+.player-chip .pname{
+  font-weight:800;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.pager{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+
+.pager .range-pill{
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  font-size:11px;
+  color:var(--muted);
+  border:1px solid var(--border);
+  padding:6px 10px;
+  border-radius:999px;
+  background:#fff;
+}
+
