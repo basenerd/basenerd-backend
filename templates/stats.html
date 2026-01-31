@@ -5,7 +5,6 @@
   <div class="card-header">
     <div>
       <div class="card-title">Stats</div>
-      <div class="card-subtitle">Build your own leaderboard • choose columns • advanced filters • click to sort</div>
     </div>
   </div>
 
@@ -62,19 +61,17 @@
     </div>
 
     <!-- ===================== -->
-    <!-- ADVANCED FILTERING -->
+    <!-- SHOW COLUMNS -->
     <!-- ===================== -->
-    <details id="advancedBox" class="card" style="margin:10px 0; padding:12px;">
+    <details id="colsBox" class="card" style="margin:10px 0; padding:12px;">
       <summary style="cursor:pointer; font-weight:800;">
-        Advanced Filtering
-        <span class="muted" style="font-weight:600;">(columns + stat criteria)</span>
+        Show Columns
       </summary>
 
       <div style="margin-top:10px;">
 
-        <!-- Columns -->
         <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-          <div style="font-weight:800;">Columns to show</div>
+          <div style="font-weight:800;">Columns</div>
           <button id="colsAll" class="btn" type="button">Select all</button>
           <button id="colsNone" class="btn" type="button">Select none</button>
           <button id="colsReset" class="btn" type="button">Reset defaults</button>
@@ -91,11 +88,21 @@
           <div class="muted">Loading columns…</div>
         </div>
 
-        <hr style="margin:14px 0;"/>
+      </div>
+    </details>
 
-        <!-- Filters -->
+    <!-- ===================== -->
+    <!-- ADVANCED FILTERING -->
+    <!-- ===================== -->
+    <details id="advancedBox" class="card" style="margin:10px 0; padding:12px;">
+      <summary style="cursor:pointer; font-weight:800;">
+        Advanced Filtering
+      </summary>
+
+      <div style="margin-top:10px;">
+
         <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-          <div style="font-weight:800;">Filters (AND only)</div>
+          <div style="font-weight:800;">Filters</div>
           <button id="addFilter" class="btn" type="button">Add filter</button>
           <button id="clearFilters" class="btn" type="button">Clear</button>
           <button id="applyFilters" class="btn" type="button">Apply filters</button>
@@ -149,8 +156,6 @@
 
   // ----------------------------
   // Stat labels (acronyms)
-  // - headers show acronym when known
-  // - filter dropdown + column picker show "ACR (key)" for discoverability
   // ----------------------------
   const STAT_LABELS = {
     // batting
@@ -328,7 +333,7 @@
     wrap.innerHTML = "";
 
     if (!filters.length){
-      wrap.innerHTML = `<div class="muted">No filters. Example: HR (homeRuns) &ge; 20</div>`;
+      wrap.innerHTML = `<div class="muted">No filters. Example: HR &ge; 20</div>`;
       el("filterHint").textContent = "";
       return;
     }
@@ -356,7 +361,7 @@
       keys.forEach(k => {
         const o = document.createElement("option");
         o.value = k;
-        o.textContent = `${labelForStatKey(k)} (${k})`;
+        o.textContent = `${labelForStatKey(k)}`;
         if ((f.stat || "") === k) o.selected = true;
         statSel.appendChild(o);
       });
@@ -482,7 +487,7 @@
       });
 
       const span = document.createElement("span");
-      span.textContent = `${labelForStatKey(k)} (${k})`;
+      span.textContent = `${labelForStatKey(k)}`;
       span.style.fontWeight = "700";
 
       label.appendChild(cb);
@@ -678,13 +683,23 @@
     el("prev").onclick = () => { page = Math.max(1, (data.page || page) - 1); load(); };
     el("next").onclick = () => { page = (data.page || page) + 1; load(); };
 
-    // Option B UI panels
+    // UI panels
     renderCols();
     renderFilters();
 
-    const scanned = data.scannedCount ? ` • scanned ${data.scannedCount}` : "";
-    const filtered = (data.filteredTotalApprox !== undefined) ? ` • matched ~${data.filteredTotalApprox}` : "";
-    el("statusText").textContent = `Showing ${data.rangeLabel || "—"}${filtered}${scanned}`;
+    // Status: "Showing 1-50 of 145"
+    const range = (data.rangeLabel || "—");
+    let total = null;
+
+    if (data.filteredTotalApprox !== undefined && data.filteredTotalApprox !== null){
+      total = Number(data.filteredTotalApprox);
+    } else {
+      // fallback: use the high end of the rangeLabel if it looks like "1-50"
+      const m = String(range).match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
+      total = m ? Number(m[2]) : null;
+    }
+
+    el("statusText").textContent = total ? `Showing ${range} of ${total}` : `Showing ${range}`;
 
     persist();
   }
