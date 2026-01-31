@@ -386,110 +386,108 @@
             <summary class="inning-summary">
               <span class="inning-pill mono">{{ ordinal(inn) }} Inning</span>
             </summary>
+
             <div style="margin-top:10px;">
               {% for half in ['Top','Bottom'] %}
-                {% set has_half = false %}
-                {% for pa in game.pas %}
-                  {% if pa.inning == inn and pa.half == half %}
-                    {% set has_half = true %}
-                  {% endif %}
-                {% endfor %}
+                {# ✅ FIX: build half_pas list instead of relying on has_half set inside loops (jinja scoping) #}
+                {% set half_pas = (game.pas
+                  | selectattr("inning", "equalto", inn)
+                  | selectattr("half", "equalto", half)
+                  | list) %}
 
-                {% if has_half %}
+                {% if half_pas and (half_pas|length) > 0 %}
                   <div class="half-header">
                     <span class="half-pill mono">{{ half }}</span>
                   </div>
 
-                  {% for pa in game.pas %}
-                    {% if pa.inning == inn and pa.half == half %}
-                      <details class="pa-details" style="margin-bottom:10px;">
-                        <summary class="pa-summary">
-                          <div class="pa-left">
-                            <span>{{ pa.description or "" }}</span>
-                          </div>
-                          <div class="pa-right">
-                            <span class="mono">{{ pa.summaryEvent if pa.summaryEvent is defined else (pa.event or "") }}</span>
-                          </div>
-                        </summary>
+                  {% for pa in half_pas %}
+                    <details class="pa-details" style="margin-bottom:10px;">
+                      <summary class="pa-summary">
+                        <div class="pa-left">
+                          <span>{{ pa.description or "" }}</span>
+                        </div>
+                        <div class="pa-right">
+                          <span class="mono">{{ pa.summaryEvent if pa.summaryEvent is defined else (pa.event or "") }}</span>
+                        </div>
+                      </summary>
 
-                        <div class="pa-body">
-                          <div class="pa-grid">
-                            <!-- Strike Zone Plot -->
-                            <div class="zone-wrap">
-                              <svg class="strike-zone" data-pitches='{{ (pa.pitches or []) | tojson }}' width="200" height="240"></svg>
-                            </div>
+                      <div class="pa-body">
+                        <div class="pa-grid">
+                          <!-- Strike Zone Plot -->
+                          <div class="zone-wrap">
+                            <svg class="strike-zone" data-pitches='{{ (pa.pitches or []) | tojson }}' width="200" height="240"></svg>
+                          </div>
 
-                            <!-- Pitch Table (+ batted-ball row) -->
-                            {% if pa.pitches and (pa.pitches|length) > 0 %}
-                              <div class="pitch-wrap">
-                                <div class="zone-title">Pitches</div>
-                                <div style="overflow-x:auto;">
+                          <!-- Pitch Table (+ batted-ball row) -->
+                          {% if pa.pitches and (pa.pitches|length) > 0 %}
+                            <div class="pitch-wrap">
+                              <div class="zone-title">Pitches</div>
+                              <div style="overflow-x:auto;">
+                                <table class="tbl">
+                                  <thead>
+                                    <tr>
+                                      <th class="mono">#</th>
+                                      <th>Pitch</th>
+                                      <th class="mono">MPH</th>
+                                      <th class="mono">Spin</th>
+                                      <th class="mono">VMov</th>
+                                      <th class="mono">HMov</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {% for p in pa.pitches %}
+                                      <tr>
+                                        <td class="mono">{{ p.n if p.n is defined else loop.index }}</td>
+                                        <td>{{ p.pitchType if p.pitchType is defined else (p.pitch_name if p.pitch_name is defined else (p.type or "")) }}</td>
+                                        <td class="mono">
+                                          {% if p.mph is defined and p.mph is not none %}
+                                            <span class="grad-pill" style="{{ p.mphStyle if p.mphStyle is defined else '' }}">{{ '%.1f'|format(p.mph) }}{% if p.mphFire %} 🔥{% endif %}</span>
+                                          {% else %}-{% endif %}
+                                        </td>
+                                        <td class="mono">{{ dash(p.spinRate if p.spinRate is defined else none) }}</td>
+                                        <td class="mono">{{ dash(p.vertMove if p.vertMove is defined else none) }}</td>
+                                        <td class="mono">{{ dash(p.horizMove if p.horizMove is defined else none) }}</td>
+                                      </tr>
+                                    {% endfor %}
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              {% if pa.battedBall is defined and pa.battedBall %}
+                                <div style="margin-top:8px; overflow-x:auto;">
                                   <table class="tbl">
                                     <thead>
                                       <tr>
-                                        <th class="mono">#</th>
-                                        <th>Pitch</th>
-                                        <th class="mono">MPH</th>
-                                        <th class="mono">Spin</th>
-                                        <th class="mono">VMov</th>
-                                        <th class="mono">HMov</th>
+                                        <th class="mono">Exit Velo</th>
+                                        <th class="mono">LA</th>
+                                        <th class="mono">Dist</th>
+                                        <th class="mono">xBA</th>
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {% for p in pa.pitches %}
-                                        <tr>
-                                          <td class="mono">{{ p.n if p.n is defined else loop.index }}</td>
-                                          <td>{{ p.pitchType if p.pitchType is defined else (p.pitch_name if p.pitch_name is defined else (p.type or "")) }}</td>
-                                          <td class="mono">
-                                            {% if p.mph is defined and p.mph is not none %}
-                                              <span class="grad-pill" style="{{ p.mphStyle if p.mphStyle is defined else '' }}">{{ '%.1f'|format(p.mph) }}{% if p.mphFire %} 🔥{% endif %}</span>
-                                            {% else %}-{% endif %}
-                                          </td>
-                                          <td class="mono">{{ dash(p.spinRate if p.spinRate is defined else none) }}</td>
-                                          <td class="mono">{{ dash(p.vertMove if p.vertMove is defined else none) }}</td>
-                                          <td class="mono">{{ dash(p.horizMove if p.horizMove is defined else none) }}</td>
-                                        </tr>
-                                      {% endfor %}
+                                      <tr>
+                                        <td class="mono">
+                                          {% if pa.battedBall.exitVelo is not none %}
+                                            <span class="grad-pill" style="{{ pa.battedBall.evStyle if pa.battedBall.evStyle is defined else '' }}">{{ '%.1f'|format(pa.battedBall.exitVelo) }}{% if pa.battedBall.evFire %} 🔥{% endif %}</span>
+                                          {% else %}-{% endif %}
+                                        </td>
+                                        <td class="mono">{% if pa.battedBall.launchAngle is not none %}{{ '%.0f'|format(pa.battedBall.launchAngle) }}°{% else %}-{% endif %}</td>
+                                        <td class="mono">{% if pa.battedBall.distance is not none %}{{ '%.0f'|format(pa.battedBall.distance) }} ft{% else %}-{% endif %}</td>
+                                        <td class="mono">
+                                          {% if pa.battedBall.xBA is not none %}
+                                            {{ '%.3f'|format(pa.battedBall.xBA) }}
+                                          {% else %}-{% endif %}
+                                        </td>
+                                      </tr>
                                     </tbody>
                                   </table>
                                 </div>
-
-                                {% if pa.battedBall is defined and pa.battedBall %}
-                                  <div style="margin-top:8px; overflow-x:auto;">
-                                    <table class="tbl">
-                                      <thead>
-                                        <tr>
-                                          <th class="mono">Exit Velo</th>
-                                          <th class="mono">LA</th>
-                                          <th class="mono">Dist</th>
-                                          <th class="mono">xBA</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        <tr>
-                                          <td class="mono">
-                                            {% if pa.battedBall.exitVelo is not none %}
-                                              <span class="grad-pill" style="{{ pa.battedBall.evStyle if pa.battedBall.evStyle is defined else '' }}">{{ '%.1f'|format(pa.battedBall.exitVelo) }}{% if pa.battedBall.evFire %} 🔥{% endif %}</span>
-                                            {% else %}-{% endif %}
-                                          </td>
-                                          <td class="mono">{% if pa.battedBall.launchAngle is not none %}{{ '%.0f'|format(pa.battedBall.launchAngle) }}°{% else %}-{% endif %}</td>
-                                          <td class="mono">{% if pa.battedBall.distance is not none %}{{ '%.0f'|format(pa.battedBall.distance) }} ft{% else %}-{% endif %}</td>
-                                          <td class="mono">
-                                            {% if pa.battedBall.xBA is not none %}
-                                              {{ '%.3f'|format(pa.battedBall.xBA) }}
-                                            {% else %}-{% endif %}
-                                          </td>
-                                        </tr>
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                {% endif %}
-                              </div>
-                            {% endif %}
-                          </div>
+                              {% endif %}
+                            </div>
+                          {% endif %}
                         </div>
-                      </details>
-                    {% endif %}
+                      </div>
+                    </details>
                   {% endfor %}
                 {% endif %}
               {% endfor %}
