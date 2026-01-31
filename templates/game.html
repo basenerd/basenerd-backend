@@ -33,31 +33,34 @@
   </div>
 {% endif %}
 
-<!-- TOP: Game details card -->
-<div class="card">
-  <div class="card-header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap;">
-    <div style="min-width:260px;">
-      <div class="card-title">
-        {{ away.abbrev }} @ {{ home.abbrev }}
+<!-- TOP: Game hero -->
+<div class="card game-hero">
+  <div class="game-hero-inner">
+    <div class="game-hero-meta">
+      <div class="game-hero-title">
+        <span class="mono">{{ away.abbrev }}</span>
+        <span class="muted">@</span>
+        <span class="mono">{{ home.abbrev }}</span>
       </div>
 
-      <div class="card-subtitle">
-        {{ game.statusPill }}
-        {% if game.when %}<span class="muted" style="opacity:.6;"> • </span>{{ game.when }}{% endif %}
-        {% if game.venue %}<span class="muted" style="opacity:.6;"> • </span>{{ game.venue }}{% endif %}
+      <div class="game-hero-sub">
+        <span class="pill-status">{{ game.statusPill }}</span>
+        {% if game.when %}<span class="muted">•</span><span>{{ game.when }}</span>{% endif %}
+        {% if game.venue %}<span class="muted">•</span><span>{{ game.venue }}</span>{% endif %}
       </div>
 
-      <div class="muted small" style="margin-top:6px;">
-        {% if away.record %}{{ away.abbrev }} {{ away.record }}{% endif %}
-        {% if home.record %}<span class="muted" style="opacity:.6;"> • </span>{{ home.abbrev }} {{ home.record }}{% endif %}
+      <div class="game-hero-notes">
+        {% if away.record %}<span class="mono muted">{{ away.abbrev }} {{ away.record }}</span>{% endif %}
+        {% if home.record %}<span class="muted">•</span><span class="mono muted">{{ home.abbrev }} {{ home.record }}</span>{% endif %}
       </div>
 
       {# Probables only if NOT final #}
       {% if (not is_final) and game.probables %}
-        <div class="small" style="margin-top:10px;">
+        <div class="game-hero-row">
           <span class="mono muted">PP:</span>
-          {% if game.probables.away %} {{ away.abbrev }} {{ game.probables.away }}{% endif %}
-          {% if game.probables.home %}<span class="muted" style="opacity:.6;"> • </span>{{ home.abbrev }} {{ game.probables.home }}{% endif %}
+          <span class="mono">{% if game.probables.away %}{{ away.abbrev }} {{ game.probables.away }}{% else %}{{ away.abbrev }} TBD{% endif %}</span>
+          <span class="muted">•</span>
+          <span class="mono">{% if game.probables.home %}{{ home.abbrev }} {{ game.probables.home }}{% else %}{{ home.abbrev }} TBD{% endif %}</span>
         </div>
       {% endif %}
 
@@ -66,37 +69,34 @@
         {% set wname = game.decisions.winner if game.decisions.winner is defined else game.decisions.w %}
         {% set lname = game.decisions.loser if game.decisions.loser is defined else game.decisions.l %}
         {% set sname = game.decisions.save if game.decisions.save is defined else game.decisions.s %}
-        <div class="small" style="margin-top:10px; display:flex; gap:16px; flex-wrap:wrap;">
-          <div><span class="mono muted">W:</span> {{ dash(wname) }}</div>
-          <div><span class="mono muted">L:</span> {{ dash(lname) }}</div>
-          <div><span class="mono muted">SV:</span> {{ dash(sname) }}</div>
+        <div class="game-hero-row">
+          <span class="pill-lite"><span class="mono muted">W</span> {{ dash(wname) }}</span>
+          <span class="pill-lite"><span class="mono muted">L</span> {{ dash(lname) }}</span>
+          <span class="pill-lite"><span class="mono muted">SV</span> {{ dash(sname) }}</span>
         </div>
       {% endif %}
     </div>
 
-    {# Scoreboard / logos #}
-    <div style="flex:1; min-width:320px; display:flex; justify-content:flex-end;">
-      <div style="display:flex; align-items:center; gap:14px; padding-top:2px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          {% if away.logo_url %}
-            <img class="teamlogo" src="{{ away.logo_url }}" alt="{{ away.abbrev }} logo" style="height:38px;">
-          {% endif %}
-          <div style="display:flex; align-items:baseline; gap:8px;">
-            <div class="mono" style="font-size:18px;">{{ away.abbrev }}</div>
-            <div class="mono" style="font-size:34px; line-height:1;">{{ dash(away.score if away.score is defined else away.runs if away.runs is defined else none) }}</div>
+    <div class="game-hero-score">
+      <div class="team-score">
+        {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" alt="{{ away.abbrev }} logo">{% endif %}
+        <div class="team-score-meta">
+          <div class="team-score-line">
+            <span class="mono team-abbrev">{{ away.abbrev }}</span>
+            <span class="mono team-runs">{{ dash(away.score if away.score is defined else away.runs if away.runs is defined else none) }}</span>
           </div>
         </div>
+      </div>
 
-        <div class="mono muted" style="opacity:.7; font-size:18px;">@</div>
+      <div class="team-score vs">@</div>
 
-        <div style="display:flex; align-items:center; gap:10px;">
-          <div style="display:flex; align-items:baseline; gap:8px;">
-            <div class="mono" style="font-size:34px; line-height:1;">{{ dash(home.score if home.score is defined else home.runs if home.runs is defined else none) }}</div>
-            <div class="mono" style="font-size:18px;">{{ home.abbrev }}</div>
+      <div class="team-score">
+        {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" alt="{{ home.abbrev }} logo">{% endif %}
+        <div class="team-score-meta">
+          <div class="team-score-line">
+            <span class="mono team-runs">{{ dash(home.score if home.score is defined else home.runs if home.runs is defined else none) }}</span>
+            <span class="mono team-abbrev">{{ home.abbrev }}</span>
           </div>
-          {% if home.logo_url %}
-            <img class="teamlogo" src="{{ home.logo_url }}" alt="{{ home.abbrev }} logo" style="height:38px;">
-          {% endif %}
         </div>
       </div>
     </div>
@@ -205,12 +205,10 @@
                     <th>Player</th>
                     <th class="mono">AB</th><th class="mono">R</th><th class="mono">H</th><th class="mono">RBI</th>
                     <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th>
-                    {# AVG removed for now #}
                   </tr>
                 </thead>
                 <tbody>
                   {% for r in game.box.away.batting %}
-                    {# extra safety: skip pitchers with no batting impact if backend didn't filter #}
                     {% set is_pitcher = (r.pos|string)|upper == 'P' %}
                     {% set abv = (r.AB if r.AB is defined else 0) %}
                     {% if not (is_pitcher and (abv == 0 or abv == '-' or abv is none)) %}
@@ -238,7 +236,6 @@
                     <th>Player</th>
                     <th class="mono">AB</th><th class="mono">R</th><th class="mono">H</th><th class="mono">RBI</th>
                     <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th>
-                    {# AVG removed for now #}
                   </tr>
                 </thead>
                 <tbody>
@@ -261,9 +258,18 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
 
-        {# Pitching (optional section below) #}
-        <div class="grid2" style="margin-top:16px;">
+    {# Pitching side-by-side #}
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Pitching</div>
+        <div class="card-subtitle">{{ away.abbrev }} vs {{ home.abbrev }}</div>
+      </div>
+
+      <div style="padding: 0 14px 14px 14px;">
+        <div class="grid2">
           <div>
             <div class="mono muted small" style="margin: 8px 0 6px 0;">{{ away.abbrev }} Pitching</div>
             <div style="overflow-x:auto;">
@@ -272,15 +278,17 @@
                   <tr>
                     <th>Pitcher</th>
                     <th class="mono">IP</th><th class="mono">H</th><th class="mono">R</th><th class="mono">ER</th>
-                    <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">ERA</th>
+                    <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">P-S</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for r in game.box.away.pitching %}
                     <tr>
-                      <td>{% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
+                      <td>
+                        {% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
+                      </td>
                       <td class="mono">{{ dash(r.IP) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.ER) }}</td>
-                      <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td><td class="mono">{{ dash(r.ERA) }}</td>
+                      <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td><td class="mono">{{ dash(r.PS) }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -296,15 +304,17 @@
                   <tr>
                     <th>Pitcher</th>
                     <th class="mono">IP</th><th class="mono">H</th><th class="mono">R</th><th class="mono">ER</th>
-                    <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">ERA</th>
+                    <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">P-S</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for r in game.box.home.pitching %}
                     <tr>
-                      <td>{% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
+                      <td>
+                        {% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
+                      </td>
                       <td class="mono">{{ dash(r.IP) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.ER) }}</td>
-                      <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td><td class="mono">{{ dash(r.ERA) }}</td>
+                      <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td><td class="mono">{{ dash(r.PS) }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -312,9 +322,9 @@
             </div>
           </div>
         </div>
-
       </div>
     </div>
+
   {% endif %}
 </div>
 
@@ -330,32 +340,20 @@
   {% else %}
     <div class="card" style="margin-top:14px;">
       <div class="card-header">
-        <div class="card-title">Scoring plays</div>
-        <div class="card-subtitle">{{ game.scoring|length }} plays</div>
+        <div class="card-title">Scoring</div>
+        <div class="card-subtitle">All scoring plays</div>
       </div>
 
       <div style="padding: 0 14px 14px 14px;">
-        {% for x in game.scoring %}
-          <div class="row" style="padding:10px 0; border-bottom:1px solid rgba(226,232,240,.7); display:flex; justify-content:space-between; gap:14px; align-items:flex-start;">
-            <div style="flex:1; min-width:0;">
-              <div class="mono muted small">
-                {{ x.inningLabel if x.inningLabel is defined else (x.half ~ ' ' ~ x.inning) }}
-              </div>
-              <div style="margin-top:3px;">{{ x.description }}</div>
+        <div class="scoring-list">
+          {% for s in game.scoring %}
+            <div class="scoring-row">
+              <div class="mono muted">{{ s.inningLabel }}</div>
+              <div class="scoring-desc">{{ s.description }}</div>
+              <div class="mono" style="text-align:right;">{{ dash(s.awayScore) }} - {{ dash(s.homeScore) }}</div>
             </div>
-
-            <div style="display:flex; gap:12px; align-items:center;">
-              <div style="display:flex; align-items:center; gap:8px; min-width:56px; justify-content:flex-end;">
-                {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" style="height:16px;">{% endif %}
-                <div class="mono">{{ dash(x.awayScore) }}</div>
-              </div>
-              <div style="display:flex; align-items:center; gap:8px; min-width:56px; justify-content:flex-end;">
-                {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" style="height:16px;">{% endif %}
-                <div class="mono">{{ dash(x.homeScore) }}</div>
-              </div>
-            </div>
-          </div>
-        {% endfor %}
+          {% endfor %}
+        </div>
       </div>
     </div>
   {% endif %}
@@ -390,326 +388,171 @@
         {% for inn in ns.innings %}
           <details class="inning-details" open style="margin-top:10px;">
             <summary class="inning-summary">
-              <span class="mono">{{ ordinal(inn) }} inning</span>
-              <span class="muted small">Top + Bottom</span>
+              <span class="inning-pill mono">{{ ordinal(inn) }} Inning</span>
             </summary>
 
             <div style="margin-top:10px;">
-              <div class="mono muted small" style="margin: 6px 0;">Top</div>
-
-              {% set any_top = false %}
               {% for pa in game.pas %}
-                {% set half_val = pa.half if pa.half is defined else '' %}
-                {% if pa.inning == inn and (half_val == "Top" or half_val == "TOP") %}
-                  {% set any_top = true %}
+                {% if pa.inning == inn %}
                   <details class="pa-details" style="margin-bottom:10px;">
                     <summary class="pa-summary">
                       <div class="pa-left">
+                        <span class="half-pill mono">{{ pa.half }}</span>
                         <span>{{ pa.description or "" }}</span>
                       </div>
                       <div class="pa-right">
-                        {# ONLY show event/summary on the right #}
-                        <span class="mono">
-                          {{ pa.summaryEvent if pa.summaryEvent is defined else (pa.event or "") }}
-                        </span>
+                        <span class="mono">{{ pa.summaryEvent if pa.summaryEvent is defined else (pa.event or "") }}</span>
                       </div>
                     </summary>
 
-                    {% if pa.pitches %}
+                    <div class="pa-body">
                       <div class="pa-grid">
+                        <!-- Strike Zone Plot -->
                         <div class="zone-wrap">
-                          <div class="zone-title">Strike zone</div>
-                          <svg class="zone-plot"
-                               width="160" height="210"
-                               data-pitches='{{ pa.pitches|tojson }}'>
-                          </svg>
-                          <div class="muted small" style="margin-top:6px;">
-                            Vertical axis is relative to the hitter's strike zone (0 = bottom of zone). Colors: ball/strike/foul/in-play.
-                          </div>
+                          <svg class="strike-zone" data-pitches='{{ (pa.pitches or []) | tojson }}' width="200" height="240"></svg>
                         </div>
 
-                        <div class="table-wrap">
-                          <div class="zone-title">Pitches</div>
-                          <div style="overflow-x:auto;">
-                            <table class="tbl">
-                              <thead>
-                                <tr>
-                                  <th class="mono">#</th>
-                                  <th>Pitch</th>
-                                  <th class="mono">MPH</th>
-                                  <th class="mono">Spin</th>
-                                  <th class="mono">VMov</th>
-                                  <th class="mono">HMov</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {% for p in pa.pitches %}
+                        <!-- Pitch Table -->
+                        {% if pa.pitches and (pa.pitches|length) > 0 %}
+                          <div class="pitch-wrap">
+                            <div class="zone-title">Pitches</div>
+                            <div style="overflow-x:auto;">
+                              <table class="tbl">
+                                <thead>
                                   <tr>
-                                    <td class="mono">{{ p.n if p.n is defined else loop.index }}</td>
-                                    <td>
-                                      {{ p.pitchType if p.pitchType is defined else (p.pitch_name if p.pitch_name is defined else (p.type or "")) }}
-                                    </td>
-                                    <td class="mono">
-                                      {{ dash(p.mph if p.mph is defined else p.startSpeed if p.startSpeed is defined else none) }}
-                                    </td>
-                                    <td class="mono">{{ dash(p.spinRate if p.spinRate is defined else none) }}</td>
-                                    <td class="mono">{{ dash(p.vertMove if p.vertMove is defined else none) }}</td>
-                                    <td class="mono">{{ dash(p.horizMove if p.horizMove is defined else none) }}</td>
+                                    <th class="mono">#</th>
+                                    <th>Pitch</th>
+                                    <th class="mono">MPH</th>
+                                    <th class="mono">Spin</th>
+                                    <th class="mono">VMov</th>
+                                    <th class="mono">HMov</th>
                                   </tr>
-                                {% endfor %}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody>
+                                  {% for p in pa.pitches %}
+                                    <tr>
+                                      <td class="mono">{{ p.n if p.n is defined else loop.index }}</td>
+                                      <td>{{ p.pitchType if p.pitchType is defined else (p.pitch_name if p.pitch_name is defined else (p.type or "")) }}</td>
+                                      <td class="mono">{{ dash(p.mph if p.mph is defined else p.startSpeed if p.startSpeed is defined else none) }}</td>
+                                      <td class="mono">{{ dash(p.spinRate if p.spinRate is defined else none) }}</td>
+                                      <td class="mono">{{ dash(p.vertMove if p.vertMove is defined else none) }}</td>
+                                      <td class="mono">{{ dash(p.horizMove if p.horizMove is defined else none) }}</td>
+                                    </tr>
+                                  {% endfor %}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        {% endif %}
+                      </div>
+
+                      {# Ball in play footer #}
+                      {% if pa.battedBall is defined and pa.battedBall %}
+                        <div class="bb-row muted small">
+                          <div><span class="mono">EV:</span> {{ dash(pa.battedBall.exitVelo) }}{% if pa.battedBall.exitVelo is not none %} mph{% endif %}</div>
+                          <div><span class="mono">LA:</span> {{ dash(pa.battedBall.launchAngle) }}{% if pa.battedBall.launchAngle is not none %}°{% endif %}</div>
+                          <div>
+                            <span class="mono">xBA:</span>
+                            {% if pa.battedBall.xBA is not none %}
+                              {{ '%.3f'|format(pa.battedBall.xBA) }}
+                            {% else %}-{% endif %}
+                          </div>
+                          <div>
+                            <span class="mono">Dir:</span>
+                            {% if pa.battedBall.sprayAngle is not none %}
+                              {{ '%.0f'|format(pa.battedBall.sprayAngle) }}°{% if pa.battedBall.directionLabel %} ({{ pa.battedBall.directionLabel }}){% endif %}
+                            {% else %}
+                              {{ dash(pa.battedBall.directionLabel) }}
+                            {% endif %}
                           </div>
                         </div>
-                      </div>
-                    {% endif %}
-
-                    {# Batted ball footer #}
-                    {% if pa.battedBall is defined and pa.battedBall %}
-                      <div class="muted small" style="margin-top:10px; display:flex; gap:16px; flex-wrap:wrap;">
-                        <div><span class="mono">EV:</span> {{ dash(pa.battedBall.exitVelo) }}{% if pa.battedBall.exitVelo is not none %} mph{% endif %}</div>
-                        <div><span class="mono">Dist:</span> {{ dash(pa.battedBall.distance) }}{% if pa.battedBall.distance is not none %} ft{% endif %}</div>
-                        <div><span class="mono">Dir:</span> {{ dash(pa.battedBall.direction) }}</div>
-                      </div>
-                    {% endif %}
+                      {% endif %}
+                    </div>
                   </details>
                 {% endif %}
               {% endfor %}
-              {% if not any_top %}
-                <div class="muted small" style="margin: 6px 0 0 0;">No plays recorded.</div>
-              {% endif %}
-
-              <div class="mono muted small" style="margin: 14px 0 6px 0;">Bottom</div>
-
-              {% set any_bot = false %}
-              {% for pa in game.pas %}
-                {% set half_val = pa.half if pa.half is defined else '' %}
-                {% if pa.inning == inn and (half_val == "Bottom" or half_val == "Bot" or half_val == "BOTTOM") %}
-                  {% set any_bot = true %}
-                  <details class="pa-details" style="margin-bottom:10px;">
-                    <summary class="pa-summary">
-                      <div class="pa-left">
-                        <span>{{ pa.description or "" }}</span>
-                      </div>
-                      <div class="pa-right">
-                        <span class="mono">
-                          {{ pa.summaryEvent if pa.summaryEvent is defined else (pa.event or "") }}
-                        </span>
-                      </div>
-                    </summary>
-
-                    {% if pa.pitches %}
-                      <div class="pa-grid">
-                        <div class="zone-wrap">
-                          <div class="zone-title">Strike zone</div>
-                          <svg class="zone-plot"
-                               width="160" height="210"
-                               data-pitches='{{ pa.pitches|tojson }}'>
-                          </svg>
-                          <div class="muted small" style="margin-top:6px;">
-                            Vertical axis is relative to the hitter's strike zone (0 = bottom of zone). Colors: ball/strike/foul/in-play.
-                          </div>
-                        </div>
-
-                        <div class="table-wrap">
-                          <div class="zone-title">Pitches</div>
-                          <div style="overflow-x:auto;">
-                            <table class="tbl">
-                              <thead>
-                                <tr>
-                                  <th class="mono">#</th>
-                                  <th>Pitch</th>
-                                  <th class="mono">MPH</th>
-                                  <th class="mono">Spin</th>
-                                  <th class="mono">VMov</th>
-                                  <th class="mono">HMov</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {% for p in pa.pitches %}
-                                  <tr>
-                                    <td class="mono">{{ p.n if p.n is defined else loop.index }}</td>
-                                    <td>
-                                      {{ p.pitchType if p.pitchType is defined else (p.pitch_name if p.pitch_name is defined else (p.type or "")) }}
-                                    </td>
-                                    <td class="mono">
-                                      {{ dash(p.mph if p.mph is defined else p.startSpeed if p.startSpeed is defined else none) }}
-                                    </td>
-                                    <td class="mono">{{ dash(p.spinRate if p.spinRate is defined else none) }}</td>
-                                    <td class="mono">{{ dash(p.vertMove if p.vertMove is defined else none) }}</td>
-                                    <td class="mono">{{ dash(p.horizMove if p.horizMove is defined else none) }}</td>
-                                  </tr>
-                                {% endfor %}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    {% endif %}
-
-                    {% if pa.battedBall is defined and pa.battedBall %}
-                      <div class="muted small" style="margin-top:10px; display:flex; gap:16px; flex-wrap:wrap;">
-                        <div><span class="mono">EV:</span> {{ dash(pa.battedBall.exitVelo) }}{% if pa.battedBall.exitVelo is not none %} mph{% endif %}</div>
-                        <div><span class="mono">Dist:</span> {{ dash(pa.battedBall.distance) }}{% if pa.battedBall.distance is not none %} ft{% endif %}</div>
-                        <div><span class="mono">Dir:</span> {{ dash(pa.battedBall.direction) }}</div>
-                      </div>
-                    {% endif %}
-                  </details>
-                {% endif %}
-              {% endfor %}
-              {% if not any_bot %}
-                <div class="muted small" style="margin: 6px 0 0 0;">No plays recorded.</div>
-              {% endif %}
             </div>
           </details>
         {% endfor %}
+
       </div>
     </div>
   {% endif %}
 </div>
 
 <script>
-  // Tabs
-  (function(){
-    const btns = Array.from(document.querySelectorAll(".tab-btn"));
-    const panels = {
-      overview: document.getElementById("tab-overview"),
-      box: document.getElementById("tab-box"),
-      scoring: document.getElementById("tab-scoring"),
-      pbp: document.getElementById("tab-pbp"),
-    };
-
-    btns.forEach(b => {
-      b.addEventListener("click", () => {
-        btns.forEach(x => x.classList.remove("active"));
-        b.classList.add("active");
-        const t = b.getAttribute("data-tab");
-        Object.keys(panels).forEach(k => panels[k].classList.toggle("active", k === t));
-      });
+(function(){
+  // tabs
+  const tabs = document.querySelectorAll(".tab-btn");
+  const panels = document.querySelectorAll(".tab-panel");
+  tabs.forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      tabs.forEach(b=>b.classList.remove("active"));
+      panels.forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      const id = "tab-" + btn.dataset.tab;
+      const panel = document.getElementById(id);
+      if(panel) panel.classList.add("active");
     });
-  })();
+  });
 
-  // Strike zone plots (zone-relative vertical axis)
-  (function(){
-    function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+  // strike zone render
+  function renderZone(svg, pitches){
+    const w = parseFloat(svg.getAttribute("width") || 200);
+    const h = parseFloat(svg.getAttribute("height") || 240);
 
-    function drawZone(svg, pitches){
-      const wAttr = svg.getAttribute("width");
-      const hAttr = svg.getAttribute("height");
-      const W = Number(wAttr || 160);
-      const H = Number(hAttr || 210);
+    const pxs = pitches.map(p=>p.px).filter(v=>v!==null && v!==undefined);
+    const pzs = pitches.map(p=>p.pz).filter(v=>v!==null && v!==undefined);
+    const tops = pitches.map(p=>p.sz_top).filter(v=>v!==null && v!==undefined);
+    const bots = pitches.map(p=>p.sz_bot).filter(v=>v!==null && v!==undefined);
 
-      // Layout
-      const pad = 18;
-      const zx = pad, zy = pad;
-      const zw = W - pad*2, zh = H - pad*2;
+    const zoneTop = tops.length ? (tops.reduce((a,b)=>a+b,0)/tops.length) : 3.5;
+    const zoneBot = bots.length ? (bots.reduce((a,b)=>a+b,0)/bots.length) : 1.5;
 
-      // Clear
-      while (svg.firstChild) svg.removeChild(svg.firstChild);
+    // px is typically in feet from center; map [-1.5, 1.5] -> [0,w]
+    const xMin = -1.5, xMax = 1.5;
+    const yMin = zoneBot - 0.8, yMax = zoneTop + 0.8;
 
-      // Background
-      const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
-      bg.setAttribute("x", 0); bg.setAttribute("y", 0);
-      bg.setAttribute("width", W); bg.setAttribute("height", H);
-      bg.setAttribute("rx", 14);
-      bg.setAttribute("fill", "rgba(255,255,255,.9)");
-      bg.setAttribute("stroke", "rgba(226,232,240,.9)");
-      svg.appendChild(bg);
+    function xScale(x){ return ( (x - xMin) / (xMax - xMin) ) * w; }
+    function yScale(y){ return h - ( (y - yMin) / (yMax - yMin) ) * h; }
 
-      // Determine hitter-specific zone edges (feet off ground)
-      const DEFAULT_TOP = 3.5, DEFAULT_BOT = 1.5;
-      let szTop = DEFAULT_TOP, szBot = DEFAULT_BOT;
-      for (const p of (pitches || [])){
-        const t = Number(p.sz_top), b = Number(p.sz_bot);
-        if (Number.isFinite(t) && Number.isFinite(b) && t > b){
-          szTop = t; szBot = b;
-          break;
-        }
-      }
+    svg.innerHTML = "";
 
-      // Zone-relative vertical axis:
-      // y=0 corresponds to sz_bot; y=zoneH corresponds to sz_top
-      const zoneH = Math.max(0.1, szTop - szBot);
+    const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+    rect.setAttribute("x", xScale(-0.83));
+    rect.setAttribute("y", yScale(zoneTop));
+    rect.setAttribute("width", xScale(0.83) - xScale(-0.83));
+    rect.setAttribute("height", yScale(zoneBot) - yScale(zoneTop));
+    rect.setAttribute("fill", "rgba(15,23,42,.03)");
+    rect.setAttribute("stroke", "rgba(226,232,240,.9)");
+    rect.setAttribute("stroke-width", "1");
+    svg.appendChild(rect);
 
-      // "Canvas" ranges (bigger than the strike zone)
-      const xMin = -1.5, xMax =  1.5;        // feet, centered at 0
-      const yMin = -1.0, yMax = zoneH + 1.0; // zone-relative feet
+    pitches.forEach(p=>{
+      if(p.px === null || p.px === undefined || p.pz === null || p.pz === undefined) return;
+      const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx", xScale(p.px));
+      c.setAttribute("cy", yScale(p.pz));
+      c.setAttribute("r", 4);
 
-      function xToSvg(xFeet){
-        return zx + ((clamp(xFeet, xMin, xMax) - xMin) / (xMax - xMin)) * zw;
-      }
-      function yToSvg(yRel){
-        return zy + (1.0 - ((clamp(yRel, yMin, yMax) - yMin) / (yMax - yMin))) * zh;
-      }
-
-      // Strike zone rectangle (true horizontal edges, and vertical edges in zone-relative units)
-      const ZLEFT = -0.83, ZRIGHT = 0.83;
-      const zone = document.createElementNS("http://www.w3.org/2000/svg","rect");
-      zone.setAttribute("x", xToSvg(ZLEFT));
-      zone.setAttribute("y", yToSvg(zoneH));
-      zone.setAttribute("width", xToSvg(ZRIGHT) - xToSvg(ZLEFT));
-      zone.setAttribute("height", yToSvg(0) - yToSvg(zoneH));
-      zone.setAttribute("fill", "rgba(15,23,42,.04)");
-      zone.setAttribute("stroke", "rgba(15,23,42,.22)");
-      zone.setAttribute("rx", 10);
-      svg.appendChild(zone);
-
-      function outcomeColor(p){
-        const call = String(p.call || "").toLowerCase();
-        const desc = String(p.desc || "").toLowerCase();
-        const inPlay = (p.isInPlay === true) || desc.includes("in play") || call.includes("in play");
-        if (inPlay) return "rgba(37,99,235,.85)"; // blue: in play
-        if (call.includes("foul") || desc.includes("foul")) return "rgba(100,116,139,.85)"; // gray: foul
-        if ((p.isBall === true) || call.includes("ball")) return "rgba(34,197,94,.85)"; // green: ball
-        if ((p.isStrike === true) || call.includes("strike")) return "rgba(239,68,68,.85)"; // red: strike
-        return "rgba(239,68,68,.85)";
-      }
-
-      // Plot dots using pX (feet) and pZ (feet off ground) converted to zone-relative:
-      // yRel = pz - sz_bot
-      (pitches || []).forEach((p) => {
-        if (p.px == null || p.pz == null) return;
-
-        const xFeet = Number(p.px);
-        const pzAbs = Number(p.pz);
-        if (!Number.isFinite(xFeet) || !Number.isFinite(pzAbs)) return;
-
-        const yRel = pzAbs - szBot;
-
-        const x = xToSvg(xFeet);
-        const y = yToSvg(yRel);
-
-        const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
-        c.setAttribute("cx", x);
-        c.setAttribute("cy", y);
-        c.setAttribute("r", 6.0);
-        c.setAttribute("fill", outcomeColor(p));
-        c.setAttribute("stroke", "rgba(15,23,42,.35)");
-        svg.appendChild(c);
-
-        // sequence number
-        const t = document.createElementNS("http://www.w3.org/2000/svg","text");
-        t.setAttribute("x", x);
-        t.setAttribute("y", y);
-        t.setAttribute("text-anchor", "middle");
-        t.setAttribute("dominant-baseline", "middle");
-        t.setAttribute("font-size", "7");
-        t.setAttribute("font-family", "IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace");
-        t.setAttribute("fill", "rgba(255,255,255,.95)");
-        t.setAttribute("stroke", "rgba(15,23,42,.45)");
-        t.setAttribute("stroke-width", "2");
-        t.setAttribute("paint-order", "stroke");
-        t.textContent = String(p.n || "");
-        svg.appendChild(t);
-      });
-    }
-
-    document.querySelectorAll(".zone-plot").forEach(svg => {
-      let pitches = [];
-      try { pitches = JSON.parse(svg.getAttribute("data-pitches") || "[]"); } catch(e) {}
-      drawZone(svg, pitches);
+      let fill = "rgba(91,101,119,.65)";
+      if(p.isInPlay) fill = "rgba(34,197,94,.75)";
+      else if(p.isBall) fill = "rgba(59,130,246,.75)";
+      else if(p.isStrike) fill = "rgba(239,68,68,.75)";
+      c.setAttribute("fill", fill);
+      c.setAttribute("stroke", "rgba(15,23,42,.25)");
+      c.setAttribute("stroke-width", "0.5");
+      svg.appendChild(c);
     });
-  })();
+  }
+
+  document.querySelectorAll("svg.strike-zone").forEach(svg=>{
+    try{
+      const pitches = JSON.parse(svg.getAttribute("data-pitches") || "[]");
+      renderZone(svg, pitches);
+    }catch(e){}
+  });
+})();
 </script>
 
 {% endblock %}
