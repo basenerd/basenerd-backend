@@ -106,6 +106,11 @@ def stats_page():
 
     # Position options (simple, you can expand any time)
     positions = ["", "P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "OF", "IF", "DH"]
+    leagues = [
+        {"id": "", "label": "All Leagues"},
+        {"id": 103, "label": "AL"},
+        {"id": 104, "label": "NL"},
+    ]
 
     return render_template(
         "stats.html",
@@ -115,6 +120,7 @@ def stats_page():
         api_group=api_group,  # hitting/pitching/fielding/running
         teams=teams,
         positions=positions,
+        leagues=leagues
     )
 
 
@@ -148,8 +154,8 @@ def stats_json():
     season = request.args.get("season", default=default_season, type=int)
     team_id = request.args.get("team_id", type=int)
     position = (request.args.get("position") or "").strip() or None
-    pool = (request.args.get("pool") or "ALL").strip().upper()
-
+    pool = (request.args.get("pool") or "QUALIFIED").strip().upper()
+    league_id = request.args.get("league_id", type=int)
     sort_stat = (request.args.get("sort") or "").strip()
     order = (request.args.get("order") or "desc").strip().lower()
 
@@ -167,6 +173,7 @@ def stats_json():
         order=order,
         team_id=team_id,
         position=position,
+        league_id=league_id,
         player_pool=pool,
         limit=limit,
         offset=offset,
