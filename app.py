@@ -30,6 +30,7 @@ from services.mlb_api import (
     normalize_game_detail,
     get_schedule_game_by_pk,
     normalize_schedule_game,
+    get_stats_leaderboard,
     )
 
 from services.articles import load_articles, get_article
@@ -70,6 +71,113 @@ def random_player_landing():
         title="Random Player • Basenerd"
     )
 
+@app.get("/stats")
+def:contentReference[oaicite:7]{index=7}"
+    Stats leaderboard UI page.
+    Data loads via /stats_json so we can paginate/sort/filter without reloading.
+    """
+    now = datetime.utcnow()
+    current_year = now.year
+    default_season = current_year if now.month >= 3 else current_year - 1
+
+    # initial defaults
+    season = request.args.get("season", default=default_season, type=int)
+    group = (request.args.get("group") or "batting").strip().lower()
+
+    # map UI group -> API stat group
+    group_map = {
+        "batting": "hitting",
+        "pitching": "pitching",
+        "fielding": "fielding",
+        "baserunning": "running",
+    }
+    api_group = group_map.get(group, "hitting")
+
+    # Build team dropdown options for the chosen season
+    try:
+        teams_data = get_teams(season)
+        teams_raw = teams_data.get("teams", []) or []
+        teams = [{"id": t.get("id"), "name": t.get("name")} for t in teams_raw if t.get("id")]
+        teams.sort(key=lambda x: (x.get("name") or ""))
+    except Exception:
+        teams = []
+
+    # Position options (simple, you can expand any time)
+    positions = ["", "P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "OF", "IF", "DH"]
+
+    return render_template(
+        "stats.html",
+        title="Stats • Basenerd",
+        season=season,
+        group=group,          # batting/pitching/fielding/baserunning
+        api_group=api_group,  # hitting/pitching/fielding/running
+        teams=teams,
+        positions=positions,
+    )
+
+
+@app.get("/stats_json")
+def stats_json():
+    """
+    JSON data endpoint used by stats.html
+    Query params:
+      group: batting|pitching|fielding|baserunning
+      season: int
+      team_id: int (optional)
+      position: str (optional)
+      pool: ALL|QUALIFIED
+      sort: stat key
+      order: asc|desc
+      page: 1-based page index (50 rows per page)
+    """
+    now = datetime.utcnow()
+    current_year = now.year
+    default_season = current_year if now.month >= 3 else current_year - 1
+
+    group = (request.args.get("group") or "batting").strip().lower()
+    group_map = {
+        "batting": "hitting",
+        "pitching": "pitching",
+        "fielding": "fielding",
+        "baserunning": "running",
+    }
+    api_group = group_map.get(group, "hitting")
+
+    season = request.args.get("season", default=default_season, type=int)
+    team_id = request.args.get("team_id", type=int)
+    position = (request.args.get("position") or "").strip() or None
+    pool = (request.args.get("pool") or "ALL").strip().upper()
+
+    sort_stat = (request.args.get("sort") or "").strip()
+    order = (request.args.get("order") or "desc").strip().lower()
+
+    page = request.args.get("page", default=1, type=int)
+    if not page or page < 1:
+        page = 1
+
+    limit = 50
+    offset = (page - 1) * limit
+
+    data = get_stats_leaderboard(
+        group=api_group,
+        season=season,
+        sort_stat=sort_stat,
+        order=order,
+        team_id=team_id,
+        position=position,
+        player_pool=pool,
+        limit=limit,
+        offset=offset,
+        game_type="R",
+    )
+
+    # add friendly paging labels
+    start_rank = offset + 1
+    end_rank = offset + len(data.get("rows") or [])
+    data["page"] = page
+    data["rangeLabel"] = f"{start_rank}-{end_rank}" if end_rank >= start_rank else "—"
+
+    return jsonify(data)
 
 @app.get("/random-player/play")
 def random_player_play():
