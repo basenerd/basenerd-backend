@@ -2231,6 +2231,10 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                 "coordY": coord_y,
             }
 
+                matchup = p.get("matchup") or {}
+        batter_obj = matchup.get("batter") or {}
+        pitcher_obj = matchup.get("pitcher") or {}
+
         pas_out.append(
             {
                 "inning": inning,
@@ -2241,8 +2245,15 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                 "description": _safe(p, "result", "description", default="") or "",
                 "pitches": pitches_out,
                 "battedBall": batted_ball,
+
+                # ✅ add these for Overview tables/headshots
+                "batterId": batter_obj.get("id"),
+                "batterName": (batter_obj.get("fullName") or "").strip(),
+                "pitcherId": pitcher_obj.get("id"),
+                "pitcherName": (pitcher_obj.get("fullName") or "").strip(),
             }
         )
+
 
     game_obj["pas"] = pas_out
 
