@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request, jsonify
@@ -128,15 +129,12 @@ def stats_page():
 def stats_json():
     """
     JSON data endpoint used by stats.html
-    Query params:
-      group: batting|pitching|fielding|baserunning
-      season: int
-      team_id: int (optional)
-      position: str (optional)
-      pool: ALL|QUALIFIED
-      sort: stat key
-      order: asc|desc
-      page: 1-based page index (50 rows per page)
+
+    Supports:
+      - cols: comma-separated stat keys to display
+      - filters: JSON array of AND rules [{"stat":"homeRuns","op":">=","value":20}, ...]
+      - click-to-sort via sort/order
+      - filtered paging: page is 1-based, 50 rows per page *after* filtering
     """
     now = datetime.utcnow()
     current_year = now.year
@@ -153,40 +151,196 @@ def stats_json():
 
     season = request.args.get("season", default=default_season, type=int)
     team_id = request.args.get("team_id", type=int)
-    position = (request.args.get("position") or "").strip() or None
-    pool = (request.args.get("pool") or "QUALIFIED").strip().upper()
     league_id = request.args.get("league_id", type=int)
+    position = (request.args.get("position") or "").strip() or None
+
+    # Default QUALIFIED (per your request)
+    pool = (request.args.get("pool") or "QUALIFIED").strip().upper()
+
     sort_stat = (request.args.get("sort") or "").strip()
     order = (request.args.get("order") or "desc").strip().lower()
+    if order not in ("asc", "desc"):
+        order = "desc"
 
     page = request.args.get("page", default=1, type=int)
     if not page or page < 1:
         page = 1
 
-    limit = 50
-    offset = (page - 1) * limit
+    # Selected columns (echoed back; UI renders from this)
+    cols_raw = (request.args.get("cols") or "").strip()
+    selected_cols = [c.strip() for c in cols_raw.split(",") if c.strip()] if cols_raw else []
 
-    data = get_stats_leaderboard(
-        group=api_group,
-        season=season,
-        sort_stat=sort_stat,
-        order=order,
-        team_id=team_id,
-        position=position,
-        league_id=league_id,
-        player_pool=pool,
-        limit=limit,
-        offset=offset,
-        game_type="R",
-    )
+    # Filters: JSON list of {stat, op, value}
+    filters_raw = (request.args.get("filters") or "").strip()
+    try:
+        filters = json.loads(filters_raw) if filters_raw else []
+    except Exception:
+        filters = []
 
-    # add friendly paging labels
-    start_rank = offset + 1
-    end_rank = offset + len(data.get("rows") or [])
-    data["page"] = page
-    data["rangeLabel"] = f"{start_rank}-{end_rank}" if end_rank >= start_rank else "—"
+    # --------------------------
+    # Helpers for filtering
+    # --------------------------
+    def _to_float(x):
+        try:
+            if x is None:
+                return None
+            # already numeric?
+            if isinstance(x, (int, float)):
+                return float(x)
+            s = str(x).strip()
+            if s == "" or s.lower() == "none":
+                return None
+            return float(s)
+        except Exception:
+            return None
 
-    return jsonify(data)
+    def _passes_one(stat_dict: dict, rule: dict) -> bool:
+        if not isinstance(stat_dict, dict):
+            return False
+        k = (rule.get("stat") or "").strip()
+        op = (rule.get("op") or "").strip()
+        v_raw = rule.get("value")
+
+        if not k or not op:
+            return True  # ignore malformed rule
+
+        left = _to_float(stat_dict.get(k))
+        right = _to_float(v_raw)
+
+        # If missing/non-numeric -> FAIL (your desired behavior)
+        if left is None or right is None:
+            return False
+
+        if op == ">=": return left >= right
+        if op == "<=": return left <= right
+        if op == ">":  return left > right
+        if op == "<":  return left < right
+        if op == "=":  return left == right
+        if op == "!=": return left != right
+        return True
+
+    def _passes_all(stat_dict: dict, rules: list) -> bool:
+        if not rules:
+            return True
+        for r in rules:
+            if not _passes_one(stat_dict, r):
+                return False
+        return True
+
+    # --------------------------
+    # Filtered paging strategy
+    # --------------------------
+    PAGE_SIZE = 50
+    CHUNK = 200
+    MAX_SCAN = 4000  # safety cap (raw rows scanned)
+    target_start = (page - 1) * PAGE_SIZE
+    target_end = target_start + PAGE_SIZE
+
+    # If no sortStat provided, pick a reasonable default for group
+    if not sort_stat:
+        if api_group == "pitching":
+            sort_stat = "era"
+        elif api_group == "fielding":
+            sort_stat = "fielding"
+        elif api_group == "running":
+            sort_stat = "stolenBases"
+        else:
+            sort_stat = "ops"
+
+    # Collect filtered rows until we can serve this filtered page
+    raw_offset = 0
+    filtered_rows = []
+    scanned = 0
+    available_keys = set()
+
+    while len(filtered_rows) < target_end and scanned < MAX_SCAN:
+        data = get_stats_leaderboard(
+            group=api_group,
+            season=season,
+            sort_stat=sort_stat,
+            order=order,
+            team_id=team_id,
+            position=position,
+            league_id=league_id,
+            player_pool=pool,
+            limit=CHUNK,
+            offset=raw_offset,
+            game_type="R",
+        )
+
+        rows = (data.get("rows") or [])
+        if not rows:
+            break
+
+        scanned += len(rows)
+
+        for r in rows:
+            st = (r.get("stat") or {})
+            if isinstance(st, dict):
+                for k in st.keys():
+                    available_keys.add(k)
+
+            if _passes_all(st, filters):
+                filtered_rows.append(r)
+
+        # If API returned fewer than chunk, we’re at the end
+        if len(rows) < CHUNK:
+            break
+
+        raw_offset += CHUNK
+
+    # Slice the requested filtered page
+    page_rows = filtered_rows[target_start:target_end]
+
+    # Rank labels are relative to filtered ordering
+    rank_start = target_start + 1
+    rank_end = target_start + len(page_rows)
+
+    # Default columns returned to UI (so it can pre-check)
+    default_cols = {
+        "hitting": ["gamesPlayed","plateAppearances","avg","obp","slg","ops","homeRuns","rbi","runs","hits","stolenBases"],
+        "pitching": ["wins","losses","era","whip","inningsPitched","strikeOuts","baseOnBalls","hits","homeRuns"],
+        "fielding": ["games","innings","fielding","assists","putOuts","errors","doublePlays"],
+        "running": ["stolenBases","caughtStealing","stolenBasePercentage","runs"],
+    }.get(api_group, [])
+
+    # Approx “matched” count: we only know how many we matched in the scanned window
+    filtered_total_approx = len(filtered_rows)
+
+    return jsonify({
+        "group": group,
+        "apiGroup": api_group,
+        "season": season,
+        "teamId": team_id,
+        "leagueId": league_id,
+        "position": position,
+        "playerPool": pool,
+        "sortStat": sort_stat,
+        "order": order,
+
+        "page": page,
+        "pageSize": PAGE_SIZE,
+
+        "rangeLabel": f"{rank_start}-{rank_end}" if rank_end >= rank_start else "—",
+        "rankStart": rank_start,
+
+        "rows": page_rows,
+
+        # Option B: all keys discovered from API scan
+        "availableKeys": sorted(list(available_keys)),
+
+        # for UI default-checks
+        "defaultCols": default_cols,
+
+        # diagnostics
+        "scannedCount": scanned,
+        "filteredTotalApprox": filtered_total_approx,
+
+        # echo back what UI asked for
+        "selectedCols": selected_cols,
+        "filters": filters,
+    })
+
 
 @app.get("/random-player/play")
 def random_player_play():
