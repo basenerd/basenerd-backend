@@ -48,6 +48,29 @@
   {%- endif -%}
 {%- endmacro %}
 
+{# Shorten player names: "Augustin Ramirez" -> "A. Ramirez" (keeps already-abbrev) #}
+{% macro short_name(full_name) -%}
+  {%- set n = (full_name or '')|trim -%}
+  {%- if not n -%}{% else -%}
+    {%- if '.' in n and (n.split(' ')[0]|length) <= 3 -%}
+      {{ n }}
+    {%- else -%}
+      {%- set parts = n.split() -%}
+      {%- if (parts|length) == 1 -%}
+        {{ n }}
+      {%- else -%}
+        {%- set suffixes = ['Jr.','Sr.','II','III','IV','V'] -%}
+        {%- if parts[-1] in suffixes and (parts|length) >= 3 -%}
+          {%- set last = parts[-2] ~ ' ' ~ parts[-1] -%}
+        {%- else -%}
+          {%- set last = parts[-1] -%}
+        {%- endif -%}
+        {{ parts[0][0] ~ '. ' ~ last }}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endmacro %}
+
 {# Shorten outcomes: 1B/2B/HR/F8/G6 etc. Best-effort from summary+description #}
 {% macro outcome_short(summary, desc) -%}
   {%- set s = (summary or '') -%}
@@ -91,6 +114,37 @@
     {{ (summary or '')[:8] }}
   {%- endif -%}
 {%- endmacro %}
+
+{# Find team logo for a player id using boxscore rows (bat or pit). Returns dict-like via namespace values. #}
+{% macro team_logo_for(pid, kind) -%}
+  {%- set logo = '' -%}
+  {%- set abbr = '' -%}
+  {%- if game.box and pid -%}
+    {%- if kind == 'bat' -%}
+      {%- for r in (game.box.away.batting or []) -%}
+        {%- if r.playerId == pid -%}{%- set logo = away.logo_url -%}{%- set abbr = away.abbrev -%}{%- endif -%}
+      {%- endfor -%}
+      {%- if not logo -%}
+        {%- for r in (game.box.home.batting or []) -%}
+          {%- if r.playerId == pid -%}{%- set logo = home.logo_url -%}{%- set abbr = home.abbrev -%}{%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+    {%- else -%}
+      {%- for r in (game.box.away.pitching or []) -%}
+        {%- if r.playerId == pid -%}{%- set logo = away.logo_url -%}{%- set abbr = away.abbrev -%}{%- endif -%}
+      {%- endfor -%}
+      {%- if not logo -%}
+        {%- for r in (game.box.home.pitching or []) -%}
+          {%- if r.playerId == pid -%}{%- set logo = home.logo_url -%}{%- set abbr = home.abbrev -%}{%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+  {{ logo }}|||{{ abbr }}
+{%- endmacro %}
+
+{# Red/Blue pill style for Overview velos #}
+{% set rb_pill_style = "background:linear-gradient(90deg, rgba(59,130,246,.95), rgba(239,68,68,.95)); color:rgba(255,255,255,.95); border:1px solid rgba(15,23,42,.15);" %}
 
 {% if error %}
   <div class="card" style="border:1px solid rgba(239,68,68,.35); margin-bottom:14px;">
@@ -228,7 +282,6 @@
 
 <!-- Tabs -->
 <div class="tabs" style="margin-top:14px;">
-  {# ✅ default to Overview active #}
   <button class="tab-btn active" data-tab="overview">Overview</button>
   <button class="tab-btn" data-tab="box">Box</button>
   <button class="tab-btn" data-tab="scoring">Scoring</button>
@@ -410,9 +463,9 @@
               <div style="min-width:0;">
                 <div class="mono" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                   {% if tp.pid %}
-                    <a href="/player/{{ tp.pid }}">{{ tp.name }}</a>
+                    <a href="/player/{{ tp.pid }}">{{ short_name(tp.name) }}</a>
                   {% else %}
-                    {{ tp.name }}
+                    {{ short_name(tp.name) }}
                   {% endif %}
                 </div>
                 <div class="mono muted small" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
@@ -447,8 +500,13 @@
                   {{ s.description }}
                 </div>
               </div>
-              <div class="mono" style="min-width:54px; text-align:right;">
-                {{ dash(s.awayScore) }}-{{ dash(s.homeScore) }}
+
+              <div class="mono" style="display:flex; align-items:center; gap:6px; min-width:120px; justify-content:flex-end;">
+                {% if away.logo_url %}<img src="{{ away.logo_url }}" alt="{{ away.abbrev }}" style="width:18px;height:18px;object-fit:contain;">{% endif %}
+                <span>{{ dash(s.awayScore) }}</span>
+                <span class="muted">-</span>
+                <span>{{ dash(s.homeScore) }}</span>
+                {% if home.logo_url %}<img src="{{ home.logo_url }}" alt="{{ home.abbrev }}" style="width:18px;height:18px;object-fit:contain;">{% endif %}
               </div>
             </div>
           {% endfor %}
@@ -486,21 +544,29 @@
             </thead>
             <tbody>
               {% for r in top_ev %}
+                {% set team_bits = (team_logo_for(r.pid, 'bat')|string).split('|||') %}
+                {% set tlogo = team_bits[0] if (team_bits|length) > 0 else '' %}
+                {% set tabbr = team_bits[1] if (team_bits|length) > 1 else '' %}
                 <tr>
-                  <td style="width:34px;">
-                    <img src="{{ headshot_url(r.pid, 60) }}" alt="{{ r.name }}" style="width:26px;height:26px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
+                  <td style="width:60px;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <img src="{{ headshot_url(r.pid, 60) }}" alt="{{ r.name }}" style="width:26px;height:26px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
+                      {% if tlogo %}
+                        <img src="{{ tlogo }}" alt="{{ tabbr }} logo" style="width:18px;height:18px;object-fit:contain;">
+                      {% endif %}
+                    </div>
                   </td>
                   <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                     {% if r.pid %}
-                      <a class="mono" href="/player/{{ r.pid }}">{{ r.name }}</a>
+                      <a class="mono" href="/player/{{ r.pid }}">{{ short_name(r.name) }}</a>
                     {% else %}
-                      <span class="mono">{{ r.name }}</span>
+                      <span class="mono">{{ short_name(r.name) }}</span>
                     {% endif %}
                   </td>
                   <td class="mono">{{ dash(r.inning) }}</td>
                   <td class="mono">
                     {% if r.ev is not none %}
-                      <span class="grad-pill">{{ '%.1f'|format(r.ev) }}{% if r.ev >= 100 %} 🔥{% endif %}</span>
+                      <span class="grad-pill" style="{{ rb_pill_style }}">{{ '%.1f'|format(r.ev) }}{% if r.ev >= 100 %} 🔥{% endif %}</span>
                     {% else %}-{% endif %}
                   </td>
                   <td class="mono">{% if r.la is not none %}{{ '%.0f'|format(r.la) }}°{% else %}-{% endif %}</td>
@@ -540,21 +606,29 @@
             </thead>
             <tbody>
               {% for r in top_pv %}
+                {% set team_bits = (team_logo_for(r.pid, 'pit')|string).split('|||') %}
+                {% set tlogo = team_bits[0] if (team_bits|length) > 0 else '' %}
+                {% set tabbr = team_bits[1] if (team_bits|length) > 1 else '' %}
                 <tr>
-                  <td style="width:34px;">
-                    <img src="{{ headshot_url(r.pid, 60) }}" alt="{{ r.name }}" style="width:26px;height:26px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
+                  <td style="width:60px;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <img src="{{ headshot_url(r.pid, 60) }}" alt="{{ r.name }}" style="width:26px;height:26px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
+                      {% if tlogo %}
+                        <img src="{{ tlogo }}" alt="{{ tabbr }} logo" style="width:18px;height:18px;object-fit:contain;">
+                      {% endif %}
+                    </div>
                   </td>
                   <td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                     {% if r.pid %}
-                      <a class="mono" href="/player/{{ r.pid }}">{{ r.name }}</a>
+                      <a class="mono" href="/player/{{ r.pid }}">{{ short_name(r.name) }}</a>
                     {% else %}
-                      <span class="mono">{{ r.name }}</span>
+                      <span class="mono">{{ short_name(r.name) }}</span>
                     {% endif %}
                   </td>
                   <td class="mono">{{ dash(r.inning) }}</td>
                   <td class="mono">
                     {% if r.mph is not none %}
-                      <span class="grad-pill">{{ '%.1f'|format(r.mph) }}{% if r.mph >= 98 %} 🔥{% endif %}</span>
+                      <span class="grad-pill" style="{{ rb_pill_style }}">{{ '%.1f'|format(r.mph) }}{% if r.mph >= 98 %} 🔥{% endif %}</span>
                     {% else %}-{% endif %}
                   </td>
                   <td>{{ r.pitchType }}</td>
@@ -784,7 +858,6 @@
 
             <div style="margin-top:10px;">
               {% for half in ['Top','Bottom'] %}
-                {# FIX: build list instead of relying on has_half inside loops (Jinja scoping) #}
                 {% set half_pas = (game.pas
                   | selectattr("inning", "equalto", inn)
                   | selectattr("half", "equalto", half)
@@ -902,7 +975,7 @@
   const tabs = document.querySelectorAll(".tab-btn");
   const panels = document.querySelectorAll(".tab-panel");
 
-  // ✅ ensure Overview is the default on load
+  // ensure Overview default
   tabs.forEach(b=>b.classList.remove("active"));
   panels.forEach(p=>p.classList.remove("active"));
   const ovBtn = document.querySelector('.tab-btn[data-tab="overview"]');
@@ -932,7 +1005,6 @@
     const zoneTop = tops.length ? (tops.reduce((a,b)=>a+b,0)/tops.length) : 3.5;
     const zoneBot = bots.length ? (bots.reduce((a,b)=>a+b,0)/bots.length) : 1.5;
 
-    // px is typically in feet from center; map [-1.5, 1.5] -> [0,w]
     const xMin = -1.5, xMax = 1.5;
     const yMin = zoneBot - 0.8, yMax = zoneTop + 0.8;
 
@@ -958,7 +1030,6 @@
       c.setAttribute("cy", yScale(p.pz));
       c.setAttribute("r", 8);
 
-      // pitch number
       const t = document.createElementNS("http://www.w3.org/2000/svg","text");
       t.setAttribute("x", xScale(p.px));
       t.setAttribute("y", yScale(p.pz) + 3);
@@ -968,7 +1039,7 @@
       t.setAttribute("fill", "rgba(255,255,255,.95)");
       t.textContent = (p.n != null ? p.n : "");
 
-      let fill = "rgba(148,163,184,.75)"; // default gray
+      let fill = "rgba(148,163,184,.75)";
       if(p.isFoul) fill = "rgba(148,163,184,.75)";
       else if(p.isInPlay) fill = "rgba(59,130,246,.75)";
       else if(p.isBall) fill = "rgba(34,197,94,.75)";
@@ -981,7 +1052,6 @@
     });
   }
 
-  // render zones
   document.querySelectorAll("svg.strike-zone").forEach(svg=>{
     try{
       const pitches = JSON.parse(svg.getAttribute("data-pitches") || "[]");
