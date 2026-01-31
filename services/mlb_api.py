@@ -1572,6 +1572,7 @@ def get_stats_leaderboard(
     order: str = "desc",
     team_id: Optional[int] = None,
     position: Optional[str] = None,
+    league_id: Optional[int] = None, 
     player_pool: str = "ALL",  # "ALL" or "QUALIFIED"
     limit: int = 50,
     offset: int = 0,
@@ -1620,7 +1621,7 @@ def get_stats_leaderboard(
         # safe-ish defaults
         sort_stat = "ops" if group == "hitting" else ("era" if group == "pitching" else ("fielding" if group == "fielding" else "stolenBases"))
 
-    cache_key = f"leaders:{group}:{season}:{sort_stat}:{order}:{team_id}:{position}:{player_pool}:{limit}:{offset}:{game_type}"
+    cache_key = f"leaders:{group}:{season}:{sort_stat}:{order}:{team_id}:{position}:{league_id}:{player_pool}:{limit}:{offset}:{game_type}"
     cached = _get_cached(cache_key)
     if cached is not None:
         return cached
@@ -1644,6 +1645,8 @@ def get_stats_leaderboard(
         params["teamId"] = int(team_id)
     if position:
         params["position"] = position
+    if league_id:
+        params["leagueId"] = int(league_id)
 
     r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
