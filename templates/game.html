@@ -24,55 +24,139 @@
   {%- endif -%}
 {%- endmacro %}
 
-<div class="card">
-  <div class="card-header">
-    <div class="card-title">{{ away.abbrev }} @ {{ home.abbrev }}</div>
-    <div class="card-subtitle">
-      {{ game.statusPill }}
-      {% if game.gameDate %} • {{ game.gameDate }}{% endif %}
+{% if error %}
+  <div class="card" style="border:1px solid rgba(239,68,68,.35); margin-bottom:14px;">
+    <div class="card-header">
+      <div class="card-title">Debug error</div>
+      <div class="card-subtitle mono">{{ error }}</div>
     </div>
   </div>
+{% endif %}
 
-  {% if game.linescore %}
-  <div style="padding: 0 14px 14px 14px;">
-    <div style="overflow-x:auto;">
+<!-- TOP: Game hero -->
+<div class="card game-hero">
+  <div class="game-hero-inner">
+    <div class="game-hero-meta">
+      <div class="game-hero-title">
+        <span class="mono">{{ away.abbrev }}</span>
+        <span class="muted">@</span>
+        <span class="mono">{{ home.abbrev }}</span>
+      </div>
+
+      <div class="game-hero-sub">
+        <span class="pill-status">{{ game.statusPill }}</span>
+        {% if game.when %}<span class="muted">•</span><span>{{ game.when }}</span>{% endif %}
+        {% if game.venue %}<span class="muted">•</span><span>{{ game.venue }}</span>{% endif %}
+      </div>
+
+      <div class="game-hero-notes">
+        {% if away.record %}<span class="mono muted">{{ away.abbrev }} {{ away.record }}</span>{% endif %}
+        {% if home.record %}<span class="muted">•</span><span class="mono muted">{{ home.abbrev }} {{ home.record }}</span>{% endif %}
+      </div>
+
+      {# Probables only if NOT final #}
+      {% if (not is_final) and game.probables %}
+        <div class="game-hero-row">
+          <span class="mono muted">PP:</span>
+          <span class="mono">{% if game.probables.away %}{{ away.abbrev }} {{ game.probables.away }}{% else %}{{ away.abbrev }} TBD{% endif %}</span>
+          <span class="muted">•</span>
+          <span class="mono">{% if game.probables.home %}{{ home.abbrev }} {{ game.probables.home }}{% else %}{{ home.abbrev }} TBD{% endif %}</span>
+        </div>
+      {% endif %}
+
+      {# Decisions: support both old keys (w/l/s) and new keys (winner/loser/save) #}
+      {% if is_final and game.decisions %}
+        {% set wname = game.decisions.winner if game.decisions.winner is defined else game.decisions.w %}
+        {% set lname = game.decisions.loser if game.decisions.loser is defined else game.decisions.l %}
+        {% set sname = game.decisions.save if game.decisions.save is defined else game.decisions.s %}
+        <div class="game-hero-row">
+          <span class="pill-lite"><span class="mono muted">W</span> {{ dash(wname) }}</span>
+          <span class="pill-lite"><span class="mono muted">L</span> {{ dash(lname) }}</span>
+          <span class="pill-lite"><span class="mono muted">SV</span> {{ dash(sname) }}</span>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="game-hero-score">
+      <div class="team-score">
+        {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" alt="{{ away.abbrev }} logo">{% endif %}
+        <div class="team-score-meta">
+          <div class="team-score-line">
+            <span class="mono team-abbrev">{{ away.abbrev }}</span>
+            <span class="mono team-runs">{{ dash(away.score if away.score is defined else away.runs if away.runs is defined else none) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="team-score vs">@</div>
+
+      <div class="team-score">
+        {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" alt="{{ home.abbrev }} logo">{% endif %}
+        <div class="team-score-meta">
+          <div class="team-score-line">
+            <span class="mono team-runs">{{ dash(home.score if home.score is defined else home.runs if home.runs is defined else none) }}</span>
+            <span class="mono team-abbrev">{{ home.abbrev }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# -----------------------------
+   Linescore moved UNDER game details card
+   ----------------------------- #}
+{% set innings = (game.linescore.innings if game.linescore and game.linescore.innings is defined else []) %}
+{% if innings %}
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="card-title">Linescore</div>
+    </div>
+
+    <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
       <table class="tbl">
         <thead>
           <tr>
-            <th>Team</th>
-            {% for inn in game.linescore.innings %}
-              <th class="mono">{{ inn.num }}</th>
+            <th></th>
+            {% for inn in innings %}
+              <th class="mono" style="text-align:center;">{{ inn.num }}</th>
             {% endfor %}
-            <th class="mono">R</th>
-            <th class="mono">H</th>
-            <th class="mono">E</th>
+            <th class="mono" style="text-align:center;">R</th>
+            <th class="mono" style="text-align:center;">H</th>
+            <th class="mono" style="text-align:center;">E</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td class="mono">{{ away.abbrev }}</td>
-            {% for inn in game.linescore.innings %}
-              <td class="mono">{{ dash(inn.away) }}</td>
+            <td class="mono">
+              {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
+              {{ away.abbrev }}
+            </td>
+            {% for inn in innings %}
+              <td class="mono" style="text-align:center;">{{ dash(inn.away.runs if inn.away is defined else none) }}</td>
             {% endfor %}
-            <td class="mono">{{ dash(game.linescore.away.R) }}</td>
-            <td class="mono">{{ dash(game.linescore.away.H) }}</td>
-            <td class="mono">{{ dash(game.linescore.away.E) }}</td>
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.away.runs) }}</td>
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.away.hits) }}</td>
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.away.errors) }}</td>
           </tr>
+
           <tr>
-            <td class="mono">{{ home.abbrev }}</td>
-            {% for inn in game.linescore.innings %}
-              <td class="mono">{{ dash(inn.home) }}</td>
+            <td class="mono">
+              {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
+              {{ home.abbrev }}
+            </td>
+            {% for inn in innings %}
+              <td class="mono" style="text-align:center;">{{ dash(inn.home.runs if inn.home is defined else none) }}</td>
             {% endfor %}
-            <td class="mono">{{ dash(game.linescore.home.R) }}</td>
-            <td class="mono">{{ dash(game.linescore.home.H) }}</td>
-            <td class="mono">{{ dash(game.linescore.home.E) }}</td>
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.home.runs) }}</td>
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.home.hits) }}</td>
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.home.errors) }}</td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
-  {% endif %}
-</div>
+{% endif %}
 
 <!-- Tabs -->
 <div class="tabs" style="margin-top:14px;">
@@ -125,19 +209,17 @@
                 </thead>
                 <tbody>
                   {% for r in game.box.away.batting %}
-                    {% set is_pitcher = (r.pos|string)|upper == 'P' %}
-                    {% set abv = (r.AB if r.AB is defined else 0) %}
-                    {% if not (is_pitcher and (abv == 0 or abv == '-' or abv is none)) %}
-                      <tr>
+                      <tr class="{% if r.isTotals %}tr-totals{% endif %}">
                         <td>
-                          {% if r.indent %}<span class="muted small" style="margin-right:6px;">↳</span>{% endif %}{% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
-                          {% if r.pos %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
+                          <span class="{% if r.indent %}box-indent{% endif %}">
+                            {% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
+                            {% if r.pos and (not r.isTotals) %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
+                          </span>
                         </td>
                         <td class="mono">{{ dash(r.AB) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.RBI) }}</td>
                         <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td>
                       </tr>
-                    {% endif %}
-                  {% endfor %}
+                    {% endfor %}
                 </tbody>
               </table>
             </div>
@@ -156,19 +238,17 @@
                 </thead>
                 <tbody>
                   {% for r in game.box.home.batting %}
-                    {% set is_pitcher = (r.pos|string)|upper == 'P' %}
-                    {% set abv = (r.AB if r.AB is defined else 0) %}
-                    {% if not (is_pitcher and (abv == 0 or abv == '-' or abv is none)) %}
-                      <tr>
+                      <tr class="{% if r.isTotals %}tr-totals{% endif %}">
                         <td>
-                          {% if r.indent %}<span class="muted small" style="margin-right:6px;">↳</span>{% endif %}{% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
-                          {% if r.pos %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
+                          <span class="{% if r.indent %}box-indent{% endif %}">
+                            {% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
+                            {% if r.pos and (not r.isTotals) %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
+                          </span>
                         </td>
                         <td class="mono">{{ dash(r.AB) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.RBI) }}</td>
                         <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td>
                       </tr>
-                    {% endif %}
-                  {% endfor %}
+                    {% endfor %}
                 </tbody>
               </table>
             </div>
@@ -199,8 +279,10 @@
                 </thead>
                 <tbody>
                   {% for r in game.box.away.pitching %}
-                    <tr>
-                      <td>{% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
+                    <tr class="{% if r.isTotals %}tr-totals{% endif %}">
+                      <td>
+                        {% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
+                      </td>
                       <td class="mono">{{ dash(r.IP) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.ER) }}</td>
                       <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td><td class="mono">{{ dash(r.PS) }}</td>
                     </tr>
@@ -223,8 +305,10 @@
                 </thead>
                 <tbody>
                   {% for r in game.box.home.pitching %}
-                    <tr>
-                      <td>{% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
+                    <tr class="{% if r.isTotals %}tr-totals{% endif %}">
+                      <td>
+                        {% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
+                      </td>
                       <td class="mono">{{ dash(r.IP) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.ER) }}</td>
                       <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td><td class="mono">{{ dash(r.PS) }}</td>
                     </tr>
@@ -233,7 +317,6 @@
               </table>
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -243,154 +326,179 @@
 
 <!-- SCORING -->
 <div class="tab-panel" id="tab-scoring">
-  {% if not game.scoring or (game.scoring|length) == 0 %}
+  {% if not game.scoring %}
     <div class="card" style="margin-top:14px;">
       <div class="card-header">
         <div class="card-title">Scoring</div>
-        <div class="card-subtitle">No scoring plays found.</div>
+        <div class="card-subtitle">Not available for this status yet.</div>
       </div>
     </div>
   {% else %}
     <div class="card" style="margin-top:14px;">
       <div class="card-header">
         <div class="card-title">Scoring</div>
-        <div class="card-subtitle">Plays that changed the score.</div>
+        <div class="card-subtitle">All scoring plays</div>
       </div>
+
       <div style="padding: 0 14px 14px 14px;">
-        <div style="overflow-x:auto;">
-          <table class="tbl">
-            <thead>
-              <tr>
-                <th>Inning</th>
-                <th>Description</th>
-                <th class="mono">{{ away.abbrev }}</th>
-                <th class="mono">{{ home.abbrev }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for s in game.scoring %}
-                <tr>
-                  <td class="mono">{{ s.inning }} {{ s.half }}</td>
-                  <td>{{ s.description }}</td>
-                  <td class="mono">{{ dash(s.awayScore) }}</td>
-                  <td class="mono">{{ dash(s.homeScore) }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="scoring-list">
+          {% for s in game.scoring %}
+            <div class="scoring-row">
+              <div class="mono muted">{{ s.inningLabel }}</div>
+              <div class="scoring-desc">{{ s.description }}</div>
+              <div class="mono" style="text-align:right;">{{ dash(s.awayScore) }} - {{ dash(s.homeScore) }}</div>
+            </div>
+          {% endfor %}
         </div>
       </div>
     </div>
   {% endif %}
 </div>
 
-<!-- PLAY-BY-PLAY -->
+<!-- PLAY-BY-PLAY (PA-style UI) -->
 <div class="tab-panel" id="tab-pbp">
-  {% if not game.pas or (game.pas|length) == 0 %}
+  {% if not game.pas %}
     <div class="card" style="margin-top:14px;">
       <div class="card-header">
         <div class="card-title">Play-by-Play</div>
-        <div class="card-subtitle">No plays found.</div>
+        <div class="card-subtitle">Not available for this status yet.</div>
       </div>
     </div>
   {% else %}
     <div class="card" style="margin-top:14px;">
       <div class="card-header">
         <div class="card-title">Play-by-Play</div>
-        <div class="card-subtitle">Plate appearances with pitches + batted-ball metrics.</div>
+        <div class="card-subtitle">Grouped by inning • each at-bat includes pitch table + strike zone</div>
       </div>
 
-      <div style="padding: 14px;">
+      <div style="padding: 0 14px 14px 14px;">
+
+        {# Build ordered unique inning list #}
+        {% set ns = namespace(innings=[]) %}
         {% for pa in game.pas %}
-          <div class="card" style="margin: 10px 0;">
-            <div class="card-header">
-              <div class="card-title">
-                {{ pa.inningLabel }} {{ pa.half }}
-                <span class="muted small">• {{ pa.summaryEvent }}</span>
-              </div>
-              <div class="card-subtitle">{{ pa.description }}</div>
-            </div>
-
-            <div style="padding: 0 14px 14px 14px;">
-              <div class="grid2">
-                <div>
-                  {% if pa.pitches and (pa.pitches|length) > 0 %}
-                    <div class="zone-wrap">
-                      <div class="zone-title">Strike Zone</div>
-                      <svg class="strike-zone"
-                           data-pitches='{{ pa.pitches | tojson }}'
-                           width="220" height="240"></svg>
-                    </div>
-                  {% endif %}
-                </div>
-
-                <div>
-                  {% if pa.pitches and (pa.pitches|length) > 0 %}
-                    <div class="pitch-wrap">
-                      <div class="zone-title">Pitches</div>
-
-                      <div style="overflow-x:auto;">
-                        <table class="tbl">
-                          <thead>
-                            <tr>
-                              <th class="mono">#</th>
-                              <th>Result</th>
-                              <th class="mono">Type</th>
-                              <th class="mono">Velo</th>
-                              <th class="mono">Spin</th>
-                              <th class="mono">IVB</th>
-                              <th class="mono">HB</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {% for p in pa.pitches %}
-                              <tr>
-                                <td class="mono">{{ p.n if p.n is defined and p.n is not none else loop.index }}</td>
-                                <td>{{ p.call }}</td>
-                                <td class="mono">{{ dash(p.pitchType) }}</td>
-                                <td class="mono">{{ dash(p.startSpeed) }}</td>
-                                <td class="mono">{{ dash(p.spinRate) }}</td>
-                                <td class="mono">{{ dash(p.vertMove) }}</td>
-                                <td class="mono">{{ dash(p.horizMove) }}</td>
-                              </tr>
-                            {% endfor %}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  {% endif %}
-
-                  {# Batted-ball metrics (scrapping hit-location mapping for now) #}
-                  {% if pa.battedBall and (pa.battedBall.exitVelo is not none or pa.battedBall.launchAngle is not none or pa.battedBall.distance is not none or pa.battedBall.xBA is not none) %}
-                    <div style="margin-top:10px;">
-                      <table class="tbl" style="width:100%;">
-                        <thead>
-                          <tr>
-                            <th class="mono">EV</th>
-                            <th class="mono">LA</th>
-                            <th class="mono">Dist</th>
-                            {% if pa.battedBall.xBA is not none %}<th class="mono">xBA</th>{% endif %}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td class="mono">{{ dash(pa.battedBall.exitVelo) }}</td>
-                            <td class="mono">{{ dash(pa.battedBall.launchAngle) }}</td>
-                            <td class="mono">{{ dash(pa.battedBall.distance) }}</td>
-                            {% if pa.battedBall.xBA is not none %}<td class="mono">{{ dash(pa.battedBall.xBA) }}</td>{% endif %}
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  {% endif %}
-
-                </div>
-              </div>
-            </div>
-          </div>
+          {% if pa.inning and (pa.inning not in ns.innings) %}
+            {% set _ = ns.innings.append(pa.inning) %}
+          {% endif %}
         {% endfor %}
-      </div>
 
+        {% for inn in ns.innings %}
+          <details class="inning-details" style="margin-top:10px;">
+            <summary class="inning-summary">
+              <span class="inning-pill mono">{{ ordinal(inn) }} Inning</span>
+            </summary>
+            <div style="margin-top:10px;">
+              {% for half in ['Top','Bottom'] %}
+                {% set has_half = false %}
+                {% for pa in game.pas %}
+                  {% if pa.inning == inn and pa.half == half %}
+                    {% set has_half = true %}
+                  {% endif %}
+                {% endfor %}
+
+                {% if has_half %}
+                  <div class="half-header">
+                    <span class="half-pill mono">{{ half }}</span>
+                  </div>
+
+                  {% for pa in game.pas %}
+                    {% if pa.inning == inn and pa.half == half %}
+                      <details class="pa-details" style="margin-bottom:10px;">
+                        <summary class="pa-summary">
+                          <div class="pa-left">
+                            <span>{{ pa.description or "" }}</span>
+                          </div>
+                          <div class="pa-right">
+                            <span class="mono">{{ pa.summaryEvent if pa.summaryEvent is defined else (pa.event or "") }}</span>
+                          </div>
+                        </summary>
+
+                        <div class="pa-body">
+                          <div class="pa-grid">
+                            <!-- Strike Zone Plot -->
+                            <div class="zone-wrap">
+                              <svg class="strike-zone" data-pitches='{{ (pa.pitches or []) | tojson }}' width="200" height="240"></svg>
+                            </div>
+
+                            <!-- Pitch Table (+ batted-ball row) -->
+                            {% if pa.pitches and (pa.pitches|length) > 0 %}
+                              <div class="pitch-wrap">
+                                <div class="zone-title">Pitches</div>
+                                <div style="overflow-x:auto;">
+                                  <table class="tbl">
+                                    <thead>
+                                      <tr>
+                                        <th class="mono">#</th>
+                                        <th>Pitch</th>
+                                        <th class="mono">MPH</th>
+                                        <th class="mono">Spin</th>
+                                        <th class="mono">VMov</th>
+                                        <th class="mono">HMov</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {% for p in pa.pitches %}
+                                        <tr>
+                                          <td class="mono">{{ p.n if p.n is defined else loop.index }}</td>
+                                          <td>{{ p.pitchType if p.pitchType is defined else (p.pitch_name if p.pitch_name is defined else (p.type or "")) }}</td>
+                                          <td class="mono">
+                                            {% if p.mph is defined and p.mph is not none %}
+                                              <span class="grad-pill" style="{{ p.mphStyle if p.mphStyle is defined else '' }}">{{ '%.1f'|format(p.mph) }}{% if p.mphFire %} 🔥{% endif %}</span>
+                                            {% else %}-{% endif %}
+                                          </td>
+                                          <td class="mono">{{ dash(p.spinRate if p.spinRate is defined else none) }}</td>
+                                          <td class="mono">{{ dash(p.vertMove if p.vertMove is defined else none) }}</td>
+                                          <td class="mono">{{ dash(p.horizMove if p.horizMove is defined else none) }}</td>
+                                        </tr>
+                                      {% endfor %}
+                                    </tbody>
+                                  </table>
+                                </div>
+
+                                {% if pa.battedBall is defined and pa.battedBall %}
+                                  <div style="margin-top:8px; overflow-x:auto;">
+                                    <table class="tbl">
+                                      <thead>
+                                        <tr>
+                                          <th class="mono">Exit Velo</th>
+                                          <th class="mono">LA</th>
+                                          <th class="mono">Dist</th>
+                                          <th class="mono">xBA</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        <tr>
+                                          <td class="mono">
+                                            {% if pa.battedBall.exitVelo is not none %}
+                                              <span class="grad-pill" style="{{ pa.battedBall.evStyle if pa.battedBall.evStyle is defined else '' }}">{{ '%.1f'|format(pa.battedBall.exitVelo) }}{% if pa.battedBall.evFire %} 🔥{% endif %}</span>
+                                            {% else %}-{% endif %}
+                                          </td>
+                                          <td class="mono">{% if pa.battedBall.launchAngle is not none %}{{ '%.0f'|format(pa.battedBall.launchAngle) }}°{% else %}-{% endif %}</td>
+                                          <td class="mono">{% if pa.battedBall.distance is not none %}{{ '%.0f'|format(pa.battedBall.distance) }} ft{% else %}-{% endif %}</td>
+                                          <td class="mono">
+                                            {% if pa.battedBall.xBA is not none %}
+                                              {{ '%.3f'|format(pa.battedBall.xBA) }}
+                                            {% else %}-{% endif %}
+                                          </td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                {% endif %}
+                              </div>
+                            {% endif %}
+                          </div>
+                        </div>
+                      </details>
+                    {% endif %}
+                  {% endfor %}
+                {% endif %}
+              {% endfor %}
+            </div>
+
+          </details>
+        {% endfor %}
+
+      </div>
     </div>
   {% endif %}
 </div>
@@ -443,41 +551,31 @@
 
     pitches.forEach(p=>{
       if(p.px === null || p.px === undefined || p.pz === null || p.pz === undefined) return;
-
-      const g = document.createElementNS("http://www.w3.org/2000/svg","g");
-
       const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
       c.setAttribute("cx", xScale(p.px));
       c.setAttribute("cy", yScale(p.pz));
-      c.setAttribute("r", 7);
+      c.setAttribute("r", 8);
 
-      // color spec:
-      // - balls + HBP: green
-      // - called/swinging strikes: red
-      // - fouls: gray
-      // - ball in play: blue
-      let fill = "rgba(91,101,119,.65)"; // default gray
-      if(p.isInPlay) fill = "rgba(59,130,246,.75)";
-      else if(p.isFoul) fill = "rgba(91,101,119,.70)";
-      else if(p.isBall) fill = "rgba(34,197,94,.75)";
-      else if(p.isStrike) fill = "rgba(239,68,68,.75)";
-
-      c.setAttribute("fill", fill);
-      c.setAttribute("stroke", "rgba(15,23,42,.25)");
-      c.setAttribute("stroke-width", "0.6");
-      g.appendChild(c);
-
+      // pitch number
       const t = document.createElementNS("http://www.w3.org/2000/svg","text");
       t.setAttribute("x", xScale(p.px));
       t.setAttribute("y", yScale(p.pz) + 3);
       t.setAttribute("text-anchor", "middle");
       t.setAttribute("font-size", "9");
-      t.setAttribute("font-family", "IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace");
+      t.setAttribute("font-family", "IBM Plex Mono, ui-monospace, Menlo, monospace");
       t.setAttribute("fill", "rgba(255,255,255,.95)");
-      t.textContent = (p.n != null) ? String(p.n) : "";
-      g.appendChild(t);
+      t.textContent = (p.n != null ? p.n : "");
 
-      svg.appendChild(g);
+      let fill = "rgba(148,163,184,.75)"; // default gray
+      if(p.isFoul) fill = "rgba(148,163,184,.75)";
+      else if(p.isInPlay) fill = "rgba(59,130,246,.75)";
+      else if(p.isBall) fill = "rgba(34,197,94,.75)";
+      else if(p.isStrike) fill = "rgba(239,68,68,.75)";
+      c.setAttribute("fill", fill);
+      c.setAttribute("stroke", "rgba(15,23,42,.25)");
+      c.setAttribute("stroke-width", "0.5");
+      svg.appendChild(c);
+      if(t.textContent) svg.appendChild(t);
     });
   }
 
