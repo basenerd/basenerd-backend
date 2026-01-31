@@ -1841,6 +1841,64 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     # ---------------------
     # boxscore (batting + pitching)
     # ---------------------
+        # ---------------------
+    # play-by-play (PBP) cards
+    # Build directly from allPlays so the tab never goes blank
+    # ---------------------
+    pbp_bucket = {}  # (inning, half) -> group
+
+    def _half_sort_key(h):
+        return 0 if (h or "").lower().startswith("top") else 1
+
+    for p in all_plays:
+        about = p.get("about") or {}
+        inning = _safe_int(about.get("inning"), default=None)
+        half = _half_norm(about.get("halfInning"))
+
+        # skip if we can't place it
+        if inning is None or not half:
+            continue
+
+        key = (inning, half)
+        if key not in pbp_bucket:
+            pbp_bucket[key] = {
+                "inning": inning,
+                "half": half,
+                "inningLabel": _inning_label(inning),
+                "plays": []
+            }
+
+        # Useful display fields
+        result = p.get("result") or {}
+        matchup = p.get("matchup") or {}
+        batter = (matchup.get("batter") or {}).get("fullName")
+        pitcher = (matchup.get("pitcher") or {}).get("fullName")
+
+        desc = (result.get("description") or "").strip()
+        event = (result.get("event") or result.get("eventType") or "").strip()
+
+        pbp_bucket[key]["plays"].append({
+            "atBatIndex": about.get("atBatIndex"),
+            "startTime": about.get("startTime"),
+            "endTime": about.get("endTime"),
+            "batter": batter,
+            "pitcher": pitcher,
+            "event": event,
+            "description": desc,
+            "awayScore": result.get("awayScore"),
+            "homeScore": result.get("homeScore"),
+            "isScoringPlay": bool(result.get("isScoringPlay")),
+        })
+
+    # sort plays within each half-inning by atBatIndex
+    for grp in pbp_bucket.values():
+        grp["plays"].sort(key=lambda x: _safe_int(x.get("atBatIndex"), default=10**9))
+
+    # order groups by inning asc, Top then Bottom
+    pbp_out = list(pbp_bucket.values())
+    pbp_out.sort(key=lambda g: (_safe_int(g.get("inning"), default=10**9), _half_sort_key(g.get("half"))))
+
+    game_obj["pbp"] = pbp_out
 
     def _ip_to_outs(ip_val):
         """Convert inningsPitched string like '5.2' to outs (5*3+2)."""
