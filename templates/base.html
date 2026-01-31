@@ -138,6 +138,9 @@
             <a href="/players" class="{% if request.path.startswith('/players') or request.path.startswith('/player/') %}active{% endif %}">
               Players
             </a>
+            <a href="/stats" class="{% if request.path.startswith('/stats') %}active{% endif %}">
+              Stats
+            </a>
             <a href="/teams" class="{% if request.path.startswith('/teams') or request.path.startswith('/team/') %}active{% endif %}">
               Teams
             </a>
