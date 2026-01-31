@@ -76,18 +76,13 @@
   {%- set s = (summary or '') -%}
   {%- set d = (desc or '') -%}
 
-  {# Hits #}
   {%- if 'Home Run' in s -%}HR
   {%- elif 'Triple' in s -%}3B
   {%- elif 'Double' in s -%}2B
   {%- elif 'Single' in s -%}1B
-
-  {# Ks / BB #}
   {%- elif 'Strikeout' in s -%}K
   {%- elif 'Walk' in s -%}BB
   {%- elif 'Hit By Pitch' in s -%}HBP
-
-  {# Outs with fielder position when possible #}
   {%- elif 'flyout' in (d|lower) -%}
     {%- if 'to left fielder' in (d|lower) -%}F7
     {%- elif 'to center fielder' in (d|lower) -%}F8
@@ -115,7 +110,7 @@
   {%- endif -%}
 {%- endmacro %}
 
-{# Find team logo for a player id using boxscore rows (bat or pit). Returns dict-like via namespace values. #}
+{# Find team logo for a player id using boxscore rows (bat or pit). Returns "logo|||abbr" #}
 {% macro team_logo_for(pid, kind) -%}
   {%- set logo = '' -%}
   {%- set abbr = '' -%}
@@ -143,8 +138,24 @@
   {{ logo }}|||{{ abbr }}
 {%- endmacro %}
 
-{# Red/Blue pill style for Overview velos #}
-{% set rb_pill_style = "background:linear-gradient(90deg, rgba(59,130,246,.95), rgba(239,68,68,.95)); color:rgba(255,255,255,.95); border:1px solid rgba(15,23,42,.15);" %}
+{# Overview scoring inning label: "▼2" / "▲5" #}
+{% macro score_inn_short(s) -%}
+  {%- set il = (s.inningLabel if s.inningLabel is defined else '')|string -%}
+  {%- set l = il|lower -%}
+  {%- set icon = '▲' if 'top' in l else ('▼' if ('bot' in l or 'bottom' in l) else '') -%}
+  {%- if s.inning is defined and s.inning -%}
+    {{ icon }}{{ s.inning }}
+  {%- else -%}
+    {# best-effort parse number from inningLabel by stripping words/suffixes #}
+    {%- set n = il
+      |replace('Top','')|replace('top','')
+      |replace('Bottom','')|replace('bottom','')
+      |replace('Inning','')|replace('inning','')
+      |replace('st','')|replace('nd','')|replace('rd','')|replace('th','')
+      |trim -%}
+    {{ icon }}{{ n }}
+  {%- endif -%}
+{%- endmacro %}
 
 {% if error %}
   <div class="card" style="border:1px solid rgba(239,68,68,.35); margin-bottom:14px;">
@@ -176,7 +187,6 @@
         {% if home.record %}<span class="muted">•</span><span class="mono muted">{{ home.abbrev }} {{ home.record }}</span>{% endif %}
       </div>
 
-      {# Probables only if NOT final #}
       {% if (not is_final) and game.probables %}
         <div class="game-hero-row">
           <span class="mono muted">PP:</span>
@@ -186,7 +196,6 @@
         </div>
       {% endif %}
 
-      {# Decisions: support both old keys (w/l/s) and new keys (winner/loser/save) #}
       {% if is_final and game.decisions %}
         {% set wname = game.decisions.winner if game.decisions.winner is defined else game.decisions.w %}
         {% set lname = game.decisions.loser if game.decisions.loser is defined else game.decisions.l %}
@@ -299,16 +308,19 @@
   {% set ev_rows = namespace(items=[]) %}
   {% for pa in (game.pas or []) %}
     {% if pa.battedBall is defined and pa.battedBall and pa.battedBall.exitVelo is not none %}
+      {% set bb = pa.battedBall %}
       {% set _ = ev_rows.items.append({
         "pid": (pa.batterId if pa.batterId is defined else none),
         "name": (pa.batterName if pa.batterName is defined else ''),
         "inning": pa.inning,
-        "ev": pa.battedBall.exitVelo,
-        "la": pa.battedBall.launchAngle,
-        "dist": pa.battedBall.distance,
-        "xba": pa.battedBall.xBA,
+        "ev": bb.exitVelo,
+        "la": bb.launchAngle,
+        "dist": bb.distance,
+        "xba": bb.xBA,
         "summary": (pa.summaryEvent if pa.summaryEvent is defined else ''),
-        "desc": (pa.description if pa.description is defined else '')
+        "desc": (pa.description if pa.description is defined else ''),
+        "evStyle": (bb.evStyle if bb.evStyle is defined else ''),
+        "evFire": (bb.evFire if bb.evFire is defined else false)
       }) %}
     {% endif %}
   {% endfor %}
@@ -325,7 +337,9 @@
           "name": (pa.pitcherName if pa.pitcherName is defined else ''),
           "inning": pa.inning,
           "mph": p.mph,
-          "pitchType": (p.pitchType if p.pitchType is defined else '')
+          "pitchType": (p.pitchType if p.pitchType is defined else ''),
+          "mphStyle": (p.mphStyle if p.mphStyle is defined else ''),
+          "mphFire": (p.mphFire if p.mphFire is defined else false)
         }) %}
       {% endif %}
     {% endfor %}
@@ -337,7 +351,6 @@
   {% set perf = namespace(items=[]) %}
 
   {% if game.box %}
-    {# hitters (away) #}
     {% for r in (game.box.away.batting or []) %}
       {% if (not r.isTotals) and r.playerId %}
         {% set ab = (r.AB|int) %}
@@ -348,19 +361,13 @@
           {% set score = (hr*100) + (rbi*10) + (h*2) %}
           {% set line = (h|string) ~ "-" ~ (ab|string) ~ " • " ~ (hr|string) ~ " HR • " ~ (rbi|string) ~ " RBI" %}
           {% set _ = perf.items.append({
-            "kind":"bat",
-            "pid":r.playerId,
-            "name":r.name,
-            "score":score,
-            "line":line,
-            "team_abbrev": away.abbrev,
-            "team_logo": away.logo_url
+            "kind":"bat","pid":r.playerId,"name":r.name,"score":score,"line":line,
+            "team_abbrev": away.abbrev,"team_logo": away.logo_url
           }) %}
         {% endif %}
       {% endif %}
     {% endfor %}
 
-    {# hitters (home) #}
     {% for r in (game.box.home.batting or []) %}
       {% if (not r.isTotals) and r.playerId %}
         {% set ab = (r.AB|int) %}
@@ -371,19 +378,13 @@
           {% set score = (hr*100) + (rbi*10) + (h*2) %}
           {% set line = (h|string) ~ "-" ~ (ab|string) ~ " • " ~ (hr|string) ~ " HR • " ~ (rbi|string) ~ " RBI" %}
           {% set _ = perf.items.append({
-            "kind":"bat",
-            "pid":r.playerId,
-            "name":r.name,
-            "score":score,
-            "line":line,
-            "team_abbrev": home.abbrev,
-            "team_logo": home.logo_url
+            "kind":"bat","pid":r.playerId,"name":r.name,"score":score,"line":line,
+            "team_abbrev": home.abbrev,"team_logo": home.logo_url
           }) %}
         {% endif %}
       {% endif %}
     {% endfor %}
 
-    {# pitchers (away) #}
     {% for r in (game.box.away.pitching or []) %}
       {% if (not r.isTotals) and r.playerId %}
         {% set outs = (ip_outs(r.IP)|int) %}
@@ -394,19 +395,13 @@
           {% set score = (outs*10) + (so*6) - (er*30) - (h*6) %}
           {% set line = (dash(r.IP)) ~ " IP • " ~ (h|string) ~ " H • " ~ (er|string) ~ " ER • " ~ (so|string) ~ " Ks" %}
           {% set _ = perf.items.append({
-            "kind":"pit",
-            "pid":r.playerId,
-            "name":r.name,
-            "score":score,
-            "line":line,
-            "team_abbrev": away.abbrev,
-            "team_logo": away.logo_url
+            "kind":"pit","pid":r.playerId,"name":r.name,"score":score,"line":line,
+            "team_abbrev": away.abbrev,"team_logo": away.logo_url
           }) %}
         {% endif %}
       {% endif %}
     {% endfor %}
 
-    {# pitchers (home) #}
     {% for r in (game.box.home.pitching or []) %}
       {% if (not r.isTotals) and r.playerId %}
         {% set outs = (ip_outs(r.IP)|int) %}
@@ -417,13 +412,8 @@
           {% set score = (outs*10) + (so*6) - (er*30) - (h*6) %}
           {% set line = (dash(r.IP)) ~ " IP • " ~ (h|string) ~ " H • " ~ (er|string) ~ " ER • " ~ (so|string) ~ " Ks" %}
           {% set _ = perf.items.append({
-            "kind":"pit",
-            "pid":r.playerId,
-            "name":r.name,
-            "score":score,
-            "line":line,
-            "team_abbrev": home.abbrev,
-            "team_logo": home.logo_url
+            "kind":"pit","pid":r.playerId,"name":r.name,"score":score,"line":line,
+            "team_abbrev": home.abbrev,"team_logo": home.logo_url
           }) %}
         {% endif %}
       {% endif %}
@@ -494,7 +484,7 @@
           {% set ss = game.scoring[:8] %}
           {% for s in ss %}
             <div style="display:flex; gap:10px; align-items:flex-start; padding:6px 0; border-bottom:1px solid rgba(226,232,240,.55);">
-              <div class="mono muted" style="min-width:64px;">{{ s.inningLabel }}</div>
+              <div class="mono muted" style="min-width:44px;">{{ score_inn_short(s) }}</div>
               <div style="flex:1; min-width:0;">
                 <div class="small" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                   {{ s.description }}
@@ -566,7 +556,7 @@
                   <td class="mono">{{ dash(r.inning) }}</td>
                   <td class="mono">
                     {% if r.ev is not none %}
-                      <span class="grad-pill" style="{{ rb_pill_style }}">{{ '%.1f'|format(r.ev) }}{% if r.ev >= 100 %} 🔥{% endif %}</span>
+                      <span class="grad-pill" style="{{ r.evStyle }}">{{ '%.1f'|format(r.ev) }}{% if r.evFire %} 🔥{% endif %}</span>
                     {% else %}-{% endif %}
                   </td>
                   <td class="mono">{% if r.la is not none %}{{ '%.0f'|format(r.la) }}°{% else %}-{% endif %}</td>
@@ -628,7 +618,7 @@
                   <td class="mono">{{ dash(r.inning) }}</td>
                   <td class="mono">
                     {% if r.mph is not none %}
-                      <span class="grad-pill" style="{{ rb_pill_style }}">{{ '%.1f'|format(r.mph) }}{% if r.mph >= 98 %} 🔥{% endif %}</span>
+                      <span class="grad-pill" style="{{ r.mphStyle }}">{{ '%.1f'|format(r.mph) }}{% if r.mphFire %} 🔥{% endif %}</span>
                     {% else %}-{% endif %}
                   </td>
                   <td>{{ r.pitchType }}</td>
@@ -656,7 +646,6 @@
     </div>
   {% else %}
 
-    {# Batting side-by-side #}
     <div class="card" style="margin-top:14px;">
       <div class="card-header">
         <div class="card-title">Batting</div>
@@ -678,17 +667,17 @@
                 </thead>
                 <tbody>
                   {% for r in game.box.away.batting %}
-                      <tr class="{% if r.isTotals %}tr-totals{% endif %}">
-                        <td>
-                          <span class="{% if r.indent %}box-indent{% endif %}">
-                            {% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
-                            {% if r.pos and (not r.isTotals) %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
-                          </span>
-                        </td>
-                        <td class="mono">{{ dash(r.AB) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.RBI) }}</td>
-                        <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td>
-                      </tr>
-                    {% endfor %}
+                    <tr class="{% if r.isTotals %}tr-totals{% endif %}">
+                      <td>
+                        <span class="{% if r.indent %}box-indent{% endif %}">
+                          {% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
+                          {% if r.pos and (not r.isTotals) %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
+                        </span>
+                      </td>
+                      <td class="mono">{{ dash(r.AB) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.RBI) }}</td>
+                      <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td>
+                    </tr>
+                  {% endfor %}
                 </tbody>
               </table>
             </div>
@@ -707,17 +696,17 @@
                 </thead>
                 <tbody>
                   {% for r in game.box.home.batting %}
-                      <tr class="{% if r.isTotals %}tr-totals{% endif %}">
-                        <td>
-                          <span class="{% if r.indent %}box-indent{% endif %}">
-                            {% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
-                            {% if r.pos and (not r.isTotals) %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
-                          </span>
-                        </td>
-                        <td class="mono">{{ dash(r.AB) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.RBI) }}</td>
-                        <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td>
-                      </tr>
-                    {% endfor %}
+                    <tr class="{% if r.isTotals %}tr-totals{% endif %}">
+                      <td>
+                        <span class="{% if r.indent %}box-indent{% endif %}">
+                          {% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
+                          {% if r.pos and (not r.isTotals) %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
+                        </span>
+                      </td>
+                      <td class="mono">{{ dash(r.AB) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.RBI) }}</td>
+                      <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td>
+                    </tr>
+                  {% endfor %}
                 </tbody>
               </table>
             </div>
@@ -726,7 +715,6 @@
       </div>
     </div>
 
-    {# Pitching side-by-side #}
     <div class="card" style="margin-top:14px;">
       <div class="card-header">
         <div class="card-title">Pitching</div>
@@ -749,9 +737,7 @@
                 <tbody>
                   {% for r in game.box.away.pitching %}
                     <tr class="{% if r.isTotals %}tr-totals{% endif %}">
-                      <td>
-                        {% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
-                      </td>
+                      <td>{% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
                       <td class="mono">{{ dash(r.IP) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.ER) }}</td>
                       <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td><td class="mono">{{ dash(r.PS) }}</td>
                     </tr>
@@ -775,9 +761,7 @@
                 <tbody>
                   {% for r in game.box.home.pitching %}
                     <tr class="{% if r.isTotals %}tr-totals{% endif %}">
-                      <td>
-                        {% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
-                      </td>
+                      <td>{% if r.playerId and (not r.isTotals) %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
                       <td class="mono">{{ dash(r.IP) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.ER) }}</td>
                       <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td><td class="mono">{{ dash(r.PS) }}</td>
                     </tr>
@@ -842,7 +826,6 @@
 
       <div style="padding: 0 14px 14px 14px;">
 
-        {# Build ordered unique inning list #}
         {% set ns = namespace(innings=[]) %}
         {% for pa in game.pas %}
           {% if pa.inning and (pa.inning not in ns.innings) %}
@@ -881,12 +864,10 @@
 
                       <div class="pa-body">
                         <div class="pa-grid">
-                          <!-- Strike Zone Plot -->
                           <div class="zone-wrap">
                             <svg class="strike-zone" data-pitches='{{ (pa.pitches or []) | tojson }}' width="200" height="240"></svg>
                           </div>
 
-                          <!-- Pitch Table (+ batted-ball row) -->
                           {% if pa.pitches and (pa.pitches|length) > 0 %}
                             <div class="pitch-wrap">
                               <div class="zone-title">Pitches</div>
@@ -960,7 +941,6 @@
                 {% endif %}
               {% endfor %}
             </div>
-
           </details>
         {% endfor %}
 
@@ -971,7 +951,6 @@
 
 <script>
 (function(){
-  // tabs
   const tabs = document.querySelectorAll(".tab-btn");
   const panels = document.querySelectorAll(".tab-panel");
 
@@ -994,7 +973,6 @@
     });
   });
 
-  // strike zone render
   function renderZone(svg, pitches){
     const w = parseFloat(svg.getAttribute("width") || 200);
     const h = parseFloat(svg.getAttribute("height") || 240);
