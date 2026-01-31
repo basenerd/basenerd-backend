@@ -1152,3 +1152,8 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   background:#fff;
 }
 
+.stats-table th.sortable:hover{
+  text-decoration: underline;
+  opacity: 0.9;
+}
+
