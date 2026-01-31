@@ -906,3 +906,159 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   margin-bottom:10px;
 }
 
+/* ===== Game page additions ===== */
+
+.grid2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:14px;
+}
+@media(max-width:900px){
+  .grid2{ grid-template-columns:1fr; }
+}
+
+/* table used in game.html */
+.tbl{
+  width:100%;
+  border-collapse:collapse;
+  table-layout:auto;
+}
+.tbl thead th{
+  text-align:left;
+  font-size:10.5px;
+  color:var(--muted);
+  padding:6px 8px;
+  border-bottom:1px solid var(--border);
+  font-weight:600;
+  font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space:nowrap;
+}
+.tbl td{
+  padding:6px 8px;
+  font-size:11.5px;
+  vertical-align:middle;
+  white-space:nowrap;
+  border-bottom:1px solid rgba(226,232,240,.6);
+}
+.tbl tbody tr:last-child td{ border-bottom:0; }
+
+/* Game hero card */
+.game-hero{
+  border-radius:16px;
+}
+.game-hero-inner{
+  display:flex;
+  align-items:stretch;
+  justify-content:space-between;
+  gap:18px;
+  padding:14px 14px;
+  background: linear-gradient(180deg, #f6f8fb, #eef2f7);
+}
+@media(max-width:900px){
+  .game-hero-inner{ flex-direction:column; }
+}
+
+.game-hero-title{
+  font-weight:900;
+  font-size:16px;
+  letter-spacing:.2px;
+  color:#111318;
+}
+.game-hero-sub{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:6px;
+  font-size:11.5px;
+  color:var(--muted);
+}
+.pill-status{
+  display:inline-flex;
+  align-items:center;
+  padding:5px 10px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background:#fff;
+  font-weight:800;
+  color:#111318;
+}
+
+.game-hero-notes{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:8px;
+  font-size:11px;
+}
+
+.game-hero-row{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+}
+
+.pill-lite{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background:#fff;
+  font-weight:700;
+}
+
+.game-hero-score{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:14px;
+  min-width:320px;
+}
+@media(max-width:900px){
+  .game-hero-score{ justify-content:flex-start; min-width:0; }
+}
+
+.team-score{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.team-score .teamlogo{ height:42px; }
+
+.team-score-line{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+}
+.team-abbrev{ font-size:16px; font-weight:900; }
+.team-runs{ font-size:40px; font-weight:900; line-height:1; letter-spacing:-.5px; }
+.team-score.vs{
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  font-weight:800;
+  color:rgba(91,101,119,.8);
+}
+
+/* PBP tweaks */
+.half-pill{
+  display:inline-flex;
+  align-items:center;
+  padding:3px 8px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background: rgba(15,23,42,.03);
+  font-weight:900;
+  font-size:10.5px;
+  flex:0 0 auto;
+}
+
+.bb-row{
+  margin-top:10px;
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+}
