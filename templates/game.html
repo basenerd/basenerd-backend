@@ -24,14 +24,7 @@
   {%- endif -%}
 {%- endmacro %}
 
-{% macro to_int(v) -%}
-  {%- if v is none or v == '' or v == '-' -%}0{%- else -%}{{ v|int }}{%- endif -%}
-{%- endmacro %}
-
-{% macro to_float(v) -%}
-  {%- if v is none or v == '' or v == '-' -%}0{%- else -%}{{ v|float }}{%- endif -%}
-{%- endmacro %}
-
+{# Convert IP string like "7.2" into outs (23) for simple scoring #}
 {% macro ip_outs(ip_val) -%}
   {%- set s = (ip_val|string)|trim -%}
   {%- if not s or s == '-' -%}
@@ -46,6 +39,7 @@
   {%- endif -%}
 {%- endmacro %}
 
+{# MLB headshot (circle) #}
 {% macro headshot_url(pid, size=80) -%}
   {%- if pid -%}
     https://img.mlbstatic.com/mlb-photos/image/upload/w_{{ size }},q_100/v1/people/{{ pid }}/headshot/67/current
@@ -54,6 +48,7 @@
   {%- endif -%}
 {%- endmacro %}
 
+{# Shorten outcomes: 1B/2B/HR/F8/G6 etc. Best-effort from summary+description #}
 {% macro outcome_short(summary, desc) -%}
   {%- set s = (summary or '') -%}
   {%- set d = (desc or '') -%}
@@ -127,6 +122,7 @@
         {% if home.record %}<span class="muted">•</span><span class="mono muted">{{ home.abbrev }} {{ home.record }}</span>{% endif %}
       </div>
 
+      {# Probables only if NOT final #}
       {% if (not is_final) and game.probables %}
         <div class="game-hero-row">
           <span class="mono muted">PP:</span>
@@ -136,6 +132,7 @@
         </div>
       {% endif %}
 
+      {# Decisions: support both old keys (w/l/s) and new keys (winner/loser/save) #}
       {% if is_final and game.decisions %}
         {% set wname = game.decisions.winner if game.decisions.winner is defined else game.decisions.w %}
         {% set lname = game.decisions.loser if game.decisions.loser is defined else game.decisions.l %}
@@ -175,7 +172,7 @@
 </div>
 
 {# -----------------------------
-   Linescore
+   Linescore moved UNDER game details card
    ----------------------------- #}
 {% set innings = (game.linescore.innings if game.linescore and game.linescore.innings is defined else []) %}
 {% if innings %}
@@ -240,41 +237,44 @@
 <!-- OVERVIEW -->
 <div class="tab-panel active" id="tab-overview">
 
-  {# ---------
-     Build: Top Exit Velos (from game.pas[].battedBall)
-     --------- #}
+  {# -----------------------------
+     Build Overview datasets
+     Requirements:
+       - uses game.pas (with batterId/batterName/pitcherId/pitcherName added in backend)
+       - uses box batting/pitching for Top Performers
+     ----------------------------- #}
+
+  {# Top Exit Velos (from game.pas[].battedBall) #}
   {% set ev_rows = namespace(items=[]) %}
   {% for pa in (game.pas or []) %}
     {% if pa.battedBall is defined and pa.battedBall and pa.battedBall.exitVelo is not none %}
       {% set _ = ev_rows.items.append({
-        "pid": pa.batterId if pa.batterId is defined else none,
-        "name": pa.batterName if pa.batterName is defined else '',
+        "pid": (pa.batterId if pa.batterId is defined else none),
+        "name": (pa.batterName if pa.batterName is defined else ''),
         "inning": pa.inning,
         "ev": pa.battedBall.exitVelo,
         "la": pa.battedBall.launchAngle,
         "dist": pa.battedBall.distance,
         "xba": pa.battedBall.xBA,
-        "summary": pa.summaryEvent if pa.summaryEvent is defined else '',
-        "desc": pa.description if pa.description is defined else ''
+        "summary": (pa.summaryEvent if pa.summaryEvent is defined else ''),
+        "desc": (pa.description if pa.description is defined else '')
       }) %}
     {% endif %}
   {% endfor %}
   {% set ev_sorted = (ev_rows.items|sort(attribute="ev", reverse=true)) %}
   {% set top_ev = ev_sorted[:10] %}
 
-  {# ---------
-     Build: Top Pitch Velos (flatten game.pas[].pitches)
-     --------- #}
+  {# Top Pitch Velos (flatten game.pas[].pitches) #}
   {% set pv_rows = namespace(items=[]) %}
   {% for pa in (game.pas or []) %}
     {% for p in (pa.pitches or []) %}
       {% if p.mph is defined and p.mph is not none %}
         {% set _ = pv_rows.items.append({
-          "pid": pa.pitcherId if pa.pitcherId is defined else none,
-          "name": pa.pitcherName if pa.pitcherName is defined else '',
+          "pid": (pa.pitcherId if pa.pitcherId is defined else none),
+          "name": (pa.pitcherName if pa.pitcherName is defined else ''),
           "inning": pa.inning,
           "mph": p.mph,
-          "pitchType": p.pitchType if p.pitchType is defined else ''
+          "pitchType": (p.pitchType if p.pitchType is defined else '')
         }) %}
       {% endif %}
     {% endfor %}
@@ -282,61 +282,63 @@
   {% set pv_sorted = (pv_rows.items|sort(attribute="mph", reverse=true)) %}
   {% set top_pv = pv_sorted[:10] %}
 
-  {# ---------
-     Build: Top Performers (mix hitters + pitchers from boxscore)
-     --------- #}
+  {# Top Performers (3 best overall, hitter or pitcher) #}
   {% set perf = namespace(items=[]) %}
 
   {% if game.box %}
-    {# hitters #}
+    {# hitters (away) #}
     {% for r in (game.box.away.batting or []) %}
       {% if (not r.isTotals) and r.playerId %}
-        {% set ab = to_int(r.AB) %}
+        {% set ab = (r.AB|int) %}
         {% if ab > 0 %}
-          {% set h  = to_int(r.H) %}
-          {% set hr = to_int(r.HR) %}
-          {% set rbi = to_int(r.RBI) %}
-          {% set score = (hr*100) + (rbi*10) + (h*2) + (ab*0) %}
-          {% set line = (h|string) ~ "-" ~ (ab|string) ~ " • " ~ (hr|string) ~ " HR • " ~ (rbi|string) ~ " RBI" %}
-          {% set _ = perf.items.append({"kind":"bat","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
-        {% endif %}
-      {% endif %}
-    {% endfor %}
-    {% for r in (game.box.home.batting or []) %}
-      {% if (not r.isTotals) and r.playerId %}
-        {% set ab = to_int(r.AB) %}
-        {% if ab > 0 %}
-          {% set h  = to_int(r.H) %}
-          {% set hr = to_int(r.HR) %}
-          {% set rbi = to_int(r.RBI) %}
-          {% set score = (hr*100) + (rbi*10) + (h*2) + (ab*0) %}
+          {% set h = (r.H|int) %}
+          {% set hr = (r.HR|int) %}
+          {% set rbi = (r.RBI|int) %}
+          {% set score = (hr*100) + (rbi*10) + (h*2) %}
           {% set line = (h|string) ~ "-" ~ (ab|string) ~ " • " ~ (hr|string) ~ " HR • " ~ (rbi|string) ~ " RBI" %}
           {% set _ = perf.items.append({"kind":"bat","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
         {% endif %}
       {% endif %}
     {% endfor %}
 
-    {# pitchers #}
+    {# hitters (home) #}
+    {% for r in (game.box.home.batting or []) %}
+      {% if (not r.isTotals) and r.playerId %}
+        {% set ab = (r.AB|int) %}
+        {% if ab > 0 %}
+          {% set h = (r.H|int) %}
+          {% set hr = (r.HR|int) %}
+          {% set rbi = (r.RBI|int) %}
+          {% set score = (hr*100) + (rbi*10) + (h*2) %}
+          {% set line = (h|string) ~ "-" ~ (ab|string) ~ " • " ~ (hr|string) ~ " HR • " ~ (rbi|string) ~ " RBI" %}
+          {% set _ = perf.items.append({"kind":"bat","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+
+    {# pitchers (away) #}
     {% for r in (game.box.away.pitching or []) %}
       {% if (not r.isTotals) and r.playerId %}
         {% set outs = (ip_outs(r.IP)|int) %}
         {% if outs > 0 %}
-          {% set so = to_int(r.SO) %}
-          {% set er = to_int(r.ER) %}
-          {% set h  = to_int(r.H) %}
+          {% set so = (r.SO|int) %}
+          {% set er = (r.ER|int) %}
+          {% set h = (r.H|int) %}
           {% set score = (outs*10) + (so*6) - (er*30) - (h*6) %}
           {% set line = (dash(r.IP)) ~ " IP • " ~ (h|string) ~ " H • " ~ (er|string) ~ " ER • " ~ (so|string) ~ " Ks" %}
           {% set _ = perf.items.append({"kind":"pit","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
         {% endif %}
       {% endif %}
     {% endfor %}
+
+    {# pitchers (home) #}
     {% for r in (game.box.home.pitching or []) %}
       {% if (not r.isTotals) and r.playerId %}
         {% set outs = (ip_outs(r.IP)|int) %}
         {% if outs > 0 %}
-          {% set so = to_int(r.SO) %}
-          {% set er = to_int(r.ER) %}
-          {% set h  = to_int(r.H) %}
+          {% set so = (r.SO|int) %}
+          {% set er = (r.ER|int) %}
+          {% set h = (r.H|int) %}
           {% set score = (outs*10) + (so*6) - (er*30) - (h*6) %}
           {% set line = (dash(r.IP)) ~ " IP • " ~ (h|string) ~ " H • " ~ (er|string) ~ " ER • " ~ (so|string) ~ " Ks" %}
           {% set _ = perf.items.append({"kind":"pit","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
@@ -416,7 +418,7 @@
                   <td class="mono">{{ dash(r.inning) }}</td>
                   <td class="mono">
                     {% if r.ev is not none %}
-                      <span class="grad-pill" style="{{ (r.evStyle if r.evStyle is defined else '') }}">{{ '%.1f'|format(r.ev) }}{% if r.ev >= 100 %} 🔥{% endif %}</span>
+                      <span class="grad-pill">{{ '%.1f'|format(r.ev) }}{% if r.ev >= 100 %} 🔥{% endif %}</span>
                     {% else %}-{% endif %}
                   </td>
                   <td class="mono">{% if r.la is not none %}{{ '%.0f'|format(r.la) }}°{% else %}-{% endif %}</td>
@@ -696,6 +698,7 @@
 
             <div style="margin-top:10px;">
               {% for half in ['Top','Bottom'] %}
+                {# FIX: build list instead of relying on has_half inside loops (Jinja scoping) #}
                 {% set half_pas = (game.pas
                   | selectattr("inning", "equalto", inn)
                   | selectattr("half", "equalto", half)
