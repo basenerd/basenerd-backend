@@ -1573,13 +1573,12 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
       - game.decisions: winner/loser/save (names) + legacy w/l/s
       - game.linescore: innings + team totals (uses '-' instead of None when missing)
       - game.box: away/home batting (pitchers filtered unless they actually batted) + pitching
-      - game.scoring: scoring plays with awayScore/homeScore
+      - game.scoring: scoring plays with awayScore/homeScore (for right-side columns)
       - game.pbp: grouped by inning+half with ordinal inning labels
       - game.pas: plate appearances with:
-          - summaryEvent (event only)
-          - pitches[] with plot fields (px/pz/sz_top/sz_bot/call/desc/isBall/isStrike/isInPlay/n)
-            + table fields (pitchType/mph/spinRate/vertMove/horizMove)
-          - battedBall (exitVelo, launchAngle, sprayAngle, xBA, directionLabel) when ball put in play
+          - summaryEvent (event only, e.g. "Strikeout")
+          - pitches[] with pitchType (spelled out) + spinRate + vertMove + horizMove
+          - battedBall: exitVelo, launchAngle, distance, xBA (if exists)
     """
 
     # ---------------------
@@ -1588,36 +1587,16 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     if (feed or {}).get("scheduleOnly"):
         sg = (feed or {}).get("scheduleGame") or {}
         if sg:
-            # best-effort: return a minimal structure so template can render
-            gd = (sg.get("gameDate") or "").replace("T", " ").replace("Z", "")
-            away = (((sg.get("teams") or {}).get("away") or {}).get("team") or {})
-            home = (((sg.get("teams") or {}).get("home") or {}).get("team") or {})
             return {
-                "statusPill": "Scheduled",
-                "when": gd,
-                "venue": ((sg.get("venue") or {}).get("name")),
-                "away": {
-                    "id": away.get("id"),
-                    "name": away.get("name"),
-                    "abbrev": away.get("abbreviation"),
-                    "logo_url": f"https://www.mlbstatic.com/team-logos/{away.get('id')}.svg" if away.get("id") else None,
-                },
-                "home": {
-                    "id": home.get("id"),
-                    "name": home.get("name"),
-                    "abbrev": home.get("abbreviation"),
-                    "logo_url": f"https://www.mlbstatic.com/team-logos/{home.get('id')}.svg" if home.get("id") else None,
-                },
-                "decisions": {},
-                "linescore": None,
-                "box": None,
-                "scoring": [],
-                "pbp": [],
-                "pas": [],
+                "scheduleOnly": True,
+                "gamePk": sg.get("gamePk"),
+                "gameDate": sg.get("gameDate"),
+                "statusPill": ((sg.get("status") or {}).get("detailedState") or "Scheduled"),
             }
+        return {"scheduleOnly": True}
 
     # ---------------------
-    # small helpers
+    # helpers
     # ---------------------
     def _safe(d: dict, *keys, default=None):
         cur = d
@@ -1627,219 +1606,233 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             cur = cur.get(k)
         return cur if cur is not None else default
 
-    def _safe_int(v, default=0):
+    def _safe_int(x, default=None):
         try:
-            if v is None or v == "":
-                return default
-            return int(float(v))
+            return int(x)
         except Exception:
             return default
 
-    def _safe_float(v, default=0.0):
+    def _safe_float(x, default=None):
         try:
-            if v is None or v == "":
+            if x is None:
                 return default
-            return float(v)
+            return float(x)
         except Exception:
             return default
 
-    def _half_norm(half_inning: str) -> str:
-        if half_inning in ("Top", "Bottom"):
-            return half_inning
-        return (half_inning or "").strip()
+    def _half_norm(s):
+        s = (s or "").lower()
+        if s.startswith("top"):
+            return "top"
+        if s.startswith("bottom"):
+            return "bottom"
+        return s or None
 
-    def _ordinal(n: int) -> str:
+    def _inning_label(n):
         if n is None:
             return ""
+        n = int(n)
         if 10 <= (n % 100) <= 20:
             suf = "th"
         else:
             suf = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
         return f"{n}{suf}"
 
-    # ✅ Change 1: capitalize Inning
-    def _inning_label(n: int) -> str:
-        return f"{_ordinal(n)} Inning" if n else ""
+    def _pretty_pitch_type(pitch_data: dict, details: dict):
+        # Try to get a nice pitch name:
+        # pitchData.pitchTypeDescription can be present; details.type.description also.
+        pt = _safe(pitch_data, "pitchTypeDescription", default=None)
+        if pt:
+            return pt
+        tdesc = _safe(details, "type", "description", default=None)
+        if tdesc:
+            return tdesc
+        # fallback to code
+        code = _safe(details, "type", "code", default=None)
+        return code
 
-    # ✅ For batted ball direction label
     def _spray_label(spray_angle):
+        # kept for now (not used in output), harmless if you want later
         if spray_angle is None:
             return None
         try:
             a = float(spray_angle)
         except Exception:
             return None
-        if a <= -15:
+        if a < -15:
             return "Pull"
-        if a >= 15:
-            return "Oppo"
+        if a > 15:
+            return "Opposite"
         return "Center"
 
-    def _pretty_pitch_type(pitch_data: dict, details: dict) -> str:
-        t = _safe(details, "type", "description", default=None)
-        if t:
-            return t
-        code = _safe(details, "type", "code", default=None) or ""
-        code = str(code).upper()
-        mp = {
-            "FF": "4-Seam Fastball",
-            "FT": "2-Seam Fastball",
-            "SI": "Sinker",
-            "FC": "Cutter",
-            "SL": "Slider",
-            "CU": "Curveball",
-            "KC": "Knuckle Curve",
-            "CH": "Changeup",
-            "FS": "Splitter",
-            "FO": "Forkball",
-            "EP": "Eephus",
-            "KN": "Knuckleball",
-            "SV": "Slurve",
-        }
-        return mp.get(code) or (t or code or "Pitch")
-
     # ---------------------
-    # main containers from feed
+    # base extraction
     # ---------------------
     game_data = (feed or {}).get("gameData") or {}
     live_data = (feed or {}).get("liveData") or {}
-    linescore = (live_data.get("linescore") or {})
-    boxscore = (live_data.get("boxscore") or {})
-    plays = (live_data.get("plays") or {})
-    all_plays = plays.get("allPlays") or []
-    scoring_plays = plays.get("scoringPlays") or []
+    linescore = (live_data or {}).get("linescore") or {}
+    boxscore = (live_data or {}).get("boxscore") or {}
+    plays = (live_data or {}).get("plays") or {}
+
+    game_obj: dict = {}
+
+    # basic IDs
+    game_obj["gamePk"] = _safe(game_data, "game", "pk", default=None) or _safe(game_data, "gamePk", default=None)
+    game_obj["gameDate"] = _safe(game_data, "datetime", "dateTime", default=None) or _safe(game_data, "gameDate", default=None)
+
+    # status pill
+    status = _safe(game_data, "status", default={}) or {}
+    game_obj["statusPill"] = status.get("detailedState") or status.get("abstractGameState") or ""
 
     # ---------------------
-    # teams & header
+    # decisions
     # ---------------------
-    away_team = _safe(game_data, "teams", "away", default={}) or {}
-    home_team = _safe(game_data, "teams", "home", default={}) or {}
+    decisions = _safe(game_data, "decisions", default={}) or {}
+    # winner/loser/save are people objects when hydrated in schedule, but in game feed they may be in decisions too
+    def _person_name(p):
+        if not isinstance(p, dict):
+            return None
+        return p.get("fullName") or p.get("name")
 
-    away_id = away_team.get("id")
-    home_id = home_team.get("id")
-
-    def _logo(tid):
-        return f"https://www.mlbstatic.com/team-logos/{tid}.svg" if tid else None
-
-    status = _safe(game_data, "status", "detailedState", default="") or ""
-    status_pill = status or "Unknown"
-    venue = _safe(game_data, "venue", "name", default=None)
-
-    game_obj = {
-        "statusPill": status_pill,
-        "when": _safe(game_data, "datetime", "dateTime", default=None),
-        "venue": venue,
-        "away": {
-            "id": away_id,
-            "name": away_team.get("name"),
-            "abbrev": away_team.get("abbreviation"),
-            "logo_url": _logo(away_id),
-            "record": None,
-            "score": None,
-        },
-        "home": {
-            "id": home_id,
-            "name": home_team.get("name"),
-            "abbrev": home_team.get("abbreviation"),
-            "logo_url": _logo(home_id),
-            "record": None,
-            "score": None,
-        },
-        "probables": {"away": None, "home": None},
-        "decisions": {},
-        "linescore": None,
-        "box": None,
-        "scoring": [],
-        "pbp": [],
-        "pas": [],
-    }
-
-    # scores if present
-    game_obj["away"]["score"] = _safe_int(_safe(linescore, "teams", "away", "runs", default=None), default=None)
-    game_obj["home"]["score"] = _safe_int(_safe(linescore, "teams", "home", "runs", default=None), default=None)
-
-    # probables (best effort)
-    game_obj["probables"]["away"] = _safe(game_data, "probablePitchers", "away", "fullName", default=None)
-    game_obj["probables"]["home"] = _safe(game_data, "probablePitchers", "home", "fullName", default=None)
-
-    # decisions (best effort)
-    decisions = _safe(live_data, "decisions", default={}) or {}
     game_obj["decisions"] = {
-        "winner": _safe(decisions, "winner", "fullName", default=None),
-        "loser": _safe(decisions, "loser", "fullName", default=None),
-        "save": _safe(decisions, "save", "fullName", default=None),
-        "w": _safe(decisions, "winner", "fullName", default=None),
-        "l": _safe(decisions, "loser", "fullName", default=None),
-        "s": _safe(decisions, "save", "fullName", default=None),
+        "winner": _person_name(decisions.get("winner")),
+        "loser": _person_name(decisions.get("loser")),
+        "save": _person_name(decisions.get("save")),
     }
 
+    # legacy fields (if you use them elsewhere)
+    game_obj["winner"] = game_obj["decisions"]["winner"]
+    game_obj["loser"] = game_obj["decisions"]["loser"]
+    game_obj["save"] = game_obj["decisions"]["save"]
+
     # ---------------------
-    # linescore table
+    # linescore totals + innings
     # ---------------------
-    innings_out = []
-    inn_list = linescore.get("innings") or []
-    for inn in inn_list:
-        innings_out.append(
+    innings = linescore.get("innings") or []
+    away_ls = linescore.get("teams", {}).get("away", {}) if isinstance(linescore.get("teams"), dict) else {}
+    home_ls = linescore.get("teams", {}).get("home", {}) if isinstance(linescore.get("teams"), dict) else {}
+
+    def _dash(v):
+        if v is None or v == "" or v == "None":
+            return "-"
+        return v
+
+    out_innings = []
+    for inn in innings:
+        out_innings.append(
             {
                 "num": _safe_int(inn.get("num"), default=None),
-                "away": {"runs": inn.get("away") and inn["away"].get("runs")},
-                "home": {"runs": inn.get("home") and inn["home"].get("runs")},
+                "away": _dash(_safe(inn, "away", "runs", default=None)),
+                "home": _dash(_safe(inn, "home", "runs", default=None)),
             }
         )
 
-    if inn_list:
-        game_obj["linescore"] = {
-            "innings": innings_out,
-            "teams": {
-                "away": {
-                    "runs": _safe(linescore, "teams", "away", "runs", default=None),
-                    "hits": _safe(linescore, "teams", "away", "hits", default=None),
-                    "errors": _safe(linescore, "teams", "away", "errors", default=None),
-                },
-                "home": {
-                    "runs": _safe(linescore, "teams", "home", "runs", default=None),
-                    "hits": _safe(linescore, "teams", "home", "hits", default=None),
-                    "errors": _safe(linescore, "teams", "home", "errors", default=None),
-                },
-            },
-        }
+    game_obj["linescore"] = {
+        "innings": out_innings,
+        "away": {
+            "R": _dash(away_ls.get("runs")),
+            "H": _dash(away_ls.get("hits")),
+            "E": _dash(away_ls.get("errors")),
+            "LOB": _dash(away_ls.get("leftOnBase")),
+        },
+        "home": {
+            "R": _dash(home_ls.get("runs")),
+            "H": _dash(home_ls.get("hits")),
+            "E": _dash(home_ls.get("errors")),
+            "LOB": _dash(home_ls.get("leftOnBase")),
+        },
+    }
 
     # ---------------------
     # scoring plays
     # ---------------------
-    scoring_out = []
-    for idx in scoring_plays:
+    scoring_plays = []
+    for pid in (plays.get("scoringPlays") or []):
         try:
-            play = all_plays[int(idx)]
+            pid_int = int(pid)
         except Exception:
             continue
-        about = play.get("about") or {}
-        inning = _safe_int(about.get("inning"), default=None)
-        half = _half_norm(about.get("halfInning"))
-        scoring_out.append(
+
+        # scoringPlays contain play indexes into allPlays
+        ap = (plays.get("allPlays") or [])
+        if pid_int < 0 or pid_int >= len(ap):
+            continue
+        p = ap[pid_int] or {}
+        about = p.get("about") or {}
+        result = p.get("result") or {}
+        scoring_plays.append(
             {
-                "inning": inning,
-                "half": half,
-                "inningLabel": _inning_label(inning),
-                "description": _safe(play, "result", "description", default="") or "",
-                "awayScore": _safe_int(_safe(play, "result", "awayScore", default=None), default=None),
-                "homeScore": _safe_int(_safe(play, "result", "homeScore", default=None), default=None),
+                "inning": _safe_int(about.get("inning"), default=None),
+                "half": _half_norm(about.get("halfInning")),
+                "description": result.get("description") or "",
+                "awayScore": _safe_int(about.get("awayScore"), default=None),
+                "homeScore": _safe_int(about.get("homeScore"), default=None),
             }
         )
-    game_obj["scoring"] = scoring_out
+    game_obj["scoring"] = scoring_plays
 
     # ---------------------
-    # boxscore (batting + pitching)
+    # pbp groups (inning + half)
+    # ---------------------
+    all_plays = plays.get("allPlays") or []
+    pbp_groups = {}
+    for p in all_plays:
+        about = p.get("about") or {}
+        inning = _safe_int(about.get("inning"), default=None)
+        half = _half_norm(about.get("halfInning"))
+        key = (inning, half)
+        pbp_groups.setdefault(key, []).append(p)
+
+    pbp_out = []
+    for (inning, half), plist in sorted(pbp_groups.items(), key=lambda x: (x[0][0] or 0, 0 if x[0][1] == "top" else 1)):
+        block = {
+            "inning": inning,
+            "half": half,
+            "inningLabel": _inning_label(inning),
+            "plays": [],
+        }
+        for p in plist:
+            res = p.get("result") or {}
+            about = p.get("about") or {}
+            matchup = p.get("matchup") or {}
+            batter = matchup.get("batter") or {}
+            pitcher = matchup.get("pitcher") or {}
+            block["plays"].append(
+                {
+                    "event": res.get("event") or res.get("eventType") or "",
+                    "description": res.get("description") or "",
+                    "awayScore": _safe_int(about.get("awayScore"), default=None),
+                    "homeScore": _safe_int(about.get("homeScore"), default=None),
+                    "batter": batter.get("fullName"),
+                    "pitcher": pitcher.get("fullName"),
+                }
+            )
+        pbp_out.append(block)
+    game_obj["pbp"] = pbp_out
+
+    # ---------------------
+    # box score helpers
     # ---------------------
     def _extract_batting(side_key: str):
         out = []
         team = _safe(boxscore, "teams", side_key, default={}) or {}
         players = team.get("players") or {}
-        for _, pdata in players.items():
+
+        rows = []
+        for _, pdata in (players or {}).items():
             person = pdata.get("person") or {}
             stats = _safe(pdata, "stats", "batting", default={}) or {}
             pos = _safe(pdata, "position", "abbreviation", default=None)
-            out.append(
+
+            bo_raw = pdata.get("battingOrder")
+            bo_int = _safe_int(bo_raw, default=None)
+
+            # MLB boxscore convention: starters are 100,200,... and subs are 101,102... for the same slot.
+            slot = (bo_int // 100) if bo_int is not None else 999
+            sub_rank = (bo_int % 100) if bo_int is not None else 0
+            is_sub = (bo_int is not None and sub_rank > 0)
+
+            rows.append(
                 {
                     "playerId": person.get("id"),
                     "name": person.get("fullName"),
@@ -1851,31 +1844,60 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                     "BB": stats.get("baseOnBalls"),
                     "SO": stats.get("strikeOuts"),
                     "HR": stats.get("homeRuns"),
+                    "slot": slot,
+                    "sub_rank": sub_rank,
+                    "indent": bool(is_sub),
                 }
             )
+
+        # sort by batting slot, then sub rank (starter first, then subs)
+        rows.sort(key=lambda r: (r.get("slot", 999), r.get("sub_rank", 0), (r.get("name") or "")))
+        out.extend(rows)
         return out
 
     def _extract_pitching(side_key: str):
         out = []
         team = _safe(boxscore, "teams", side_key, default={}) or {}
         players = team.get("players") or {}
-        for _, pdata in players.items():
+
+        # StatsAPI provides an ordered list of pitcher IDs (starter first).
+        ordered_ids = team.get("pitchers") or []
+
+        def _row_from_pdata(pdata: dict):
             person = pdata.get("person") or {}
             stats = _safe(pdata, "stats", "pitching", default={}) or {}
-            out.append(
-                {
-                    "playerId": person.get("id"),
-                    "name": person.get("fullName"),
-                    "IP": stats.get("inningsPitched"),
-                    "H": stats.get("hits"),
-                    "R": stats.get("runs"),
-                    "ER": stats.get("earnedRuns"),
-                    "BB": stats.get("baseOnBalls"),
-                    "SO": stats.get("strikeOuts"),
-                    "HR": stats.get("homeRuns"),
-                    "PS": f"{stats.get('pitchesThrown','-')}-{stats.get('strikes','-')}",
-                }
-            )
+            pitches_thrown = _safe_int(stats.get("pitchesThrown"), default=0) or 0
+
+            # include anyone who threw at least one pitch
+            if pitches_thrown <= 0:
+                return None
+
+            return {
+                "playerId": person.get("id"),
+                "name": person.get("fullName"),
+                "IP": stats.get("inningsPitched"),
+                "H": stats.get("hits"),
+                "R": stats.get("runs"),
+                "ER": stats.get("earnedRuns"),
+                "BB": stats.get("baseOnBalls"),
+                "SO": stats.get("strikeOuts"),
+                "HR": stats.get("homeRuns"),
+                "PS": f"{stats.get('pitchesThrown','-')}-{stats.get('strikes','-')}",
+            }
+
+        if ordered_ids:
+            for pid in ordered_ids:
+                pdata = players.get(f"ID{pid}") or {}
+                row = _row_from_pdata(pdata)
+                if row:
+                    out.append(row)
+        else:
+            # fallback: deterministic but not guaranteed appearance order
+            for _, pdata in (players or {}).items():
+                row = _row_from_pdata(pdata)
+                if row:
+                    out.append(row)
+
         return out
 
     if boxscore.get("teams"):
@@ -1907,20 +1929,27 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
 
             px = _safe_float(pitch_data.get("coordinates", {}).get("pX") if isinstance(pitch_data.get("coordinates"), dict) else None, default=None)
             pz = _safe_float(pitch_data.get("coordinates", {}).get("pZ") if isinstance(pitch_data.get("coordinates"), dict) else None, default=None)
-
-            sz_top = _safe_float(_safe(ev, "pitchData", "strikeZoneTop", default=None), default=None)
-            sz_bot = _safe_float(_safe(ev, "pitchData", "strikeZoneBottom", default=None), default=None)
+            sz_top = _safe_float(pitch_data.get("strikeZoneTop"), default=None)
+            sz_bot = _safe_float(pitch_data.get("strikeZoneBottom"), default=None)
 
             call = _safe(details, "call", "description", default=None) or ""
 
             # boolean helpers
-            is_ball = call.lower().startswith("ball")
-            is_strike = "strike" in call.lower() or call.lower().startswith("foul")
-            is_in_play = "in play" in call.lower()
+            lc = (call or "").lower()
+            is_in_play = "in play" in lc
+            is_foul = lc.startswith("foul")
+            is_hbp = "hit by pitch" in lc
+
+            # balls include HBP per your spec
+            is_ball = lc.startswith("ball") or is_hbp
+
+            # strikes here means called/swinging (NOT in-play); fouls tracked separately
+            is_strike = ("strike" in lc) and (not is_in_play)
 
             pitches_out.append(
                 {
-                    "n": _safe_int(ev.get("pitchNumber"), default=None),
+                    # reset each PA: pitchNumber is per-PA in the feed; fallback to len+1
+                    "n": _safe_int(ev.get("pitchNumber"), default=None) or (len(pitches_out) + 1),
                     "px": px,
                     "pz": pz,
                     "sz_top": sz_top,
@@ -1929,33 +1958,25 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                     "desc": _safe(details, "description", default=None) or "",
                     "isBall": is_ball,
                     "isStrike": is_strike,
+                    "isFoul": is_foul,
                     "isInPlay": is_in_play,
                     # --- your table fields ---
                     "pitchType": _pretty_pitch_type(pitch_data, details),
-                    "mph": _safe_float(pitch_data.get("startSpeed"), default=None),
-                    # ✅ Change 2: spin rate fallback (some feeds use pitchData.breaks.spinRate)
-                    "spinRate": _safe_float(
-                        pitch_data.get("spinRate") if pitch_data.get("spinRate") is not None else breaks.get("spinRate"),
-                        default=None,
-                    ),
-                    "vertMove": _safe_float(breaks.get("breakVertical"), default=None),
-                    "horizMove": _safe_float(breaks.get("breakHorizontal"), default=None),
+                    "startSpeed": _safe_float(pitch_data.get("startSpeed"), default=None),
+                    "endSpeed": _safe_float(pitch_data.get("endSpeed"), default=None),
+                    "spinRate": _safe_float(pitch_data.get("breaks", {}).get("spinRate") if isinstance(pitch_data.get("breaks"), dict) else breaks.get("spinRate"), default=None),
+                    "vertMove": _safe_float(breaks.get("breakVerticalInduced"), default=None),
+                    "horizMove": _safe_float(breaks.get("breakHorizontalInduced"), default=None),
                 }
             )
 
-        # ✅ Change 4: batted ball info (hitData is on a pitch event, not on the play)
+        # --- batted ball (SCRAP hit-location mapping; keep EV/LA/Dist/xBA only) ---
         batted_ball = None
-        hit_ev = None
-
         for ev in (p.get("playEvents") or []):
-            if ev.get("isPitch") is not True:
+            hit = ev.get("hitData") if isinstance(ev.get("hitData"), dict) else None
+            if not hit:
                 continue
-            if isinstance(ev.get("hitData"), dict) and ev.get("hitData"):
-                hit_ev = ev
-                break
 
-        if hit_ev is not None:
-            hit = hit_ev.get("hitData") or {}
             evv = _safe_float(hit.get("launchSpeed"), default=None)
             la = _safe_float(hit.get("launchAngle"), default=None)
             spray = _safe_float(hit.get("sprayAngle"), default=None)
@@ -1970,12 +1991,10 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             batted_ball = {
                 "exitVelo": evv,
                 "launchAngle": la,
-                "sprayAngle": spray,   # keep if you want
-                "xBA": xba,            # keep if you want (often None)
-                "directionLabel": _spray_label(spray),  # optional
-                "coordX": coord_x,
-                "coordY": coord_y,
+                "distance": _safe_float(hit.get("totalDistance"), default=None),
+                "xBA": xba,
             }
+            break
 
         pas_out.append(
             {
@@ -1991,11 +2010,8 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
         )
 
     game_obj["pas"] = pas_out
-
-    # Keep legacy pbp as empty (template is using pas now)
-    game_obj["pbp"] = []
-
     return game_obj
+
 
 
 
