@@ -4,6 +4,26 @@
 {% set away = game.away if game.away is defined else {} %}
 {% set home = game.home if game.home is defined else {} %}
 
+{# -----------------------------
+   Helpers (jinja-side)
+   ----------------------------- #}
+{% set status_lc = (game.statusPill|string)|lower %}
+{% set is_final = ('final' in status_lc) or ('game over' in status_lc) or ('completed' in status_lc) %}
+
+{% macro dash(v) -%}
+  {%- if v is none or v == '' or v == 'None' -%}-{% else %}{{ v }}{% endif -%}
+{%- endmacro %}
+
+{% macro ordinal(n) -%}
+  {%- set nn = (n|int) -%}
+  {%- if 10 <= (nn % 100) <= 20 -%}
+    {{ nn }}th
+  {%- else -%}
+    {%- set s = {1:'st',2:'nd',3:'rd'}.get(nn % 10, 'th') -%}
+    {{ nn }}{{ s }}
+  {%- endif -%}
+{%- endmacro %}
+
 {% if error %}
   <div class="card" style="border:1px solid rgba(239,68,68,.35); margin-bottom:14px;">
     <div class="card-header">
@@ -13,16 +33,17 @@
   </div>
 {% endif %}
 
-<!-- TOP: Matchup card -->
+<!-- TOP: Game details card -->
 <div class="card">
-  <div class="card-header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-    <div>
+  <div class="card-header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+    <div style="min-width:260px;">
       <div class="card-title">
-        {{ game.away.abbrev }} @ {{ game.home.abbrev }}
+        {{ away.abbrev }} @ {{ home.abbrev }}
       </div>
 
       <div class="card-subtitle">
-        {{ game.statusPill }}{% if game.when %}<span class="muted" style="opacity:.6;"> • </span>{{ game.when }}{% endif %}
+        {{ game.statusPill }}
+        {% if game.when %}<span class="muted" style="opacity:.6;"> • </span>{{ game.when }}{% endif %}
         {% if game.venue %}<span class="muted" style="opacity:.6;"> • </span>{{ game.venue }}{% endif %}
       </div>
 
@@ -31,7 +52,8 @@
         {% if home.record %}<span class="muted" style="opacity:.6;"> • </span>{{ home.abbrev }} {{ home.record }}{% endif %}
       </div>
 
-      {% if game.probables %}
+      {# Probables only if NOT final #}
+      {% if (not is_final) and game.probables %}
         <div class="small" style="margin-top:10px;">
           <span class="mono muted">PP:</span>
           {% if game.probables.away %} {{ away.abbrev }} {{ game.probables.away }}{% endif %}
@@ -39,27 +61,102 @@
         </div>
       {% endif %}
 
-      {% if game.decisions %}
-        <div class="small" style="margin-top:6px;">
-          <span class="mono muted">Decisions:</span>
-          {% if game.decisions.w %} W {{ game.decisions.w }}{% endif %}
-          {% if game.decisions.l %}<span class="muted" style="opacity:.6;"> • </span>L {{ game.decisions.l }}{% endif %}
-          {% if game.decisions.s %}<span class="muted" style="opacity:.6;"> • </span>S {{ game.decisions.s }}{% endif %}
+      {# Decisions: support both old keys (w/l/s) and new keys (winner/loser/save) #}
+      {% if is_final and game.decisions %}
+        {% set wname = game.decisions.winner if game.decisions.winner is defined else game.decisions.w %}
+        {% set lname = game.decisions.loser if game.decisions.loser is defined else game.decisions.l %}
+        {% set sname = game.decisions.save if game.decisions.save is defined else game.decisions.s %}
+        <div class="small" style="margin-top:10px; display:flex; gap:16px; flex-wrap:wrap;">
+          <div><span class="mono muted">W:</span> {{ dash(wname) }}</div>
+          <div><span class="mono muted">L:</span> {{ dash(lname) }}</div>
+          <div><span class="mono muted">SV:</span> {{ dash(sname) }}</div>
         </div>
       {% endif %}
     </div>
 
-    <div style="display:flex; align-items:center; gap:10px;">
-      {% if away.logo_url %}
-        <img class="teamlogo" src="{{ away.logo_url }}" alt="{{ away.abbrev }} logo" style="height:34px;">
-      {% endif %}
-      <span class="muted" style="opacity:.7;">@</span>
-      {% if home.logo_url %}
-        <img class="teamlogo" src="{{ home.logo_url }}" alt="{{ home.abbrev }} logo" style="height:34px;">
-      {% endif %}
+    {# Scoreboard / logos #}
+    <div style="flex:1; min-width:320px; display:flex; justify-content:flex-end;">
+      <div style="display:flex; align-items:center; gap:14px; padding-top:2px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          {% if away.logo_url %}
+            <img class="teamlogo" src="{{ away.logo_url }}" alt="{{ away.abbrev }} logo" style="height:38px;">
+          {% endif %}
+          <div style="display:flex; align-items:baseline; gap:8px;">
+            <div class="mono" style="font-size:18px;">{{ away.abbrev }}</div>
+            <div class="mono" style="font-size:34px; line-height:1;">{{ dash(away.score if away.score is defined else away.runs if away.runs is defined else none) }}</div>
+          </div>
+        </div>
+
+        <div class="mono muted" style="opacity:.7; font-size:18px;">@</div>
+
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="display:flex; align-items:baseline; gap:8px;">
+            <div class="mono" style="font-size:34px; line-height:1;">{{ dash(home.score if home.score is defined else home.runs if home.runs is defined else none) }}</div>
+            <div class="mono" style="font-size:18px;">{{ home.abbrev }}</div>
+          </div>
+          {% if home.logo_url %}
+            <img class="teamlogo" src="{{ home.logo_url }}" alt="{{ home.abbrev }} logo" style="height:38px;">
+          {% endif %}
+        </div>
+      </div>
     </div>
   </div>
 </div>
+
+{# -----------------------------
+   Linescore moved UNDER game details card
+   ----------------------------- #}
+{% set innings = (game.linescore.innings if game.linescore and game.linescore.innings is defined else []) %}
+{% if innings %}
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="card-title">Linescore</div>
+    </div>
+
+    <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th></th>
+            {% for inn in innings %}
+              <th class="mono" style="text-align:center;">{{ inn.num }}</th>
+            {% endfor %}
+            <th class="mono" style="text-align:center;">R</th>
+            <th class="mono" style="text-align:center;">H</th>
+            <th class="mono" style="text-align:center;">E</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">
+              {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
+              {{ away.abbrev }}
+            </td>
+            {% for inn in innings %}
+              <td class="mono" style="text-align:center;">{{ dash(inn.away.runs if inn.away is defined else none) }}</td>
+            {% endfor %}
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.away.runs) }}</td>
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.away.hits) }}</td>
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.away.errors) }}</td>
+          </tr>
+
+          <tr>
+            <td class="mono">
+              {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
+              {{ home.abbrev }}
+            </td>
+            {% for inn in innings %}
+              <td class="mono" style="text-align:center;">{{ dash(inn.home.runs if inn.home is defined else none) }}</td>
+            {% endfor %}
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.home.runs) }}</td>
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.home.hits) }}</td>
+            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.home.errors) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
 
 <!-- Tabs -->
 <div class="tabs" style="margin-top:14px;">
@@ -69,65 +166,14 @@
   <button class="tab-btn" data-tab="pbp">Play-by-Play</button>
 </div>
 
-<!-- OVERVIEW -->
+<!-- OVERVIEW (kept empty for now) -->
 <div class="tab-panel active" id="tab-overview">
-  {% set innings = (game.linescore.innings if game.linescore and game.linescore.innings is defined else []) %}
-  {% if innings %}
-    <div class="card" style="margin-top:14px;">
-      <div class="card-header">
-        <div class="card-title">Linescore</div>
-        <div class="card-subtitle">By inning</div>
-      </div>
-      <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
-        <table class="tbl">
-          <thead>
-            <tr>
-              <th></th>
-              {% for inn in innings %}
-                <th class="mono" style="text-align:center;">{{ inn.num }}</th>
-              {% endfor %}
-              <th class="mono" style="text-align:center;">R</th>
-              <th class="mono" style="text-align:center;">H</th>
-              <th class="mono" style="text-align:center;">E</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mono">
-                {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
-                {{ away.abbrev }}
-              </td>
-              {% for inn in innings %}
-                <td class="mono" style="text-align:center;">{{ (inn.away.runs if inn.away is defined else "") }}</td>
-              {% endfor %}
-              <td class="mono" style="text-align:center;">{{ game.linescore.teams.away.runs }}</td>
-              <td class="mono" style="text-align:center;">{{ game.linescore.teams.away.hits }}</td>
-              <td class="mono" style="text-align:center;">{{ game.linescore.teams.away.errors }}</td>
-            </tr>
-            <tr>
-              <td class="mono">
-                {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
-                {{ home.abbrev }}
-              </td>
-              {% for inn in innings %}
-                <td class="mono" style="text-align:center;">{{ (inn.home.runs if inn.home is defined else "") }}</td>
-              {% endfor %}
-              <td class="mono" style="text-align:center;">{{ game.linescore.teams.home.runs }}</td>
-              <td class="mono" style="text-align:center;">{{ game.linescore.teams.home.hits }}</td>
-              <td class="mono" style="text-align:center;">{{ game.linescore.teams.home.errors }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="card-title">Overview</div>
+      <div class="card-subtitle">Coming soon.</div>
     </div>
-  {% else %}
-    <div class="card" style="margin-top:14px;">
-      <div class="card-header">
-        <div class="card-title">Overview</div>
-        <div class="card-subtitle">Linescore not available for this status yet.</div>
-      </div>
-    </div>
-  {% endif %}
+  </div>
 </div>
 
 <!-- BOX -->
@@ -140,10 +186,12 @@
       </div>
     </div>
   {% else %}
+
+    {# Batting side-by-side #}
     <div class="card" style="margin-top:14px;">
       <div class="card-header">
-        <div class="card-title">Box</div>
-        <div class="card-subtitle">Batting + pitching</div>
+        <div class="card-title">Batting</div>
+        <div class="card-subtitle">{{ away.abbrev }} vs {{ home.abbrev }}</div>
       </div>
 
       <div style="padding: 0 14px 14px 14px;">
@@ -156,41 +204,25 @@
                   <tr>
                     <th>Player</th>
                     <th class="mono">AB</th><th class="mono">R</th><th class="mono">H</th><th class="mono">RBI</th>
-                    <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">AVG</th>
+                    <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th>
+                    {# AVG removed for now #}
                   </tr>
                 </thead>
                 <tbody>
                   {% for r in game.box.away.batting %}
-                    <tr>
-                      <td>
-                        {% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
-                        {% if r.pos %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
-                      </td>
-                      <td class="mono">{{ r.AB }}</td><td class="mono">{{ r.R }}</td><td class="mono">{{ r.H }}</td><td class="mono">{{ r.RBI }}</td>
-                      <td class="mono">{{ r.BB }}</td><td class="mono">{{ r.SO }}</td><td class="mono">{{ r.HR }}</td><td class="mono">{{ r.AVG }}</td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-
-            <div class="mono muted small" style="margin: 16px 0 6px 0;">{{ away.abbrev }} Pitching</div>
-            <div style="overflow-x:auto;">
-              <table class="tbl">
-                <thead>
-                  <tr>
-                    <th>Pitcher</th>
-                    <th class="mono">IP</th><th class="mono">H</th><th class="mono">R</th><th class="mono">ER</th>
-                    <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">ERA</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for r in game.box.away.pitching %}
-                    <tr>
-                      <td>{% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
-                      <td class="mono">{{ r.IP }}</td><td class="mono">{{ r.H }}</td><td class="mono">{{ r.R }}</td><td class="mono">{{ r.ER }}</td>
-                      <td class="mono">{{ r.BB }}</td><td class="mono">{{ r.SO }}</td><td class="mono">{{ r.HR }}</td><td class="mono">{{ r.ERA }}</td>
-                    </tr>
+                    {# extra safety: skip pitchers with no batting impact if backend didn't filter #}
+                    {% set is_pitcher = (r.pos|string)|upper == 'P' %}
+                    {% set abv = (r.AB if r.AB is defined else 0) %}
+                    {% if not (is_pitcher and (abv == 0 or abv == '-' or abv is none)) %}
+                      <tr>
+                        <td>
+                          {% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
+                          {% if r.pos %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
+                        </td>
+                        <td class="mono">{{ dash(r.AB) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.RBI) }}</td>
+                        <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td>
+                      </tr>
+                    {% endif %}
                   {% endfor %}
                 </tbody>
               </table>
@@ -205,25 +237,59 @@
                   <tr>
                     <th>Player</th>
                     <th class="mono">AB</th><th class="mono">R</th><th class="mono">H</th><th class="mono">RBI</th>
-                    <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">AVG</th>
+                    <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th>
+                    {# AVG removed for now #}
                   </tr>
                 </thead>
                 <tbody>
                   {% for r in game.box.home.batting %}
+                    {% set is_pitcher = (r.pos|string)|upper == 'P' %}
+                    {% set abv = (r.AB if r.AB is defined else 0) %}
+                    {% if not (is_pitcher and (abv == 0 or abv == '-' or abv is none)) %}
+                      <tr>
+                        <td>
+                          {% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
+                          {% if r.pos %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
+                        </td>
+                        <td class="mono">{{ dash(r.AB) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.RBI) }}</td>
+                        <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td>
+                      </tr>
+                    {% endif %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {# Pitching (optional section below) #}
+        <div class="grid2" style="margin-top:16px;">
+          <div>
+            <div class="mono muted small" style="margin: 8px 0 6px 0;">{{ away.abbrev }} Pitching</div>
+            <div style="overflow-x:auto;">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th>Pitcher</th>
+                    <th class="mono">IP</th><th class="mono">H</th><th class="mono">R</th><th class="mono">ER</th>
+                    <th class="mono">BB</th><th class="mono">SO</th><th class="mono">HR</th><th class="mono">ERA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for r in game.box.away.pitching %}
                     <tr>
-                      <td>
-                        {% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
-                        {% if r.pos %}<span class="muted small"> {{ r.pos }}</span>{% endif %}
-                      </td>
-                      <td class="mono">{{ r.AB }}</td><td class="mono">{{ r.R }}</td><td class="mono">{{ r.H }}</td><td class="mono">{{ r.RBI }}</td>
-                      <td class="mono">{{ r.BB }}</td><td class="mono">{{ r.SO }}</td><td class="mono">{{ r.HR }}</td><td class="mono">{{ r.AVG }}</td>
+                      <td>{% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
+                      <td class="mono">{{ dash(r.IP) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.ER) }}</td>
+                      <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td><td class="mono">{{ dash(r.ERA) }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
+          </div>
 
-            <div class="mono muted small" style="margin: 16px 0 6px 0;">{{ home.abbrev }} Pitching</div>
+          <div>
+            <div class="mono muted small" style="margin: 8px 0 6px 0;">{{ home.abbrev }} Pitching</div>
             <div style="overflow-x:auto;">
               <table class="tbl">
                 <thead>
@@ -237,16 +303,16 @@
                   {% for r in game.box.home.pitching %}
                     <tr>
                       <td>{% if r.playerId %}<a href="/player/{{ r.playerId }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
-                      <td class="mono">{{ r.IP }}</td><td class="mono">{{ r.H }}</td><td class="mono">{{ r.R }}</td><td class="mono">{{ r.ER }}</td>
-                      <td class="mono">{{ r.BB }}</td><td class="mono">{{ r.SO }}</td><td class="mono">{{ r.HR }}</td><td class="mono">{{ r.ERA }}</td>
+                      <td class="mono">{{ dash(r.IP) }}</td><td class="mono">{{ dash(r.H) }}</td><td class="mono">{{ dash(r.R) }}</td><td class="mono">{{ dash(r.ER) }}</td>
+                      <td class="mono">{{ dash(r.BB) }}</td><td class="mono">{{ dash(r.SO) }}</td><td class="mono">{{ dash(r.HR) }}</td><td class="mono">{{ dash(r.ERA) }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
-
           </div>
         </div>
+
       </div>
     </div>
   {% endif %}
@@ -267,12 +333,27 @@
         <div class="card-title">Scoring plays</div>
         <div class="card-subtitle">{{ game.scoring|length }} plays</div>
       </div>
+
       <div style="padding: 0 14px 14px 14px;">
         {% for x in game.scoring %}
-          <div class="row" style="padding:10px 0; border-bottom:1px solid rgba(226,232,240,.7);">
-            <div class="mono muted small">{{ x.half }} {{ x.inning }}</div>
-            <div style="margin-top:3px;">{{ x.description }}</div>
-            <div class="mono muted small" style="margin-top:3px;">{{ x.awayScore }}-{{ x.homeScore }}</div>
+          <div class="row" style="padding:10px 0; border-bottom:1px solid rgba(226,232,240,.7); display:flex; justify-content:space-between; gap:14px; align-items:flex-start;">
+            <div style="flex:1; min-width:0;">
+              <div class="mono muted small">
+                {{ x.inningLabel if x.inningLabel is defined else (x.half ~ ' ' ~ x.inning) }}
+              </div>
+              <div style="margin-top:3px;">{{ x.description }}</div>
+            </div>
+
+            <div style="display:flex; gap:12px; align-items:center;">
+              <div style="display:flex; align-items:center; gap:8px; min-width:56px; justify-content:flex-end;">
+                {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" style="height:16px;">{% endif %}
+                <div class="mono">{{ dash(x.awayScore) }}</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; min-width:56px; justify-content:flex-end;">
+                {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" style="height:16px;">{% endif %}
+                <div class="mono">{{ dash(x.homeScore) }}</div>
+              </div>
+            </div>
           </div>
         {% endfor %}
       </div>
@@ -280,7 +361,7 @@
   {% endif %}
 </div>
 
-<!-- PLAY-BY-PLAY (consolidated PA-style UI) -->
+<!-- PLAY-BY-PLAY (PA-style UI) -->
 <div class="tab-panel" id="tab-pbp">
   {% if not game.pas %}
     <div class="card" style="margin-top:14px;">
@@ -309,26 +390,28 @@
         {% for inn in ns.innings %}
           <details class="inning-details" open style="margin-top:10px;">
             <summary class="inning-summary">
-              <span class="mono">Inning {{ inn }}</span>
+              <span class="mono">{{ ordinal(inn) }} inning</span>
               <span class="muted small">Top + Bottom</span>
             </summary>
 
             <div style="margin-top:10px;">
               <div class="mono muted small" style="margin: 6px 0;">Top</div>
+
               {% set any_top = false %}
               {% for pa in game.pas %}
-                {% if pa.inning == inn and pa.half == "Top" %}
+                {% set half_val = pa.half if pa.half is defined else '' %}
+                {% if pa.inning == inn and (half_val == "Top" or half_val == "TOP") %}
                   {% set any_top = true %}
                   <details class="pa-details" style="margin-bottom:10px;">
                     <summary class="pa-summary">
                       <div class="pa-left">
-                        <span>{{ pa.description or pa.event or "" }}</span>
+                        <span>{{ pa.description or "" }}</span>
                       </div>
                       <div class="pa-right">
-                        <span class="mono">{{ pa.event or "" }}</span>
-                        {% if pa.rbi is not none %}<span class="muted" style="opacity:.6;">•</span><span class="mono muted">RBI {{ pa.rbi }}</span>{% endif %}
-                        <span class="muted" style="opacity:.6;">•</span>
-                        <span class="mono">{{ pa.awayScore }}-{{ pa.homeScore }}</span>
+                        {# ONLY show event/summary on the right #}
+                        <span class="mono">
+                          {{ pa.summaryEvent if pa.summaryEvent is defined else (pa.event or "") }}
+                        </span>
                       </div>
                     </summary>
 
@@ -352,30 +435,41 @@
                               <thead>
                                 <tr>
                                   <th class="mono">#</th>
-                                  <th class="mono">Type</th>
+                                  <th>Pitch</th>
                                   <th class="mono">MPH</th>
-                                  <th>Call</th>
-                                  <th class="mono">pX</th>
-                                  <th class="mono">pZ</th>
-                                  <th class="mono">Count</th>
+                                  <th class="mono">Spin</th>
+                                  <th class="mono">VMov</th>
+                                  <th class="mono">HMov</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {% for p in pa.pitches %}
                                   <tr>
-                                    <td class="mono">{{ p.n }}</td>
-                                    <td class="mono">{{ p.type }}</td>
-                                    <td class="mono">{{ p.mph }}</td>
-                                    <td>{{ p.call }}</td>
-                                    <td class="mono">{{ "%.2f"|format(p.px) if p.px is not none else "" }}</td>
-                                    <td class="mono">{{ "%.2f"|format(p.pz) if p.pz is not none else "" }}</td>
-                                    <td class="mono">{{ p.balls }}-{{ p.strikes }}</td>
+                                    <td class="mono">{{ p.n if p.n is defined else loop.index }}</td>
+                                    <td>
+                                      {{ p.pitchType if p.pitchType is defined else (p.pitch_name if p.pitch_name is defined else (p.type or "")) }}
+                                    </td>
+                                    <td class="mono">
+                                      {{ dash(p.mph if p.mph is defined else p.startSpeed if p.startSpeed is defined else none) }}
+                                    </td>
+                                    <td class="mono">{{ dash(p.spinRate if p.spinRate is defined else none) }}</td>
+                                    <td class="mono">{{ dash(p.vertMove if p.vertMove is defined else none) }}</td>
+                                    <td class="mono">{{ dash(p.horizMove if p.horizMove is defined else none) }}</td>
                                   </tr>
                                 {% endfor %}
                               </tbody>
                             </table>
                           </div>
                         </div>
+                      </div>
+                    {% endif %}
+
+                    {# Batted ball footer #}
+                    {% if pa.battedBall is defined and pa.battedBall %}
+                      <div class="muted small" style="margin-top:10px; display:flex; gap:16px; flex-wrap:wrap;">
+                        <div><span class="mono">EV:</span> {{ dash(pa.battedBall.exitVelo) }}{% if pa.battedBall.exitVelo is not none %} mph{% endif %}</div>
+                        <div><span class="mono">Dist:</span> {{ dash(pa.battedBall.distance) }}{% if pa.battedBall.distance is not none %} ft{% endif %}</div>
+                        <div><span class="mono">Dir:</span> {{ dash(pa.battedBall.direction) }}</div>
                       </div>
                     {% endif %}
                   </details>
@@ -386,20 +480,21 @@
               {% endif %}
 
               <div class="mono muted small" style="margin: 14px 0 6px 0;">Bottom</div>
+
               {% set any_bot = false %}
               {% for pa in game.pas %}
-                {% if pa.inning == inn and pa.half == "Bottom" %}
+                {% set half_val = pa.half if pa.half is defined else '' %}
+                {% if pa.inning == inn and (half_val == "Bottom" or half_val == "Bot" or half_val == "BOTTOM") %}
                   {% set any_bot = true %}
                   <details class="pa-details" style="margin-bottom:10px;">
                     <summary class="pa-summary">
                       <div class="pa-left">
-                        <span>{{ pa.description or pa.event or "" }}</span>
+                        <span>{{ pa.description or "" }}</span>
                       </div>
                       <div class="pa-right">
-                        <span class="mono">{{ pa.event or "" }}</span>
-                        {% if pa.rbi is not none %}<span class="muted" style="opacity:.6;">•</span><span class="mono muted">RBI {{ pa.rbi }}</span>{% endif %}
-                        <span class="muted" style="opacity:.6;">•</span>
-                        <span class="mono">{{ pa.awayScore }}-{{ pa.homeScore }}</span>
+                        <span class="mono">
+                          {{ pa.summaryEvent if pa.summaryEvent is defined else (pa.event or "") }}
+                        </span>
                       </div>
                     </summary>
 
@@ -423,24 +518,26 @@
                               <thead>
                                 <tr>
                                   <th class="mono">#</th>
-                                  <th class="mono">Type</th>
+                                  <th>Pitch</th>
                                   <th class="mono">MPH</th>
-                                  <th>Call</th>
-                                  <th class="mono">pX</th>
-                                  <th class="mono">pZ</th>
-                                  <th class="mono">Count</th>
+                                  <th class="mono">Spin</th>
+                                  <th class="mono">VMov</th>
+                                  <th class="mono">HMov</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {% for p in pa.pitches %}
                                   <tr>
-                                    <td class="mono">{{ p.n }}</td>
-                                    <td class="mono">{{ p.type }}</td>
-                                    <td class="mono">{{ p.mph }}</td>
-                                    <td>{{ p.call }}</td>
-                                    <td class="mono">{{ "%.2f"|format(p.px) if p.px is not none else "" }}</td>
-                                    <td class="mono">{{ "%.2f"|format(p.pz) if p.pz is not none else "" }}</td>
-                                    <td class="mono">{{ p.balls }}-{{ p.strikes }}</td>
+                                    <td class="mono">{{ p.n if p.n is defined else loop.index }}</td>
+                                    <td>
+                                      {{ p.pitchType if p.pitchType is defined else (p.pitch_name if p.pitch_name is defined else (p.type or "")) }}
+                                    </td>
+                                    <td class="mono">
+                                      {{ dash(p.mph if p.mph is defined else p.startSpeed if p.startSpeed is defined else none) }}
+                                    </td>
+                                    <td class="mono">{{ dash(p.spinRate if p.spinRate is defined else none) }}</td>
+                                    <td class="mono">{{ dash(p.vertMove if p.vertMove is defined else none) }}</td>
+                                    <td class="mono">{{ dash(p.horizMove if p.horizMove is defined else none) }}</td>
                                   </tr>
                                 {% endfor %}
                               </tbody>
@@ -449,17 +546,23 @@
                         </div>
                       </div>
                     {% endif %}
+
+                    {% if pa.battedBall is defined and pa.battedBall %}
+                      <div class="muted small" style="margin-top:10px; display:flex; gap:16px; flex-wrap:wrap;">
+                        <div><span class="mono">EV:</span> {{ dash(pa.battedBall.exitVelo) }}{% if pa.battedBall.exitVelo is not none %} mph{% endif %}</div>
+                        <div><span class="mono">Dist:</span> {{ dash(pa.battedBall.distance) }}{% if pa.battedBall.distance is not none %} ft{% endif %}</div>
+                        <div><span class="mono">Dir:</span> {{ dash(pa.battedBall.direction) }}</div>
+                      </div>
+                    {% endif %}
                   </details>
                 {% endif %}
               {% endfor %}
               {% if not any_bot %}
                 <div class="muted small" style="margin: 6px 0 0 0;">No plays recorded.</div>
               {% endif %}
-
             </div>
           </details>
         {% endfor %}
-
       </div>
     </div>
   {% endif %}
@@ -529,7 +632,7 @@
       const zoneH = Math.max(0.1, szTop - szBot);
 
       // "Canvas" ranges (bigger than the strike zone)
-      const xMin = -1.5, xMax =  1.5;      // feet, centered at 0
+      const xMin = -1.5, xMax =  1.5;        // feet, centered at 0
       const yMin = -1.0, yMax = zoneH + 1.0; // zone-relative feet
 
       function xToSvg(xFeet){
