@@ -1645,21 +1645,21 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             suf = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
         return f"{n}{suf}"
 
-        def _inning_label(n: int) -> str:
-            return f"{_ordinal(n)} Inning" if n else ""
+    def _inning_label(n: int) -> str:
+        return f"{_ordinal(n)} Inning" if n else ""
     
-        def _spray_label(spray_angle: Optional[float]) -> Optional[str]:
-            """Rough pull/center/oppo label from spray angle (degrees)."""
-            if spray_angle is None:
-                return None
-            try:
-                a = float(spray_angle)
-            except Exception:
-                return None
-            if a <= -15:
-                return "Pull"
-            if a >= 15:
-                return "Oppo"
+    def _spray_label(spray_angle: Optional[float]) -> Optional[str]:
+        """Rough pull/center/oppo label from spray angle (degrees)."""
+        if spray_angle is None:
+            return None
+        try:
+            a = float(spray_angle)
+        except Exception:
+            return None
+        if a <= -15:
+            return "Pull"
+        if a >= 15:
+            return "Oppo"
             return "Center"
 
 
