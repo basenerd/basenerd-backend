@@ -11,7 +11,7 @@
 {% set is_final = ('final' in status_lc) or ('game over' in status_lc) or ('completed' in status_lc) %}
 
 {% macro dash(v) -%}
-  {%- if v is none or v == '' or v == 'None' -%}-{% else %}{{ v }}{% endif -%}
+  {%- if v is none or v == '' or v == 'None' or v == '-' -%}-{% else %}{{ v }}{% endif -%}
 {%- endmacro %}
 
 {% macro ordinal(n) -%}
@@ -21,6 +21,79 @@
   {%- else -%}
     {%- set s = {1:'st',2:'nd',3:'rd'}.get(nn % 10, 'th') -%}
     {{ nn }}{{ s }}
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro to_int(v) -%}
+  {%- if v is none or v == '' or v == '-' -%}0{%- else -%}{{ v|int }}{%- endif -%}
+{%- endmacro %}
+
+{% macro to_float(v) -%}
+  {%- if v is none or v == '' or v == '-' -%}0{%- else -%}{{ v|float }}{%- endif -%}
+{%- endmacro %}
+
+{% macro ip_outs(ip_val) -%}
+  {%- set s = (ip_val|string)|trim -%}
+  {%- if not s or s == '-' -%}
+    0
+  {%- elif '.' in s -%}
+    {%- set parts = s.split('.', 1) -%}
+    {%- set whole = (parts[0]|int) -%}
+    {%- set frac = (parts[1]|int) -%}
+    {{ whole*3 + frac }}
+  {%- else -%}
+    {{ (s|int) * 3 }}
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro headshot_url(pid, size=80) -%}
+  {%- if pid -%}
+    https://img.mlbstatic.com/mlb-photos/image/upload/w_{{ size }},q_100/v1/people/{{ pid }}/headshot/67/current
+  {%- else -%}
+    ""
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro outcome_short(summary, desc) -%}
+  {%- set s = (summary or '') -%}
+  {%- set d = (desc or '') -%}
+
+  {# Hits #}
+  {%- if 'Home Run' in s -%}HR
+  {%- elif 'Triple' in s -%}3B
+  {%- elif 'Double' in s -%}2B
+  {%- elif 'Single' in s -%}1B
+
+  {# Ks / BB #}
+  {%- elif 'Strikeout' in s -%}K
+  {%- elif 'Walk' in s -%}BB
+  {%- elif 'Hit By Pitch' in s -%}HBP
+
+  {# Outs with fielder position when possible #}
+  {%- elif 'flyout' in (d|lower) -%}
+    {%- if 'to left fielder' in (d|lower) -%}F7
+    {%- elif 'to center fielder' in (d|lower) -%}F8
+    {%- elif 'to right fielder' in (d|lower) -%}F9
+    {%- else -%}FO{%- endif -%}
+  {%- elif 'lineout' in (d|lower) -%}
+    {%- if 'to shortstop' in (d|lower) -%}L6
+    {%- elif 'to second baseman' in (d|lower) -%}L4
+    {%- elif 'to first baseman' in (d|lower) -%}L3
+    {%- elif 'to third baseman' in (d|lower) -%}L5
+    {%- elif 'to left fielder' in (d|lower) -%}L7
+    {%- elif 'to center fielder' in (d|lower) -%}L8
+    {%- elif 'to right fielder' in (d|lower) -%}L9
+    {%- else -%}LO{%- endif -%}
+  {%- elif 'groundout' in (d|lower) -%}
+    {%- if 'to shortstop' in (d|lower) -%}G6
+    {%- elif 'to second baseman' in (d|lower) -%}G4
+    {%- elif 'to first baseman' in (d|lower) -%}G3
+    {%- elif 'to third baseman' in (d|lower) -%}G5
+    {%- elif 'to pitcher' in (d|lower) -%}G1
+    {%- elif 'to catcher' in (d|lower) -%}G2
+    {%- else -%}GO{%- endif -%}
+  {%- else -%}
+    {{ (summary or '')[:8] }}
   {%- endif -%}
 {%- endmacro %}
 
@@ -54,7 +127,6 @@
         {% if home.record %}<span class="muted">•</span><span class="mono muted">{{ home.abbrev }} {{ home.record }}</span>{% endif %}
       </div>
 
-      {# Probables only if NOT final #}
       {% if (not is_final) and game.probables %}
         <div class="game-hero-row">
           <span class="mono muted">PP:</span>
@@ -64,7 +136,6 @@
         </div>
       {% endif %}
 
-      {# Decisions: support both old keys (w/l/s) and new keys (winner/loser/save) #}
       {% if is_final and game.decisions %}
         {% set wname = game.decisions.winner if game.decisions.winner is defined else game.decisions.w %}
         {% set lname = game.decisions.loser if game.decisions.loser is defined else game.decisions.l %}
@@ -104,7 +175,7 @@
 </div>
 
 {# -----------------------------
-   Linescore moved UNDER game details card
+   Linescore
    ----------------------------- #}
 {% set innings = (game.linescore.innings if game.linescore and game.linescore.innings is defined else []) %}
 {% if innings %}
@@ -166,14 +237,250 @@
   <button class="tab-btn" data-tab="pbp">Play-by-Play</button>
 </div>
 
-<!-- OVERVIEW (kept empty for now) -->
+<!-- OVERVIEW -->
 <div class="tab-panel active" id="tab-overview">
-  <div class="card" style="margin-top:14px;">
-    <div class="card-header">
-      <div class="card-title">Overview</div>
-      <div class="card-subtitle">Coming soon.</div>
+
+  {# ---------
+     Build: Top Exit Velos (from game.pas[].battedBall)
+     --------- #}
+  {% set ev_rows = namespace(items=[]) %}
+  {% for pa in (game.pas or []) %}
+    {% if pa.battedBall is defined and pa.battedBall and pa.battedBall.exitVelo is not none %}
+      {% set _ = ev_rows.items.append({
+        "pid": pa.batterId if pa.batterId is defined else none,
+        "name": pa.batterName if pa.batterName is defined else '',
+        "inning": pa.inning,
+        "ev": pa.battedBall.exitVelo,
+        "la": pa.battedBall.launchAngle,
+        "dist": pa.battedBall.distance,
+        "xba": pa.battedBall.xBA,
+        "summary": pa.summaryEvent if pa.summaryEvent is defined else '',
+        "desc": pa.description if pa.description is defined else ''
+      }) %}
+    {% endif %}
+  {% endfor %}
+  {% set ev_sorted = (ev_rows.items|sort(attribute="ev", reverse=true)) %}
+  {% set top_ev = ev_sorted[:10] %}
+
+  {# ---------
+     Build: Top Pitch Velos (flatten game.pas[].pitches)
+     --------- #}
+  {% set pv_rows = namespace(items=[]) %}
+  {% for pa in (game.pas or []) %}
+    {% for p in (pa.pitches or []) %}
+      {% if p.mph is defined and p.mph is not none %}
+        {% set _ = pv_rows.items.append({
+          "pid": pa.pitcherId if pa.pitcherId is defined else none,
+          "name": pa.pitcherName if pa.pitcherName is defined else '',
+          "inning": pa.inning,
+          "mph": p.mph,
+          "pitchType": p.pitchType if p.pitchType is defined else ''
+        }) %}
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+  {% set pv_sorted = (pv_rows.items|sort(attribute="mph", reverse=true)) %}
+  {% set top_pv = pv_sorted[:10] %}
+
+  {# ---------
+     Build: Top Performers (mix hitters + pitchers from boxscore)
+     --------- #}
+  {% set perf = namespace(items=[]) %}
+
+  {% if game.box %}
+    {# hitters #}
+    {% for r in (game.box.away.batting or []) %}
+      {% if (not r.isTotals) and r.playerId %}
+        {% set ab = to_int(r.AB) %}
+        {% if ab > 0 %}
+          {% set h  = to_int(r.H) %}
+          {% set hr = to_int(r.HR) %}
+          {% set rbi = to_int(r.RBI) %}
+          {% set score = (hr*100) + (rbi*10) + (h*2) + (ab*0) %}
+          {% set line = (h|string) ~ "-" ~ (ab|string) ~ " • " ~ (hr|string) ~ " HR • " ~ (rbi|string) ~ " RBI" %}
+          {% set _ = perf.items.append({"kind":"bat","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {% for r in (game.box.home.batting or []) %}
+      {% if (not r.isTotals) and r.playerId %}
+        {% set ab = to_int(r.AB) %}
+        {% if ab > 0 %}
+          {% set h  = to_int(r.H) %}
+          {% set hr = to_int(r.HR) %}
+          {% set rbi = to_int(r.RBI) %}
+          {% set score = (hr*100) + (rbi*10) + (h*2) + (ab*0) %}
+          {% set line = (h|string) ~ "-" ~ (ab|string) ~ " • " ~ (hr|string) ~ " HR • " ~ (rbi|string) ~ " RBI" %}
+          {% set _ = perf.items.append({"kind":"bat","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+
+    {# pitchers #}
+    {% for r in (game.box.away.pitching or []) %}
+      {% if (not r.isTotals) and r.playerId %}
+        {% set outs = (ip_outs(r.IP)|int) %}
+        {% if outs > 0 %}
+          {% set so = to_int(r.SO) %}
+          {% set er = to_int(r.ER) %}
+          {% set h  = to_int(r.H) %}
+          {% set score = (outs*10) + (so*6) - (er*30) - (h*6) %}
+          {% set line = (dash(r.IP)) ~ " IP • " ~ (h|string) ~ " H • " ~ (er|string) ~ " ER • " ~ (so|string) ~ " Ks" %}
+          {% set _ = perf.items.append({"kind":"pit","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {% for r in (game.box.home.pitching or []) %}
+      {% if (not r.isTotals) and r.playerId %}
+        {% set outs = (ip_outs(r.IP)|int) %}
+        {% if outs > 0 %}
+          {% set so = to_int(r.SO) %}
+          {% set er = to_int(r.ER) %}
+          {% set h  = to_int(r.H) %}
+          {% set score = (outs*10) + (so*6) - (er*30) - (h*6) %}
+          {% set line = (dash(r.IP)) ~ " IP • " ~ (h|string) ~ " H • " ~ (er|string) ~ " ER • " ~ (so|string) ~ " Ks" %}
+          {% set _ = perf.items.append({"kind":"pit","pid":r.playerId,"name":r.name,"score":score,"line":line}) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {% set perf_sorted = (perf.items|sort(attribute="score", reverse=true)) %}
+  {% set top_perf = perf_sorted[:3] %}
+
+  <div class="grid2" style="margin-top:14px;">
+    <!-- Top Performers -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Top Performers</div>
+          <div class="card-subtitle">Best overall performances</div>
+        </div>
+      </div>
+
+      <div style="padding: 12px 12px 14px 12px;">
+        {% if top_perf and (top_perf|length) > 0 %}
+          {% for tp in top_perf %}
+            <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(226,232,240,.6);">
+              <img src="{{ headshot_url(tp.pid, 80) }}" alt="{{ tp.name }}" style="width:34px;height:34px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
+              <div style="min-width:0;">
+                <div class="mono" style="font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  {{ tp.name }}
+                </div>
+                <div class="mono muted small" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  {{ tp.line }}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+          <div style="height:2px;"></div>
+        {% else %}
+          <div class="muted">Not available yet.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Top Exit Velocities -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Top Exit Velocities</div>
+          <div class="card-subtitle">Top 10 batted balls by EV</div>
+        </div>
+      </div>
+
+      <div style="padding: 0 12px 12px 12px; overflow-x:auto;">
+        {% if top_ev and (top_ev|length) > 0 %}
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Player</th>
+                <th class="mono">Inn</th>
+                <th class="mono">EV</th>
+                <th class="mono">LA</th>
+                <th class="mono">Dist</th>
+                <th class="mono">xBA</th>
+                <th class="mono">Res</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in top_ev %}
+                <tr>
+                  <td style="width:34px;">
+                    <img src="{{ headshot_url(r.pid, 60) }}" alt="{{ r.name }}" style="width:26px;height:26px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
+                  </td>
+                  <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    <span class="mono" style="font-weight:800;">{{ r.name }}</span>
+                  </td>
+                  <td class="mono">{{ dash(r.inning) }}</td>
+                  <td class="mono">
+                    {% if r.ev is not none %}
+                      <span class="grad-pill" style="{{ (r.evStyle if r.evStyle is defined else '') }}">{{ '%.1f'|format(r.ev) }}{% if r.ev >= 100 %} 🔥{% endif %}</span>
+                    {% else %}-{% endif %}
+                  </td>
+                  <td class="mono">{% if r.la is not none %}{{ '%.0f'|format(r.la) }}°{% else %}-{% endif %}</td>
+                  <td class="mono">{% if r.dist is not none %}{{ '%.0f'|format(r.dist) }} ft{% else %}-{% endif %}</td>
+                  <td class="mono">{% if r.xba is not none %}{{ '%.3f'|format(r.xba) }}{% else %}-{% endif %}</td>
+                  <td class="mono">{{ outcome_short(r.summary, r.desc) }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div style="padding:12px 0;" class="muted">Not available yet.</div>
+        {% endif %}
+      </div>
     </div>
   </div>
+
+  <!-- Top Pitch Velocities -->
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Top Velocities</div>
+        <div class="card-subtitle">Top 10 pitches by velocity</div>
+      </div>
+    </div>
+
+    <div style="padding: 0 12px 12px 12px; overflow-x:auto;">
+      {% if top_pv and (top_pv|length) > 0 %}
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Pitcher</th>
+              <th class="mono">Inn</th>
+              <th class="mono">Velo</th>
+              <th>Pitch Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in top_pv %}
+              <tr>
+                <td style="width:34px;">
+                  <img src="{{ headshot_url(r.pid, 60) }}" alt="{{ r.name }}" style="width:26px;height:26px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
+                </td>
+                <td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                  <span class="mono" style="font-weight:800;">{{ r.name }}</span>
+                </td>
+                <td class="mono">{{ dash(r.inning) }}</td>
+                <td class="mono">
+                  {% if r.mph is not none %}
+                    <span class="grad-pill">{{ '%.1f'|format(r.mph) }}{% if r.mph >= 98 %} 🔥{% endif %}</span>
+                  {% else %}-{% endif %}
+                </td>
+                <td>{{ r.pitchType }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div style="padding:12px 0;" class="muted">Not available yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
 </div>
 
 <!-- BOX -->
@@ -389,7 +696,6 @@
 
             <div style="margin-top:10px;">
               {% for half in ['Top','Bottom'] %}
-                {# ✅ FIX: build half_pas list instead of relying on has_half set inside loops (jinja scoping) #}
                 {% set half_pas = (game.pas
                   | selectattr("inning", "equalto", inn)
                   | selectattr("half", "equalto", half)
