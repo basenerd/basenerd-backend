@@ -234,6 +234,11 @@
   function labelForStatKey(k){
     return STAT_LABELS[k] || k;
   }
+  
+  const UNSORTABLE_SORT_KEYS = new Set([
+    "age",
+    "numberOfPitches"
+  ]);
 
   // ----------------------------
   // Defaults
@@ -575,7 +580,10 @@
           sortRowsByPlayer(next);
           return;
         }
-
+        // 🚫 not sortable by StatsAPI
+        if (UNSORTABLE_SORT_KEYS.has(key)) {
+          return;
+        }
         // Stat columns: backend sort
         if (sortStat === key) {
           sortOrder = (sortOrder === "desc") ? "asc" : "desc";
