@@ -1898,7 +1898,22 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             pos = _safe(pdata, "position", "abbreviation", default=None)
 
             # include only players who appeared (started/subbed) OR have any batting counting
-            game_status = (pdata.get("gameStatus") or "").lower()
+            gs = pdata.get("gameStatus")
+
+            # StatsAPI is inconsistent: sometimes gameStatus is a string, sometimes a dict.
+            if isinstance(gs, dict):
+                # best-effort extract any meaningful stringy status
+                gs_str = (
+                    gs.get("status")
+                    or gs.get("detailedState")
+                    or gs.get("abstractGameState")
+                    or gs.get("code")
+                    or ""
+                )
+            else:
+                gs_str = gs or ""
+            
+            game_status = str(gs_str).lower()
             appeared = game_status in ("started", "substituted", "entered")
             has_bat = any((stats.get(k) not in (None, "")) for k in ("atBats", "plateAppearances", "hits", "runs", "rbi", "baseOnBalls", "strikeOuts", "homeRuns"))
             if not (appeared or has_bat):
