@@ -83,7 +83,7 @@
         </div>
 
         <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <input id="colSearch" class="select" style="height:34px; width:260px;" placeholder="Search columns (e.g., homeRuns, ops)" />
+          <input id="colSearch" class="select" style="height:34px; width:260px;" placeholder="Search columns (e.g., HR, OPS, homeRuns)" />
           <span class="muted">Tip: click a header to sort by it</span>
         </div>
 
@@ -136,12 +136,86 @@
   </div>
 </div>
 
+<!-- Table overflow + nowrap (ensures no cut-off; horizontal scroll when needed) -->
+<style>
+  .table-wrap{ overflow-x:auto; }
+  .stats-table{ width:max-content; min-width:100%; }
+  .stats-table th, .stats-table td{ white-space:nowrap; }
+</style>
+
 <script>
 (() => {
   const el = (id) => document.getElementById(id);
 
   // ----------------------------
-  // Defaults: same idea as before
+  // Stat labels (acronyms)
+  // - headers show acronym when known
+  // - filter dropdown + column picker show "ACR (key)" for discoverability
+  // ----------------------------
+  const STAT_LABELS = {
+    // batting
+    gamesPlayed: "G",
+    plateAppearances: "PA",
+    atBats: "AB",
+    hits: "H",
+    runs: "R",
+    rbi: "RBI",
+    homeRuns: "HR",
+    doubles: "2B",
+    triples: "3B",
+    totalBases: "TB",
+    stolenBases: "SB",
+    caughtStealing: "CS",
+    stolenBasePercentage: "SB%",
+    baseOnBalls: "BB",
+    strikeOuts: "SO",
+    avg: "AVG",
+    obp: "OBP",
+    slg: "SLG",
+    ops: "OPS",
+    babip: "BABIP",
+    woba: "wOBA",
+    isolatedPower: "ISO",
+    onBasePlusSlugging: "OPS",
+
+    // pitching
+    wins: "W",
+    losses: "L",
+    saves: "SV",
+    holds: "HLD",
+    era: "ERA",
+    whip: "WHIP",
+    inningsPitched: "IP",
+    gamesStarted: "GS",
+    gamesPitched: "G",
+    hitsAllowed: "H",
+    runsAllowed: "R",
+    earnedRuns: "ER",
+    homeRunsAllowed: "HR",
+    baseOnBalls: "BB",
+    strikeOuts: "SO",
+    fip: "FIP",
+    strikeoutsPer9Inn: "K/9",
+    walksPer9Inn: "BB/9",
+    homeRunsPer9Inn: "HR/9",
+    strikeoutWalkRatio: "K/BB",
+
+    // fielding
+    fielding: "Fld%",
+    assists: "A",
+    putOuts: "PO",
+    errors: "E",
+    doublePlays: "DP",
+    innings: "Inn",
+    games: "G"
+  };
+
+  function labelForStatKey(k){
+    return STAT_LABELS[k] || k;
+  }
+
+  // ----------------------------
+  // Defaults
   // ----------------------------
   const defaultColsByGroup = {
     batting: ["gamesPlayed","plateAppearances","avg","obp","slg","ops","homeRuns","rbi","runs","hits","stolenBases"],
@@ -159,7 +233,7 @@
   let availableKeys = [];     // from backend discovery
   let selectedCols = [];      // user-chosen columns
   let filters = [];           // [{stat, op, value}]
-  let lastMetaKey = "";       // used for localStorage scoping
+  let lastMetaKey = "";       // localStorage scoping
 
   // ---------------
   // Storage helpers
@@ -195,7 +269,6 @@
       sortOrder = "desc";
     }
 
-    // ensure defaults
     if (!Array.isArray(selectedCols) || selectedCols.length === 0) {
       selectedCols = (defaultColsByGroup[el("group").value] || []).slice();
     }
@@ -255,7 +328,7 @@
     wrap.innerHTML = "";
 
     if (!filters.length){
-      wrap.innerHTML = `<div class="muted">No filters. Example: homeRuns &ge; 20</div>`;
+      wrap.innerHTML = `<div class="muted">No filters. Example: HR (homeRuns) &ge; 20</div>`;
       el("filterHint").textContent = "";
       return;
     }
@@ -274,7 +347,6 @@
       statSel.className = "select";
       statSel.style.height = "34px";
 
-      // stat options = availableKeys (fallback to selectedCols if not loaded yet)
       const keys = (availableKeys && availableKeys.length) ? availableKeys : (selectedCols || []);
       const opt0 = document.createElement("option");
       opt0.value = "";
@@ -284,7 +356,7 @@
       keys.forEach(k => {
         const o = document.createElement("option");
         o.value = k;
-        o.textContent = k;
+        o.textContent = `${labelForStatKey(k)} (${k})`;
         if ((f.stat || "") === k) o.selected = true;
         statSel.appendChild(o);
       });
@@ -346,7 +418,6 @@
     const set = new Set();
     (selectedCols || []).forEach(k => { if (k) set.add(k); });
 
-    // keep only keys that exist (once availableKeys is known)
     if (availableKeys && availableKeys.length){
       const allowed = new Set(availableKeys);
       selectedCols = Array.from(set).filter(k => allowed.has(k));
@@ -372,13 +443,18 @@
     const selected = new Set(selectedCols);
 
     const q = (el("colSearch").value || "").trim().toLowerCase();
-    const keys = availableKeys.filter(k => !q || k.toLowerCase().includes(q));
+    const keys = availableKeys.filter(k => {
+      if (!q) return true;
+      const a = labelForStatKey(k).toLowerCase();
+      const b = k.toLowerCase();
+      return a.includes(q) || b.includes(q);
+    });
 
     const frag = document.createDocumentFragment();
 
     const grid = document.createElement("div");
     grid.style.display = "grid";
-    grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(220px, 1fr))";
+    grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(240px, 1fr))";
     grid.style.gap = "6px";
 
     keys.forEach(k => {
@@ -406,7 +482,7 @@
       });
 
       const span = document.createElement("span");
-      span.textContent = k;
+      span.textContent = `${labelForStatKey(k)} (${k})`;
       span.style.fontWeight = "700";
 
       label.appendChild(cb);
@@ -433,7 +509,6 @@
     const cols = selectedCols || [];
     const thead = el("thead");
 
-    // Build headers: Rank, Player, then selected stat columns
     const arrow = (k) => {
       if (!k) return "";
       if (sortStat !== k) return "";
@@ -449,21 +524,21 @@
       <tr>
         ${th("#","__rank", true)}
         ${th("Player","__player", false)}
-        ${cols.map(k => th(k, k, true)).join("")}
+        ${cols.map(k => th(labelForStatKey(k), k, true)).join("")}
       </tr>
     `;
     thead.innerHTML = header;
 
-    // click-to-sort
     thead.querySelectorAll("th.sortable").forEach(node => {
       node.style.cursor = "pointer";
       node.addEventListener("click", () => {
         const key = node.getAttribute("data-key") || "";
 
-        // Rank resets to group default
+        // Rank resets to a sane default and reloads
         if (key === "__rank") {
           const g = el("group").value;
-          sortStat = (defaultColsByGroup[g] || [])[0] || ""; // fallback
+          // reset to a group default (ops/era/fielding/sb), not truly rank
+          sortStat = (defaultColsByGroup[g] || [])[5] || (defaultColsByGroup[g] || [])[0] || "";
           sortOrder = "desc";
           persist();
           page = 1;
@@ -471,18 +546,16 @@
           return;
         }
 
-        // Player = local sort on current page only (no backend name sort)
+        // Player: local sort only
         if (key === "__player") {
           const next = (sortOrder === "desc") ? "asc" : "desc";
           sortOrder = next;
           persist();
           sortRowsByPlayer(next);
-          // rebuild header so arrow shows on player column? we keep it simple:
-          // we won't mark player as backend sort; just visually keep order toggle.
           return;
         }
 
-        // Stat columns = backend sort
+        // Stat columns: backend sort
         if (sortStat === key) {
           sortOrder = (sortOrder === "desc") ? "asc" : "desc";
         } else {
@@ -572,7 +645,6 @@
   // Main loader
   // ----------
   async function load(){
-    // Ensure columns selected
     if (!selectedCols || !selectedCols.length){
       selectedCols = (defaultColsByGroup[el("group").value] || []).slice();
     }
@@ -586,15 +658,12 @@
     const res = await fetch(url);
     const data = await res.json();
 
-    // Keys for Option B checkbox list
     availableKeys = (data.availableKeys || []).slice().sort();
 
-    // If user columns not set yet, initialize to defaults (checked)
     if (!selectedCols || !selectedCols.length){
       selectedCols = (data.defaultCols || defaultColsByGroup[el("group").value] || []).slice();
     }
 
-    // If we have keys now, ensure selected cols are valid
     normalizeColSet();
 
     // Build table
@@ -613,7 +682,6 @@
     renderCols();
     renderFilters();
 
-    // Status
     const scanned = data.scannedCount ? ` • scanned ${data.scannedCount}` : "";
     const filtered = (data.filteredTotalApprox !== undefined) ? ` • matched ~${data.filteredTotalApprox}` : "";
     el("statusText").textContent = `Showing ${data.rangeLabel || "—"}${filtered}${scanned}`;
@@ -644,7 +712,6 @@
   });
 
   el("applyFilters").addEventListener("click", () => {
-    // prune invalid filter rows
     filters = (filters || []).filter(f => (f.stat || "").trim() && (f.op || "").trim() && String(f.value).trim() !== "");
     persist();
     page = 1;
@@ -656,7 +723,8 @@
     persist();
     renderCols();
     buildThead();
-    load(); // reload so table uses the new columns
+    page = 1;
+    load();
   });
 
   el("colsNone").addEventListener("click", () => {
@@ -670,6 +738,7 @@
     persist();
     renderCols();
     buildThead();
+    page = 1;
     load();
   });
 
@@ -685,19 +754,14 @@
     renderCols();
   });
 
-  // On group change, reset defaults (but keep the user in control via persisted state per group)
   el("group").addEventListener("change", () => {
     page = 1;
-    // reset sort to something sane
     sortStat = "";
     sortOrder = "desc";
-
-    // load stored config for this new group
     loadPersisted();
     load();
   });
 
-  // If season/filters change, re-scope storage and load
   ["season","league_id","team_id","position","pool"].forEach(id => {
     el(id).addEventListener("change", () => {
       page = 1;
