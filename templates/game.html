@@ -4,8 +4,6 @@
 {% set away = game.away if game.away is defined else {} %}
 {% set home = game.home if game.home is defined else {} %}
 
-
-
 {% if error %}
   <div class="card" style="border:1px solid rgba(239,68,68,.35); margin-bottom:14px;">
     <div class="card-header">
@@ -22,10 +20,12 @@
       <div class="card-title">
         {{ game.away.abbrev }} @ {{ game.home.abbrev }}
       </div>
+
       <div class="card-subtitle">
         {{ game.statusPill }}{% if game.when %}<span class="muted" style="opacity:.6;"> • </span>{{ game.when }}{% endif %}
         {% if game.venue %}<span class="muted" style="opacity:.6;"> • </span>{{ game.venue }}{% endif %}
       </div>
+
       <div class="muted small" style="margin-top:6px;">
         {% if away.record %}{{ away.abbrev }} {{ away.record }}{% endif %}
         {% if home.record %}<span class="muted" style="opacity:.6;"> • </span>{{ home.abbrev }} {{ home.record }}{% endif %}
@@ -280,7 +280,7 @@
   {% endif %}
 </div>
 
-<!-- PBP -->
+<!-- PLAY-BY-PLAY (consolidated PA-style UI) -->
 <div class="tab-panel" id="tab-pbp">
   {% if not game.pas %}
     <div class="card" style="margin-top:14px;">
@@ -340,7 +340,9 @@
                                width="160" height="210"
                                data-pitches='{{ pa.pitches|tojson }}'>
                           </svg>
-                          <div class="muted small" style="margin-top:6px;">Dots are plotted relative to the hitter's strike zone (pX + pZ).</div>
+                          <div class="muted small" style="margin-top:6px;">
+                            Vertical axis is relative to the hitter's strike zone (0 = bottom of zone). Colors: ball/strike/foul/in-play.
+                          </div>
                         </div>
 
                         <div class="table-wrap">
@@ -409,7 +411,9 @@
                                width="160" height="210"
                                data-pitches='{{ pa.pitches|tojson }}'>
                           </svg>
-                          <div class="muted small" style="margin-top:6px;">Dots are plotted relative to the hitter's strike zone (pX + pZ).</div>
+                          <div class="muted small" style="margin-top:6px;">
+                            Vertical axis is relative to the hitter's strike zone (0 = bottom of zone). Colors: ball/strike/foul/in-play.
+                          </div>
                         </div>
 
                         <div class="table-wrap">
@@ -482,15 +486,15 @@
     });
   })();
 
-  // Strike zone plots
+  // Strike zone plots (zone-relative vertical axis)
   (function(){
     function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
 
     function drawZone(svg, pitches){
-      const w = svg.viewBox.baseVal && svg.viewBox.baseVal.width ? svg.viewBox.baseVal.width : svg.getAttribute("width");
-      const h = svg.viewBox.baseVal && svg.viewBox.baseVal.height ? svg.viewBox.baseVal.height : svg.getAttribute("height");
-
-      const W = Number(w), H = Number(h);
+      const wAttr = svg.getAttribute("width");
+      const hAttr = svg.getAttribute("height");
+      const W = Number(wAttr || 160);
+      const H = Number(hAttr || 210);
 
       // Layout
       const pad = 18;
@@ -509,7 +513,7 @@
       bg.setAttribute("stroke", "rgba(226,232,240,.9)");
       svg.appendChild(bg);
 
-      // Determine hitter-specific zone (feet off ground)
+      // Determine hitter-specific zone edges (feet off ground)
       const DEFAULT_TOP = 3.5, DEFAULT_BOT = 1.5;
       let szTop = DEFAULT_TOP, szBot = DEFAULT_BOT;
       for (const p of (pitches || [])){
@@ -519,26 +523,29 @@
           break;
         }
       }
-      const szMid = (szTop + szBot) / 2.0;
+
+      // Zone-relative vertical axis:
+      // y=0 corresponds to sz_bot; y=zoneH corresponds to sz_top
+      const zoneH = Math.max(0.1, szTop - szBot);
 
       // "Canvas" ranges (bigger than the strike zone)
-      const xMin = -1.5, xMax =  1.5;                 // feet, centered at 0
-      const yMin = szBot - 1.0, yMax = szTop + 1.0;   // feet off ground
+      const xMin = -1.5, xMax =  1.5;      // feet, centered at 0
+      const yMin = -1.0, yMax = zoneH + 1.0; // zone-relative feet
 
       function xToSvg(xFeet){
         return zx + ((clamp(xFeet, xMin, xMax) - xMin) / (xMax - xMin)) * zw;
       }
-      function yToSvg(yFeet){
-        return zy + (1.0 - ((clamp(yFeet, yMin, yMax) - yMin) / (yMax - yMin))) * zh;
+      function yToSvg(yRel){
+        return zy + (1.0 - ((clamp(yRel, yMin, yMax) - yMin) / (yMax - yMin))) * zh;
       }
 
-      // Strike zone rectangle (true edges)
+      // Strike zone rectangle (true horizontal edges, and vertical edges in zone-relative units)
       const ZLEFT = -0.83, ZRIGHT = 0.83;
       const zone = document.createElementNS("http://www.w3.org/2000/svg","rect");
       zone.setAttribute("x", xToSvg(ZLEFT));
-      zone.setAttribute("y", yToSvg(szTop));
+      zone.setAttribute("y", yToSvg(zoneH));
       zone.setAttribute("width", xToSvg(ZRIGHT) - xToSvg(ZLEFT));
-      zone.setAttribute("height", yToSvg(szBot) - yToSvg(szTop));
+      zone.setAttribute("height", yToSvg(0) - yToSvg(zoneH));
       zone.setAttribute("fill", "rgba(15,23,42,.04)");
       zone.setAttribute("stroke", "rgba(15,23,42,.22)");
       zone.setAttribute("rx", 10);
@@ -548,25 +555,26 @@
         const call = String(p.call || "").toLowerCase();
         const desc = String(p.desc || "").toLowerCase();
         const inPlay = (p.isInPlay === true) || desc.includes("in play") || call.includes("in play");
-        if (inPlay) return "rgba(37,99,235,.85)";                              // blue: in play
+        if (inPlay) return "rgba(37,99,235,.85)"; // blue: in play
         if (call.includes("foul") || desc.includes("foul")) return "rgba(100,116,139,.85)"; // gray: foul
-        if ((p.isBall === true) || call.includes("ball")) return "rgba(34,197,94,.85)";     // green: ball
+        if ((p.isBall === true) || call.includes("ball")) return "rgba(34,197,94,.85)"; // green: ball
         if ((p.isStrike === true) || call.includes("strike")) return "rgba(239,68,68,.85)"; // red: strike
         return "rgba(239,68,68,.85)";
       }
 
-      // Plot dots using pX + (szMid + pZ)
+      // Plot dots using pX (feet) and pZ (feet off ground) converted to zone-relative:
+      // yRel = pz - sz_bot
       (pitches || []).forEach((p) => {
         if (p.px == null || p.pz == null) return;
 
         const xFeet = Number(p.px);
-        const pzOff = Number(p.pz);
-        if (!Number.isFinite(xFeet) || !Number.isFinite(pzOff)) return;
+        const pzAbs = Number(p.pz);
+        if (!Number.isFinite(xFeet) || !Number.isFinite(pzAbs)) return;
 
-        const yFeet = szMid + pzOff;
+        const yRel = pzAbs - szBot;
 
         const x = xToSvg(xFeet);
-        const y = yToSvg(yFeet);
+        const y = yToSvg(yRel);
 
         const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
         c.setAttribute("cx", x);
