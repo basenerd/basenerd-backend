@@ -692,7 +692,7 @@ next={{ next_game|tojson if next_game is not none else "null" }}
 </style>
 
 <script>
-  const TEAM_ID = {{ team.team_id }};
+  const TEAM_ID = {{ (team.team_id or 0)|int }};
 
   function mlbLogoUrl(teamId){
     return `https://www.mlbstatic.com/team-logos/${teamId}.svg`;
@@ -923,7 +923,7 @@ next={{ next_game|tojson if next_game is not none else "null" }}
       buildSeasons();
       document.getElementById("scheduleSeason").addEventListener("change", () => {
         const panel = document.querySelector('.tab-panel[data-tab="schedule"]');
-        if (panel && panel.style.display !== "none"){
+        if (panel && panel.classList.contains("active")){
           loadSchedule();
         }
       });
@@ -1034,7 +1034,7 @@ next={{ next_game|tojson if next_game is not none else "null" }}
       loadTransactions();
       document.getElementById("txDays").addEventListener("change", () => {
         const panel = document.querySelector('.tab-panel[data-tab="transactions"]');
-        if (panel && panel.style.display !== "none"){
+        if (panel && panel.classList.contains("active")){
           loadTransactions();
         }
       });
