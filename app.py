@@ -508,6 +508,12 @@ def team(team_id):
         "venue": (raw.get("venue") or {}).get("name"),
         "logo_url": f"https://www.mlbstatic.com/team-logos/{raw.get('id')}.svg" if raw.get("id") else None,
     }
+    print("[team] team_obj:", team_obj)
+    print("[team] roster sizes:", {k: len(v) for k,v in (roster_grouped or {}).items()}, "other:", len(roster_other or []))
+    print("[team] last_game keys:", list((last_game or {}).keys()))
+    print("[team] next_game keys:", list((next_game or {}).keys()))
+    print("[team] division_rows:", len(division_rows or []))
+    print("[team] leaders present:", bool(leaders))
 
     # -------------------------
     # Roster (don’t let API hiccups take down the page)
