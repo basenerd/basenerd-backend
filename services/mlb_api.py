@@ -764,10 +764,10 @@ def get_40man_roster_grouped(team_id: int):
     Groups roster into exactly: Pitcher, Catcher, Infielder, Outfielder.
     Sorts each group by jersey number asc; missing jersey numbers last.
     Pitchers show Pos as RHP/LHP based on throwing hand.
-    Also populates bt (bats/throws) and status if available.
+    Adds: headshot, ht, wt, age, service (best-effort).
     """
     url = f"{BASE}/teams/{team_id}/roster/40Man"
-    params = {"hydrate": "person"}  # ensure batSide/pitchHand show up
+    params = {"hydrate": "person"}  # ensures batSide/pitchHand/height/weight/birthDate show up
     r = requests.get(url, params=params, timeout=20)
     r.raise_for_status()
     data = r.json() or {}
@@ -783,6 +783,50 @@ def get_40man_roster_grouped(team_id: int):
             return (0, int(j))
         except Exception:
             return (1, 9999)
+
+    def _height_to_dash(h: str) -> Optional[str]:
+        if not h:
+            return None
+        # common formats: 6' 2"   or  6'2"
+        s = str(h).replace('"', "").replace(" ", "").strip()
+        if "'" in s:
+            parts = s.split("'")
+            ft = parts[0]
+            inch = parts[1] if len(parts) > 1 else ""
+            inch = inch.replace("-", "")
+            if ft.isdigit() and (inch.isdigit() or inch == ""):
+                return f"{int(ft)}-{int(inch) if inch else 0}"
+        return str(h)
+
+    def _age_from_birth(birth_ymd: str) -> Optional[int]:
+        try:
+            bd = datetime.strptime(birth_ymd, "%Y-%m-%d").date()
+            today = datetime.utcnow().date()
+            return today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+        except Exception:
+            return None
+
+    def _service_years_from_debut(debut_ymd: str) -> Optional[str]:
+        # MLB "service time" isn't directly exposed consistently; best-effort from mlbDebutDate.
+        try:
+            dd = datetime.strptime(debut_ymd, "%Y-%m-%d").date()
+            today = datetime.utcnow().date()
+            yrs = (today - dd).days / 365.25
+            if yrs < 0:
+                return None
+            return f"{yrs:.1f}"
+        except Exception:
+            return None
+
+    # simple silhouette fallback (data URI)
+    headshot_fallback = (
+        "data:image/svg+xml;utf8,"
+        "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>"
+        "<rect width='64' height='64' rx='32' fill='%23222'/>"
+        "<circle cx='32' cy='26' r='12' fill='%23555'/>"
+        "<path d='M14 60c3-14 14-20 18-20s15 6 18 20' fill='%23555'/>"
+        "</svg>"
+    )
 
     for item in roster:
         person = item.get("person") or {}
@@ -817,14 +861,40 @@ def get_40man_roster_grouped(team_id: int):
             else:
                 pos_abbrev = "P"
 
+        pid = person.get("id")
+        headshot = get_player_headshot_url(pid, size=80) if pid else None
+
+        ht = _height_to_dash(person.get("height"))
+        wt = person.get("weight")
+        wt = str(wt) if wt is not None else None
+
+        age = _age_from_birth(person.get("birthDate"))
+        age = str(age) if age is not None else None
+
+        service = None
+        # if API ever includes serviceYears, prefer it
+        if person.get("serviceYears") is not None:
+            try:
+                service = str(person.get("serviceYears"))
+            except Exception:
+                service = None
+        if not service:
+            service = _service_years_from_debut(person.get("mlbDebutDate"))
+
         row = {
-            "id": person.get("id"),
+            "id": pid,
             "name": person.get("fullName"),
             "jersey": item.get("jerseyNumber"),
             "bt": bt,
             "pos": pos_abbrev,
             "status_code": status_code,
             "status_desc": status_desc,
+            "headshot": headshot,
+            "headshot_fallback": headshot_fallback,
+            "ht": ht,
+            "wt": wt,
+            "age": age,
+            "service": service,
         }
 
         if pos_type in grouped:
@@ -837,6 +907,7 @@ def get_40man_roster_grouped(team_id: int):
     other.sort(key=lambda x: (jersey_sort_val(x.get("jersey")), (x.get("name") or "")))
 
     return grouped, other
+
 
 # ----------------------------
 # Transactions (team)
