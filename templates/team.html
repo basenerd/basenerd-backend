@@ -701,17 +701,15 @@ next={{ next_game|tojson if next_game is not none else "null" }}
   // ----------------------------
   // Tabs (mimic game.html)
   // ----------------------------
-  function setActiveTab(tab){
-    const btns = document.querySelectorAll(".tab-btn");
-    const panels = document.querySelectorAll(".tab-panel");
+  const TEAM_ID = {{ (team.team_id or 0)|int }};
 
-    btns.forEach(b => {
-      const isOn = b.dataset.tab === tab;
-      b.classList.toggle("active", isOn);
+  function setActiveTab(tab){
+    document.querySelectorAll(".tab-btn").forEach(b => {
+      b.classList.toggle("active", b.dataset.tab === tab);
     });
 
-    panels.forEach(p => {
-      p.style.display = (p.dataset.tab === tab) ? "" : "none";
+    document.querySelectorAll(".tab-panel").forEach(p => {
+      p.classList.toggle("active", p.dataset.tab === tab);
     });
 
     const url = new URL(window.location.href);
@@ -728,7 +726,6 @@ next={{ next_game|tojson if next_game is not none else "null" }}
 
   const initialTab = new URLSearchParams(window.location.search).get("tab") || "overview";
   setActiveTab(initialTab);
-
   // ----------------------------
   // Schedule
   // ----------------------------
