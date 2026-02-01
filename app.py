@@ -846,10 +846,13 @@ def games():
 def game_detail(game_pk: int):
     user_tz = "America/Phoenix"
 
-    # Always use the feed (it falls back to schedule internally when needed)
     feed = get_game_feed(game_pk)
     game_obj = normalize_game_detail(feed, tz_name=user_tz)
-
+    
+    # ✅ always available for template debugging / links
+    if isinstance(game_obj, dict):
+        game_obj.setdefault("gamePk", game_pk)
+    
     return render_template("game.html", title="Game", game=game_obj, user_tz=user_tz)
 
 
