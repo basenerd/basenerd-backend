@@ -1,5 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
+<div style="padding:8px 10px; border:1px solid rgba(255,255,255,.15); border-radius:12px; margin-bottom:10px;">
+  <div class="mono" style="font-size:12px; opacity:.85;">
+    TEAM DEBUG • team={{ "yes" if team else "no" }}
+    • last={{ "yes" if last_game else "no" }}
+    • next={{ "yes" if next_game else "no" }}
+    • div_rows={{ (division_rows|length) if division_rows is not none else "none" }}
+    • leaders={{ "yes" if leaders else "no" }}
+    • roster_keys={{ (roster_grouped.keys()|list) if roster_grouped else [] }}
+  </div>
+</div>
+
+<pre style="white-space:pre-wrap; font-size:12px; opacity:.85; border:1px solid rgba(255,255,255,.1); padding:10px; border-radius:12px; margin-bottom:12px;">
+team={{ team|tojson if team is not none else "null" }}
+last={{ last_game|tojson if last_game is not none else "null" }}
+next={{ next_game|tojson if next_game is not none else "null" }}
+</pre>
 
 {# ---------------------------------
    Helper: player link (id optional)
