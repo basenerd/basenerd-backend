@@ -1,27 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 
-{# ============================
-   DEBUG TOGGLES
-   ============================ #}
-{% set SHOW_DEBUG = true %}
-
-{% if SHOW_DEBUG %}
-  <div style="padding:8px 10px; border:1px solid rgba(255,255,255,.15); border-radius:12px; margin-bottom:10px;">
-    <div class="mono" style="font-size:12px; opacity:.85;">
-      TEAM.HTML MARKER • team_id={{ team["team_id"] }} • last_game={{ "yes" if last_game else "no" }} • next_game={{ "yes" if next_game else "no" }}
-    </div>
-  </div>
-
-  <pre style="white-space:pre-wrap; font-size:12px; opacity:.85; border:1px solid rgba(255,255,255,.1); padding:10px; border-radius:12px; margin-bottom:12px;">
-TEAM={{ team|tojson }}
-LAST={{ last_game|tojson }}
-NEXT={{ next_game|tojson }}
-DIV={{ division_rows|tojson }}
-LEADERS={{ leaders|tojson }}
-  </pre>
-{% endif %}
-
 {# ---------------------------------
    Helper: player link (id optional)
    --------------------------------- #}
@@ -36,14 +15,14 @@ LEADERS={{ leaders|tojson }}
 <div class="card">
   <div class="card-header">
     <div class="teamcell" style="gap:10px;">
-      {% if team["logo_url"] %}
-        <img class="teamlogo" src="{{ team["logo_url"] }}" alt="{{ team["name"] }} logo" style="height:28px;">
+      {% if team.logo_url %}
+        <img class="teamlogo" src="{{ team.logo_url }}" alt="{{ team.name }} logo" style="height:28px;">
       {% endif %}
       <div>
-        <div class="card-title">{{ team["name"] }}</div>
+        <div class="card-title">{{ team.name }}</div>
         <div class="card-subtitle">
-          {% if team["division"] %}{{ team["division"] }}{% endif %}
-          {% if team["venue"] %} • {{ team["venue"] }}{% endif %}
+          {% if team.division %}{{ team.division }}{% endif %}
+          {% if team.venue %} • {{ team.venue }}{% endif %}
         </div>
       </div>
     </div>
@@ -52,6 +31,10 @@ LEADERS={{ leaders|tojson }}
 
 {# -----------------------------
    Tabs (mimic game.html behavior)
+   IMPORTANT: your global CSS uses:
+     .tab-panel { display:none; }
+     .tab-panel.active { display:block; }
+   So we toggle the "active" class (not inline display="")
    ----------------------------- #}
 <div class="card" style="margin-top:18px;">
   <div class="card-header" style="padding-bottom:0;">
@@ -77,111 +60,104 @@ LEADERS={{ leaders|tojson }}
             <div class="subcard-title">Last Game</div>
 
             {% if last_game %}
-              <a class="game-card" href="/game/{{ last_game['gamePk'] }}" style="margin-top:10px; display:block;">
+              <a class="game-card" href="/game/{{ last_game.gamePk }}" style="margin-top:10px; display:block;">
                 <div class="game-card-top">
                   <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    {% if last_game.get("competitionLabel") %}
-                      <div class="tag">{{ last_game["competitionLabel"] }}</div>
+                    {% if last_game.competitionLabel %}
+                      <div class="tag">{{ last_game.competitionLabel }}</div>
                     {% endif %}
-                    <div class="pill">{{ last_game.get("statusPill","") }}</div>
+                    <div class="pill">{{ last_game.statusPill }}</div>
                   </div>
-                  <div class="muted mono game-time">{{ last_game.get("timeLocal","") }}</div>
+                  <div class="muted mono game-time">{{ last_game.timeLocal }}</div>
                 </div>
 
                 <div class="matchup">
                   <!-- AWAY -->
-                  {% set away = last_game.get("away") or {} %}
                   <div class="team-row">
                     <div class="team-left">
-                      {% if away.get("logo") %}
-                        <img class="team-logo" src="{{ away['logo'] }}" alt="{{ away.get('abbrev','') }} logo">
+                      {% if last_game.away.logo %}
+                        <img class="team-logo" src="{{ last_game.away.logo }}" alt="{{ last_game.away.abbrev }} logo">
                       {% endif %}
                       <div class="team-line">
                         <div class="team-line-top">
-                          <span class="team-abbrev">{{ away.get("abbrev","—") }}</span>
-                          {% if away.get("record") %}
-                            <span class="muted mono" style="font-size:12px;">{{ away["record"] }}</span>
+                          <span class="team-abbrev">{{ last_game.away.abbrev }}</span>
+                          {% if last_game.away.record %}
+                            <span class="muted mono" style="font-size:12px;">{{ last_game.away.record }}</span>
                           {% endif %}
                           <span class="muted" style="opacity:.6;">•</span>
 
                           <span class="small muted">
                             PP:
-                            {% if away.get("pp_id") and away.get("pp_name") %}
-                              {{ player_name(away["pp_id"], away["pp_name"]) }}
+                            {% if last_game.away.pp_id and last_game.away.pp_name %}
+                              {{ player_name(last_game.away.pp_id, last_game.away.pp_name) }}
                             {% else %}
-                              {{ (away.get("pp") or "PP: TBD")|replace("PP: ", "") }}
+                              {{ (last_game.away.pp or "PP: TBD")|replace("PP: ", "") }}
                             {% endif %}
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div class="team-score mono">
-                      {{ away["score"] if away.get("score") is not none else "—" }}
-                    </div>
+                    <div class="team-score mono">{{ last_game.away.score if last_game.away.score is not none else "—" }}</div>
                   </div>
 
                   <!-- HOME -->
-                  {% set home = last_game.get("home") or {} %}
                   <div class="team-row">
                     <div class="team-left">
-                      {% if home.get("logo") %}
-                        <img class="team-logo" src="{{ home['logo'] }}" alt="{{ home.get('abbrev','') }} logo">
+                      {% if last_game.home.logo %}
+                        <img class="team-logo" src="{{ last_game.home.logo }}" alt="{{ last_game.home.abbrev }} logo">
                       {% endif %}
                       <div class="team-line">
                         <div class="team-line-top">
-                          <span class="team-abbrev">{{ home.get("abbrev","—") }}</span>
-                          {% if home.get("record") %}
-                            <span class="muted mono" style="font-size:12px;">{{ home["record"] }}</span>
+                          <span class="team-abbrev">{{ last_game.home.abbrev }}</span>
+                          {% if last_game.home.record %}
+                            <span class="muted mono" style="font-size:12px;">{{ last_game.home.record }}</span>
                           {% endif %}
                           <span class="muted" style="opacity:.6;">•</span>
 
                           <span class="small muted">
                             PP:
-                            {% if home.get("pp_id") and home.get("pp_name") %}
-                              {{ player_name(home["pp_id"], home["pp_name"]) }}
+                            {% if last_game.home.pp_id and last_game.home.pp_name %}
+                              {{ player_name(last_game.home.pp_id, last_game.home.pp_name) }}
                             {% else %}
-                              {{ (home.get("pp") or "PP: TBD")|replace("PP: ", "") }}
+                              {{ (last_game.home.pp or "PP: TBD")|replace("PP: ", "") }}
                             {% endif %}
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div class="team-score mono">
-                      {{ home["score"] if home.get("score") is not none else "—" }}
-                    </div>
+                    <div class="team-score mono">{{ last_game.home.score if last_game.home.score is not none else "—" }}</div>
                   </div>
                 </div>
 
                 <div class="game-meta">
-                  {% if last_game.get("venue") %}
+                  {% if last_game.venue %}
                     <div class="muted">
-                      {{ last_game["venue"] }}
-                      {% if last_game.get("venueLocation") %}
-                        • {{ last_game["venueLocation"] }}
+                      {{ last_game.venue }}
+                      {% if last_game.venueLocation %}
+                        • {{ last_game.venueLocation }}
                       {% endif %}
                     </div>
                   {% endif %}
 
-                  {% if last_game.get("statusPill") == "Final" %}
-                    {% set pit = last_game.get("pitching") or {} %}
+                  {% if last_game.statusPill == "Final" %}
                     <div class="small muted">
-                      {% if pit.get("winner") or pit.get("loser") %}
+                      {% if last_game.pitching.winner or last_game.pitching.loser %}
                         W:
-                        {% if pit.get("winner_id") and pit.get("winner") %}
-                          {{ player_name(pit["winner_id"], pit["winner"]) }}
+                        {% if last_game.pitching.winner_id and last_game.pitching.winner %}
+                          {{ player_name(last_game.pitching.winner_id, last_game.pitching.winner) }}
                         {% else %}
-                          {{ pit.get("winner","—") }}
+                          {{ last_game.pitching.winner or "—" }}
                         {% endif %}
                         • L:
-                        {% if pit.get("loser_id") and pit.get("loser") %}
-                          {{ player_name(pit["loser_id"], pit["loser"]) }}
+                        {% if last_game.pitching.loser_id and last_game.pitching.loser %}
+                          {{ player_name(last_game.pitching.loser_id, last_game.pitching.loser) }}
                         {% else %}
-                          {{ pit.get("loser","—") }}
+                          {{ last_game.pitching.loser or "—" }}
                         {% endif %}
                       {% endif %}
                     </div>
                   {% else %}
-                    <div class="small muted">{{ last_game.get("detailedState","") }}</div>
+                    <div class="small muted">{{ last_game.detailedState }}</div>
                   {% endif %}
                 </div>
               </a>
@@ -195,89 +171,83 @@ LEADERS={{ leaders|tojson }}
             <div class="subcard-title">Next Game</div>
 
             {% if next_game %}
-              <a class="game-card" href="/game/{{ next_game['gamePk'] }}" style="margin-top:10px; display:block;">
+              <a class="game-card" href="/game/{{ next_game.gamePk }}" style="margin-top:10px; display:block;">
                 <div class="game-card-top">
                   <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    {% if next_game.get("competitionLabel") %}
-                      <div class="tag">{{ next_game["competitionLabel"] }}</div>
+                    {% if next_game.competitionLabel %}
+                      <div class="tag">{{ next_game.competitionLabel }}</div>
                     {% endif %}
-                    <div class="pill">{{ next_game.get("statusPill","") }}</div>
+                    <div class="pill">{{ next_game.statusPill }}</div>
                   </div>
-                  <div class="muted mono game-time">{{ next_game.get("timeLocal","") }}</div>
+                  <div class="muted mono game-time">{{ next_game.timeLocal }}</div>
                 </div>
 
                 <div class="matchup">
-                  {% set away = next_game.get("away") or {} %}
                   <div class="team-row">
                     <div class="team-left">
-                      {% if away.get("logo") %}
-                        <img class="team-logo" src="{{ away['logo'] }}" alt="{{ away.get('abbrev','') }} logo">
+                      {% if next_game.away.logo %}
+                        <img class="team-logo" src="{{ next_game.away.logo }}" alt="{{ next_game.away.abbrev }} logo">
                       {% endif %}
                       <div class="team-line">
                         <div class="team-line-top">
-                          <span class="team-abbrev">{{ away.get("abbrev","—") }}</span>
-                          {% if away.get("record") %}
-                            <span class="muted mono" style="font-size:12px;">{{ away["record"] }}</span>
+                          <span class="team-abbrev">{{ next_game.away.abbrev }}</span>
+                          {% if next_game.away.record %}
+                            <span class="muted mono" style="font-size:12px;">{{ next_game.away.record }}</span>
                           {% endif %}
                           <span class="muted" style="opacity:.6;">•</span>
 
                           <span class="small muted">
                             PP:
-                            {% if away.get("pp_id") and away.get("pp_name") %}
-                              {{ player_name(away["pp_id"], away["pp_name"]) }}
+                            {% if next_game.away.pp_id and next_game.away.pp_name %}
+                              {{ player_name(next_game.away.pp_id, next_game.away.pp_name) }}
                             {% else %}
-                              {{ (away.get("pp") or "PP: TBD")|replace("PP: ", "") }}
+                              {{ (next_game.away.pp or "PP: TBD")|replace("PP: ", "") }}
                             {% endif %}
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div class="team-score mono">
-                      {{ away["score"] if away.get("score") is not none else "—" }}
-                    </div>
+                    <div class="team-score mono">{{ next_game.away.score if next_game.away.score is not none else "—" }}</div>
                   </div>
 
-                  {% set home = next_game.get("home") or {} %}
                   <div class="team-row">
                     <div class="team-left">
-                      {% if home.get("logo") %}
-                        <img class="team-logo" src="{{ home['logo'] }}" alt="{{ home.get('abbrev','') }} logo">
+                      {% if next_game.home.logo %}
+                        <img class="team-logo" src="{{ next_game.home.logo }}" alt="{{ next_game.home.abbrev }} logo">
                       {% endif %}
                       <div class="team-line">
                         <div class="team-line-top">
-                          <span class="team-abbrev">{{ home.get("abbrev","—") }}</span>
-                          {% if home.get("record") %}
-                            <span class="muted mono" style="font-size:12px;">{{ home["record"] }}</span>
+                          <span class="team-abbrev">{{ next_game.home.abbrev }}</span>
+                          {% if next_game.home.record %}
+                            <span class="muted mono" style="font-size:12px;">{{ next_game.home.record }}</span>
                           {% endif %}
                           <span class="muted" style="opacity:.6;">•</span>
 
                           <span class="small muted">
                             PP:
-                            {% if home.get("pp_id") and home.get("pp_name") %}
-                              {{ player_name(home["pp_id"], home["pp_name"]) }}
+                            {% if next_game.home.pp_id and next_game.home.pp_name %}
+                              {{ player_name(next_game.home.pp_id, next_game.home.pp_name) }}
                             {% else %}
-                              {{ (home.get("pp") or "PP: TBD")|replace("PP: ", "") }}
+                              {{ (next_game.home.pp or "PP: TBD")|replace("PP: ", "") }}
                             {% endif %}
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div class="team-score mono">
-                      {{ home["score"] if home.get("score") is not none else "—" }}
-                    </div>
+                    <div class="team-score mono">{{ next_game.home.score if next_game.home.score is not none else "—" }}</div>
                   </div>
                 </div>
 
                 <div class="game-meta">
-                  {% if next_game.get("venue") %}
+                  {% if next_game.venue %}
                     <div class="muted">
-                      {{ next_game["venue"] }}
-                      {% if next_game.get("venueLocation") %}
-                        • {{ next_game["venueLocation"] }}
+                      {{ next_game.venue }}
+                      {% if next_game.venueLocation %}
+                        • {{ next_game.venueLocation }}
                       {% endif %}
                     </div>
                   {% endif %}
-                  <div class="small muted">{{ next_game.get("detailedState","") }}</div>
+                  <div class="small muted">{{ next_game.detailedState }}</div>
                 </div>
               </a>
             {% else %}
@@ -306,19 +276,19 @@ LEADERS={{ leaders|tojson }}
                 </thead>
                 <tbody>
                   {% for r in division_rows %}
-                    <tr {% if r.get("is_selected") %}style="font-weight:700;"{% endif %}>
+                    <tr {% if r.is_selected %}style="font-weight:700;"{% endif %}>
                       <td style="white-space:nowrap;">
                         <div style="display:flex; align-items:center; gap:8px;">
-                          {% if r.get("logo") %}
-                            <img src="{{ r['logo'] }}" alt="{{ r.get('abbrev','') }} logo" style="height:14px; width:14px; object-fit:contain;">
+                          {% if r.logo %}
+                            <img src="{{ r.logo }}" alt="{{ r.abbrev }} logo" style="height:14px; width:14px; object-fit:contain;">
                           {% endif %}
-                          <span class="mono">{{ r.get("abbrev","—") }}</span>
+                          <span class="mono">{{ r.abbrev }}</span>
                         </div>
                       </td>
-                      <td class="mono" style="text-align:right;">{{ r.get("w","—") }}</td>
-                      <td class="mono" style="text-align:right;">{{ r.get("l","—") }}</td>
-                      <td class="mono" style="text-align:right;">{{ r.get("pct","—") }}</td>
-                      <td class="mono" style="text-align:right;">{{ r.get("gb","—") }}</td>
+                      <td class="mono" style="text-align:right;">{{ r.w }}</td>
+                      <td class="mono" style="text-align:right;">{{ r.l }}</td>
+                      <td class="mono" style="text-align:right;">{{ r.pct }}</td>
+                      <td class="mono" style="text-align:right;">{{ r.gb }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -333,75 +303,62 @@ LEADERS={{ leaders|tojson }}
             <div class="subcard-title">Team Leaders</div>
 
             {% if leaders %}
-              {% set hit = leaders.get("hitting") or [] %}
-              {% set pit = leaders.get("pitching") or [] %}
               <div style="margin-top:10px;">
-
                 <div class="small muted" style="font-weight:700; opacity:.9; margin-bottom:6px;">Hitting</div>
-                {% if hit %}
-                  <table class="tbl">
-                    <thead>
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left;">Category</th>
+                      <th style="text-align:left;">Player</th>
+                      <th style="text-align:right;">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in leaders.hitting %}
                       <tr>
-                        <th style="text-align:left;">Category</th>
-                        <th style="text-align:left;">Player</th>
-                        <th style="text-align:right;">Value</th>
+                        <td class="mono">{{ row.label }}</td>
+                        <td style="white-space:nowrap;">
+                          <div style="display:flex; align-items:center; gap:8px;">
+                            {% if row.headshot %}
+                              <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}" style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
+                                   onerror="this.onerror=null; this.src='{{ row.fallback }}';">
+                            {% endif %}
+                            <a class="playerlink" href="/player/{{ row.player_id }}">{{ row.player_name }}</a>
+                          </div>
+                        </td>
+                        <td class="mono" style="text-align:right;">{{ row.value }}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {% for row in hit %}
-                        <tr>
-                          <td class="mono">{{ row.get("label","") }}</td>
-                          <td style="white-space:nowrap;">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                              {% if row.get("headshot") %}
-                                <img class="mini-headshot" src="{{ row['headshot'] }}" alt="{{ row.get('player_name','') }}"
-                                     style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
-                                     onerror="this.onerror=null; this.src='{{ row.get('fallback','') }}';">
-                              {% endif %}
-                              <a class="playerlink" href="/player/{{ row.get('player_id') }}">{{ row.get("player_name","—") }}</a>
-                            </div>
-                          </td>
-                          <td class="mono" style="text-align:right;">{{ row.get("value","—") }}</td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                {% else %}
-                  <div class="muted" style="font-size:13px;">No hitting leaders found.</div>
-                {% endif %}
+                    {% endfor %}
+                  </tbody>
+                </table>
 
                 <div class="small muted" style="font-weight:700; opacity:.9; margin:12px 0 6px;">Pitching</div>
-                {% if pit %}
-                  <table class="tbl">
-                    <thead>
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left;">Category</th>
+                      <th style="text-align:left;">Player</th>
+                      <th style="text-align:right;">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in leaders.pitching %}
                       <tr>
-                        <th style="text-align:left;">Category</th>
-                        <th style="text-align:left;">Player</th>
-                        <th style="text-align:right;">Value</th>
+                        <td class="mono">{{ row.label }}</td>
+                        <td style="white-space:nowrap;">
+                          <div style="display:flex; align-items:center; gap:8px;">
+                            {% if row.headshot %}
+                              <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}" style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
+                                   onerror="this.onerror=null; this.src='{{ row.fallback }}';">
+                            {% endif %}
+                            <a class="playerlink" href="/player/{{ row.player_id }}">{{ row.player_name }}</a>
+                          </div>
+                        </td>
+                        <td class="mono" style="text-align:right;">{{ row.value }}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {% for row in pit %}
-                        <tr>
-                          <td class="mono">{{ row.get("label","") }}</td>
-                          <td style="white-space:nowrap;">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                              {% if row.get("headshot") %}
-                                <img class="mini-headshot" src="{{ row['headshot'] }}" alt="{{ row.get('player_name','') }}"
-                                     style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
-                                     onerror="this.onerror=null; this.src='{{ row.get('fallback','') }}';">
-                              {% endif %}
-                              <a class="playerlink" href="/player/{{ row.get('player_id') }}">{{ row.get("player_name","—") }}</a>
-                            </div>
-                          </td>
-                          <td class="mono" style="text-align:right;">{{ row.get("value","—") }}</td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                {% else %}
-                  <div class="muted" style="font-size:13px;">No pitching leaders found.</div>
-                {% endif %}
+                    {% endfor %}
+                  </tbody>
+                </table>
               </div>
             {% else %}
               <div class="muted" style="margin-top:8px; font-size:13px;">No leaders found.</div>
@@ -415,7 +372,7 @@ LEADERS={{ leaders|tojson }}
     <!-- ===================== -->
     <!-- ROSTER TAB -->
     <!-- ===================== -->
-    <div class="tab-panel" id="tab-roster" data-tab="roster" style="display:none;">
+    <div class="tab-panel" id="tab-roster" data-tab="roster">
       {% set bucket_label = {
         "Pitcher": "Pitchers",
         "Catcher": "Catchers",
@@ -443,45 +400,46 @@ LEADERS={{ leaders|tojson }}
               </thead>
               <tbody>
                 {% for p in players %}
-                  {% set pid = p.get("id") or p.get("player_id") %}
+                  {% set pid = p.id or p.player_id %}
                   <tr>
-                    <td class="mono" style="text-align:right;">{{ p.get("jersey") or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.jersey or "—" }}</td>
+
                     <td style="white-space:nowrap;">
                       <div style="display:flex; align-items:center; gap:10px;">
-                        {% if p.get("headshot") %}
+                        {% if p.headshot %}
                           <img class="mini-headshot"
-                               src="{{ p['headshot'] }}"
-                               alt="{{ p.get('name','') }}"
+                               src="{{ p.headshot }}"
+                               alt="{{ p.name }}"
                                style="height:22px; width:22px; border-radius:999px; object-fit:cover;"
-                               onerror="this.onerror=null; this.src='{{ p.get('headshot_fallback','') }}';">
+                               onerror="this.onerror=null; this.src='{{ p.headshot_fallback }}';">
                         {% endif %}
 
                         {% if pid %}
-                          <a class="playerlink" href="/player/{{ pid }}">{{ p.get("name","—") }}</a>
+                          <a class="playerlink" href="/player/{{ pid }}">{{ p.name }}</a>
                         {% else %}
-                          {{ p.get("name","—") }}
+                          {{ p.name }}
                         {% endif %}
 
-                        {% if p.get("status_code") and p.get("status_code") not in ["A"] %}
-                          {% set code = p.get("status_code") %}
+                        {% if p.status_code and p.status_code not in ["A"] %}
+                          {% set code = p.status_code %}
                           <span class="status-pill
                             {% if code == 'IL' %} status-il
                             {% elif code == 'MIN' %} status-min
                             {% else %} status-other
                             {% endif %}"
-                            title="{{ p.get('status_desc','') }}">
+                            title="{{ p.status_desc }}">
                             {{ code }}
                           </span>
                         {% endif %}
                       </div>
                     </td>
 
-                    <td class="mono" style="text-align:right;">{{ p.get("pos") or "—" }}</td>
-                    <td class="mono" style="text-align:right;">{{ p.get("bt") or "—" }}</td>
-                    <td class="mono" style="text-align:right;">{{ p.get("ht") or "—" }}</td>
-                    <td class="mono" style="text-align:right;">{{ p.get("wt") or "—" }}</td>
-                    <td class="mono" style="text-align:right;">{{ p.get("age") or "—" }}</td>
-                    <td class="mono" style="text-align:right;">{{ p.get("service") or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.pos or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.bt or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.ht or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.wt or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.age or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.service or "—" }}</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -509,42 +467,42 @@ LEADERS={{ leaders|tojson }}
             </thead>
             <tbody>
               {% for p in roster_other %}
-                {% set pid = p.get("id") or p.get("player_id") %}
+                {% set pid = p.id or p.player_id %}
                 <tr>
-                  <td class="mono" style="text-align:right;">{{ p.get("jersey") or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.jersey or "—" }}</td>
                   <td style="white-space:nowrap;">
                     <div style="display:flex; align-items:center; gap:10px;">
-                      {% if p.get("headshot") %}
+                      {% if p.headshot %}
                         <img class="mini-headshot"
-                             src="{{ p['headshot'] }}"
-                             alt="{{ p.get('name','') }}"
+                             src="{{ p.headshot }}"
+                             alt="{{ p.name }}"
                              style="height:22px; width:22px; border-radius:999px; object-fit:cover;"
-                             onerror="this.onerror=null; this.src='{{ p.get('headshot_fallback','') }}';">
+                             onerror="this.onerror=null; this.src='{{ p.headshot_fallback }}';">
                       {% endif %}
                       {% if pid %}
-                        <a class="playerlink" href="/player/{{ pid }}">{{ p.get("name","—") }}</a>
+                        <a class="playerlink" href="/player/{{ pid }}">{{ p.name }}</a>
                       {% else %}
-                        {{ p.get("name","—") }}
+                        {{ p.name }}
                       {% endif %}
-                      {% if p.get("status_code") and p.get("status_code") not in ["A"] %}
-                        {% set code = p.get("status_code") %}
+                      {% if p.status_code and p.status_code not in ["A"] %}
+                        {% set code = p.status_code %}
                         <span class="status-pill
                           {% if code == 'IL' %} status-il
                           {% elif code == 'MIN' %} status-min
                           {% else %} status-other
                           {% endif %}"
-                          title="{{ p.get('status_desc','') }}">
+                          title="{{ p.status_desc }}">
                           {{ code }}
                         </span>
                       {% endif %}
                     </div>
                   </td>
-                  <td class="mono" style="text-align:right;">{{ p.get("pos") or "—" }}</td>
-                  <td class="mono" style="text-align:right;">{{ p.get("bt") or "—" }}</td>
-                  <td class="mono" style="text-align:right;">{{ p.get("ht") or "—" }}</td>
-                  <td class="mono" style="text-align:right;">{{ p.get("wt") or "—" }}</td>
-                  <td class="mono" style="text-align:right;">{{ p.get("age") or "—" }}</td>
-                  <td class="mono" style="text-align:right;">{{ p.get("service") or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.pos or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.bt or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.ht or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.wt or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.age or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.service or "—" }}</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -556,7 +514,7 @@ LEADERS={{ leaders|tojson }}
     <!-- ===================== -->
     <!-- SCHEDULE TAB -->
     <!-- ===================== -->
-    <div class="tab-panel" id="tab-schedule" data-tab="schedule" style="display:none;">
+    <div class="tab-panel" id="tab-schedule" data-tab="schedule">
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
         <div class="subcard-title" style="margin:0;">Schedule</div>
         <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
@@ -572,7 +530,7 @@ LEADERS={{ leaders|tojson }}
     <!-- ===================== -->
     <!-- TRANSACTIONS TAB -->
     <!-- ===================== -->
-    <div class="tab-panel" id="tab-transactions" data-tab="transactions" style="display:none;">
+    <div class="tab-panel" id="tab-transactions" data-tab="transactions">
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
         <div class="subcard-title" style="margin:0;">Transactions</div>
         <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
@@ -621,7 +579,6 @@ LEADERS={{ leaders|tojson }}
     background: rgba(255,255,255,0.10);
     color: rgba(235,235,235,0.95);
     border: 1px solid rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.12);
   }
 
   /* Shared selects */
@@ -657,64 +614,44 @@ LEADERS={{ leaders|tojson }}
 </style>
 
 <script>
-  // NOTE: ensure TEAM_ID is always a number
-  const TEAM_ID = {{ team["team_id"]|int }};
+  const TEAM_ID = {{ team.team_id }};
 
   function mlbLogoUrl(teamId){
     return `https://www.mlbstatic.com/team-logos/${teamId}.svg`;
   }
 
   // ----------------------------
-  // Tabs (fail-safe)
+  // Tabs
+  // FIX: toggle "active" class because global CSS uses
+  // .tab-panel { display:none } and .tab-panel.active { display:block }
   // ----------------------------
   function setActiveTab(tab){
-    try{
-      const btns = document.querySelectorAll(".tab-btn");
-      const panels = document.querySelectorAll(".tab-panel");
+    const btns = document.querySelectorAll(".tab-btn");
+    const panels = document.querySelectorAll(".tab-panel");
 
-      if (!btns.length || !panels.length){
-        // Nothing to toggle; don't hide content
-        return;
-      }
+    btns.forEach(b => {
+      b.classList.toggle("active", b.dataset.tab === tab);
+    });
 
-      btns.forEach(b => {
-        const isOn = b.dataset.tab === tab;
-        b.classList.toggle("active", isOn);
-      });
+    panels.forEach(p => {
+      p.classList.toggle("active", p.dataset.tab === tab);
+    });
 
-      panels.forEach(p => {
-        p.style.display = (p.dataset.tab === tab) ? "" : "none";
-      });
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.replaceState({}, "", url);
 
-      const url = new URL(window.location.href);
-      url.searchParams.set("tab", tab);
-      window.history.replaceState({}, "", url);
-
-      if (tab === "schedule") ensureScheduleLoaded();
-      if (tab === "transactions") ensureTransactionsLoaded();
-    } catch(e){
-      console.error("[team] setActiveTab error", e);
-      // fail open: ensure overview is visible
-      const ov = document.getElementById("tab-overview");
-      if (ov) ov.style.display = "";
-    }
+    // lazy-load tab content
+    if (tab === "schedule") ensureScheduleLoaded();
+    if (tab === "transactions") ensureTransactionsLoaded();
   }
 
-  // Bind safely after DOM exists
-  window.addEventListener("DOMContentLoaded", () => {
-    try{
-      document.querySelectorAll(".tab-btn").forEach(b => {
-        b.addEventListener("click", () => setActiveTab(b.dataset.tab));
-      });
-
-      const initialTab = new URLSearchParams(window.location.search).get("tab") || "overview";
-      setActiveTab(initialTab);
-    } catch(e){
-      console.error("[team] tab init error", e);
-      const ov = document.getElementById("tab-overview");
-      if (ov) ov.style.display = "";
-    }
+  document.querySelectorAll(".tab-btn").forEach(b => {
+    b.addEventListener("click", () => setActiveTab(b.dataset.tab));
   });
+
+  const initialTab = new URLSearchParams(window.location.search).get("tab") || "overview";
+  setActiveTab(initialTab);
 
   // ----------------------------
   // Schedule
@@ -724,11 +661,9 @@ LEADERS={{ leaders|tojson }}
 
   function buildSeasons(){
     const sel = document.getElementById("scheduleSeason");
-    if (!sel) return;
-
     const currentYear = new Date().getFullYear();
-    sel.innerHTML = "";
 
+    sel.innerHTML = "";
     for (let y = currentYear; y >= 2021; y--){
       const opt = document.createElement("option");
       opt.value = y;
@@ -764,6 +699,24 @@ LEADERS={{ leaders|tojson }}
     return parts.join(" — ") || "—";
   }
 
+  function safeText(x){
+    return (x == null || x === "") ? "—" : String(x);
+  }
+
+  function escapeHtml(s){
+    return safeText(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function playerLink(id, name){
+    const nm = escapeHtml(name || "—");
+    return id ? `<a href="/player/${id}">${nm}</a>` : nm;
+  }
+
   function computeResult(g){
     if (!isFinal(g.status)) return null;
 
@@ -781,24 +734,6 @@ LEADERS={{ leaders|tojson }}
     if (gt === "R") return "Regular Season";
     if (["F","D","L","W"].includes(gt)) return "Postseason";
     return "Other";
-  }
-
-  function safeText(x){
-    return (x == null || x === "") ? "—" : String(x);
-  }
-
-  function escapeHtml(s){
-    return safeText(s)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#39;");
-  }
-
-  function playerLink(id, name){
-    const nm = escapeHtml(name || "—");
-    return id ? `<a href="/player/${id}">${nm}</a>` : nm;
   }
 
   function renderScheduleSection(title, games){
@@ -874,7 +809,7 @@ LEADERS={{ leaders|tojson }}
         <tr>
           <td class="mono" style="white-space:nowrap;">${date}</td>
           <td class="mono" style="white-space:nowrap;">${time}</td>
-          <td>${loc}</td>
+          <td>${escapeHtml(loc)}</td>
           <td>
             <div class="opp-cell">
               <span style="opacity:.85; width:32px; display:inline-block;">${prefix}</span>
@@ -893,11 +828,8 @@ LEADERS={{ leaders|tojson }}
   }
 
   async function loadSchedule(){
-    const sel = document.getElementById("scheduleSeason");
+    const season = document.getElementById("scheduleSeason").value;
     const container = document.getElementById("scheduleContent");
-    if (!sel || !container) return;
-
-    const season = sel.value;
     container.innerHTML = `<div class="muted" style="font-size:13px;">Loading schedule…</div>`;
 
     try{
@@ -934,15 +866,11 @@ LEADERS={{ leaders|tojson }}
   function ensureScheduleLoaded(){
     if (!_scheduleBootstrapped){
       buildSeasons();
-      const sel = document.getElementById("scheduleSeason");
-      if (sel){
-        sel.addEventListener("change", () => {
-          const panel = document.querySelector('.tab-panel[data-tab="schedule"]');
-          if (panel && panel.style.display !== "none"){
-            loadSchedule();
-          }
-        });
-      }
+      document.getElementById("scheduleSeason").addEventListener("change", () => {
+        const panel = document.querySelector('.tab-panel[data-tab="schedule"]');
+        if (panel && !panel.classList.contains("active")) return;
+        loadSchedule();
+      });
       _scheduleBootstrapped = true;
     }
     if (!_scheduleLoadedOnce){
@@ -1015,11 +943,8 @@ LEADERS={{ leaders|tojson }}
   }
 
   async function loadTransactions(){
-    const sel = document.getElementById("txDays");
+    const days = document.getElementById("txDays").value;
     const container = document.getElementById("txContent");
-    if (!sel || !container) return;
-
-    const days = sel.value;
     container.innerHTML = `<div class="muted" style="font-size:13px;">Loading transactions…</div>`;
 
     try{
@@ -1037,16 +962,11 @@ LEADERS={{ leaders|tojson }}
     if (!_txLoadedOnce){
       _txLoadedOnce = true;
       loadTransactions();
-
-      const sel = document.getElementById("txDays");
-      if (sel){
-        sel.addEventListener("change", () => {
-          const panel = document.querySelector('.tab-panel[data-tab="transactions"]');
-          if (panel && panel.style.display !== "none"){
-            loadTransactions();
-          }
-        });
-      }
+      document.getElementById("txDays").addEventListener("change", () => {
+        const panel = document.querySelector('.tab-panel[data-tab="transactions"]');
+        if (panel && !panel.classList.contains("active")) return;
+        loadTransactions();
+      });
     }
   }
 </script>
