@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+
 <div style="padding:8px 10px; border:1px solid rgba(255,255,255,.15); border-radius:12px; margin-bottom:10px;">
   <div class="mono" style="font-size:12px; opacity:.85;">
     TEAM DEBUG • team={{ "yes" if team else "no" }}
@@ -31,8 +32,8 @@ next={{ next_game|tojson if next_game is not none else "null" }}
 {# ---------------------------------
    Helpers: final + W/L placement
    --------------------------------- #}
-{% set last_is_final = last_game and (last_game.statusPill|string)|lower in ["final", "game over"] or (last_game and "final" in (last_game.detailedState|string)|lower) %}
-{% set next_is_final = next_game and (next_game.statusPill|string)|lower in ["final", "game over"] or (next_game and "final" in (next_game.detailedState|string)|lower) %}
+{% set last_is_final = (last_game and (('final' in ((last_game.statusPill|string)|lower)) or ('final' in ((last_game.detailedState|string)|lower)) or ('game over' in ((last_game.detailedState|string)|lower)))) %}
+{% set next_is_final = (next_game and (('final' in ((next_game.statusPill|string)|lower)) or ('final' in ((next_game.detailedState|string)|lower)) or ('game over' in ((next_game.detailedState|string)|lower)))) %}
 
 <div class="card">
   <div class="card-header">
@@ -52,15 +53,15 @@ next={{ next_game|tojson if next_game is not none else "null" }}
 </div>
 
 {# -----------------------------
-   Tabs (mimic game.html behavior)
+   Tabs
    ----------------------------- #}
 <div class="card" style="margin-top:18px;">
   <div class="card-header" style="padding-bottom:0;">
     <div class="tabs" style="display:flex; gap:10px; flex-wrap:wrap;">
-      <button class="tab-btn" data-tab="overview">Overview</button>
-      <button class="tab-btn" data-tab="roster">Roster</button>
-      <button class="tab-btn" data-tab="schedule">Schedule</button>
-      <button class="tab-btn" data-tab="transactions">Transactions</button>
+      <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
+      <button class="tab-btn" data-tab="roster" type="button">Roster</button>
+      <button class="tab-btn" data-tab="schedule" type="button">Schedule</button>
+      <button class="tab-btn" data-tab="transactions" type="button">Transactions</button>
     </div>
   </div>
 
@@ -69,9 +70,8 @@ next={{ next_game|tojson if next_game is not none else "null" }}
     <!-- ===================== -->
     <!-- OVERVIEW TAB -->
     <!-- ===================== -->
-    <div class="tab-panel" id="tab-overview" data-tab="overview">
+    <div class="tab-panel active" id="tab-overview" data-tab="overview">
 
-      {# 3 across layout: 2 rows #}
       <div class="grid-3" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:14px; align-items:start;">
 
         <!-- ===================== -->
@@ -81,7 +81,6 @@ next={{ next_game|tojson if next_game is not none else "null" }}
           <div class="subcard-title">Last Game</div>
 
           {% if last_game %}
-            {# Compute who won so W/L can be placed on correct row #}
             {% set away_score = last_game.away.score %}
             {% set home_score = last_game.home.score %}
             {% set away_won = (away_score is not none and home_score is not none and away_score > home_score) %}
@@ -96,7 +95,6 @@ next={{ next_game|tojson if next_game is not none else "null" }}
 
                   <div class="pill">{{ last_game.statusPill }}</div>
 
-                  {# Date next to pill #}
                   {% if last_game.dateLocal %}
                     <div class="muted mono" style="font-size:12px; opacity:.85;">{{ last_game.dateLocal }}</div>
                   {% endif %}
@@ -121,8 +119,7 @@ next={{ next_game|tojson if next_game is not none else "null" }}
                         {% endif %}
                         <span class="muted" style="opacity:.6;">•</span>
 
-                        {# FINAL: show W/L pitchers in the PP slot #}
-                        {% if last_is_final and last_game.pitching.winner and last_game.pitching.loser and (away_won or home_won) %}
+                        {% if last_is_final and last_game.pitching and last_game.pitching.winner and last_game.pitching.loser and (away_won or home_won) %}
                           <span class="small muted">
                             {% if away_won %}
                               W: {{ last_game.pitching.winner }}
@@ -157,7 +154,7 @@ next={{ next_game|tojson if next_game is not none else "null" }}
                         {% endif %}
                         <span class="muted" style="opacity:.6;">•</span>
 
-                        {% if last_is_final and last_game.pitching.winner and last_game.pitching.loser and (away_won or home_won) %}
+                        {% if last_is_final and last_game.pitching and last_game.pitching.winner and last_game.pitching.loser and (away_won or home_won) %}
                           <span class="small muted">
                             {% if home_won %}
                               W: {{ last_game.pitching.winner }}
@@ -212,7 +209,6 @@ next={{ next_game|tojson if next_game is not none else "null" }}
 
                   <div class="pill">{{ next_game.statusPill }}</div>
 
-                  {# Date next to pill #}
                   {% if next_game.dateLocal %}
                     <div class="muted mono" style="font-size:12px; opacity:.85;">{{ next_game.dateLocal }}</div>
                   {% endif %}
@@ -411,7 +407,8 @@ next={{ next_game|tojson if next_game is not none else "null" }}
                       <td style="white-space:nowrap;">
                         <div style="display:flex; align-items:center; gap:8px;">
                           {% if row.headshot %}
-                            <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}" style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
+                            <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}"
+                                 style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
                                  onerror="this.onerror=null; this.src='{{ row.fallback }}';">
                           {% endif %}
                           <a class="playerlink" href="/player/{{ row.player_id }}">{{ row.player_name }}</a>
@@ -439,7 +436,8 @@ next={{ next_game|tojson if next_game is not none else "null" }}
                       <td style="white-space:nowrap;">
                         <div style="display:flex; align-items:center; gap:8px;">
                           {% if row.headshot %}
-                            <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}" style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
+                            <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}"
+                                 style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
                                  onerror="this.onerror=null; this.src='{{ row.fallback }}';">
                           {% endif %}
                           <a class="playerlink" href="/player/{{ row.player_id }}">{{ row.player_name }}</a>
@@ -462,7 +460,7 @@ next={{ next_game|tojson if next_game is not none else "null" }}
     <!-- ===================== -->
     <!-- ROSTER TAB -->
     <!-- ===================== -->
-    <div class="tab-panel" id="tab-roster" data-tab="roster" style="display:none;">
+    <div class="tab-panel" id="tab-roster" data-tab="roster">
       {% set bucket_label = {
         "Pitcher": "Pitchers",
         "Catcher": "Catchers",
@@ -604,7 +602,7 @@ next={{ next_game|tojson if next_game is not none else "null" }}
     <!-- ===================== -->
     <!-- SCHEDULE TAB -->
     <!-- ===================== -->
-    <div class="tab-panel" id="tab-schedule" data-tab="schedule" style="display:none;">
+    <div class="tab-panel" id="tab-schedule" data-tab="schedule">
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
         <div class="subcard-title" style="margin:0;">Schedule</div>
         <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
@@ -620,7 +618,7 @@ next={{ next_game|tojson if next_game is not none else "null" }}
     <!-- ===================== -->
     <!-- TRANSACTIONS TAB -->
     <!-- ===================== -->
-    <div class="tab-panel" id="tab-transactions" data-tab="transactions" style="display:none;">
+    <div class="tab-panel" id="tab-transactions" data-tab="transactions">
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
         <div class="subcard-title" style="margin:0;">Transactions</div>
         <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
@@ -645,6 +643,15 @@ next={{ next_game|tojson if next_game is not none else "null" }}
   /* Player links */
   a.playerlink{ color: inherit; text-decoration: none; }
   a.playerlink:hover{ text-decoration: underline; }
+
+  /* Tab visibility (if your global CSS already has this, it’ll match it) */
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .tab-btn.active{
+    border-color: rgba(255,255,255,.28);
+    background: rgba(255,255,255,.10);
+  }
 
   .status-pill{
     display:inline-block;
@@ -671,7 +678,6 @@ next={{ next_game|tojson if next_game is not none else "null" }}
     border: 1px solid rgba(255,255,255,0.12);
   }
 
-  /* Shared selects */
   .season-select{
     padding:6px 10px;
     border-radius:10px;
@@ -681,17 +687,16 @@ next={{ next_game|tojson if next_game is not none else "null" }}
     font-size: 13px;
   }
 
-  /* Transactions */
   .tx-desc a{ text-decoration:none; }
   .tx-desc a:hover{ text-decoration:underline; }
 
-  /* Make 3-col grid collapse nicely on smaller screens */
   @media (max-width: 1100px){
-    .grid-3{ grid-template-columns: 1fr; }
+    .grid-3{ grid-template-columns: 1fr !important; }
   }
 </style>
 
 <script>
+  // One (1) TEAM_ID definition — do not duplicate
   const TEAM_ID = {{ (team.team_id or 0)|int }};
 
   function mlbLogoUrl(teamId){
@@ -699,10 +704,8 @@ next={{ next_game|tojson if next_game is not none else "null" }}
   }
 
   // ----------------------------
-  // Tabs (mimic game.html)
+  // Tabs
   // ----------------------------
-  const TEAM_ID = {{ (team.team_id or 0)|int }};
-
   function setActiveTab(tab){
     document.querySelectorAll(".tab-btn").forEach(b => {
       b.classList.toggle("active", b.dataset.tab === tab);
@@ -726,6 +729,7 @@ next={{ next_game|tojson if next_game is not none else "null" }}
 
   const initialTab = new URLSearchParams(window.location.search).get("tab") || "overview";
   setActiveTab(initialTab);
+
   // ----------------------------
   // Schedule
   // ----------------------------
@@ -888,7 +892,7 @@ next={{ next_game|tojson if next_game is not none else "null" }}
     container.innerHTML = `<div class="muted" style="font-size:13px;">Loading schedule…</div>`;
 
     try{
-      const res = await fetch(`/team/${TEAM_ID}/schedule_json?season=${season}`);
+      const res = await fetch(`/team/${TEAM_ID}/schedule_json?season=${encodeURIComponent(season)}`);
       const data = await res.json();
       const games = data.games || [];
 
@@ -983,7 +987,6 @@ next={{ next_game|tojson if next_game is not none else "null" }}
 
       const players = (t.players || []).filter(p => p && p.id && p.name);
 
-      // Link EVERY occurrence
       for (const p of players){
         const nameEsc = escapeHtml(p.name);
         const linked = `<a href="/player/${p.id}">${nameEsc}</a>`;
@@ -992,7 +995,6 @@ next={{ next_game|tojson if next_game is not none else "null" }}
         }
       }
 
-      // If no names were found, prepend player list
       const anyLinked = players.some(p => descHtml.includes(`/player/${p.id}`));
       if (players.length && !anyLinked){
         const plist = players
