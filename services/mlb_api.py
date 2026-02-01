@@ -1788,33 +1788,33 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     if (feed or {}).get("scheduleOnly"):
         sg = (feed or {}).get("scheduleGame") or {}
         if sg:
-            # best-effort: return a minimal structure so template can render
-            gd = (sg.get("gameDate") or "").replace("T", " ").replace("Z", "")
-            away = (((sg.get("teams") or {}).get("away") or {}).get("team") or {})
-            home = (((sg.get("teams") or {}).get("home") or {}).get("team") or {})
-            return {
-                "statusPill": "Scheduled",
-                "when": gd,
-                "venue": ((sg.get("venue") or {}).get("name")),
-                "away": {
-                    "id": away.get("id"),
-                    "name": away.get("name"),
-                    "abbrev": away.get("abbreviation"),
-                    "logo_url": f"https://www.mlbstatic.com/team-logos/{away.get('id')}.svg" if away.get("id") else None,
-                },
-                "home": {
-                    "id": home.get("id"),
-                    "name": home.get("name"),
-                    "abbrev": home.get("abbreviation"),
-                    "logo_url": f"https://www.mlbstatic.com/team-logos/{home.get('id')}.svg" if home.get("id") else None,
-                },
-                "decisions": {},
-                "linescore": None,
-                "box": None,
-                "scoring": [],
-                "pbp": [],
-                "pas": [],
-            }
+            # ✅ Use the same normalizer everywhere so templates always get the same keys
+            game_obj = normalize_schedule_game(sg, tz_name=tz_name)
+    
+            # ✅ Add empty placeholders that game.html may expect for non-live games
+            game_obj.setdefault("linescore", {})
+            game_obj.setdefault("box", {"away": {"batting": [], "pitching": []},
+                                        "home": {"batting": [], "pitching": []}})
+            game_obj.setdefault("scoring", [])
+            game_obj.setdefault("pas", [])
+            game_obj.setdefault("pbp", [])
+    
+            return game_obj
+    
+        # If scheduleGame is missing, still return something safe
+        return {
+            "gamePk": None,
+            "statusPill": "Scheduled",
+            "when": "",
+            "venue": "",
+            "away": {},
+            "home": {},
+            "linescore": {},
+            "box": {"away": {"batting": [], "pitching": []}, "home": {"batting": [], "pitching": []}},
+            "scoring": [],
+            "pas": [],
+            "pbp": [],
+        }
 
     # ---------------------
     # small helpers
