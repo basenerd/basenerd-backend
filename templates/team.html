@@ -18,50 +18,344 @@
   </div>
 </div>
 
-<!-- ===================== -->
-<!-- 40-MAN ROSTER DROPDOWN -->
-<!-- ===================== -->
-
+{# -----------------------------
+   Tabs (mimic game.html behavior)
+   ----------------------------- #}
 <div class="card" style="margin-top:18px;">
-  <div class="card-header">
-    <details class="roster-details">
-      <summary class="roster-summary">
-        <div class="card-title" style="margin:0;">40-Man Roster</div>
-        <span class="muted" style="font-size:12px;">Click to expand</span>
-      </summary>
+  <div class="card-header" style="padding-bottom:0;">
+    <div class="tabs" style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="tab-btn" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="roster">Roster</button>
+      <button class="tab-btn" data-tab="schedule">Schedule</button>
+      <button class="tab-btn" data-tab="transactions">Transactions</button>
+    </div>
+  </div>
 
-      <div class="card-body" style="padding-top:10px;">
+  <div class="card-body" style="padding-top:14px;">
 
-        {% set bucket_label = {
-          "Pitcher": "Pitchers",
-          "Catcher": "Catchers",
-          "Infielder": "Infielders",
-          "Outfielder": "Outfielders"
-        } %}
+    <!-- ===================== -->
+    <!-- OVERVIEW TAB -->
+    <!-- ===================== -->
+    <div class="tab-panel" data-tab="overview">
+      <div class="grid" style="display:grid; grid-template-columns: 1.25fr 0.75fr; gap:14px; align-items:start;">
+        <div style="display:flex; flex-direction:column; gap:14px;">
 
-        {% for bucket, players in (roster_grouped or {}).items() %}
-          {% if players %}
-            <div class="subcard" style="margin-top:12px;">
-              <div class="subcard-title">{{ bucket_label.get(bucket, bucket ~ "s") }}</div>
+          <!-- Last Game -->
+          <div class="subcard">
+            <div class="subcard-title">Last Game</div>
 
-              <table class="table">
+            {% if last_game %}
+              <a class="game-card" href="/game/{{ last_game.gamePk }}" style="margin-top:10px; display:block;">
+                <div class="game-card-top">
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    {% if last_game.competitionLabel %}
+                      <div class="tag">{{ last_game.competitionLabel }}</div>
+                    {% endif %}
+                    <div class="pill">{{ last_game.statusPill }}</div>
+                  </div>
+                  <div class="muted mono game-time">{{ last_game.timeLocal }}</div>
+                </div>
+
+                <div class="matchup">
+                  <!-- AWAY -->
+                  <div class="team-row">
+                    <div class="team-left">
+                      {% if last_game.away.logo %}
+                        <img class="team-logo" src="{{ last_game.away.logo }}" alt="{{ last_game.away.abbrev }} logo">
+                      {% endif %}
+                      <div class="team-line">
+                        <div class="team-line-top">
+                          <span class="team-abbrev">{{ last_game.away.abbrev }}</span>
+                          {% if last_game.away.record %}
+                            <span class="muted mono" style="font-size:12px;">{{ last_game.away.record }}</span>
+                          {% endif %}
+                          <span class="muted" style="opacity:.6;">•</span>
+                          <span class="small muted">{{ last_game.away.pp or "PP: TBD" }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="team-score mono">{{ last_game.away.score if last_game.away.score is not none else "—" }}</div>
+                  </div>
+
+                  <!-- HOME -->
+                  <div class="team-row">
+                    <div class="team-left">
+                      {% if last_game.home.logo %}
+                        <img class="team-logo" src="{{ last_game.home.logo }}" alt="{{ last_game.home.abbrev }} logo">
+                      {% endif %}
+                      <div class="team-line">
+                        <div class="team-line-top">
+                          <span class="team-abbrev">{{ last_game.home.abbrev }}</span>
+                          {% if last_game.home.record %}
+                            <span class="muted mono" style="font-size:12px;">{{ last_game.home.record }}</span>
+                          {% endif %}
+                          <span class="muted" style="opacity:.6;">•</span>
+                          <span class="small muted">{{ last_game.home.pp or "PP: TBD" }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="team-score mono">{{ last_game.home.score if last_game.home.score is not none else "—" }}</div>
+                  </div>
+                </div>
+
+                <div class="game-meta">
+                  {% if last_game.venue %}
+                    <div class="muted">
+                      {{ last_game.venue }}
+                      {% if last_game.venueLocation %}
+                        • {{ last_game.venueLocation }}
+                      {% endif %}
+                    </div>
+                  {% endif %}
+
+                  {% if last_game.statusPill == "Final" %}
+                    <div class="small muted">
+                      {% if last_game.pitching.winner or last_game.pitching.loser %}
+                        W: {{ last_game.pitching.winner or "—" }} • L: {{ last_game.pitching.loser or "—" }}
+                      {% endif %}
+                    </div>
+                  {% else %}
+                    <div class="small muted">{{ last_game.detailedState }}</div>
+                  {% endif %}
+                </div>
+              </a>
+            {% else %}
+              <div class="muted" style="margin-top:8px; font-size:13px;">No completed game found.</div>
+            {% endif %}
+          </div>
+
+          <!-- Next Game -->
+          <div class="subcard">
+            <div class="subcard-title">Next Game</div>
+
+            {% if next_game %}
+              <a class="game-card" href="/game/{{ next_game.gamePk }}" style="margin-top:10px; display:block;">
+                <div class="game-card-top">
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    {% if next_game.competitionLabel %}
+                      <div class="tag">{{ next_game.competitionLabel }}</div>
+                    {% endif %}
+                    <div class="pill">{{ next_game.statusPill }}</div>
+                  </div>
+                  <div class="muted mono game-time">{{ next_game.timeLocal }}</div>
+                </div>
+
+                <div class="matchup">
+                  <div class="team-row">
+                    <div class="team-left">
+                      {% if next_game.away.logo %}
+                        <img class="team-logo" src="{{ next_game.away.logo }}" alt="{{ next_game.away.abbrev }} logo">
+                      {% endif %}
+                      <div class="team-line">
+                        <div class="team-line-top">
+                          <span class="team-abbrev">{{ next_game.away.abbrev }}</span>
+                          {% if next_game.away.record %}
+                            <span class="muted mono" style="font-size:12px;">{{ next_game.away.record }}</span>
+                          {% endif %}
+                          <span class="muted" style="opacity:.6;">•</span>
+                          <span class="small muted">{{ next_game.away.pp or "PP: TBD" }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="team-score mono">{{ next_game.away.score if next_game.away.score is not none else "—" }}</div>
+                  </div>
+
+                  <div class="team-row">
+                    <div class="team-left">
+                      {% if next_game.home.logo %}
+                        <img class="team-logo" src="{{ next_game.home.logo }}" alt="{{ next_game.home.abbrev }} logo">
+                      {% endif %}
+                      <div class="team-line">
+                        <div class="team-line-top">
+                          <span class="team-abbrev">{{ next_game.home.abbrev }}</span>
+                          {% if next_game.home.record %}
+                            <span class="muted mono" style="font-size:12px;">{{ next_game.home.record }}</span>
+                          {% endif %}
+                          <span class="muted" style="opacity:.6;">•</span>
+                          <span class="small muted">{{ next_game.home.pp or "PP: TBD" }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="team-score mono">{{ next_game.home.score if next_game.home.score is not none else "—" }}</div>
+                  </div>
+                </div>
+
+                <div class="game-meta">
+                  {% if next_game.venue %}
+                    <div class="muted">
+                      {{ next_game.venue }}
+                      {% if next_game.venueLocation %}
+                        • {{ next_game.venueLocation }}
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                  <div class="small muted">{{ next_game.detailedState }}</div>
+                </div>
+              </a>
+            {% else %}
+              <div class="muted" style="margin-top:8px; font-size:13px;">No upcoming game found.</div>
+            {% endif %}
+          </div>
+
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:14px;">
+
+          <!-- Division Standings -->
+          <div class="subcard">
+            <div class="subcard-title">Division Standings</div>
+
+            {% if division_rows %}
+              <table class="tbl" style="margin-top:10px;">
                 <thead>
                   <tr>
-                    <td style="width:44px; text-align:right;"><strong>#</strong></td>
-                    <td><strong>Player</strong></td>
-                    <td style="width:70px; text-align:right;"><strong>B/T</strong></td>
-                    <td style="width:60px; text-align:right;"><strong>Pos</strong></td>
+                    <th style="text-align:left;">Team</th>
+                    <th style="text-align:right;">W</th>
+                    <th style="text-align:right;">L</th>
+                    <th style="text-align:right;">Pct</th>
+                    <th style="text-align:right;">GB</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {% for p in players %}
-                    {% set pid = p.id or p.player_id %}
-                    <tr>
-                      <td style="text-align:right; font-variant-numeric: tabular-nums;">
-                        {{ p.jersey or "—" }}
-                      </td>
-
+                  {% for r in division_rows %}
+                    <tr {% if r.is_selected %}style="font-weight:700;"{% endif %}>
                       <td style="white-space:nowrap;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                          {% if r.logo %}
+                            <img src="{{ r.logo }}" alt="{{ r.abbrev }} logo" style="height:14px; width:14px; object-fit:contain;">
+                          {% endif %}
+                          <span class="mono">{{ r.abbrev }}</span>
+                        </div>
+                      </td>
+                      <td class="mono" style="text-align:right;">{{ r.w }}</td>
+                      <td class="mono" style="text-align:right;">{{ r.l }}</td>
+                      <td class="mono" style="text-align:right;">{{ r.pct }}</td>
+                      <td class="mono" style="text-align:right;">{{ r.gb }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <div class="muted" style="margin-top:8px; font-size:13px;">No division standings found.</div>
+            {% endif %}
+          </div>
+
+          <!-- Leaders -->
+          <div class="subcard">
+            <div class="subcard-title">Team Leaders</div>
+
+            {% if leaders %}
+              <div style="margin-top:10px;">
+                <div class="small muted" style="font-weight:700; opacity:.9; margin-bottom:6px;">Hitting</div>
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left;">Category</th>
+                      <th style="text-align:left;">Player</th>
+                      <th style="text-align:right;">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in leaders.hitting %}
+                      <tr>
+                        <td class="mono">{{ row.label }}</td>
+                        <td style="white-space:nowrap;">
+                          <div style="display:flex; align-items:center; gap:8px;">
+                            {% if row.headshot %}
+                              <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}" style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
+                                   onerror="this.onerror=null; this.src='{{ row.fallback }}';">
+                            {% endif %}
+                            <a class="playerlink" href="/player/{{ row.player_id }}">{{ row.player_name }}</a>
+                          </div>
+                        </td>
+                        <td class="mono" style="text-align:right;">{{ row.value }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+
+                <div class="small muted" style="font-weight:700; opacity:.9; margin:12px 0 6px;">Pitching</div>
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left;">Category</th>
+                      <th style="text-align:left;">Player</th>
+                      <th style="text-align:right;">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in leaders.pitching %}
+                      <tr>
+                        <td class="mono">{{ row.label }}</td>
+                        <td style="white-space:nowrap;">
+                          <div style="display:flex; align-items:center; gap:8px;">
+                            {% if row.headshot %}
+                              <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}" style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
+                                   onerror="this.onerror=null; this.src='{{ row.fallback }}';">
+                            {% endif %}
+                            <a class="playerlink" href="/player/{{ row.player_id }}">{{ row.player_name }}</a>
+                          </div>
+                        </td>
+                        <td class="mono" style="text-align:right;">{{ row.value }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <div class="muted" style="margin-top:8px; font-size:13px;">No leaders found.</div>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== -->
+    <!-- ROSTER TAB -->
+    <!-- ===================== -->
+    <div class="tab-panel" data-tab="roster" style="display:none;">
+      {% set bucket_label = {
+        "Pitcher": "Pitchers",
+        "Catcher": "Catchers",
+        "Infielder": "Infielders",
+        "Outfielder": "Outfielders"
+      } %}
+
+      {% for bucket, players in (roster_grouped or {}).items() %}
+        {% if players %}
+          <div class="subcard" style="margin-top:12px;">
+            <div class="subcard-title">{{ bucket_label.get(bucket, bucket ~ "s") }}</div>
+
+            <table class="tbl" style="margin-top:10px;">
+              <thead>
+                <tr>
+                  <th style="width:44px; text-align:right;">#</th>
+                  <th style="text-align:left;">Player</th>
+                  <th style="text-align:right;">Pos</th>
+                  <th style="text-align:right;">B/T</th>
+                  <th style="text-align:right;">Ht</th>
+                  <th style="text-align:right;">Wt</th>
+                  <th style="text-align:right;">Age</th>
+                  <th style="text-align:right;">Svc</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in players %}
+                  {% set pid = p.id or p.player_id %}
+                  <tr>
+                    <td class="mono" style="text-align:right;">{{ p.jersey or "—" }}</td>
+
+                    <td style="white-space:nowrap;">
+                      <div style="display:flex; align-items:center; gap:10px;">
+                        {% if p.headshot %}
+                          <img class="mini-headshot"
+                               src="{{ p.headshot }}"
+                               alt="{{ p.name }}"
+                               style="height:22px; width:22px; border-radius:999px; object-fit:cover;"
+                               onerror="this.onerror=null; this.src='{{ p.headshot_fallback }}';">
+                        {% endif %}
+
                         {% if pid %}
                           <a class="playerlink" href="/player/{{ pid }}">{{ p.name }}</a>
                         {% else %}
@@ -79,50 +373,59 @@
                             {{ code }}
                           </span>
                         {% endif %}
-                      </td>
+                      </div>
+                    </td>
 
-                      <td style="text-align:right; font-variant-numeric: tabular-nums;">
-                        {{ p.bt or "—" }}
-                      </td>
+                    <td class="mono" style="text-align:right;">{{ p.pos or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.bt or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.ht or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.wt or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.age or "—" }}</td>
+                    <td class="mono" style="text-align:right;">{{ p.service or "—" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      {% endfor %}
 
-                      <td style="text-align:right;">
-                        {{ p.pos or "—" }}
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+      {% if roster_other %}
+        <div class="subcard" style="margin-top:12px;">
+          <div class="subcard-title">Other</div>
 
-            </div>
-          {% endif %}
-        {% endfor %}
-
-        {% if roster_other %}
-          <div class="subcard" style="margin-top:12px;">
-            <div class="subcard-title">Other</div>
-
-            <table class="table">
-              <thead>
+          <table class="tbl" style="margin-top:10px;">
+            <thead>
+              <tr>
+                <th style="width:44px; text-align:right;">#</th>
+                <th style="text-align:left;">Player</th>
+                <th style="text-align:right;">Pos</th>
+                <th style="text-align:right;">B/T</th>
+                <th style="text-align:right;">Ht</th>
+                <th style="text-align:right;">Wt</th>
+                <th style="text-align:right;">Age</th>
+                <th style="text-align:right;">Svc</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in roster_other %}
+                {% set pid = p.id or p.player_id %}
                 <tr>
-                  <td style="width:44px; text-align:right;"><strong>#</strong></td>
-                  <td><strong>Player</strong></td>
-                  <td style="width:70px; text-align:right;"><strong>B/T</strong></td>
-                  <td style="width:60px; text-align:right;"><strong>Pos</strong></td>
-                </tr>
-              </thead>
-              <tbody>
-                {% for p in roster_other %}
-                  {% set pid = p.id or p.player_id %}
-                  <tr>
-                    <td style="text-align:right; font-variant-numeric: tabular-nums;">{{ p.jersey or "—" }}</td>
-
-                    <td style="white-space:nowrap;">
+                  <td class="mono" style="text-align:right;">{{ p.jersey or "—" }}</td>
+                  <td style="white-space:nowrap;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      {% if p.headshot %}
+                        <img class="mini-headshot"
+                             src="{{ p.headshot }}"
+                             alt="{{ p.name }}"
+                             style="height:22px; width:22px; border-radius:999px; object-fit:cover;"
+                             onerror="this.onerror=null; this.src='{{ p.headshot_fallback }}';">
+                      {% endif %}
                       {% if pid %}
                         <a class="playerlink" href="/player/{{ pid }}">{{ p.name }}</a>
                       {% else %}
                         {{ p.name }}
                       {% endif %}
-
                       {% if p.status_code and p.status_code not in ["A"] %}
                         {% set code = p.status_code %}
                         <span class="status-pill
@@ -134,104 +437,66 @@
                           {{ code }}
                         </span>
                       {% endif %}
-                    </td>
+                    </div>
+                  </td>
+                  <td class="mono" style="text-align:right;">{{ p.pos or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.bt or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.ht or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.wt or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.age or "—" }}</td>
+                  <td class="mono" style="text-align:right;">{{ p.service or "—" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
 
-                    <td style="text-align:right; font-variant-numeric: tabular-nums;">{{ p.bt or "—" }}</td>
-                    <td style="text-align:right;">{{ p.pos or "—" }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% endif %}
-
+    <!-- ===================== -->
+    <!-- SCHEDULE TAB -->
+    <!-- ===================== -->
+    <div class="tab-panel" data-tab="schedule" style="display:none;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+        <div class="subcard-title" style="margin:0;">Schedule</div>
+        <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+          <select id="scheduleSeason" class="season-select" aria-label="Select season"></select>
+        </div>
       </div>
-    </details>
+
+      <div id="scheduleContent">
+        <div class="muted" style="font-size:13px;">Select a season to load schedule.</div>
+      </div>
+    </div>
+
+    <!-- ===================== -->
+    <!-- TRANSACTIONS TAB -->
+    <!-- ===================== -->
+    <div class="tab-panel" data-tab="transactions" style="display:none;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+        <div class="subcard-title" style="margin:0;">Transactions</div>
+        <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+          <select id="txDays" class="season-select" aria-label="Select transaction range">
+            <option value="7">Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="60">Last 60 days</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="txContent">
+        <div class="muted" style="font-size:13px;">Select a range to load transactions.</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
-<!-- ===================== -->
-<!-- TEAM SCHEDULE DROPDOWN -->
-<!-- ===================== -->
-
-<div class="card" style="margin-top:18px;">
-  <div class="card-header">
-    <details class="roster-details" id="scheduleDetails">
-      <summary class="roster-summary">
-        <div style="display:flex; align-items:baseline; gap:12px; flex:1;">
-          <div class="card-title" style="margin:0;">Schedule</div>
-
-          <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
-            <select id="scheduleSeason" class="season-select" aria-label="Select season"></select>
-            <span class="muted" style="font-size:12px;">Click to expand</span>
-          </div>
-        </div>
-      </summary>
-
-      <div class="card-body" style="padding-top:10px;">
-        <div id="scheduleContent">
-          <div class="muted" style="font-size:13px;">Select a season to load schedule.</div>
-        </div>
-      </div>
-    </details>
-  </div>
-</div>
-
-<!-- ===================== -->
-<!-- TRANSACTIONS DROPDOWN -->
-<!-- ===================== -->
-
-<div class="card" style="margin-top:18px;">
-  <div class="card-header">
-    <details class="roster-details" id="txDetails">
-      <summary class="roster-summary">
-        <div style="display:flex; align-items:baseline; gap:12px; flex:1;">
-          <div class="card-title" style="margin:0;">Transactions</div>
-
-          <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
-            <select id="txDays" class="season-select" aria-label="Select transaction range">
-              <option value="7">Last 7 days</option>
-              <option value="14">Last 14 days</option>
-              <option value="30" selected>Last 30 days</option>
-              <option value="60">Last 60 days</option>
-            </select>
-            <span class="muted" style="font-size:12px;">Click to expand</span>
-          </div>
-        </div>
-      </summary>
-
-      <div class="card-body" style="padding-top:10px;">
-        <div id="txContent">
-          <div class="muted" style="font-size:13px;">Select a range to load transactions.</div>
-        </div>
-      </div>
-    </details>
-  </div>
-</div>
-
-<!-- Local styles for dropdown + schedule + status pills + transactions -->
 <style>
-  .roster-details { width: 100%; }
-  .roster-summary {
-    cursor: pointer;
-    user-select: none;
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 0;
-    list-style: none;
-  }
-  .roster-summary::-webkit-details-marker { display: none; }
-
-  /* Player links (roster + any other places you use .playerlink) */
-  a.playerlink{
-    color: inherit;
-    text-decoration: none;
-  }
-  a.playerlink:hover{
-    text-decoration: underline;
-  }
+  /* Player links */
+  a.playerlink{ color: inherit; text-decoration: none; }
+  a.playerlink:hover{ text-decoration: underline; }
 
   .status-pill{
     display:inline-block;
@@ -258,7 +523,7 @@
     border: 1px solid rgba(255,255,255,0.12);
   }
 
-  /* Shared select style (schedule + transactions) */
+  /* Shared selects */
   .season-select{
     padding:6px 10px;
     border-radius:10px;
@@ -268,97 +533,26 @@
     font-size: 13px;
   }
 
-  /* Schedule styles */
-  .schedule-section-title{
-    margin-top: 10px;
+  /* Schedule helpers */
+  .sched-section-title{
+    margin-top: 12px;
     margin-bottom: 6px;
     font-weight: 700;
     font-size: 13px;
     opacity: 0.95;
   }
+  .opp-cell{ display:flex; align-items:center; gap:8px; white-space:nowrap; }
+  .opp-logo{ height:14px; width:14px; object-fit:contain; }
+  .scorecell{ display:flex; align-items:center; gap:8px; white-space:nowrap; }
+  .wl{ font-weight:700; }
+  .wl-win{ color:#2ecc71; }
+  .wl-loss{ color:#e74c3c; }
+  .wl-tie{ color:#f1c40f; }
+  .pitchers-stack{ display:flex; flex-direction:column; line-height:1.05; }
 
-  .schedule-table { width:100%; }
-
-  .schedule-row{
-    display:grid;
-    grid-template-columns: 100px 70px 1.8fr 150px 95px 1.3fr 78px;
-    gap:6px;
-    padding:3px 6px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    align-items:center;
-    font-size: 11px;
-    line-height: 1.1;
-  }
-
-  .schedule-header{
-    font-weight:600;
-    opacity:0.9;
-    border-bottom: 1px solid rgba(255,255,255,0.14);
-    padding:6px 6px;
-    font-size: 11px;
-  }
-
-  .schedule-body .data-row:nth-child(odd){
-    background: rgba(255,255,255,0.00);
-  }
-  .schedule-body .data-row:nth-child(even){
-    background: rgba(255,255,255,0.06);
-  }
-
-  .opponent { display:flex; align-items:center; gap:8px; white-space:nowrap; }
-  .opp-logo { height:14px; width:14px; object-fit:contain; }
-  .scorecell { display:flex; align-items:center; gap:8px; white-space:nowrap; }
-
-  .wl { font-weight:700; }
-  .wl-win { color:#2ecc71; }
-  .wl-loss { color:#e74c3c; }
-  .wl-tie { color:#f1c40f; }
-
-  .rightlink a { text-decoration:none; }
-  .rightlink a:hover { text-decoration:underline; }
-
-  .pitchers-stack{
-    display:flex;
-    flex-direction:column;
-    line-height:1.05;
-  }
-
-  /* Transactions styles (Date + Description only) */
-  .tx-row{
-    display:grid;
-    grid-template-columns: 120px 1fr;
-    gap:10px;
-    padding:4px 6px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    align-items:center;
-    font-size: 11px;
-    line-height: 1.15;
-  }
-
-  .tx-header{
-    font-weight:600;
-    opacity:0.9;
-    border-bottom: 1px solid rgba(255,255,255,0.14);
-    padding:6px 6px;
-    font-size: 11px;
-  }
-
-  .tx-body .data-row:nth-child(even){
-    background: rgba(255,255,255,0.06);
-  }
-
-  .tx-desc a{
-    text-decoration:none;
-  }
-  .tx-desc a:hover{
-    text-decoration:underline;
-  }
-
-  .tx-desc{
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-  }
+  /* Transactions */
+  .tx-desc a{ text-decoration:none; }
+  .tx-desc a:hover{ text-decoration:underline; }
 </style>
 
 <script>
@@ -369,12 +563,48 @@
   }
 
   // ----------------------------
+  // Tabs (mimic game.html)
+  // ----------------------------
+  function setActiveTab(tab){
+    const btns = document.querySelectorAll(".tab-btn");
+    const panels = document.querySelectorAll(".tab-panel");
+
+    btns.forEach(b => {
+      const isOn = b.dataset.tab === tab;
+      b.classList.toggle("active", isOn);
+    });
+
+    panels.forEach(p => {
+      p.style.display = (p.dataset.tab === tab) ? "" : "none";
+    });
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.replaceState({}, "", url);
+
+    // lazy-load tab content
+    if (tab === "schedule") ensureScheduleLoaded();
+    if (tab === "transactions") ensureTransactionsLoaded();
+  }
+
+  document.querySelectorAll(".tab-btn").forEach(b => {
+    b.addEventListener("click", () => setActiveTab(b.dataset.tab));
+  });
+
+  const initialTab = new URLSearchParams(window.location.search).get("tab") || "overview";
+  setActiveTab(initialTab);
+
+  // ----------------------------
   // Schedule
   // ----------------------------
+  let _scheduleBootstrapped = false;
+  let _scheduleLoadedOnce = false;
+
   function buildSeasons(){
     const sel = document.getElementById("scheduleSeason");
     const currentYear = new Date().getFullYear();
 
+    sel.innerHTML = "";
     for (let y = currentYear; y >= 2021; y--){
       const opt = document.createElement("option");
       opt.value = y;
@@ -429,25 +659,27 @@
     return "Other";
   }
 
-  function renderSection(title, sectionGames){
-    if (!sectionGames.length) return "";
+  function renderScheduleSection(title, games){
+    if (!games.length) return "";
 
-    const header = `
-      <div class="schedule-section-title">${title}</div>
-      <div class="schedule-table">
-        <div class="schedule-row schedule-header">
-          <div>Date</div>
-          <div>Time</div>
-          <div>Location</div>
-          <div>Opponent</div>
-          <div>Score</div>
-          <div>Pitchers</div>
-          <div></div>
-        </div>
-        <div class="schedule-body">
+    const head = `
+      <div class="sched-section-title">${title}</div>
+      <table class="tbl" style="width:100%;">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Date</th>
+            <th style="text-align:left;">Time</th>
+            <th style="text-align:left;">Location</th>
+            <th style="text-align:left;">Opponent</th>
+            <th style="text-align:left;">Score</th>
+            <th style="text-align:left;">Pitchers</th>
+            <th style="text-align:right;"></th>
+          </tr>
+        </thead>
+        <tbody>
     `;
 
-    const rows = sectionGames.map(g => {
+    const rows = games.map(g => {
       const date = fmtLocalDate(g.gameDate);
       const time = fmtLocalTime(g.gameDate);
       const loc  = renderLocation(g.venue);
@@ -463,7 +695,7 @@
       if (result){
         const cls = result.wl === "W" ? "wl-win" : (result.wl === "L" ? "wl-loss" : "wl-tie");
         scoreHtml = `<span class="wl ${cls}">${result.wl}</span>
-                     <span>${result.teamRuns}&ndash;${result.oppRuns}</span>`;
+                     <span class="mono">${result.teamRuns}&ndash;${result.oppRuns}</span>`;
       } else if (!isUpcoming(g.status)) {
         scoreHtml = `<span class="muted">${g.status || "—"}</span>`;
       }
@@ -497,23 +729,25 @@
       const rightHref = g.gamePk ? `/game/${g.gamePk}` : "#";
 
       return `
-        <div class="schedule-row data-row">
-          <div>${date}</div>
-          <div>${time}</div>
-          <div>${loc}</div>
-          <div class="opponent">
-            <span style="opacity:0.85; width:32px; display:inline-block;">${prefix}</span>
-            <span style="font-weight:600;">${oppAbbrev}</span>
-            ${oppLogo}
-          </div>
-          <div class="scorecell">${scoreHtml}</div>
-          <div>${pitchersHtml}</div>
-          <div class="rightlink"><a href="${rightHref}">${rightLabel}</a></div>
-        </div>
+        <tr>
+          <td class="mono" style="white-space:nowrap;">${date}</td>
+          <td class="mono" style="white-space:nowrap;">${time}</td>
+          <td>${loc}</td>
+          <td>
+            <div class="opp-cell">
+              <span style="opacity:.85; width:32px; display:inline-block;">${prefix}</span>
+              <span class="mono" style="font-weight:700;">${oppAbbrev}</span>
+              ${oppLogo}
+            </div>
+          </td>
+          <td><div class="scorecell">${scoreHtml}</div></td>
+          <td>${pitchersHtml}</td>
+          <td style="text-align:right;"><a href="${rightHref}">${rightLabel}</a></td>
+        </tr>
       `;
     }).join("");
 
-    return header + rows + `</div></div>`;
+    return head + rows + `</tbody></table>`;
   }
 
   async function loadSchedule(){
@@ -531,11 +765,7 @@
         return;
       }
 
-      const spring = [];
-      const regular = [];
-      const post = [];
-      const other = [];
-
+      const spring = [], regular = [], post = [], other = [];
       for (const g of games){
         const group = sectionForGameType(g.gameType);
         if (group === "Spring Training") spring.push(g);
@@ -545,10 +775,10 @@
       }
 
       container.innerHTML =
-        renderSection("Spring Training", spring) +
-        renderSection("Regular Season", regular) +
-        renderSection("Postseason", post) +
-        renderSection("Other", other);
+        renderScheduleSection("Spring Training", spring) +
+        renderScheduleSection("Regular Season", regular) +
+        renderScheduleSection("Postseason", post) +
+        renderScheduleSection("Other", other);
 
     } catch (e){
       console.error(e);
@@ -556,24 +786,29 @@
     }
   }
 
-  buildSeasons();
-
-  const scheduleDetails = document.getElementById("scheduleDetails");
-  scheduleDetails.addEventListener("toggle", () => {
-    if (scheduleDetails.open){
+  function ensureScheduleLoaded(){
+    if (!_scheduleBootstrapped){
+      buildSeasons();
+      document.getElementById("scheduleSeason").addEventListener("change", () => {
+        // only reload if schedule tab is visible
+        const panel = document.querySelector('.tab-panel[data-tab="schedule"]');
+        if (panel && panel.style.display !== "none"){
+          loadSchedule();
+        }
+      });
+      _scheduleBootstrapped = true;
+    }
+    if (!_scheduleLoadedOnce){
+      _scheduleLoadedOnce = true;
       loadSchedule();
     }
-  });
-
-  document.getElementById("scheduleSeason").addEventListener("change", () => {
-    if (scheduleDetails.open){
-      loadSchedule();
-    }
-  });
+  }
 
   // ----------------------------
   // Transactions
   // ----------------------------
+  let _txLoadedOnce = false;
+
   function fmtLocalDateOnly(isoOrYmd){
     if (!isoOrYmd) return "—";
     const d = new Date(isoOrYmd);
@@ -599,12 +834,15 @@
       return `<div class="muted" style="font-size:13px;">No transactions found for this range.</div>`;
     }
 
-    const header = `
-      <div class="tx-row tx-header">
-        <div>Date</div>
-        <div>Description</div>
-      </div>
-      <div class="tx-body">
+    const head = `
+      <table class="tbl" style="width:100%;">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Date</th>
+            <th style="text-align:left;">Description</th>
+          </tr>
+        </thead>
+        <tbody>
     `;
 
     const rows = txs.map(t => {
@@ -615,7 +853,7 @@
 
       const players = (t.players || []).filter(p => p && p.id && p.name);
 
-      // Link EVERY occurrence of each player name (not just the first)
+      // Link EVERY occurrence
       for (const p of players){
         const nameEsc = escapeHtml(p.name);
         const linked = `<a href="/player/${p.id}">${nameEsc}</a>`;
@@ -624,8 +862,7 @@
         }
       }
 
-      // If none of the player names were found in the text (some descriptions don’t include them),
-      // prepend a linked player list.
+      // If no names were found, prepend player list
       const anyLinked = players.some(p => descHtml.includes(`/player/${p.id}`));
       if (players.length && !anyLinked){
         const plist = players
@@ -635,14 +872,14 @@
       }
 
       return `
-        <div class="tx-row data-row">
-          <div>${date}</div>
-          <div class="tx-desc">${descHtml}</div>
-        </div>
+        <tr>
+          <td class="mono" style="white-space:nowrap;">${date}</td>
+          <td class="tx-desc">${descHtml}</td>
+        </tr>
       `;
     }).join("");
 
-    return header + rows + `</div>`;
+    return head + rows + `</tbody></table>`;
   }
 
   async function loadTransactions(){
@@ -661,18 +898,18 @@
     }
   }
 
-  const txDetails = document.getElementById("txDetails");
-  txDetails.addEventListener("toggle", () => {
-    if (txDetails.open){
+  function ensureTransactionsLoaded(){
+    if (!_txLoadedOnce){
+      _txLoadedOnce = true;
       loadTransactions();
+      document.getElementById("txDays").addEventListener("change", () => {
+        const panel = document.querySelector('.tab-panel[data-tab="transactions"]');
+        if (panel && panel.style.display !== "none"){
+          loadTransactions();
+        }
+      });
     }
-  });
-
-  document.getElementById("txDays").addEventListener("change", () => {
-    if (txDetails.open){
-      loadTransactions();
-    }
-  });
+  }
 </script>
 
 {% endblock %}
