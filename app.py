@@ -804,7 +804,44 @@ def team(team_id):
         leaders=leaders,
     )
 
+from datetime import timedelta
 
+@app.get("/games")
+def games():
+    """
+    Shows games for a chosen date.
+    - Default: today
+    - If no games today: auto-advance to next future date with games
+    """
+    # later: make this per-user; for now default to Phoenix (your requirement)
+    user_tz = "America/Phoenix"
+
+    picked = (request.args.get("date") or "").strip()  # YYYY-MM-DD
+    today_ymd = datetime.utcnow().date().strftime("%Y-%m-%d")
+
+    target = picked or today_ymd
+    games_list = get_games_for_date(target, tz_name=user_tz)
+
+    auto_advanced = False
+    if not picked and not games_list:
+        try:
+            nxt = find_next_date_with_games(today_ymd, max_days_ahead=120)
+        except Exception:
+            nxt = None
+        
+        if nxt:
+            target = nxt
+            games_list = get_games_for_date(target, tz_name=user_tz)
+            auto_advanced = True
+            
+    return render_template(
+        "games.html",
+        title="Games",
+        date=target,
+        games=games_list,
+        auto_advanced=auto_advanced,
+        user_tz=user_tz,
+    )
 @app.get("/game/<int:game_pk>")
 def game_detail(game_pk: int):
     user_tz = "America/Phoenix"
