@@ -486,6 +486,7 @@ from services.mlb_api import get_team
 from services.mlb_api import get_team, get_40man_roster_grouped
 
 @app.get("/team/<int:team_id>")
+print(f"[TEAM ROUTE HIT] team_id={team_id}")
 def team(team_id):
     user_tz = "America/Phoenix"
 
