@@ -487,14 +487,19 @@ from services.mlb_api import get_team, get_40man_roster_grouped
 
 @app.get("/team/<int:team_id>")
 def team(team_id):
-    print(f"[TEAM ROUTE HIT] team_id={team_id}")
     user_tz = "America/Phoenix"
+    print(f"[TEAM ROUTE HIT] team_id={team_id}")
 
     # -------------------------
     # Team metadata
     # -------------------------
-    data = get_team(team_id)
-    raw = (data.get("teams") or [{}])[0]
+    try:
+        data = get_team(team_id) or {}
+        teams = data.get("teams") or []
+        raw = teams[0] if teams else {}
+    except Exception as e:
+        print(f"[team] get_team failed team_id={team_id}: {e}")
+        raw = {}
 
     team_obj = {
         "team_id": raw.get("id"),
@@ -509,24 +514,46 @@ def team(team_id):
         "logo_url": f"https://www.mlbstatic.com/team-logos/{raw.get('id')}.svg" if raw.get("id") else None,
     }
     print("[team] team_obj:", team_obj)
-    print("[team] roster sizes:", {k: len(v) for k,v in (roster_grouped or {}).items()}, "other:", len(roster_other or []))
-    print("[team] last_game keys:", list((last_game or {}).keys()))
-    print("[team] next_game keys:", list((next_game or {}).keys()))
-    print("[team] division_rows:", len(division_rows or []))
-    print("[team] leaders present:", bool(leaders))
+
+    # If team lookup failed, bail early with a clear message (prevents blank template confusion)
+    if not team_obj.get("team_id"):
+        return render_template(
+            "team.html",
+            title="Team",
+            team={"team_id": team_id, "name": "Team Not Found", "logo_url": None},
+            roster_grouped={},
+            roster_other=[],
+            last_game=None,
+            next_game=None,
+            division_rows=[],
+            leaders=None,
+            error=f"Team id {team_id} not found from StatsAPI.",
+        )
 
     # -------------------------
-    # Roster (don’t let API hiccups take down the page)
+    # Roster (safe defaults)
     # -------------------------
-    roster_grouped, roster_other = {}, {}
+    roster_grouped = {}
+    roster_other = []  # <-- MUST be a list for your template
     try:
         roster_grouped, roster_other = get_40man_roster_grouped(team_id)
+        if roster_grouped is None:
+            roster_grouped = {}
+        if roster_other is None:
+            roster_other = []
     except Exception as e:
-        print(f"[team] roster fetch failed for team_id={team_id}: {e}")
+        print(f"[team] roster fetch failed team_id={team_id}: {e}")
+        roster_grouped, roster_other = {}, []
+
+    print(
+        "[team] roster sizes:",
+        {k: len(v or []) for k, v in (roster_grouped or {}).items()},
+        "other:",
+        len(roster_other or []),
+    )
 
     # -------------------------
-    # Decide season: if current season hasn't started for this team (no R games played yet),
-    # fall back to last season.
+    # Schedule helpers
     # -------------------------
     def _flatten_team_schedule(team_id: int, season: int):
         sched = get_team_schedule(team_id, season) or {}
@@ -536,30 +563,45 @@ def team(team_id):
                 games.append(g)
         return games
 
-    cur_year = datetime.utcnow().year
-    games_cur = _flatten_team_schedule(team_id, cur_year)
-    reg_cur = [g for g in games_cur if (g.get("gameType") or "").upper() == "R"]
+    def _parse_dt(iso):
+        try:
+            return datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        except Exception:
+            return None
+
+    def _is_final_game(g):
+        st = (g.get("status") or {})
+        ds = (st.get("detailedState") or "").lower()
+        code = (st.get("statusCode") or "").upper()
+        return (code in ("F", "O")) or ("final" in ds) or ("game over" in ds)
 
     def _is_played(g):
         st = (g.get("status") or {})
         ds = (st.get("detailedState") or "").lower()
         code = (st.get("statusCode") or "").upper()
-        if code in ("F", "O"):  # Final / Game Over
+        if code in ("F", "O"):
+            return True
+        if "in progress" in ds or "live" in ds or "completed" in ds:
             return True
         if "final" in ds or "game over" in ds:
             return True
-        if "in progress" in ds or "live" in ds:
-            return True
-        if "completed" in ds:
-            return True
         return False
 
-    season = cur_year
-    if not reg_cur or not any(_is_played(g) for g in reg_cur):
-        season = cur_year - 1
+    # -------------------------
+    # Decide season (fallback to last year if current has no played regular-season games)
+    # -------------------------
+    cur_year = datetime.utcnow().year
+    games_cur = _flatten_team_schedule(team_id, cur_year)
+    reg_cur = [g for g in games_cur if (g.get("gameType") or "").upper() == "R"]
+
+    season = cur_year if (reg_cur and any(_is_played(g) for g in reg_cur)) else (cur_year - 1)
+    print("[team] season chosen:", season, "games_cur:", len(games_cur), "reg_cur:", len(reg_cur))
+
+    games_season = _flatten_team_schedule(team_id, season)
+    print("[team] games_season:", len(games_season))
 
     # -------------------------
-    # Build last + next game cards using schedule data (same structure as games.html expects)
+    # Build game cards
     # -------------------------
     def _record_str(side_obj):
         rec = (side_obj or {}).get("leagueRecord") or {}
@@ -570,13 +612,10 @@ def team(team_id):
         return f"{w}-{l}"
 
     def _pp_simple(pp_obj):
-        # schedule hydrate gives name; we’ll render a safe "PP: Name" (or TBD)
         if not pp_obj:
             return "PP: TBD"
         nm = pp_obj.get("fullName")
-        if nm:
-            return f"PP: {nm}"
-        return "PP: TBD"
+        return f"PP: {nm}" if nm else "PP: TBD"
 
     def _game_card_from_sched(g):
         teams = g.get("teams") or {}
@@ -586,12 +625,7 @@ def team(team_id):
         away_team = (away.get("team") or {})
         venue = g.get("venue") or {}
 
-        # use your existing card time logic via get_schedule_game_by_pk normalize if you prefer;
-        # but we keep it simple + consistent
-        dt = g.get("gameDate") or ""
         try:
-            # reuse your existing helper by calling get_schedule_game_by_pk + normalize_schedule_game if available
-            # (this guarantees timeLocal formatting matches your games page)
             sg = get_schedule_game_by_pk(g.get("gamePk"))
             ng = normalize_schedule_game(sg, tz_name=user_tz)
             time_local = ng.get("timeLocal") or ""
@@ -639,25 +673,10 @@ def team(team_id):
             }
         }
 
-    games_season = _flatten_team_schedule(team_id, season)
-
-    def _parse_dt(iso):
-        try:
-            return datetime.fromisoformat(iso.replace("Z", "+00:00"))
-        except Exception:
-            return None
-
-    # last completed game (any gameType, but must be Final)
-    finals = []
-    for g in games_season:
-        st = (g.get("status") or {})
-        ds = (st.get("detailedState") or "")
-        if ds in ("Final", "Game Over") or (st.get("statusCode") or "").upper() in ("F", "O"):
-            finals.append(g)
+    finals = [g for g in games_season if _is_final_game(g)]
     finals.sort(key=lambda x: _parse_dt(x.get("gameDate") or "") or datetime.min)
     last_game = _game_card_from_sched(finals[-1]) if finals else None
 
-    # next scheduled game (any gameType, not final, date in future)
     now_utc = datetime.utcnow().replace(tzinfo=None)
     upcoming = []
     for g in games_season:
@@ -665,17 +684,16 @@ def team(team_id):
         if not dt:
             continue
         dt_naive = dt.replace(tzinfo=None)
-        st = (g.get("status") or {})
-        ds = (st.get("detailedState") or "").lower()
-        code = (st.get("statusCode") or "").upper()
-        is_final = (code in ("F", "O")) or ("final" in ds) or ("game over" in ds)
-        if dt_naive >= now_utc and not is_final:
+        if dt_naive >= now_utc and not _is_final_game(g):
             upcoming.append(g)
+
     upcoming.sort(key=lambda x: _parse_dt(x.get("gameDate") or "") or datetime.max)
     next_game = _game_card_from_sched(upcoming[0]) if upcoming else None
 
+    print("[team] last_game:", bool(last_game), "next_game:", bool(next_game))
+
     # -------------------------
-    # Division standings table (selected team bolded)
+    # Division standings
     # -------------------------
     division_rows = []
     try:
@@ -683,22 +701,20 @@ def team(team_id):
         div_id = team_obj.get("division_id")
 
         for rec in (standings.get("records") or []):
-            # records: league -> divisions -> teamRecords
             for dr in (rec.get("divisionRecords") or []):
                 div = dr.get("division") or {}
                 if div_id and div.get("id") != div_id:
                     continue
 
                 teamrecs = (dr.get("teamRecords") or [])
-                # sort by winPct desc if present
+
                 def _winpct(tr):
                     try:
                         return float((tr.get("winningPercentage") or "0").strip())
                     except Exception:
                         return 0.0
 
-                teamrecs_sorted = sorted(teamrecs, key=_winpct, reverse=True)
-                for tr in teamrecs_sorted:
+                for tr in sorted(teamrecs, key=_winpct, reverse=True):
                     t = tr.get("team") or {}
                     recobj = tr.get("leagueRecord") or {}
                     division_rows.append({
@@ -714,9 +730,10 @@ def team(team_id):
     except Exception as e:
         print(f"[team] standings failed: {e}")
 
+    print("[team] division_rows:", len(division_rows))
+
     # -------------------------
-    # Team Leaders (season, fallback already applied)
-    # Rate stats use QUALIFIED pool.
+    # Leaders
     # -------------------------
     headshot_fallback = (
         "data:image/svg+xml;utf8,"
@@ -749,15 +766,7 @@ def team(team_id):
             pid = person.get("id")
             pname = person.get("fullName") or "—"
             statline = (top.get("stat") or {})
-
-            # pick a display value
-            val = statline.get(stat)
-            if val is None:
-                # sometimes API uses different keys (e.g. avg is "avg")
-                val = statline.get(stat.lower())
-            if val is None:
-                # last fallback: stringify statline
-                val = "—"
+            val = statline.get(stat) or statline.get(stat.lower()) or "—"
 
             head = get_player_headshot_url(pid, size=80) if pid else None
             return {
@@ -772,10 +781,8 @@ def team(team_id):
             print(f"[team] leader failed {group} {stat}: {e}")
             return None
 
-    leaders_hit = []
-    leaders_pit = []
+    leaders_hit, leaders_pit = [], []
 
-    # Hitting: AVG (qualified), HR/RBI/SB (all)
     for spec in [
         ("hitting", "avg", "AVG", "desc", "QUALIFIED"),
         ("hitting", "homeRuns", "HR", "desc", "ALL"),
@@ -786,7 +793,6 @@ def team(team_id):
         if row:
             leaders_hit.append(row)
 
-    # Pitching: IP/K (all), ERA/WHIP (qualified; ascending)
     for spec in [
         ("pitching", "inningsPitched", "IP", "desc", "ALL"),
         ("pitching", "era", "ERA", "asc", "QUALIFIED"),
@@ -798,6 +804,18 @@ def team(team_id):
             leaders_pit.append(row)
 
     leaders = {"hitting": leaders_hit, "pitching": leaders_pit} if (leaders_hit or leaders_pit) else None
+    print("[team] leaders present:", bool(leaders))
+
+    # -------------------------
+    # Render
+    # -------------------------
+    print("[team] context summary:",
+          "team?", bool(team_obj),
+          "last_game?", bool(last_game),
+          "next_game?", bool(next_game),
+          "division_rows", len(division_rows),
+          "leaders?", bool(leaders),
+          "roster_grouped_keys", list((roster_grouped or {}).keys()))
 
     return render_template(
         "team.html",
@@ -810,6 +828,7 @@ def team(team_id):
         division_rows=division_rows,
         leaders=leaders,
     )
+
 
 from datetime import timedelta
 
