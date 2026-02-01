@@ -752,12 +752,12 @@ def team(team_id):
         "</svg>"
     )
 
-    def _top_leader(group, stat, label, order="desc", pool="ALL"):
+    def _top_leader(group, stat_key, label, order="desc", pool="ALL"):
         try:
             out = get_stats_leaderboard(
                 group=group,
                 season=season,
-                sort_stat=stat,
+                sort_stat=stat_key,
                 order=order,
                 team_id=team_id,
                 player_pool=pool,
@@ -771,30 +771,32 @@ def team(team_id):
                 return None
     
             top = rows[0]
-            person = (top.get("person") or {})
-            pid = person.get("id")
-            pname = person.get("fullName") or "—"
-            statline = (top.get("stat") or {})
     
-            # pick a display value
-            val = statline.get(stat)
+            # ✅ YOUR normalized keys from mlb_api.py:
+            pid = top.get("playerId")
+            pname = top.get("name") or "—"
+            statline = top.get("stat") or {}
+    
+            # value comes from the stat dict (keys vary by stat)
+            val = statline.get(stat_key)
             if val is None:
-                val = statline.get(stat.lower())
+                val = statline.get((stat_key or "").lower())
             if val is None:
                 val = "—"
     
-            head = get_player_headshot_url(pid, size=80) if pid else None
             return {
                 "label": label,
                 "player_id": pid,
                 "player_name": pname,
                 "value": val,
-                "headshot": head,
+                "headshot": top.get("headshot"),
                 "fallback": headshot_fallback,
             }
+    
         except Exception as e:
-            print(f"[team] leader failed {group} {stat}: {e}")
+            print(f"[team] leader failed {group} {stat_key}: {e}")
             return None
+
 
 
     leaders_hit, leaders_pit = [], []
