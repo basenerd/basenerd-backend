@@ -515,7 +515,7 @@ def team(team_id):
     }
     print("[team] team_obj:", team_obj)
 
-    # If team lookup failed, bail early with a clear message (prevents blank template confusion)
+    # If team lookup failed, bail early with a clear message
     if not team_obj.get("team_id"):
         return render_template(
             "team.html",
@@ -534,13 +534,11 @@ def team(team_id):
     # Roster (safe defaults)
     # -------------------------
     roster_grouped = {}
-    roster_other = []  # <-- MUST be a list for your template
+    roster_other = []  # MUST be list for template loops
     try:
         roster_grouped, roster_other = get_40man_roster_grouped(team_id)
-        if roster_grouped is None:
-            roster_grouped = {}
-        if roster_other is None:
-            roster_other = []
+        roster_grouped = roster_grouped or {}
+        roster_other = roster_other or []
     except Exception as e:
         print(f"[team] roster fetch failed team_id={team_id}: {e}")
         roster_grouped, roster_other = {}, []
@@ -565,6 +563,7 @@ def team(team_id):
 
     def _parse_dt(iso):
         try:
+            # StatsAPI uses Z; normalize to +00:00
             return datetime.fromisoformat(iso.replace("Z", "+00:00"))
         except Exception:
             return None
@@ -588,7 +587,7 @@ def team(team_id):
         return False
 
     # -------------------------
-    # Decide season (fallback to last year if current has no played regular-season games)
+    # Decide "last played season" for last_game (fallback)
     # -------------------------
     cur_year = datetime.utcnow().year
     games_cur = _flatten_team_schedule(team_id, cur_year)
@@ -625,6 +624,7 @@ def team(team_id):
         away_team = (away.get("team") or {})
         venue = g.get("venue") or {}
 
+        # Prefer your normalize_schedule_game for consistent pills/time labels
         try:
             sg = get_schedule_game_by_pk(g.get("gamePk"))
             ng = normalize_schedule_game(sg, tz_name=user_tz)
@@ -673,13 +673,21 @@ def team(team_id):
             }
         }
 
+    # -------------------------
+    # Last Game (from chosen "last played season")
+    # -------------------------
     finals = [g for g in games_season if _is_final_game(g)]
     finals.sort(key=lambda x: _parse_dt(x.get("gameDate") or "") or datetime.min)
     last_game = _game_card_from_sched(finals[-1]) if finals else None
 
+    # -------------------------
+    # Next Game (IMPORTANT FIX): always from current year schedule
+    # -------------------------
     now_utc = datetime.utcnow().replace(tzinfo=None)
+    games_next = _flatten_team_schedule(team_id, cur_year)
+
     upcoming = []
-    for g in games_season:
+    for g in games_next:
         dt = _parse_dt(g.get("gameDate") or "")
         if not dt:
             continue
@@ -693,7 +701,7 @@ def team(team_id):
     print("[team] last_game:", bool(last_game), "next_game:", bool(next_game))
 
     # -------------------------
-    # Division standings
+    # Division standings (IMPORTANT FIX): correct standings JSON shape
     # -------------------------
     division_rows = []
     try:
@@ -701,32 +709,32 @@ def team(team_id):
         div_id = team_obj.get("division_id")
 
         for rec in (standings.get("records") or []):
-            for dr in (rec.get("divisionRecords") or []):
-                div = dr.get("division") or {}
-                if div_id and div.get("id") != div_id:
-                    continue
+            div = rec.get("division") or {}
+            if div_id and div.get("id") != div_id:
+                continue
 
-                teamrecs = (dr.get("teamRecords") or [])
+            teamrecs = rec.get("teamRecords") or []
 
-                def _winpct(tr):
-                    try:
-                        return float((tr.get("winningPercentage") or "0").strip())
-                    except Exception:
-                        return 0.0
+            def _winpct(tr):
+                try:
+                    return float((tr.get("winningPercentage") or "0").strip())
+                except Exception:
+                    return 0.0
 
-                for tr in sorted(teamrecs, key=_winpct, reverse=True):
-                    t = tr.get("team") or {}
-                    recobj = tr.get("leagueRecord") or {}
-                    division_rows.append({
-                        "abbrev": (t.get("abbreviation") or "").upper(),
-                        "logo": f"https://www.mlbstatic.com/team-logos/{t.get('id')}.svg" if t.get("id") else None,
-                        "w": recobj.get("wins"),
-                        "l": recobj.get("losses"),
-                        "pct": tr.get("winningPercentage"),
-                        "gb": tr.get("gamesBack"),
-                        "is_selected": (t.get("id") == team_id),
-                    })
-                break
+            for tr in sorted(teamrecs, key=_winpct, reverse=True):
+                t = tr.get("team") or {}
+                lr = tr.get("leagueRecord") or {}
+                division_rows.append({
+                    "abbrev": (t.get("abbreviation") or "").upper(),
+                    "logo": f"https://www.mlbstatic.com/team-logos/{t.get('id')}.svg" if t.get("id") else None,
+                    "w": lr.get("wins"),
+                    "l": lr.get("losses"),
+                    "pct": tr.get("winningPercentage"),
+                    "gb": tr.get("gamesBack"),
+                    "is_selected": (t.get("id") == team_id),
+                })
+
+            break  # found division
     except Exception as e:
         print(f"[team] standings failed: {e}")
 
@@ -757,6 +765,7 @@ def team(team_id):
                 offset=0,
                 game_type="R",
             )
+
             rows = (((out.get("stats") or [{}])[0]).get("splits") or [])
             if not rows:
                 return None
