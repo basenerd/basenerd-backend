@@ -765,18 +765,24 @@ def team(team_id):
                 offset=0,
                 game_type="R",
             )
-
-            rows = (((out.get("stats") or [{}])[0]).get("splits") or [])
+    
+            rows = (out or {}).get("rows") or []
             if not rows:
                 return None
-
+    
             top = rows[0]
-            person = (top.get("player") or top.get("person") or {})
+            person = (top.get("person") or {})
             pid = person.get("id")
             pname = person.get("fullName") or "—"
             statline = (top.get("stat") or {})
-            val = statline.get(stat) or statline.get(stat.lower()) or "—"
-
+    
+            # pick a display value
+            val = statline.get(stat)
+            if val is None:
+                val = statline.get(stat.lower())
+            if val is None:
+                val = "—"
+    
             head = get_player_headshot_url(pid, size=80) if pid else None
             return {
                 "label": label,
@@ -789,6 +795,7 @@ def team(team_id):
         except Exception as e:
             print(f"[team] leader failed {group} {stat}: {e}")
             return None
+
 
     leaders_hit, leaders_pit = [], []
 
