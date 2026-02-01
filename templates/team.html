@@ -12,6 +12,12 @@
   {%- endif -%}
 {%- endmacro %}
 
+{# ---------------------------------
+   Helpers: final + W/L placement
+   --------------------------------- #}
+{% set last_is_final = last_game and (last_game.statusPill|string)|lower in ["final", "game over"] or (last_game and "final" in (last_game.detailedState|string)|lower) %}
+{% set next_is_final = next_game and (next_game.statusPill|string)|lower in ["final", "game over"] or (next_game and "final" in (next_game.detailedState|string)|lower) %}
+
 <div class="card">
   <div class="card-header">
     <div class="teamcell" style="gap:10px;">
@@ -31,18 +37,14 @@
 
 {# -----------------------------
    Tabs (mimic game.html behavior)
-   IMPORTANT: your global CSS uses:
-     .tab-panel { display:none; }
-     .tab-panel.active { display:block; }
-   So we toggle the "active" class (not inline display="")
    ----------------------------- #}
 <div class="card" style="margin-top:18px;">
   <div class="card-header" style="padding-bottom:0;">
     <div class="tabs" style="display:flex; gap:10px; flex-wrap:wrap;">
-      <button class="tab-btn" data-tab="overview" type="button">Overview</button>
-      <button class="tab-btn" data-tab="roster" type="button">Roster</button>
-      <button class="tab-btn" data-tab="schedule" type="button">Schedule</button>
-      <button class="tab-btn" data-tab="transactions" type="button">Transactions</button>
+      <button class="tab-btn" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="roster">Roster</button>
+      <button class="tab-btn" data-tab="schedule">Schedule</button>
+      <button class="tab-btn" data-tab="transactions">Transactions</button>
     </div>
   </div>
 
@@ -52,327 +54,399 @@
     <!-- OVERVIEW TAB -->
     <!-- ===================== -->
     <div class="tab-panel" id="tab-overview" data-tab="overview">
-      <div class="grid" style="display:grid; grid-template-columns: 1.25fr 0.75fr; gap:14px; align-items:start;">
-        <div style="display:flex; flex-direction:column; gap:14px;">
 
-          <!-- Last Game -->
-          <div class="subcard">
-            <div class="subcard-title">Last Game</div>
+      {# 3 across layout: 2 rows #}
+      <div class="grid-3" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:14px; align-items:start;">
 
-            {% if last_game %}
-              <a class="game-card" href="/game/{{ last_game.gamePk }}" style="margin-top:10px; display:block;">
-                <div class="game-card-top">
-                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    {% if last_game.competitionLabel %}
-                      <div class="tag">{{ last_game.competitionLabel }}</div>
+        <!-- ===================== -->
+        <!-- [Last Game] -->
+        <!-- ===================== -->
+        <div class="subcard">
+          <div class="subcard-title">Last Game</div>
+
+          {% if last_game %}
+            {# Compute who won so W/L can be placed on correct row #}
+            {% set away_score = last_game.away.score %}
+            {% set home_score = last_game.home.score %}
+            {% set away_won = (away_score is not none and home_score is not none and away_score > home_score) %}
+            {% set home_won = (away_score is not none and home_score is not none and home_score > away_score) %}
+
+            <a class="game-card" href="/game/{{ last_game.gamePk }}" style="margin-top:10px; display:block;">
+              <div class="game-card-top">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  {% if last_game.competitionLabel %}
+                    <div class="tag">{{ last_game.competitionLabel }}</div>
+                  {% endif %}
+
+                  <div class="pill">{{ last_game.statusPill }}</div>
+
+                  {# Date next to pill #}
+                  {% if last_game.dateLocal %}
+                    <div class="muted mono" style="font-size:12px; opacity:.85;">{{ last_game.dateLocal }}</div>
+                  {% endif %}
+                </div>
+
+                <div class="muted mono game-time">{{ last_game.timeLocal }}</div>
+              </div>
+
+              <div class="matchup">
+                <!-- AWAY -->
+                <div class="team-row">
+                  <div class="team-left">
+                    {% if last_game.away.logo %}
+                      <img class="team-logo" src="{{ last_game.away.logo }}" alt="{{ last_game.away.abbrev }} logo">
                     {% endif %}
-                    <div class="pill">{{ last_game.statusPill }}</div>
-                  </div>
-                  <div class="muted mono game-time">{{ last_game.timeLocal }}</div>
-                </div>
 
-                <div class="matchup">
-                  <!-- AWAY -->
-                  <div class="team-row">
-                    <div class="team-left">
-                      {% if last_game.away.logo %}
-                        <img class="team-logo" src="{{ last_game.away.logo }}" alt="{{ last_game.away.abbrev }} logo">
-                      {% endif %}
-                      <div class="team-line">
-                        <div class="team-line-top">
-                          <span class="team-abbrev">{{ last_game.away.abbrev }}</span>
-                          {% if last_game.away.record %}
-                            <span class="muted mono" style="font-size:12px;">{{ last_game.away.record }}</span>
-                          {% endif %}
-                          <span class="muted" style="opacity:.6;">•</span>
+                    <div class="team-line">
+                      <div class="team-line-top">
+                        <span class="team-abbrev">{{ last_game.away.abbrev }}</span>
+                        {% if last_game.away.record %}
+                          <span class="muted mono" style="font-size:12px;">{{ last_game.away.record }}</span>
+                        {% endif %}
+                        <span class="muted" style="opacity:.6;">•</span>
 
+                        {# FINAL: show W/L pitchers in the PP slot #}
+                        {% if last_is_final and last_game.pitching.winner and last_game.pitching.loser and (away_won or home_won) %}
                           <span class="small muted">
-                            PP:
-                            {% if last_game.away.pp_id and last_game.away.pp_name %}
-                              {{ player_name(last_game.away.pp_id, last_game.away.pp_name) }}
+                            {% if away_won %}
+                              W: {{ last_game.pitching.winner }}
+                            {% elif home_won %}
+                              L: {{ last_game.pitching.loser }}
                             {% else %}
-                              {{ (last_game.away.pp or "PP: TBD")|replace("PP: ", "") }}
+                              —
                             {% endif %}
                           </span>
-                        </div>
+                        {% else %}
+                          <span class="small muted">{{ last_game.away.pp or "PP: TBD" }}</span>
+                        {% endif %}
                       </div>
                     </div>
-                    <div class="team-score mono">{{ last_game.away.score if last_game.away.score is not none else "—" }}</div>
                   </div>
 
-                  <!-- HOME -->
-                  <div class="team-row">
-                    <div class="team-left">
-                      {% if last_game.home.logo %}
-                        <img class="team-logo" src="{{ last_game.home.logo }}" alt="{{ last_game.home.abbrev }} logo">
-                      {% endif %}
-                      <div class="team-line">
-                        <div class="team-line-top">
-                          <span class="team-abbrev">{{ last_game.home.abbrev }}</span>
-                          {% if last_game.home.record %}
-                            <span class="muted mono" style="font-size:12px;">{{ last_game.home.record }}</span>
-                          {% endif %}
-                          <span class="muted" style="opacity:.6;">•</span>
-
-                          <span class="small muted">
-                            PP:
-                            {% if last_game.home.pp_id and last_game.home.pp_name %}
-                              {{ player_name(last_game.home.pp_id, last_game.home.pp_name) }}
-                            {% else %}
-                              {{ (last_game.home.pp or "PP: TBD")|replace("PP: ", "") }}
-                            {% endif %}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="team-score mono">{{ last_game.home.score if last_game.home.score is not none else "—" }}</div>
-                  </div>
+                  <div class="team-score mono">{{ last_game.away.score if last_game.away.score is not none else "—" }}</div>
                 </div>
 
-                <div class="game-meta">
-                  {% if last_game.venue %}
-                    <div class="muted">
-                      {{ last_game.venue }}
-                      {% if last_game.venueLocation %}
-                        • {{ last_game.venueLocation }}
-                      {% endif %}
-                    </div>
-                  {% endif %}
-
-                  {% if last_game.statusPill == "Final" %}
-                    <div class="small muted">
-                      {% if last_game.pitching.winner or last_game.pitching.loser %}
-                        W:
-                        {% if last_game.pitching.winner_id and last_game.pitching.winner %}
-                          {{ player_name(last_game.pitching.winner_id, last_game.pitching.winner) }}
-                        {% else %}
-                          {{ last_game.pitching.winner or "—" }}
-                        {% endif %}
-                        • L:
-                        {% if last_game.pitching.loser_id and last_game.pitching.loser %}
-                          {{ player_name(last_game.pitching.loser_id, last_game.pitching.loser) }}
-                        {% else %}
-                          {{ last_game.pitching.loser or "—" }}
-                        {% endif %}
-                      {% endif %}
-                    </div>
-                  {% else %}
-                    <div class="small muted">{{ last_game.detailedState }}</div>
-                  {% endif %}
-                </div>
-              </a>
-            {% else %}
-              <div class="muted" style="margin-top:8px; font-size:13px;">No completed game found.</div>
-            {% endif %}
-          </div>
-
-          <!-- Next Game -->
-          <div class="subcard">
-            <div class="subcard-title">Next Game</div>
-
-            {% if next_game %}
-              <a class="game-card" href="/game/{{ next_game.gamePk }}" style="margin-top:10px; display:block;">
-                <div class="game-card-top">
-                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    {% if next_game.competitionLabel %}
-                      <div class="tag">{{ next_game.competitionLabel }}</div>
+                <!-- HOME -->
+                <div class="team-row">
+                  <div class="team-left">
+                    {% if last_game.home.logo %}
+                      <img class="team-logo" src="{{ last_game.home.logo }}" alt="{{ last_game.home.abbrev }} logo">
                     {% endif %}
-                    <div class="pill">{{ next_game.statusPill }}</div>
-                  </div>
-                  <div class="muted mono game-time">{{ next_game.timeLocal }}</div>
-                </div>
 
-                <div class="matchup">
-                  <div class="team-row">
-                    <div class="team-left">
-                      {% if next_game.away.logo %}
-                        <img class="team-logo" src="{{ next_game.away.logo }}" alt="{{ next_game.away.abbrev }} logo">
-                      {% endif %}
-                      <div class="team-line">
-                        <div class="team-line-top">
-                          <span class="team-abbrev">{{ next_game.away.abbrev }}</span>
-                          {% if next_game.away.record %}
-                            <span class="muted mono" style="font-size:12px;">{{ next_game.away.record }}</span>
-                          {% endif %}
-                          <span class="muted" style="opacity:.6;">•</span>
+                    <div class="team-line">
+                      <div class="team-line-top">
+                        <span class="team-abbrev">{{ last_game.home.abbrev }}</span>
+                        {% if last_game.home.record %}
+                          <span class="muted mono" style="font-size:12px;">{{ last_game.home.record }}</span>
+                        {% endif %}
+                        <span class="muted" style="opacity:.6;">•</span>
 
+                        {% if last_is_final and last_game.pitching.winner and last_game.pitching.loser and (away_won or home_won) %}
                           <span class="small muted">
-                            PP:
-                            {% if next_game.away.pp_id and next_game.away.pp_name %}
-                              {{ player_name(next_game.away.pp_id, next_game.away.pp_name) }}
+                            {% if home_won %}
+                              W: {{ last_game.pitching.winner }}
+                            {% elif away_won %}
+                              L: {{ last_game.pitching.loser }}
                             {% else %}
-                              {{ (next_game.away.pp or "PP: TBD")|replace("PP: ", "") }}
+                              —
                             {% endif %}
                           </span>
-                        </div>
+                        {% else %}
+                          <span class="small muted">{{ last_game.home.pp or "PP: TBD" }}</span>
+                        {% endif %}
                       </div>
                     </div>
-                    <div class="team-score mono">{{ next_game.away.score if next_game.away.score is not none else "—" }}</div>
                   </div>
 
-                  <div class="team-row">
-                    <div class="team-left">
-                      {% if next_game.home.logo %}
-                        <img class="team-logo" src="{{ next_game.home.logo }}" alt="{{ next_game.home.abbrev }} logo">
-                      {% endif %}
-                      <div class="team-line">
-                        <div class="team-line-top">
-                          <span class="team-abbrev">{{ next_game.home.abbrev }}</span>
-                          {% if next_game.home.record %}
-                            <span class="muted mono" style="font-size:12px;">{{ next_game.home.record }}</span>
-                          {% endif %}
-                          <span class="muted" style="opacity:.6;">•</span>
+                  <div class="team-score mono">{{ last_game.home.score if last_game.home.score is not none else "—" }}</div>
+                </div>
+              </div>
 
-                          <span class="small muted">
-                            PP:
-                            {% if next_game.home.pp_id and next_game.home.pp_name %}
-                              {{ player_name(next_game.home.pp_id, next_game.home.pp_name) }}
-                            {% else %}
-                              {{ (next_game.home.pp or "PP: TBD")|replace("PP: ", "") }}
-                            {% endif %}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="team-score mono">{{ next_game.home.score if next_game.home.score is not none else "—" }}</div>
+              <div class="game-meta">
+                {% if last_game.venue %}
+                  <div class="muted">
+                    {{ last_game.venue }}
+                    {% if last_game.venueLocation %}
+                      • {{ last_game.venueLocation }}
+                    {% endif %}
                   </div>
-                </div>
+                {% endif %}
 
-                <div class="game-meta">
-                  {% if next_game.venue %}
-                    <div class="muted">
-                      {{ next_game.venue }}
-                      {% if next_game.venueLocation %}
-                        • {{ next_game.venueLocation }}
-                      {% endif %}
-                    </div>
-                  {% endif %}
-                  <div class="small muted">{{ next_game.detailedState }}</div>
-                </div>
-              </a>
-            {% else %}
-              <div class="muted" style="margin-top:8px; font-size:13px;">No upcoming game found.</div>
-            {% endif %}
-          </div>
-
+                <div class="small muted">{{ last_game.detailedState }}</div>
+              </div>
+            </a>
+          {% else %}
+            <div class="muted" style="margin-top:8px; font-size:13px;">No completed game found.</div>
+          {% endif %}
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:14px;">
+        <!-- ===================== -->
+        <!-- [Next Game] -->
+        <!-- ===================== -->
+        <div class="subcard">
+          <div class="subcard-title">Next Game</div>
 
-          <!-- Division Standings -->
-          <div class="subcard">
-            <div class="subcard-title">Division Standings</div>
+          {% if next_game %}
+            <a class="game-card" href="/game/{{ next_game.gamePk }}" style="margin-top:10px; display:block;">
+              <div class="game-card-top">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  {% if next_game.competitionLabel %}
+                    <div class="tag">{{ next_game.competitionLabel }}</div>
+                  {% endif %}
 
-            {% if division_rows %}
-              <table class="tbl" style="margin-top:10px;">
+                  <div class="pill">{{ next_game.statusPill }}</div>
+
+                  {# Date next to pill #}
+                  {% if next_game.dateLocal %}
+                    <div class="muted mono" style="font-size:12px; opacity:.85;">{{ next_game.dateLocal }}</div>
+                  {% endif %}
+                </div>
+
+                <div class="muted mono game-time">{{ next_game.timeLocal }}</div>
+              </div>
+
+              <div class="matchup">
+                <!-- AWAY -->
+                <div class="team-row">
+                  <div class="team-left">
+                    {% if next_game.away.logo %}
+                      <img class="team-logo" src="{{ next_game.away.logo }}" alt="{{ next_game.away.abbrev }} logo">
+                    {% endif %}
+                    <div class="team-line">
+                      <div class="team-line-top">
+                        <span class="team-abbrev">{{ next_game.away.abbrev }}</span>
+                        {% if next_game.away.record %}
+                          <span class="muted mono" style="font-size:12px;">{{ next_game.away.record }}</span>
+                        {% endif %}
+                        <span class="muted" style="opacity:.6;">•</span>
+                        <span class="small muted">{{ next_game.away.pp or "PP: TBD" }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="team-score mono">{{ next_game.away.score if next_game.away.score is not none else "—" }}</div>
+                </div>
+
+                <!-- HOME -->
+                <div class="team-row">
+                  <div class="team-left">
+                    {% if next_game.home.logo %}
+                      <img class="team-logo" src="{{ next_game.home.logo }}" alt="{{ next_game.home.abbrev }} logo">
+                    {% endif %}
+                    <div class="team-line">
+                      <div class="team-line-top">
+                        <span class="team-abbrev">{{ next_game.home.abbrev }}</span>
+                        {% if next_game.home.record %}
+                          <span class="muted mono" style="font-size:12px;">{{ next_game.home.record }}</span>
+                        {% endif %}
+                        <span class="muted" style="opacity:.6;">•</span>
+                        <span class="small muted">{{ next_game.home.pp or "PP: TBD" }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="team-score mono">{{ next_game.home.score if next_game.home.score is not none else "—" }}</div>
+                </div>
+              </div>
+
+              <div class="game-meta">
+                {% if next_game.venue %}
+                  <div class="muted">
+                    {{ next_game.venue }}
+                    {% if next_game.venueLocation %}
+                      • {{ next_game.venueLocation }}
+                    {% endif %}
+                  </div>
+                {% endif %}
+                <div class="small muted">{{ next_game.detailedState }}</div>
+              </div>
+            </a>
+          {% else %}
+            <div class="muted" style="margin-top:8px; font-size:13px;">No upcoming game found.</div>
+          {% endif %}
+        </div>
+
+        <!-- ===================== -->
+        <!-- [Standings] -->
+        <!-- ===================== -->
+        <div class="subcard">
+          <div class="subcard-title">Standings</div>
+
+          {% if division_rows %}
+            <table class="tbl" style="margin-top:10px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Team</th>
+                  <th style="text-align:right;">W</th>
+                  <th style="text-align:right;">L</th>
+                  <th style="text-align:right;">Pct</th>
+                  <th style="text-align:right;">GB</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in division_rows %}
+                  <tr {% if r.is_selected %}style="font-weight:700;"{% endif %}>
+                    <td style="white-space:nowrap;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        {% if r.logo %}
+                          <img src="{{ r.logo }}" alt="{{ r.abbrev }} logo" style="height:14px; width:14px; object-fit:contain;">
+                        {% endif %}
+                        <span class="mono">{{ r.abbrev }}</span>
+                      </div>
+                    </td>
+                    <td class="mono" style="text-align:right;">{{ r.w }}</td>
+                    <td class="mono" style="text-align:right;">{{ r.l }}</td>
+                    <td class="mono" style="text-align:right;">{{ r.pct }}</td>
+                    <td class="mono" style="text-align:right;">{{ r.gb }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="muted" style="margin-top:8px; font-size:13px;">No division standings found.</div>
+          {% endif %}
+        </div>
+
+        <!-- ===================== -->
+        <!-- [Recent News] -->
+        <!-- ===================== -->
+        <div class="subcard">
+          <div class="subcard-title">Recent News</div>
+
+          {% if news_items %}
+            <table class="tbl" style="margin-top:10px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; width:110px;">Date</th>
+                  <th style="text-align:left;">Title</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for a in news_items %}
+                  <tr>
+                    <td class="mono" style="white-space:nowrap;">{{ a.date or "—" }}</td>
+                    <td>
+                      {% if a.url %}
+                        <a href="{{ a.url }}" style="text-decoration:none;">{{ a.title or "—" }}</a>
+                      {% else %}
+                        {{ a.title or "—" }}
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="muted" style="margin-top:8px; font-size:13px;">
+              No articles yet. (Once you add team tags, this will show the latest tagged stories.)
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- ===================== -->
+        <!-- [Recent Transactions] -->
+        <!-- ===================== -->
+        <div class="subcard">
+          <div class="subcard-title">Recent Transactions</div>
+
+          {% if recent_transactions %}
+            <table class="tbl" style="margin-top:10px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; width:110px;">Date</th>
+                  <th style="text-align:left;">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for t in recent_transactions %}
+                  <tr>
+                    <td class="mono" style="white-space:nowrap;">{{ t.date or "—" }}</td>
+                    <td style="font-size:13px;">{{ t.description or "—" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="muted" style="margin-top:8px; font-size:13px;">
+              No recent transactions loaded yet.
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- ===================== -->
+        <!-- [Team Leaders] -->
+        <!-- ===================== -->
+        <div class="subcard">
+          <div class="subcard-title">Team Leaders</div>
+
+          {% if leaders %}
+            <div style="margin-top:10px;">
+              <div class="small muted" style="font-weight:700; opacity:.9; margin-bottom:6px;">Hitting</div>
+              <table class="tbl">
                 <thead>
                   <tr>
-                    <th style="text-align:left;">Team</th>
-                    <th style="text-align:right;">W</th>
-                    <th style="text-align:right;">L</th>
-                    <th style="text-align:right;">Pct</th>
-                    <th style="text-align:right;">GB</th>
+                    <th style="text-align:left;">Category</th>
+                    <th style="text-align:left;">Player</th>
+                    <th style="text-align:right;">Value</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {% for r in division_rows %}
-                    <tr {% if r.is_selected %}style="font-weight:700;"{% endif %}>
+                  {% for row in leaders.hitting %}
+                    <tr>
+                      <td class="mono">{{ row.label }}</td>
                       <td style="white-space:nowrap;">
                         <div style="display:flex; align-items:center; gap:8px;">
-                          {% if r.logo %}
-                            <img src="{{ r.logo }}" alt="{{ r.abbrev }} logo" style="height:14px; width:14px; object-fit:contain;">
+                          {% if row.headshot %}
+                            <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}" style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
+                                 onerror="this.onerror=null; this.src='{{ row.fallback }}';">
                           {% endif %}
-                          <span class="mono">{{ r.abbrev }}</span>
+                          <a class="playerlink" href="/player/{{ row.player_id }}">{{ row.player_name }}</a>
                         </div>
                       </td>
-                      <td class="mono" style="text-align:right;">{{ r.w }}</td>
-                      <td class="mono" style="text-align:right;">{{ r.l }}</td>
-                      <td class="mono" style="text-align:right;">{{ r.pct }}</td>
-                      <td class="mono" style="text-align:right;">{{ r.gb }}</td>
+                      <td class="mono" style="text-align:right;">{{ row.value }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
               </table>
-            {% else %}
-              <div class="muted" style="margin-top:8px; font-size:13px;">No division standings found.</div>
-            {% endif %}
-          </div>
 
-          <!-- Leaders -->
-          <div class="subcard">
-            <div class="subcard-title">Team Leaders</div>
-
-            {% if leaders %}
-              <div style="margin-top:10px;">
-                <div class="small muted" style="font-weight:700; opacity:.9; margin-bottom:6px;">Hitting</div>
-                <table class="tbl">
-                  <thead>
+              <div class="small muted" style="font-weight:700; opacity:.9; margin:12px 0 6px;">Pitching</div>
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Category</th>
+                    <th style="text-align:left;">Player</th>
+                    <th style="text-align:right;">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in leaders.pitching %}
                     <tr>
-                      <th style="text-align:left;">Category</th>
-                      <th style="text-align:left;">Player</th>
-                      <th style="text-align:right;">Value</th>
+                      <td class="mono">{{ row.label }}</td>
+                      <td style="white-space:nowrap;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                          {% if row.headshot %}
+                            <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}" style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
+                                 onerror="this.onerror=null; this.src='{{ row.fallback }}';">
+                          {% endif %}
+                          <a class="playerlink" href="/player/{{ row.player_id }}">{{ row.player_name }}</a>
+                        </div>
+                      </td>
+                      <td class="mono" style="text-align:right;">{{ row.value }}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in leaders.hitting %}
-                      <tr>
-                        <td class="mono">{{ row.label }}</td>
-                        <td style="white-space:nowrap;">
-                          <div style="display:flex; align-items:center; gap:8px;">
-                            {% if row.headshot %}
-                              <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}" style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
-                                   onerror="this.onerror=null; this.src='{{ row.fallback }}';">
-                            {% endif %}
-                            <a class="playerlink" href="/player/{{ row.player_id }}">{{ row.player_name }}</a>
-                          </div>
-                        </td>
-                        <td class="mono" style="text-align:right;">{{ row.value }}</td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-
-                <div class="small muted" style="font-weight:700; opacity:.9; margin:12px 0 6px;">Pitching</div>
-                <table class="tbl">
-                  <thead>
-                    <tr>
-                      <th style="text-align:left;">Category</th>
-                      <th style="text-align:left;">Player</th>
-                      <th style="text-align:right;">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in leaders.pitching %}
-                      <tr>
-                        <td class="mono">{{ row.label }}</td>
-                        <td style="white-space:nowrap;">
-                          <div style="display:flex; align-items:center; gap:8px;">
-                            {% if row.headshot %}
-                              <img class="mini-headshot" src="{{ row.headshot }}" alt="{{ row.player_name }}" style="height:18px; width:18px; border-radius:999px; object-fit:cover;"
-                                   onerror="this.onerror=null; this.src='{{ row.fallback }}';">
-                            {% endif %}
-                            <a class="playerlink" href="/player/{{ row.player_id }}">{{ row.player_name }}</a>
-                          </div>
-                        </td>
-                        <td class="mono" style="text-align:right;">{{ row.value }}</td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            {% else %}
-              <div class="muted" style="margin-top:8px; font-size:13px;">No leaders found.</div>
-            {% endif %}
-          </div>
-
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="muted" style="margin-top:8px; font-size:13px;">No leaders found.</div>
+          {% endif %}
         </div>
+
       </div>
     </div>
 
     <!-- ===================== -->
     <!-- ROSTER TAB -->
     <!-- ===================== -->
-    <div class="tab-panel" id="tab-roster" data-tab="roster">
+    <div class="tab-panel" id="tab-roster" data-tab="roster" style="display:none;">
       {% set bucket_label = {
         "Pitcher": "Pitchers",
         "Catcher": "Catchers",
@@ -514,7 +588,7 @@
     <!-- ===================== -->
     <!-- SCHEDULE TAB -->
     <!-- ===================== -->
-    <div class="tab-panel" id="tab-schedule" data-tab="schedule">
+    <div class="tab-panel" id="tab-schedule" data-tab="schedule" style="display:none;">
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
         <div class="subcard-title" style="margin:0;">Schedule</div>
         <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
@@ -530,7 +604,7 @@
     <!-- ===================== -->
     <!-- TRANSACTIONS TAB -->
     <!-- ===================== -->
-    <div class="tab-panel" id="tab-transactions" data-tab="transactions">
+    <div class="tab-panel" id="tab-transactions" data-tab="transactions" style="display:none;">
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
         <div class="subcard-title" style="margin:0;">Transactions</div>
         <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
@@ -591,26 +665,14 @@
     font-size: 13px;
   }
 
-  /* Schedule helpers */
-  .sched-section-title{
-    margin-top: 12px;
-    margin-bottom: 6px;
-    font-weight: 700;
-    font-size: 13px;
-    opacity: 0.95;
-  }
-  .opp-cell{ display:flex; align-items:center; gap:8px; white-space:nowrap; }
-  .opp-logo{ height:14px; width:14px; object-fit:contain; }
-  .scorecell{ display:flex; align-items:center; gap:8px; white-space:nowrap; }
-  .wl{ font-weight:700; }
-  .wl-win{ color:#2ecc71; }
-  .wl-loss{ color:#e74c3c; }
-  .wl-tie{ color:#f1c40f; }
-  .pitchers-stack{ display:flex; flex-direction:column; line-height:1.05; }
-
   /* Transactions */
   .tx-desc a{ text-decoration:none; }
   .tx-desc a:hover{ text-decoration:underline; }
+
+  /* Make 3-col grid collapse nicely on smaller screens */
+  @media (max-width: 1100px){
+    .grid-3{ grid-template-columns: 1fr; }
+  }
 </style>
 
 <script>
@@ -621,27 +683,25 @@
   }
 
   // ----------------------------
-  // Tabs
-  // FIX: toggle "active" class because global CSS uses
-  // .tab-panel { display:none } and .tab-panel.active { display:block }
+  // Tabs (mimic game.html)
   // ----------------------------
   function setActiveTab(tab){
     const btns = document.querySelectorAll(".tab-btn");
     const panels = document.querySelectorAll(".tab-panel");
 
     btns.forEach(b => {
-      b.classList.toggle("active", b.dataset.tab === tab);
+      const isOn = b.dataset.tab === tab;
+      b.classList.toggle("active", isOn);
     });
 
     panels.forEach(p => {
-      p.classList.toggle("active", p.dataset.tab === tab);
+      p.style.display = (p.dataset.tab === tab) ? "" : "none";
     });
 
     const url = new URL(window.location.href);
     url.searchParams.set("tab", tab);
     window.history.replaceState({}, "", url);
 
-    // lazy-load tab content
     if (tab === "schedule") ensureScheduleLoaded();
     if (tab === "transactions") ensureTransactionsLoaded();
   }
@@ -699,24 +759,6 @@
     return parts.join(" — ") || "—";
   }
 
-  function safeText(x){
-    return (x == null || x === "") ? "—" : String(x);
-  }
-
-  function escapeHtml(s){
-    return safeText(s)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#39;");
-  }
-
-  function playerLink(id, name){
-    const nm = escapeHtml(name || "—");
-    return id ? `<a href="/player/${id}">${nm}</a>` : nm;
-  }
-
   function computeResult(g){
     if (!isFinal(g.status)) return null;
 
@@ -764,7 +806,7 @@
       const prefix = g.isHome ? "vs." : "@";
       const oppAbbrev = (g.opp?.abbrev || "—");
       const oppLogo = g.opp?.id
-        ? `<img class="opp-logo" src="${mlbLogoUrl(g.opp.id)}" alt="${escapeHtml(oppAbbrev)}">`
+        ? `<img class="opp-logo" src="${mlbLogoUrl(g.opp.id)}" alt="${oppAbbrev}">`
         : "";
 
       const result = computeResult(g);
@@ -774,13 +816,13 @@
         scoreHtml = `<span class="wl ${cls}">${result.wl}</span>
                      <span class="mono">${result.teamRuns}&ndash;${result.oppRuns}</span>`;
       } else if (!isUpcoming(g.status)) {
-        scoreHtml = `<span class="muted">${escapeHtml(g.status || "—")}</span>`;
+        scoreHtml = `<span class="muted">${g.status || "—"}</span>`;
       }
 
       let pitchersHtml = `<span class="muted">—</span>`;
       if (isFinal(g.status)){
-        const w = g.pitchers?.winner ? `W: ${playerLink(g.pitchers?.winnerId, g.pitchers.winner)}` : null;
-        const l = g.pitchers?.loser ? `L: ${playerLink(g.pitchers?.loserId, g.pitchers.loser)}` : null;
+        const w = g.pitchers?.winner ? `W: ${g.pitchers.winner}` : null;
+        const l = g.pitchers?.loser ? `L: ${g.pitchers.loser}` : null;
 
         if (w || l){
           pitchersHtml = `
@@ -796,8 +838,8 @@
 
         pitchersHtml = `
           <div class="pitchers-stack">
-            <div>${playerLink(g.pitchers?.teamProbableId, tp)}</div>
-            <div>${playerLink(g.pitchers?.oppProbableId, op)}</div>
+            <div>${tp}</div>
+            <div>${op}</div>
           </div>
         `;
       }
@@ -809,11 +851,11 @@
         <tr>
           <td class="mono" style="white-space:nowrap;">${date}</td>
           <td class="mono" style="white-space:nowrap;">${time}</td>
-          <td>${escapeHtml(loc)}</td>
+          <td>${loc}</td>
           <td>
             <div class="opp-cell">
               <span style="opacity:.85; width:32px; display:inline-block;">${prefix}</span>
-              <span class="mono" style="font-weight:700;">${escapeHtml(oppAbbrev)}</span>
+              <span class="mono" style="font-weight:700;">${oppAbbrev}</span>
               ${oppLogo}
             </div>
           </td>
@@ -868,8 +910,9 @@
       buildSeasons();
       document.getElementById("scheduleSeason").addEventListener("change", () => {
         const panel = document.querySelector('.tab-panel[data-tab="schedule"]');
-        if (panel && !panel.classList.contains("active")) return;
-        loadSchedule();
+        if (panel && panel.style.display !== "none"){
+          loadSchedule();
+        }
       });
       _scheduleBootstrapped = true;
     }
@@ -891,6 +934,19 @@
     return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
   }
 
+  function safeText(x){
+    return (x == null || x === "") ? "—" : String(x);
+  }
+
+  function escapeHtml(s){
+    return safeText(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
   function renderTransactions(txs){
     if (!txs.length){
       return `<div class="muted" style="font-size:13px;">No transactions found for this range.</div>`;
@@ -909,12 +965,12 @@
 
     const rows = txs.map(t => {
       const date = fmtLocalDateOnly(t.date);
-
       const descRaw = safeText(t.description);
       let descHtml = escapeHtml(descRaw);
 
       const players = (t.players || []).filter(p => p && p.id && p.name);
 
+      // Link EVERY occurrence
       for (const p of players){
         const nameEsc = escapeHtml(p.name);
         const linked = `<a href="/player/${p.id}">${nameEsc}</a>`;
@@ -923,6 +979,7 @@
         }
       }
 
+      // If no names were found, prepend player list
       const anyLinked = players.some(p => descHtml.includes(`/player/${p.id}`));
       if (players.length && !anyLinked){
         const plist = players
@@ -964,8 +1021,9 @@
       loadTransactions();
       document.getElementById("txDays").addEventListener("change", () => {
         const panel = document.querySelector('.tab-panel[data-tab="transactions"]');
-        if (panel && !panel.classList.contains("active")) return;
-        loadTransactions();
+        if (panel && panel.style.display !== "none"){
+          loadTransactions();
+        }
       });
     }
   }
