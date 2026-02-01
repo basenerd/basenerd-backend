@@ -1,6 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
 
+{# ---------------------------------
+   Helper: player link (id optional)
+   --------------------------------- #}
+{% macro player_name(pid, name) -%}
+  {%- if pid -%}
+    <a class="playerlink" href="/player/{{ pid }}">{{ name }}</a>
+  {%- else -%}
+    {{ name }}
+  {%- endif -%}
+{%- endmacro %}
+
 <div class="card">
   <div class="card-header">
     <div class="teamcell" style="gap:10px;">
@@ -70,7 +81,16 @@
                             <span class="muted mono" style="font-size:12px;">{{ last_game.away.record }}</span>
                           {% endif %}
                           <span class="muted" style="opacity:.6;">•</span>
-                          <span class="small muted">{{ last_game.away.pp or "PP: TBD" }}</span>
+
+                          {# PP: link if we have an id (requires backend to pass pp_id/pp_name) #}
+                          <span class="small muted">
+                            PP:
+                            {% if last_game.away.pp_id and last_game.away.pp_name %}
+                              {{ player_name(last_game.away.pp_id, last_game.away.pp_name) }}
+                            {% else %}
+                              {{ (last_game.away.pp or "PP: TBD")|replace("PP: ", "") }}
+                            {% endif %}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -90,7 +110,15 @@
                             <span class="muted mono" style="font-size:12px;">{{ last_game.home.record }}</span>
                           {% endif %}
                           <span class="muted" style="opacity:.6;">•</span>
-                          <span class="small muted">{{ last_game.home.pp or "PP: TBD" }}</span>
+
+                          <span class="small muted">
+                            PP:
+                            {% if last_game.home.pp_id and last_game.home.pp_name %}
+                              {{ player_name(last_game.home.pp_id, last_game.home.pp_name) }}
+                            {% else %}
+                              {{ (last_game.home.pp or "PP: TBD")|replace("PP: ", "") }}
+                            {% endif %}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -111,7 +139,18 @@
                   {% if last_game.statusPill == "Final" %}
                     <div class="small muted">
                       {% if last_game.pitching.winner or last_game.pitching.loser %}
-                        W: {{ last_game.pitching.winner or "—" }} • L: {{ last_game.pitching.loser or "—" }}
+                        W:
+                        {% if last_game.pitching.winner_id and last_game.pitching.winner %}
+                          {{ player_name(last_game.pitching.winner_id, last_game.pitching.winner) }}
+                        {% else %}
+                          {{ last_game.pitching.winner or "—" }}
+                        {% endif %}
+                        • L:
+                        {% if last_game.pitching.loser_id and last_game.pitching.loser %}
+                          {{ player_name(last_game.pitching.loser_id, last_game.pitching.loser) }}
+                        {% else %}
+                          {{ last_game.pitching.loser or "—" }}
+                        {% endif %}
                       {% endif %}
                     </div>
                   {% else %}
@@ -153,7 +192,15 @@
                             <span class="muted mono" style="font-size:12px;">{{ next_game.away.record }}</span>
                           {% endif %}
                           <span class="muted" style="opacity:.6;">•</span>
-                          <span class="small muted">{{ next_game.away.pp or "PP: TBD" }}</span>
+
+                          <span class="small muted">
+                            PP:
+                            {% if next_game.away.pp_id and next_game.away.pp_name %}
+                              {{ player_name(next_game.away.pp_id, next_game.away.pp_name) }}
+                            {% else %}
+                              {{ (next_game.away.pp or "PP: TBD")|replace("PP: ", "") }}
+                            {% endif %}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -172,7 +219,15 @@
                             <span class="muted mono" style="font-size:12px;">{{ next_game.home.record }}</span>
                           {% endif %}
                           <span class="muted" style="opacity:.6;">•</span>
-                          <span class="small muted">{{ next_game.home.pp or "PP: TBD" }}</span>
+
+                          <span class="small muted">
+                            PP:
+                            {% if next_game.home.pp_id and next_game.home.pp_name %}
+                              {{ player_name(next_game.home.pp_id, next_game.home.pp_name) }}
+                            {% else %}
+                              {{ (next_game.home.pp or "PP: TBD")|replace("PP: ", "") }}
+                            {% endif %}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -582,7 +637,6 @@
     url.searchParams.set("tab", tab);
     window.history.replaceState({}, "", url);
 
-    // lazy-load tab content
     if (tab === "schedule") ensureScheduleLoaded();
     if (tab === "transactions") ensureTransactionsLoaded();
   }
@@ -638,6 +692,24 @@
     const cityState = [v?.city, v?.state].filter(Boolean).join(", ");
     if (cityState) parts.push(cityState);
     return parts.join(" — ") || "—";
+  }
+
+  function safeText(x){
+    return (x == null || x === "") ? "—" : String(x);
+  }
+
+  function escapeHtml(s){
+    return safeText(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function playerLink(id, name){
+    const nm = escapeHtml(name || "—");
+    return id ? `<a href="/player/${id}">${nm}</a>` : nm;
   }
 
   function computeResult(g){
@@ -697,13 +769,13 @@
         scoreHtml = `<span class="wl ${cls}">${result.wl}</span>
                      <span class="mono">${result.teamRuns}&ndash;${result.oppRuns}</span>`;
       } else if (!isUpcoming(g.status)) {
-        scoreHtml = `<span class="muted">${g.status || "—"}</span>`;
+        scoreHtml = `<span class="muted">${escapeHtml(g.status || "—")}</span>`;
       }
 
       let pitchersHtml = `<span class="muted">—</span>`;
       if (isFinal(g.status)){
-        const w = g.pitchers?.winner ? `W: ${g.pitchers.winner}` : null;
-        const l = g.pitchers?.loser ? `L: ${g.pitchers.loser}` : null;
+        const w = g.pitchers?.winner ? `W: ${playerLink(g.pitchers?.winnerId, g.pitchers.winner)}` : null;
+        const l = g.pitchers?.loser ? `L: ${playerLink(g.pitchers?.loserId, g.pitchers.loser)}` : null;
 
         if (w || l){
           pitchersHtml = `
@@ -719,8 +791,8 @@
 
         pitchersHtml = `
           <div class="pitchers-stack">
-            <div>${tp}</div>
-            <div>${op}</div>
+            <div>${playerLink(g.pitchers?.teamProbableId, tp)}</div>
+            <div>${playerLink(g.pitchers?.oppProbableId, op)}</div>
           </div>
         `;
       }
@@ -736,7 +808,7 @@
           <td>
             <div class="opp-cell">
               <span style="opacity:.85; width:32px; display:inline-block;">${prefix}</span>
-              <span class="mono" style="font-weight:700;">${oppAbbrev}</span>
+              <span class="mono" style="font-weight:700;">${escapeHtml(oppAbbrev)}</span>
               ${oppLogo}
             </div>
           </td>
@@ -790,7 +862,6 @@
     if (!_scheduleBootstrapped){
       buildSeasons();
       document.getElementById("scheduleSeason").addEventListener("change", () => {
-        // only reload if schedule tab is visible
         const panel = document.querySelector('.tab-panel[data-tab="schedule"]');
         if (panel && panel.style.display !== "none"){
           loadSchedule();
@@ -805,7 +876,7 @@
   }
 
   // ----------------------------
-  // Transactions
+  // Transactions (unchanged)
   // ----------------------------
   let _txLoadedOnce = false;
 
@@ -814,19 +885,6 @@
     const d = new Date(isoOrYmd);
     if (isNaN(d.getTime())) return isoOrYmd;
     return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
-  }
-
-  function safeText(x){
-    return (x == null || x === "") ? "—" : String(x);
-  }
-
-  function escapeHtml(s){
-    return safeText(s)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#39;");
   }
 
   function renderTransactions(txs){
@@ -853,7 +911,6 @@
 
       const players = (t.players || []).filter(p => p && p.id && p.name);
 
-      // Link EVERY occurrence
       for (const p of players){
         const nameEsc = escapeHtml(p.name);
         const linked = `<a href="/player/${p.id}">${nameEsc}</a>`;
@@ -862,7 +919,6 @@
         }
       }
 
-      // If no names were found, prepend player list
       const anyLinked = players.some(p => descHtml.includes(`/player/${p.id}`));
       if (players.length && !anyLinked){
         const plist = players
