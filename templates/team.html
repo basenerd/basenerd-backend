@@ -1,6 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
-
+<div style="padding:8px 10px; border:1px solid rgba(255,255,255,.15); border-radius:12px; margin-bottom:10px;">
+  <div class="mono" style="font-size:12px; opacity:.85;">
+    TEAM.HTML MARKER • team_id={{ team.team_id }} • last_game={{ "yes" if last_game else "no" }} • next_game={{ "yes" if next_game else "no" }}
+  </div>
+</div>
+<pre style="white-space:pre-wrap; font-size:12px; opacity:.85; border:1px solid rgba(255,255,255,.1); padding:10px; border-radius:12px; margin-bottom:12px;">
+TEAM={{ team|tojson }}
+LAST={{ last_game|tojson }}
+NEXT={{ next_game|tojson }}
+DIV={{ division_rows|tojson }}
+LEADERS={{ leaders|tojson }}
+</pre>
 {# ---------------------------------
    Helper: player link (id optional)
    --------------------------------- #}
