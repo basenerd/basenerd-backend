@@ -406,7 +406,20 @@ def random_player_play():
 
 @app.get("/")
 def home():
-    return render_template("home.html", title="Basenerd")
+    # Pull recent articles for the homepage module (safe if none exist)
+    try:
+        articles = load_articles() or []
+        # If your loader doesn't already sort, keep newest first when dates exist
+        # (won't crash if date missing)
+        def _key(a):
+            return (a.get("date") or "")
+        articles = sorted(articles, key=_key, reverse=True)
+    except Exception as e:
+        print(f"[home] load_articles failed: {e}")
+        articles = []
+
+    return render_template("home.html", title="Basenerd", articles=articles)
+
 
 from datetime import datetime
 from flask import request, render_template
