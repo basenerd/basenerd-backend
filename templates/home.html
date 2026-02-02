@@ -1,69 +1,136 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- Intro card -->
-<div class="card">
+<!-- ===================== -->
+<!-- HERO -->
+<!-- ===================== -->
+<div class="card home-hero">
+  <div class="card-body">
+    <div class="home-hero-grid">
+      <div class="home-hero-left">
+        <div class="home-eyebrow mono">BASEBALL • DATA • VISUALS</div>
+        <div class="home-headline">Basenerd</div>
+        <div class="home-subhead">
+          A modern, stats-first MLB hub — standings, games, teams, player profiles, and deep dives.
+        </div>
+
+        <div class="home-cta">
+          <a class="btn primary" href="/games">Today’s Games</a>
+          <a class="btn" href="/standings">Standings</a>
+          <a class="btn" href="/random-player">Random Player</a>
+        </div>
+
+        <div class="home-muted muted" style="margin-top:10px; max-width: 720px;">
+          Built as a living project — features roll out continuously. Bookmark it, poke around, and let the numbers tell the story.
+        </div>
+      </div>
+
+      <div class="home-hero-right">
+        <div class="home-kpi-grid">
+          <div class="home-kpi">
+            <div class="k mono">Explore</div>
+            <div class="v">Games</div>
+            <div class="muted small">Live • scheduled • final</div>
+          </div>
+          <div class="home-kpi">
+            <div class="k mono">Compare</div>
+            <div class="v">Standings</div>
+            <div class="muted small">Division + wild card</div>
+          </div>
+          <div class="home-kpi">
+            <div class="k mono">Dive In</div>
+            <div class="v">Players</div>
+            <div class="muted small">Stats • awards • bios</div>
+          </div>
+          <div class="home-kpi">
+            <div class="k mono">Build</div>
+            <div class="v">Tools</div>
+            <div class="muted small">Generator + more</div>
+          </div>
+        </div>
+
+        <div class="home-callout">
+          <div class="home-callout-title">Quick Start</div>
+          <div class="home-callout-links">
+            <a href="/teams" class="home-mini-link">Browse Teams →</a>
+            <a href="/stats" class="home-mini-link">Leaderboards →</a>
+            <a href="/articles" class="home-mini-link">Read Articles →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== -->
+<!-- START HERE -->
+<!-- ===================== -->
+<div class="card" style="margin-top:14px;">
   <div class="card-header">
     <div>
-      <div class="card-title">basenerd</div>
-      <div class="card-subtitle">Modern baseball analytics, built up over time.</div>
+      <div class="card-title">Start here</div>
+      <div class="card-subtitle">Pick a lane — everything stays fast + stats-forward</div>
     </div>
   </div>
+
   <div class="card-body">
-    <div class="muted" style="max-width:900px;">
-      Standings, teams, players, articles, and tools — all in one clean, stats-first dashboard.
+    <div class="home-nav-grid">
+
+      <a href="/games" class="card home-nav-card home-nav-tile">
+        <div class="home-nav-top">
+          <div class="home-nav-emoji">📅</div>
+          <div class="home-nav-title">Games</div>
+        </div>
+        <div class="card-subtitle">Today, upcoming, finals • game pages with detail</div>
+      </a>
+
+      <a href="/standings" class="card home-nav-card home-nav-tile">
+        <div class="home-nav-top">
+          <div class="home-nav-emoji">🏁</div>
+          <div class="home-nav-title">Standings</div>
+        </div>
+        <div class="card-subtitle">Division + wild card views • postseason context</div>
+      </a>
+
+      <a href="/teams" class="card home-nav-card home-nav-tile">
+        <div class="home-nav-top">
+          <div class="home-nav-emoji">🧢</div>
+          <div class="home-nav-title">Teams</div>
+        </div>
+        <div class="card-subtitle">Rosters, schedules, leaders, transactions</div>
+      </a>
+
+      <a href="/players" class="card home-nav-card home-nav-tile">
+        <div class="home-nav-top">
+          <div class="home-nav-emoji">👤</div>
+          <div class="home-nav-title">Players</div>
+        </div>
+        <div class="card-subtitle">Profiles • year-by-year • awards • career totals</div>
+      </a>
+
+      <a href="/stats" class="card home-nav-card home-nav-tile">
+        <div class="home-nav-top">
+          <div class="home-nav-emoji">📊</div>
+          <div class="home-nav-title">Stats</div>
+        </div>
+        <div class="card-subtitle">Sortable leaderboards • filters • columns</div>
+      </a>
+
+      <a href="/random-player" class="card home-nav-card home-nav-tile">
+        <div class="home-nav-top">
+          <div class="home-nav-emoji">🎲</div>
+          <div class="home-nav-title">Random Player</div>
+        </div>
+        <div class="card-subtitle">A fun way to discover new profiles</div>
+      </a>
+
     </div>
   </div>
 </div>
 
-<!-- Navigation cards -->
-<div class="grid-2" style="margin-top:14px;">
-
-  <a href="/standings" class="card home-nav-card">
-    <div class="card-header">
-      <div class="card-title">Standings</div>
-      <div class="card-subtitle">Division + wild card views</div>
-    </div>
-  </a>
-
-  <a href="/teams" class="card home-nav-card">
-    <div class="card-header">
-      <div class="card-title">Teams</div>
-      <div class="card-subtitle">Rosters, info, schedules</div>
-    </div>
-  </a>
-
-  <a href="/players" class="card home-nav-card">
-    <div class="card-header">
-      <div class="card-title">Players</div>
-      <div class="card-subtitle">Stats, awards, profiles</div>
-    </div>
-  </a>
-
-  <a href="/articles" class="card home-nav-card">
-    <div class="card-header">
-      <div class="card-title">Articles</div>
-      <div class="card-subtitle">Writeups + analysis</div>
-    </div>
-  </a>
-
-  <a href="/random-player" class="card home-nav-card">
-    <div class="card-header">
-      <div class="card-title">Random Player Generator</div>
-      <div class="card-subtitle">Discover a new profile</div>
-    </div>
-  </a>
-
-  <a href="/about" class="card home-nav-card">
-    <div class="card-header">
-      <div class="card-title">About</div>
-      <div class="card-subtitle">What this project is</div>
-    </div>
-  </a>
-
-</div>
-
-<!-- Recent Articles -->
+<!-- ===================== -->
+<!-- RECENT ARTICLES -->
+<!-- ===================== -->
 <div class="card" style="margin-top:14px;">
   <div class="card-header">
     <div>
@@ -79,9 +146,12 @@
         {% for a in articles[:6] %}
           <a class="home-article" href="{{ a.url if a.url is defined else ('/article/' ~ a.slug) }}">
             <div class="home-article-title">{{ a.title }}</div>
-            {% if a.date %}
-              <div class="home-article-meta">{{ a.date }}</div>
-            {% endif %}
+            <div class="home-article-row">
+              {% if a.date %}
+                <div class="home-article-meta mono">{{ a.date }}</div>
+              {% endif %}
+              <div class="home-article-pill">Read</div>
+            </div>
             {% if a.snippet %}
               <div class="home-article-snippet">{{ a.snippet }}</div>
             {% endif %}
