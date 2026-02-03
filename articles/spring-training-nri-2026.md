@@ -5,699 +5,1199 @@ author: Nick Labella
 slug: spring-training-nri-2026
 ---
 
-Baseball fans will get to see some of the game's top prospects measure up against their future counterparts this spring. A total of 30 players in the top 100 have already been announced as non-roster invitees to big league camp, with some others yet to be announced. Check back here for more updates as teams continue to announce their non-roster invitee list.
+<div class="card home-hero">
+  <div class="card-body">
+    <div class="home-eyebrow mono">SPRING TRAINING • 2026</div>
+    <div class="home-headline">Non-Roster Invitees Tracker</div>
+    <div class="home-subhead">
+      Baseball fans will get to see some of the game's top prospects measure up against their future counterparts this spring.
+      A total of <b>30</b> players in the Top 100 have already been announced as non-roster invitees to big league camp,
+      with some others yet to be announced. Check back here for more updates as teams continue to announce their NRI lists.
+    </div>
 
-Some notable top prospects that will be participating this spring include #1 overall prospect [Konnor Griffin](/player/804606) (Pirates) as well as electric shortstop prospect [Leo De Vries](/player/815888) (#4 Overall, #1 ATH) and 18 year-old [Jesús Made](/player/815908) (#3 Overall, #1 MIL). 
+    <div class="home-callout">
+      <div class="home-callout-title">Notable top prospects in camp</div>
+      <div class="home-subhead" style="margin:0;">
+        #1 overall prospect <a href="/player/804606"><b>Konnor Griffin</b></a> (Pirates), electric shortstop
+        <a href="/player/815888"><b>Leo De Vries</b></a> (#4 Overall, #1 ATH), and 18 year-old
+        <a href="/player/815908"><b>Jesús Made</b></a> (#3 Overall, #1 MIL).
+      </div>
+    </div>
+  </div>
+</div>
 
-Click your team below to jump straight to their non-roster invitee list.
-
-## Jump to a team
-  [ARI](#109) | [ATH](#133) | [ATL](#144) | [BAL](#110) | [BOS](#111) | [CHC](#112)
-  [CWS](#145) | [CIN](#113) | [CLE](#114) | [COL](#115) | [DET](#116) | [HOU](#117)
-  [KCR](#118) | [LAA](#108) | [LAD](#119) | [MIA](#146) | [MIL](#158) | [MIN](#142)
-  [NYM](#121) | [NYY](#147) | [PHI](#143) | [PIT](#134) | [SDP](#135) | [SFG](#137)
-  [SEA](#136) | [STL](#138) | [TBR](#139) | [TOR](#141) | [TEX](#140) | [WAS](#120)
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Jump to a team</div>
+      <div class="card-subtitle">Click a tag to jump to that team’s section</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+      <a class="tag" href="#109">ARI</a>
+      <a class="tag" href="#133">ATH</a>
+      <a class="tag" href="#144">ATL</a>
+      <a class="tag" href="#110">BAL</a>
+      <a class="tag" href="#111">BOS</a>
+      <a class="tag" href="#112">CHC</a>
+      <a class="tag" href="#145">CWS</a>
+      <a class="tag" href="#113">CIN</a>
+      <a class="tag" href="#114">CLE</a>
+      <a class="tag" href="#115">COL</a>
+      <a class="tag" href="#116">DET</a>
+      <a class="tag" href="#117">HOU</a>
+      <a class="tag" href="#118">KCR</a>
+      <a class="tag" href="#108">LAA</a>
+      <a class="tag" href="#119">LAD</a>
+      <a class="tag" href="#146">MIA</a>
+      <a class="tag" href="#158">MIL</a>
+      <a class="tag" href="#142">MIN</a>
+      <a class="tag" href="#121">NYM</a>
+      <a class="tag" href="#147">NYY</a>
+      <a class="tag" href="#143">PHI</a>
+      <a class="tag" href="#134">PIT</a>
+      <a class="tag" href="#135">SDP</a>
+      <a class="tag" href="#137">SFG</a>
+      <a class="tag" href="#136">SEA</a>
+      <a class="tag" href="#138">STL</a>
+      <a class="tag" href="#139">TBR</a>
+      <a class="tag" href="#141">TOR</a>
+      <a class="tag" href="#140">TEX</a>
+      <a class="tag" href="#120">WAS</a>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="109"></a>
-## Arizona Diamondbacks
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Luken Baker](/player/663609) | 1B | - | - |
-| [Cristofer Torin](/player/800198) | 2B | - | - |
-| [Ildemaro Vargas](/player/545121) | 2B | - | - |
-| [Ben McLaughlin](/player/808768) | 3B | - | - |
-| [Ivan Melendez](/player/699471) | 3B | - | - |
-| [LuJames Groover](/player/694410) | 3B | - | - |
-| [Aramis Garcia](/player/605244) | C | - | - |
-| [Gavin Logan](/player/678099) | C | - | - |
-| [Matt O'Neill](/player/690841) | C | - | - |
-| [A.J. Vukovich](/player/691021) | CF | - | - |
-| [Druw Jones](/player/702258) | CF | - | - | - |
-| [Ryan Waldschmidt](/player/814439) | CF | AA | 59 |
-| [Kristian Robinson](/player/677565) | LF | - | - |
-| [Alfred Morillo](/player/801219) | P | - | - |
-| [Bryce Jarvis](/player/686826) | P | - | - |
-| [Daniel Eagen](/player/811666) | P | - | - |
-| [Derek Law](/player/571882) | P | - | - |
-| [Gerardo Carrillo](/player/672629) | P | - | - |
-| [Hayden Durke](/player/694492) | P | - | - |
-| [Isaiah Campbell](/player/663462) | P | - | - |
-| [John Curtiss](/player/595928) | P | - | - |
-| [Jonathan Loáisiga](/player/642528) | P | - | - |
-| [Junior Fernández](/player/658551) | P | - | - |
-| [Landon Sims](/player/683085) | P | - | - |
-| [Shawn Dubin](/player/681869) | P | - | - |
-| [Spencer Giesting](/player/801517) | P | - | - |
-| [Taylor Rashi](/player/688497) | P | - | - |
-| [Thomas Hatch](/player/641672) | P | - | - |
-| [Tommy Henry](/player/674072) | P | - | - |
-| [Yu-Min Lin](/player/801179) | P | - | - |
-| [Jacob Amaya](/player/676070) | SS | - | - |
-| [Tommy Troy](/player/694371) | SS | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/109.svg" alt="Arizona Diamondbacks logo" style="height:22px;" />
+      <div class="card-title teamlink">Arizona Diamondbacks</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/663609">Luken Baker</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/800198">Cristofer Torin</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/545121">Ildemaro Vargas</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/808768">Ben McLaughlin</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/699471">Ivan Melendez</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694410">LuJames Groover</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/605244">Aramis Garcia</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/678099">Gavin Logan</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/690841">Matt O'Neill</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/691021">A.J. Vukovich</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702258">Druw Jones</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/814439">Ryan Waldschmidt</a></td><td class="num">CF</td><td class="num">AA</td><td class="num">59</td></tr>
+          <tr><td><a href="/player/677565">Kristian Robinson</a></td><td class="num">LF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/801219">Alfred Morillo</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686826">Bryce Jarvis</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/811666">Daniel Eagen</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/571882">Derek Law</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/672629">Gerardo Carrillo</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694492">Hayden Durke</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/663462">Isaiah Campbell</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/595928">John Curtiss</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/642528">Jonathan Loáisiga</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/658551">Junior Fernández</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/683085">Landon Sims</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681869">Shawn Dubin</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/801517">Spencer Giesting</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/688497">Taylor Rashi</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/641672">Thomas Hatch</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/674072">Tommy Henry</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/801179">Yu-Min Lin</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/676070">Jacob Amaya</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694371">Tommy Troy</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="133"></a>
-## Athletics
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Joey Meneses](/player/608841) | 1B | - | - |
-| [Michael Stefanic](/player/683021) | 2B | - | - |
-| [Euribiel Angeles](/player/683494) | 3B | - | - |
-| [Tommy White](/player/695720) | 3B | - | - |
-| [Brian Serven](/player/661531) | C | - | - |
-| [Bryan Lavastida](/player/681526) | C | - | - |
-| [Chad Wallach](/player/595453) | C | - | - |
-| [Shane McGuire](/player/676063) | C | - | - |
-| [Ryan Lasko](/player/805782) | CF | - | - |
-| [Clark Elliott](/player/686499) | LF | - | - |
-| [Cade Marlowe](/player/687799) | OF | - | - |
-| [Brooks Kriske](/player/621139) | P | - | - |
-| [Domingo Robles](/player/660781) | P | - | - |
-| [Gage Jump](/player/695611) | P | AA | 57 |
-| [Geoff Hartlieb](/player/664129) | P | - | - |
-| [Gustavo Rodriguez](/player/683020) | P | - | - |
-| [JJ Goss](/player/683101) | P | - | - |
-| [Jamie Arnold](/player/701364) | P | ROK | 41 |
-| [Joel Kuhnel](/player/669270) | P | - | - |
-| [Kade Morris](/player/695034) | P | - | - |
-| [Kenya Huggins](/player/695761) | P | - | - |
-| [Matt Krook](/player/640454) | P | - | - |
-| [Nick Anderson](/player/623433) | P | - | - |
-| [Nick Hernandez](/player/663321) | P | - | - |
-| [Wander Suero](/player/593833) | P | - | - |
-| [Wei-En Lin](/player/827734) | P | - | - |
-| [Yunior Tur](/player/814305) | P | - | - |
-| [Henry Bolte](/player/703607) | RF | - | - |
-| [Joshua Kuroda-Grauer](/player/811965) | SS | - | - |
-| [Leo De Vries](/player/815888) | SS | AA | 4 |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/133.svg" alt="Athletics logo" style="height:22px;" />
+      <div class="card-title teamlink">Athletics</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/608841">Joey Meneses</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/683021">Michael Stefanic</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/683494">Euribiel Angeles</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695720">Tommy White</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/661531">Brian Serven</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681526">Bryan Lavastida</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/595453">Chad Wallach</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/676063">Shane McGuire</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/805782">Ryan Lasko</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686499">Clark Elliott</a></td><td class="num">LF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687799">Cade Marlowe</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/621139">Brooks Kriske</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/660781">Domingo Robles</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695611">Gage Jump</a></td><td class="num">P</td><td class="num">AA</td><td class="num">57</td></tr>
+          <tr><td><a href="/player/664129">Geoff Hartlieb</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/683020">Gustavo Rodriguez</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/683101">JJ Goss</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701364">Jamie Arnold</a></td><td class="num">P</td><td class="num">ROK</td><td class="num">41</td></tr>
+          <tr><td><a href="/player/669270">Joel Kuhnel</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695034">Kade Morris</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695761">Kenya Huggins</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/640454">Matt Krook</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/623433">Nick Anderson</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/663321">Nick Hernandez</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/593833">Wander Suero</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/827734">Wei-En Lin</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/814305">Yunior Tur</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/703607">Henry Bolte</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/811965">Joshua Kuroda-Grauer</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/815888">Leo De Vries</a></td><td class="num">SS</td><td class="num">AA</td><td class="num">4</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="144"></a>
-## Atlanta Braves
-
-_No non-roster invitees announced yet. Check back for more updates._ 
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/144.svg" alt="Atlanta Braves logo" style="height:22px;" />
+      <div class="card-title teamlink">Atlanta Braves</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="muted"><i>No non-roster invitees announced yet. Check back for more updates.</i></div>
+  </div>
+</div>
 
 ---
 
 <a id="110"></a>
-## Baltimore Orioles
-
-_No non-roster invitees announced yet. Check back for more updates._ 
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/110.svg" alt="Baltimore Orioles logo" style="height:22px;" />
+      <div class="card-title teamlink">Baltimore Orioles</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="muted"><i>No non-roster invitees announced yet. Check back for more updates.</i></div>
+  </div>
+</div>
 
 ---
 
 <a id="111"></a>
-## Boston Red Sox
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Max Ferguson](/player/681132) | 2B | - | - |
-| [Vinny Capra](/player/681962) | 3B | - | - |
-| [Jason Delay](/player/641511) | C | - | - |
-| [Nate Baez](/player/686960) | C | - | - |
-| [Nathan Hickey](/player/687208) | C | - | - |
-| [Ronald Rosario](/player/691385) | C | - | - |
-| [Allan Castro](/player/691369) | CF | - | - |
-| [Braiden Ward](/player/685274) | CF | - | - |
-| [Tyler McDonough](/player/694812) | OF | - | - |
-| [Alec Gamboa](/player/687941) | P | - | - |
-| [Devin Sweet](/player/682967) | P | - | - |
-| [Hobie Harris](/player/665048) | P | - | - |
-| [Jacob Webb](/player/701288) | P | - | - |
-| [Jeremy Wu-Yelland](/player/695026) | P | - | - |
-| [Noah Song](/player/679977) | P | - | - |
-| [Osvaldo Berrios](/player/676047) | P | - | - |
-| [Seth Martinez](/player/661527) | P | - | - |
-| [T.J. Sikkema](/player/674674) | P | - | - |
-| [Tayron Guerrero](/player/594027) | P | - | - |
-| [Wyatt Olds](/player/681544) | P | - | - |
-| [Mikey Romero](/player/702540) | SS | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/111.svg" alt="Boston Red Sox logo" style="height:22px;" />
+      <div class="card-title teamlink">Boston Red Sox</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/681132">Max Ferguson</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681962">Vinny Capra</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/641511">Jason Delay</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686960">Nate Baez</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687208">Nathan Hickey</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/691385">Ronald Rosario</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/691369">Allan Castro</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/685274">Braiden Ward</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694812">Tyler McDonough</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687941">Alec Gamboa</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/682967">Devin Sweet</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/665048">Hobie Harris</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701288">Jacob Webb</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695026">Jeremy Wu-Yelland</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/679977">Noah Song</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/676047">Osvaldo Berrios</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/661527">Seth Martinez</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/674674">T.J. Sikkema</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/594027">Tayron Guerrero</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681544">Wyatt Olds</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702540">Mikey Romero</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="112"></a>
-## Chicago Cubs
-
-_No non-roster invitees announced yet. Check back for more updates._ 
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/112.svg" alt="Chicago Cubs logo" style="height:22px;" />
+      <div class="card-title teamlink">Chicago Cubs</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="muted"><i>No non-roster invitees announced yet. Check back for more updates.</i></div>
+  </div>
+</div>
 
 ---
 
 <a id="145"></a>
-## Chicago White Sox
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) | Team Top 30 Rank  |
-|---|---:|---:|---:|---:|
-| [LaMonte Wade Jr.](/player/664774) | 1B | - | - |
-| [Tim Elko](/player/671284) | 1B | - | - |
-| [William Bergolla Jr.](/player/703151) | 2B | - | - |
-| [Oliver Dunn](/player/686554) | 3B | - | - |
-| [Michael Turner](/player/694478) | C | - | - |
-| [Dru Baker](/player/681333) | CF | - | - |
-| [Dustin Harris](/player/687957) | LF | - | - |
-| [Braden Montgomery](/player/695731) | OF | AA | 36 |
-| [Adisyn Coffey](/player/676249) | P | - | - |
-| [Ben Peoples](/player/687239) | P | - | - |
-| [Hagen Smith](/player/696146) | P | AA | 72 |
-| [Mason Adams](/player/690279) | P | - | - |
-| [Noah Schultz](/player/702273) | P | AAA | 49 |
-| [Ryan Borucki](/player/621366) | P | - | - |
-| [Shane Murphy](/player/690294) | P | - | - |
-| [Tyler Davis](/player/699823) | P | - | - |
-| [Tyler Schweitzer](/player/805326) | P | - | - |
-| [Tyson Miller](/player/668338) | P | - | - |
-| [Zach Franklin](/player/702103) | P | - | - |
-| [Jarred Kelenic](/player/672284) | RF | - | - |
-| [Jacob Gonzalez](/player/694378) | SS | - | - |
-| [Sam Antonacci](/player/803011) | SS | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/145.svg" alt="Chicago White Sox logo" style="height:22px;" />
+      <div class="card-title teamlink">Chicago White Sox</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/664774">LaMonte Wade Jr.</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/671284">Tim Elko</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/703151">William Bergolla Jr.</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686554">Oliver Dunn</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694478">Michael Turner</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681333">Dru Baker</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687957">Dustin Harris</a></td><td class="num">LF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695731">Braden Montgomery</a></td><td class="num">OF</td><td class="num">AA</td><td class="num">36</td></tr>
+          <tr><td><a href="/player/676249">Adisyn Coffey</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687239">Ben Peoples</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/696146">Hagen Smith</a></td><td class="num">P</td><td class="num">AA</td><td class="num">72</td></tr>
+          <tr><td><a href="/player/690279">Mason Adams</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702273">Noah Schultz</a></td><td class="num">P</td><td class="num">AAA</td><td class="num">49</td></tr>
+          <tr><td><a href="/player/621366">Ryan Borucki</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/690294">Shane Murphy</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/699823">Tyler Davis</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/805326">Tyler Schweitzer</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/668338">Tyson Miller</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702103">Zach Franklin</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/672284">Jarred Kelenic</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694378">Jacob Gonzalez</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/803011">Sam Antonacci</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="113"></a>
-## Cincinnati Reds
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Michael Toglia](/player/669911) | 1B | - | - |
-| [Garrett Hampson](/player/641658) | 2B | - | - |
-| [Michael Chavis](/player/656308) | 2B | - | - |
-| [Cam Collier](/player/702253) | 3B | - | - |
-| [Connor Burns](/player/694829) | C | - | - |
-| [Michael Trautwein](/player/681114) | C | - | - |
-| [P.J. Higgins](/player/664731) | C | - | - |
-| [Will Banfield](/player/677943) | C | - | - |
-| [Anthony Misiewicz](/player/664948) | P | - | - |
-| [Carson Spiers](/player/686730) | P | - | - |
-| [Darren McCaughan](/player/670766) | P | - | - |
-| [Hagen Danner](/player/668470) | P | - | - |
-| [Joel Valdez](/player/683638) | P | - | - |
-| [Lyon Richardson](/player/680689) | P | - | - |
-| [Tejay Antone](/player/622088) | P | - | - |
-| [Yunior Marte](/player/628708) | P | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/113.svg" alt="Cincinnati Reds logo" style="height:22px;" />
+      <div class="card-title teamlink">Cincinnati Reds</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/669911">Michael Toglia</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/641658">Garrett Hampson</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/656308">Michael Chavis</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702253">Cam Collier</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694829">Connor Burns</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681114">Michael Trautwein</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/664731">P.J. Higgins</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/677943">Will Banfield</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/664948">Anthony Misiewicz</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686730">Carson Spiers</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/670766">Darren McCaughan</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/668470">Hagen Danner</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/683638">Joel Valdez</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/680689">Lyon Richardson</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/622088">Tejay Antone</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/628708">Yunior Marte</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="114"></a>
-## Cleveland Guardians
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Ralphy Velazquez](/player/806252) | 1B | AA | 89 |
-| [Travis Bazzana](/player/683953) | 2B | AAA | 20 |
-| [Carter Kieboom](/player/666198) | 3B | - | - |
-| [Dayan Frias](/player/682679) | 3B | - | - |
-| [Cameron Barstad](/player/677319) | C | - | - |
-| [Cooper Ingle](/player/694876) | C | AAA | 99 |
-| [Dom Nuñez](/player/624513) | C | - | - |
-| [Jacob Cozart](/player/695524) | C | - | - |
-| [Kody Huff](/player/687627) | C | - | - |
-| [Aaron Davenport](/player/702126) | P | - | - |
-| [Carlos Hernández](/player/672578) | P | - | - |
-| [Codi Heuer](/player/676051) | P | - | - |
-| [Jack Leftwich](/player/676393) | P | - | - |
-| [Jake Miller](/player/681313) | P | - | - |
-| [Kolby Allard](/player/663465) | P | - | - |
-| [Pedro Avila](/player/658648) | P | - | - |
-| [Ryan Webb](/player/669067) | P | - | - |
-| [Steven Pérez](/player/682897) | P | - | - |
-| [Tanner Burns](/player/669142) | P | - | - |
-| [Tommy Mace](/player/676390) | P | - | - |
-| [Trenton Denholm](/player/671143) | P | - | - |
-| [Trevor Stephan](/player/663986) | P | - | - |
-| [Will Dion](/player/702021) | P | - | - |
-| [Alfonsin Rosario](/player/806210) | RF | - | - |
-| [Stuart Fairchild](/player/656413) | RF | - | - |
-| [Wuilfredo Antunez](/player/686404) | RF | - | - |
-| [Milan Tolentino](/player/675455) | SS | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/114.svg" alt="Cleveland Guardians logo" style="height:22px;" />
+      <div class="card-title teamlink">Cleveland Guardians</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/806252">Ralphy Velazquez</a></td><td class="num">1B</td><td class="num">AA</td><td class="num">89</td></tr>
+          <tr><td><a href="/player/683953">Travis Bazzana</a></td><td class="num">2B</td><td class="num">AAA</td><td class="num">20</td></tr>
+          <tr><td><a href="/player/666198">Carter Kieboom</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/682679">Dayan Frias</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/677319">Cameron Barstad</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694876">Cooper Ingle</a></td><td class="num">C</td><td class="num">AAA</td><td class="num">99</td></tr>
+          <tr><td><a href="/player/624513">Dom Nuñez</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695524">Jacob Cozart</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687627">Kody Huff</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702126">Aaron Davenport</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/672578">Carlos Hernández</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/676051">Codi Heuer</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/676393">Jack Leftwich</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681313">Jake Miller</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/663465">Kolby Allard</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/658648">Pedro Avila</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/669067">Ryan Webb</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/682897">Steven Pérez</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/669142">Tanner Burns</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/676390">Tommy Mace</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/671143">Trenton Denholm</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/663986">Trevor Stephan</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702021">Will Dion</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/806210">Alfonsin Rosario</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/656413">Stuart Fairchild</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686404">Wuilfredo Antunez</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/675455">Milan Tolentino</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="115"></a>
-## Colorado Rockies
-
-_No non-roster invitees announced yet. Check back for more updates._ 
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/115.svg" alt="Colorado Rockies logo" style="height:22px;" />
+      <div class="card-title teamlink">Colorado Rockies</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="muted"><i>No non-roster invitees announced yet. Check back for more updates.</i></div>
+  </div>
+</div>
 
 ---
 
 <a id="116"></a>
-## Detroit Tigers
-
-_No non-roster invitees announced yet. Check back for more updates._ 
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/116.svg" alt="Detroit Tigers logo" style="height:22px;" />
+      <div class="card-title teamlink">Detroit Tigers</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="muted"><i>No non-roster invitees announced yet. Check back for more updates.</i></div>
+  </div>
+</div>
 
 ---
 
 <a id="117"></a>
-## Houston Astros
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Jax Biggers](/player/680890) | 2B | - | - |
-| [Riley Unroe](/player/624523) | 2B | - | - |
-| [Carlos Pérez](/player/542208) | C | - | - |
-| [Collin Price](/player/805672) | C | - | - |
-| [Garret Guillemette](/player/695048) | C | - | - |
-| [John Garcia](/player/801039) | C | - | - |
-| [Walker Janek](/player/801075) | C | - | - |
-| [Will Bush](/player/813844) | C | - | - |
-| [Joseph Sullivan](/player/813896) | CF | - | - |
-| [Taylor Trammell](/player/666211) | LF | - | - |
-| [Lucas Spence](/player/828599) | OF | - | - |
-| [Alimber Santa](/player/695001) | P | - | - |
-| [Amos Willingham](/player/686294) | P | - | - |
-| [Anthony Maldonado](/player/687424) | P | - | - |
-| [Christian Roa](/player/685005) | P | - | - |
-| [Cody Bolton](/player/675989) | P | - | - |
-| [Hudson Leach](/player/813865) | P | - | - |
-| [Logan VanWey](/player/701121) | P | - | - |
-| [Michael Knorr](/player/681077) | P | - | - |
-| [Peter Lambert](/player/663567) | P | - | - |
-| [Sam Carlson](/player/672277) | P | - | - |
-| [Kellen Strahm](/player/687005) | RF | - | - |
-| [Edwin Díaz](/player/641521) | SS | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/117.svg" alt="Houston Astros logo" style="height:22px;" />
+      <div class="card-title teamlink">Houston Astros</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/680890">Jax Biggers</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/624523">Riley Unroe</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/542208">Carlos Pérez</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/805672">Collin Price</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695048">Garret Guillemette</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/801039">John Garcia</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/801075">Walker Janek</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/813844">Will Bush</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/813896">Joseph Sullivan</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/666211">Taylor Trammell</a></td><td class="num">LF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/828599">Lucas Spence</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695001">Alimber Santa</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686294">Amos Willingham</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687424">Anthony Maldonado</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/685005">Christian Roa</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/675989">Cody Bolton</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/813865">Hudson Leach</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701121">Logan VanWey</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681077">Michael Knorr</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/663567">Peter Lambert</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/672277">Sam Carlson</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687005">Kellen Strahm</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/641521">Edwin Díaz</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="118"></a>
-## Kansas City Royals
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Abraham Toro](/player/647351) | 1B | - | - |
-| [Peyton Wilson](/player/686523) | 2B | - | - |
-| [Josh Rojas](/player/668942) | 3B | - | - |
-| [Kevin Newman](/player/621028) | 3B | - | - |
-| [Blake Mitchell](/player/805810) | C | A+ | 75 |
-| [Canyon Brown](/player/701401) | C | - | - |
-| [Elih Marrero](/player/663503) | C | - | - |
-| [Jorge Alfaro](/player/595751) | C | - | - |
-| [Luca Tresh](/player/681123) | C | - | - |
-| [Omar Hernandez](/player/683427) | C | - | - |
-| [Ramon Ramirez](/player/808675) | C | - | - |
-| [Carson Roccaforte](/player/811287) | CF | - | - |
-| [A.J. Causey](/player/822067) | P | - | - |
-| [Aaron Sanchez](/player/592717) | P | - | - |
-| [Chazz Martinez](/player/681324) | P | - | - |
-| [Dennis Colleran](/player/701207) | P | - | - |
-| [Frank Mozzicato](/player/700924) | P | - | - |
-| [Helcris Olivárez](/player/672487) | P | - | - |
-| [Hunter Patteson](/player/687593) | P | - | - |
-| [Héctor Neris](/player/593576) | P | - | - |
-| [Jose Cuas](/player/621016) | P | - | - |
-| [Shane Panzini](/player/695556) | P | - | - |
-| [Gavin Cross](/player/688457) | RF | - | - |
-| [Connor Kaiser](/player/663731) | SS | - | - |
-| [Daniel Vazquez](/player/694187) | SS | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/118.svg" alt="Kansas City Royals logo" style="height:22px;" />
+      <div class="card-title teamlink">Kansas City Royals</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/647351">Abraham Toro</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686523">Peyton Wilson</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/668942">Josh Rojas</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/621028">Kevin Newman</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/805810">Blake Mitchell</a></td><td class="num">C</td><td class="num">A+</td><td class="num">75</td></tr>
+          <tr><td><a href="/player/701401">Canyon Brown</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/663503">Elih Marrero</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/595751">Jorge Alfaro</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681123">Luca Tresh</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/683427">Omar Hernandez</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/808675">Ramon Ramirez</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/811287">Carson Roccaforte</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/822067">A.J. Causey</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/592717">Aaron Sanchez</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681324">Chazz Martinez</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701207">Dennis Colleran</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/700924">Frank Mozzicato</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/672487">Helcris Olivárez</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687593">Hunter Patteson</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/593576">Héctor Neris</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/621016">Jose Cuas</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695556">Shane Panzini</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/688457">Gavin Cross</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/663731">Connor Kaiser</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694187">Daniel Vazquez</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="108"></a>
-## Los Angeles Angels
-
-_No non-roster invitees announced yet. Check back for more updates._ 
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/108.svg" alt="Los Angeles Angels logo" style="height:22px;" />
+      <div class="card-title teamlink">Los Angeles Angels</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="muted"><i>No non-roster invitees announced yet. Check back for more updates.</i></div>
+  </div>
+</div>
 
 ---
 
 <a id="119"></a>
-## Los Angeles Dodgers
-
-_No non-roster invitees announced yet. Check back for more updates._ 
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/119.svg" alt="Los Angeles Dodgers logo" style="height:22px;" />
+      <div class="card-title teamlink">Los Angeles Dodgers</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="muted"><i>No non-roster invitees announced yet. Check back for more updates.</i></div>
+  </div>
+</div>
 
 ---
 
 <a id="146"></a>
-## Miami Marlins
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Brian Navarreto](/player/640459) | 1B | - | - |
-| [Dylan Jasso](/player/815734) | 1B | - | - |
-| [Jacob Berry](/player/694351) | 1B | - | - |
-| [Nathan Martorella](/player/687210) | 1B | - | - |
-| [Bennett Hostetler](/player/702315) | C | - | - |
-| [Ryan Ignoffo](/player/813883) | C | - | - |
-| [Sam Praytor](/player/671217) | C | - | - |
-| [Andrew Pintar](/player/801464) | CF | - | - |
-| [Brendan Jones](/player/800957) | CF | - | - |
-| [Daniel Johnson](/player/669288) | CF | - | - |
-| [Matthew Etzel](/player/803033) | LF | - | - |
-| [Dillon Lewis](/player/827665) | OF | - | - |
-| [Fenwick Trimble](/player/814458) | OF | - | - |
-| [Dale Stanavich](/player/689359) | P | - | - |
-| [Evan McKendry](/player/679928) | P | - | - |
-| [Jack Ralston](/player/667652) | P | - | - |
-| [Jesus Tinoco](/player/622786) | P | - | - |
-| [Josh Ekness](/player/694795) | P | - | - |
-| [Justin King](/player/659381) | P | - | - |
-| [Karson Milbrandt](/player/703596) | P | - | - |
-| [Nigel Belgrave](/player/811310) | P | - | - |
-| [Patrick Monteverde](/player/687287) | P | - | - |
-| [Robby Snelling](/player/702281) | P | AAA | 39 |
-| [Samuel Vasquez](/player/679029) | P | - | - |
-| [Stephen Jones](/player/682240) | P | - | - |
-| [Thomas White](/player/806258) | P | AAA | 17 |
-| [Tyler Zuber](/player/676604) | P | - | - |
-| [Zach Brzykcy](/player/694350) | P | - | - |
-| [Kemp Alderman](/player/694580) | RF | - | - |
-| [Jesús Bastidas](/player/665846) | SS | - | - |
-| [Johnny Olmstead](/player/675394) | SS | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/146.svg" alt="Miami Marlins logo" style="height:22px;" />
+      <div class="card-title teamlink">Miami Marlins</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/640459">Brian Navarreto</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/815734">Dylan Jasso</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694351">Jacob Berry</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687210">Nathan Martorella</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702315">Bennett Hostetler</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/813883">Ryan Ignoffo</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/671217">Sam Praytor</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/801464">Andrew Pintar</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/800957">Brendan Jones</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/669288">Daniel Johnson</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/803033">Matthew Etzel</a></td><td class="num">LF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/827665">Dillon Lewis</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/814458">Fenwick Trimble</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/689359">Dale Stanavich</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/679928">Evan McKendry</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/667652">Jack Ralston</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/622786">Jesus Tinoco</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694795">Josh Ekness</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/659381">Justin King</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/703596">Karson Milbrandt</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/811310">Nigel Belgrave</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687287">Patrick Monteverde</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702281">Robby Snelling</a></td><td class="num">P</td><td class="num">AAA</td><td class="num">39</td></tr>
+          <tr><td><a href="/player/679029">Samuel Vasquez</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/682240">Stephen Jones</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/806258">Thomas White</a></td><td class="num">P</td><td class="num">AAA</td><td class="num">17</td></tr>
+          <tr><td><a href="/player/676604">Tyler Zuber</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694350">Zach Brzykcy</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694580">Kemp Alderman</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/665846">Jesús Bastidas</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/675394">Johnny Olmstead</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="158"></a>
-## Milwaukee Brewers
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Brock Wilken](/player/694385) | 3B | - | - |
-| [Luke Adams](/player/702726) | 3B | - | - |
-| [Darrien Miller](/player/687152) | C | - | - |
-| [Matthew Wood](/player/687783) | C | - | - |
-| [Ramón Rodríguez](/player/670232) | C | - | - |
-| [Reese McGuire](/player/624512) | C | - | - |
-| [Luis Lara](/player/800325) | CF | - | - |
-| [Eduardo Garcia](/player/682633) | OF | - | - |
-| [Drew Rom](/player/680723) | P | - | - |
-| [Gerson Garabito](/player/642520) | P | - | - |
-| [Jacob Waguespack](/player/621097) | P | - | - |
-| [Tate Kuehner](/player/804249) | P | - | - |
-| [Greg Jones](/player/675659) | RF | - | - |
-| [Cooper Pratt](/player/806198) | SS | AA | 64 |
-| [Eddys Leonard](/player/678760) | SS | - | - |
-| [Jesús Made](/player/815908) | SS | AA | 3 |
-| [Jett Williams](/player/702518) | SS | AAA | 51 |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/158.svg" alt="Milwaukee Brewers logo" style="height:22px;" />
+      <div class="card-title teamlink">Milwaukee Brewers</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/694385">Brock Wilken</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702726">Luke Adams</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687152">Darrien Miller</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687783">Matthew Wood</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/670232">Ramón Rodríguez</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/624512">Reese McGuire</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/800325">Luis Lara</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/682633">Eduardo Garcia</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/680723">Drew Rom</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/642520">Gerson Garabito</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/621097">Jacob Waguespack</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/804249">Tate Kuehner</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/675659">Greg Jones</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/806198">Cooper Pratt</a></td><td class="num">SS</td><td class="num">AA</td><td class="num">64</td></tr>
+          <tr><td><a href="/player/678760">Eddys Leonard</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/815908">Jesús Made</a></td><td class="num">SS</td><td class="num">AA</td><td class="num">3</td></tr>
+          <tr><td><a href="/player/702518">Jett Williams</a></td><td class="num">SS</td><td class="num">AAA</td><td class="num">51</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="142"></a>
-## Minnesota Twins
-
-_No non-roster invitees announced yet. Check back for more updates._ 
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/142.svg" alt="Minnesota Twins logo" style="height:22px;" />
+      <div class="card-title teamlink">Minnesota Twins</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="muted"><i>No non-roster invitees announced yet. Check back for more updates.</i></div>
+  </div>
+</div>
 
 ---
 
 <a id="121"></a>
-## New York Mets
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Austin Barnes](/player/605131) | C | - | - |
-| [Craig Kimbrel](/player/518886) | P | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/121.svg" alt="New York Mets logo" style="height:22px;" />
+      <div class="card-title teamlink">New York Mets</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/605131">Austin Barnes</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/518886">Craig Kimbrel</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="147"></a>
-## New York Yankees
-
-_No non-roster invitees announced yet. Check back for more updates._ 
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/147.svg" alt="New York Yankees logo" style="height:22px;" />
+      <div class="card-title teamlink">New York Yankees</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="muted"><i>No non-roster invitees announced yet. Check back for more updates.</i></div>
+  </div>
+</div>
 
 ---
 
 <a id="143"></a>
-## Philadelphia Phillies
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Felix Reyes](/player/694025) | 1B | - | - |
-| [Keaton Anthony](/player/805704) | 1B | - | - |
-| [Aroon Escobar](/player/800169) | 2B | - | - |
-| [Caleb Ricketts](/player/681080) | C | - | - |
-| [Kehden Hettiger](/player/800607) | C | - | - |
-| [Mark Kolozsvary](/player/656627) | C | - | - |
-| [Paul McIntosh](/player/682192) | C | - | - |
-| [René Pinto](/player/650907) | C | - | - |
-| [Dylan Campbell](/player/694749) | CF | - | - |
-| [Justin Crawford](/player/702222) | CF | AAA | 53 |
-| [Bryan De La Cruz](/player/650559) | OF | - | - |
-| [Dante Nori](/player/807276) | OF | - | - |
-| [Andrew Bechtold](/player/657510) | P | - | - |
-| [Andrew Walling](/player/681003) | P | - | - |
-| [Bryse Wilson](/player/669060) | P | - | - |
-| [Génesis Cabrera](/player/650893) | P | - | - |
-| [Jonathan Hernández](/player/642546) | P | - | - |
-| [Michael Mercado](/player/675650) | P | - | - |
-| [Tim Mayza](/player/641835) | P | - | - |
-| [Trevor Richards](/player/670950) | P | - | - |
-| [Tucker Davidson](/player/656353) | P | - | - |
-| [Aidan Miller](/player/805795) | SS | AAA | 23 |
-| [Bryan Rincon](/player/804858) | SS | - | - |
-| [Carson DeMartini](/player/701831) | SS | - | - |
-| [Christian Cairo](/player/686551) | SS | - | - |
-| [José Rodríguez](/player/679563) | SS | - | - |
-| [Liover Peguero](/player/678894) | SS | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/143.svg" alt="Philadelphia Phillies logo" style="height:22px;" />
+      <div class="card-title teamlink">Philadelphia Phillies</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/694025">Felix Reyes</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/805704">Keaton Anthony</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/800169">Aroon Escobar</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681080">Caleb Ricketts</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/800607">Kehden Hettiger</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/656627">Mark Kolozsvary</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/682192">Paul McIntosh</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/650907">René Pinto</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694749">Dylan Campbell</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702222">Justin Crawford</a></td><td class="num">CF</td><td class="num">AAA</td><td class="num">53</td></tr>
+          <tr><td><a href="/player/650559">Bryan De La Cruz</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/807276">Dante Nori</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/657510">Andrew Bechtold</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681003">Andrew Walling</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/669060">Bryse Wilson</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/650893">Génesis Cabrera</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/642546">Jonathan Hernández</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/675650">Michael Mercado</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/641835">Tim Mayza</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/670950">Trevor Richards</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/656353">Tucker Davidson</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/805795">Aidan Miller</a></td><td class="num">SS</td><td class="num">AAA</td><td class="num">23</td></tr>
+          <tr><td><a href="/player/804858">Bryan Rincon</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701831">Carson DeMartini</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686551">Christian Cairo</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/679563">José Rodríguez</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/678894">Liover Peguero</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="134"></a>
-## Pittsburgh Pirates
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Duce Gourson](/player/701546) | 2B | - | - |
-| [Ronny Simon](/player/682927) | 2B | - | - |
-| [Termarr Johnson](/player/702261) | 2B | - | - |
-| [Davis Wendzel](/player/673995) | 3B | - | - |
-| [Omar Alfonzo](/player/692657) | C | - | - |
-| [Shawn Ross](/player/676566) | C | - | - |
-| [Beau Burrows](/player/663366) | P | - | - |
-| [Joe La Sorsa](/player/686747) | P | - | - |
-| [Noah Davis](/player/663562) | P | - | - |
-| [Noah Murdock](/player/668716) | P | - | - |
-| [Oddanier Mosqueda](/player/665996) | P | - | - |
-| [Dominic Fletcher](/player/666150) | RF | - | - |
-| [Konnor Griffin](/player/804606) | SS | AA | 1 |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/134.svg" alt="Pittsburgh Pirates logo" style="height:22px;" />
+      <div class="card-title teamlink">Pittsburgh Pirates</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/701546">Duce Gourson</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/682927">Ronny Simon</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702261">Termarr Johnson</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/673995">Davis Wendzel</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/692657">Omar Alfonzo</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/676566">Shawn Ross</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/663366">Beau Burrows</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686747">Joe La Sorsa</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/663562">Noah Davis</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/668716">Noah Murdock</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/665996">Oddanier Mosqueda</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/666150">Dominic Fletcher</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/804606">Konnor Griffin</a></td><td class="num">SS</td><td class="num">AA</td><td class="num">1</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="135"></a>
-## San Diego Padres
-
-_No non-roster invitees announced yet. Check back for more updates._ 
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/135.svg" alt="San Diego Padres logo" style="height:22px;" />
+      <div class="card-title teamlink">San Diego Padres</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="muted"><i>No non-roster invitees announced yet. Check back for more updates.</i></div>
+  </div>
+</div>
 
 ---
 
 <a id="137"></a>
-## San Francisco Giants
-
-_No non-roster invitees announced yet. Check back for more updates._ 
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/137.svg" alt="San Francisco Giants logo" style="height:22px;" />
+      <div class="card-title teamlink">San Francisco Giants</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="muted"><i>No non-roster invitees announced yet. Check back for more updates.</i></div>
+  </div>
+</div>
 
 ---
 
 <a id="136"></a>
-## Seattle Mariners
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Carson Taylor](/player/694930) | 1B | - | - |
-| [Patrick Wisdom](/player/621550) | 1B | - | - |
-| [Brock Rodden](/player/801126) | 2B | - | - |
-| [Will Wilson](/player/669717) | 3B | - | - |
-| [Brian O'Keefe](/player/657247) | C | - | - |
-| [Connor Charping](/player/806464) | C | - | - |
-| [Jakson Reetz](/player/656883) | C | - | - |
-| [Josh Caron](/player/701805) | C | - | - |
-| [Luke Stevenson](/player/806233) | C | - | - |
-| [Nick Raposo](/player/695596) | C | - | - |
-| [Brennen Davis](/player/680695) | CF | - | - |
-| [Victor Labrada](/player/700032) | CF | - | - |
-| [Blake Rambusch](/player/800683) | OF | - | - |
-| [Jared Sundstrom](/player/814791) | OF | - | - |
-| [Jonny Farmelo](/player/806071) | OF | A+ | 78 |
-| [Spencer Packard](/player/689070) | OF | - | - |
-| [Austin Kitchen](/player/685116) | P | - | - |
-| [Casey Lawrence](/player/596271) | P | - | - |
-| [Charlie Beilenson](/player/810897) | P | - | - |
-| [Dane Dunning](/player/641540) | P | - | - |
-| [Gabe Mosser](/player/682077) | P | - | - |
-| [Guillo Zuñiga](/player/670871) | P | - | - |
-| [Jurrangelo Cijntje](/player/701388) | P | AA | 91 |
-| [Kade Anderson](/player/807739) | P | ROK | 21 |
-| [Michael Morales](/player/691786) | P | - | - |
-| [Michael Rucker](/player/621074) | P | - | - |
-| [Nick Davila](/player/689546) | P | - | - |
-| [Randy Dobnak](/player/677976) | P | - | - |
-| [Ryan Sloan](/player/815549) | P | A+ | 33 |
-| [Teddy McGraw](/player/803141) | P | - | - |
-| [Tyler Cleveland](/player/804663) | P | - | - |
-| [Lazaro Montes](/player/703155) | RF | AA | 43 |
-| [Colt Emerson](/player/806068) | SS | AAA | 9 |
-| [Michael Arroyo](/player/703197) | SS | AA | 67 |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/136.svg" alt="Seattle Mariners logo" style="height:22px;" />
+      <div class="card-title teamlink">Seattle Mariners</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/694930">Carson Taylor</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/621550">Patrick Wisdom</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/801126">Brock Rodden</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/669717">Will Wilson</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/657247">Brian O'Keefe</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/806464">Connor Charping</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/656883">Jakson Reetz</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701805">Josh Caron</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/806233">Luke Stevenson</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695596">Nick Raposo</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/680695">Brennen Davis</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/700032">Victor Labrada</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/800683">Blake Rambusch</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/814791">Jared Sundstrom</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/806071">Jonny Farmelo</a></td><td class="num">OF</td><td class="num">A+</td><td class="num">78</td></tr>
+          <tr><td><a href="/player/689070">Spencer Packard</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/685116">Austin Kitchen</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/596271">Casey Lawrence</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/810897">Charlie Beilenson</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/641540">Dane Dunning</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/682077">Gabe Mosser</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/670871">Guillo Zuñiga</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701388">Jurrangelo Cijntje</a></td><td class="num">P</td><td class="num">AA</td><td class="num">91</td></tr>
+          <tr><td><a href="/player/807739">Kade Anderson</a></td><td class="num">P</td><td class="num">ROK</td><td class="num">21</td></tr>
+          <tr><td><a href="/player/691786">Michael Morales</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/621074">Michael Rucker</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/689546">Nick Davila</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/677976">Randy Dobnak</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/815549">Ryan Sloan</a></td><td class="num">P</td><td class="num">A+</td><td class="num">33</td></tr>
+          <tr><td><a href="/player/803141">Teddy McGraw</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/804663">Tyler Cleveland</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/703155">Lazaro Montes</a></td><td class="num">RF</td><td class="num">AA</td><td class="num">43</td></tr>
+          <tr><td><a href="/player/806068">Colt Emerson</a></td><td class="num">SS</td><td class="num">AAA</td><td class="num">9</td></tr>
+          <tr><td><a href="/player/703197">Michael Arroyo</a></td><td class="num">SS</td><td class="num">AA</td><td class="num">67</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="138"></a>
-## St. Louis Cardinals
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Blaze Jordan](/player/691458) | 1B | - | - |
-| [Brody Moore](/player/690914) | 2B | - | - |
-| [Ramon Mendoza](/player/680636) | 2B | - | - |
-| [Andy Yerzy](/player/647378) | C | - | - |
-| [Carlos Linarez](/player/701800) | C | - | - |
-| [Graysen Tarlow](/player/815104) | C | - | - |
-| [Chase Davis](/player/690971) | CF | - | - |
-| [Mike Antico](/player/690443) | CF | - | - |
-| [Matt Koperniak](/player/689288) | LF | - | - |
-| [Nelson Velázquez](/player/676369) | OF | - | - |
-| [Austin Love](/player/676153) | P | - | - |
-| [Bruce Zimmermann](/player/669145) | P | - | - |
-| [Gerson Moreno](/player/642575) | P | - | - |
-| [Hancel Rincon](/player/684516) | P | - | - |
-| [Ixan Henderson](/player/809100) | P | - | - |
-| [Jared Shuster](/player/694363) | P | - | - |
-| [Luis Gastelum](/player/703725) | P | - | - |
-| [Max Rajcic](/player/691008) | P | - | - |
-| [Packy Naughton](/player/676050) | P | - | - |
-| [Pete Hansen](/player/677337) | P | - | - |
-| [Quinn Mathews](/player/687273) | P | - | - |
-| [Scott Blewett](/player/656240) | P | - | - |
-| [Sem Robberse](/player/691828) | P | - | - |
-| [Skylar Hales](/player/813766) | P | - | - |
-| [Zack Thompson](/player/668868) | P | - | - |
-| [JJ Wetherholt](/player/802139) | SS | - | - |
-| [Jeremy Rivas](/player/692405) | SS | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/138.svg" alt="St. Louis Cardinals logo" style="height:22px;" />
+      <div class="card-title teamlink">St. Louis Cardinals</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/691458">Blaze Jordan</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/690914">Brody Moore</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/680636">Ramon Mendoza</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/647378">Andy Yerzy</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701800">Carlos Linarez</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/815104">Graysen Tarlow</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/690971">Chase Davis</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/690443">Mike Antico</a></td><td class="num">CF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/689288">Matt Koperniak</a></td><td class="num">LF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/676369">Nelson Velázquez</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/676153">Austin Love</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/669145">Bruce Zimmermann</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/642575">Gerson Moreno</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/684516">Hancel Rincon</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/809100">Ixan Henderson</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694363">Jared Shuster</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/703725">Luis Gastelum</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/691008">Max Rajcic</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/676050">Packy Naughton</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/677337">Pete Hansen</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687273">Quinn Mathews</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/656240">Scott Blewett</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/691828">Sem Robberse</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/813766">Skylar Hales</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/668868">Zack Thompson</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/802139">JJ Wetherholt</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/692405">Jeremy Rivas</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="139"></a>
-## Tampa Bay Rays
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Logan Davidson](/player/669722) | 1B | - | - |
-| [Tre' Morgan](/player/691003) | 1B | - | - |
-| [Xavier Isaac](/player/800060) | 1B | - | - |
-| [Cooper Kinney](/player/695692) | 2B | - | - |
-| [Raynel Delgado](/player/669384) | 2B | - | - |
-| [Brayden Taylor](/player/694966) | 3B | - | - |
-| [Blake Sabol](/player/666165) | C | - | - |
-| [Kenny Piper](/player/700652) | C | - | - |
-| [Logan Driscoll](/player/686482) | C | - | - |
-| [Tatem Levins](/player/694420) | C | - | - |
-| [Andrew Wantz](/player/681806) | P | - | - |
-| [Austin Vernon](/player/694391) | P | - | - |
-| [Brody Hopkins](/player/811315) | P | AA | 85 |
-| [Cam Booser](/player/592155) | P | - | - |
-| [Chase Solesky](/player/686678) | P | - | - |
-| [Jake Woodford](/player/663765) | P | - | - |
-| [John Rooney](/player/680701) | P | - | - |
-| [Kodi Whitley](/player/676831) | P | - | - |
-| [Logan Workman](/player/694312) | P | - | - |
-| [Luis Guerrero](/player/692285) | P | - | - |
-| [T.J. Nichols](/player/694375) | P | - | - |
-| [Trevor Martin](/player/694680) | P | - | - |
-| [Ty Johnson](/player/694494) | P | - | - |
-| [Edward Olivares](/player/658668) | RF | - | - |
-| [Gregory Barrios](/player/699126) | SS | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/139.svg" alt="Tampa Bay Rays logo" style="height:22px;" />
+      <div class="card-title teamlink">Tampa Bay Rays</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/669722">Logan Davidson</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/691003">Tre' Morgan</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/800060">Xavier Isaac</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695692">Cooper Kinney</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/669384">Raynel Delgado</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694966">Brayden Taylor</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/666165">Blake Sabol</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/700652">Kenny Piper</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686482">Logan Driscoll</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694420">Tatem Levins</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681806">Andrew Wantz</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694391">Austin Vernon</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/811315">Brody Hopkins</a></td><td class="num">P</td><td class="num">AA</td><td class="num">85</td></tr>
+          <tr><td><a href="/player/592155">Cam Booser</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686678">Chase Solesky</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/663765">Jake Woodford</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/680701">John Rooney</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/676831">Kodi Whitley</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694312">Logan Workman</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/692285">Luis Guerrero</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694375">T.J. Nichols</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694680">Trevor Martin</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694494">Ty Johnson</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/658668">Edward Olivares</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/699126">Gregory Barrios</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="140"></a>
-## Texas Rangers
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Tyler Wade](/player/642180) | 2B | - | - |
-| [Jonah Bride](/player/681146) | 3B | - | - |
-| [Cooper Johnson](/player/666194) | C | - | - |
-| [Jose Herrera](/player/645444) | C | - | - |
-| [Aaron Zavala](/player/701648) | LF | - | - |
-| [Austin Gomber](/player/596295) | P | - | - |
-| [Dalton Pence](/player/701717) | P | - | - |
-| [Declan Cronin](/player/686539) | P | - | - |
-| [Eric Loomis](/player/823793) | P | - | - |
-| [Gavin Collyer](/player/686560) | P | - | - |
-| [Josh Sborz](/player/622250) | P | - | - |
-| [Josh Trentadue](/player/815048) | P | - | - |
-| [Peyton Gray](/player/682608) | P | - | - |
-| [Robby Ahlstrom](/player/695239) | P | - | - |
-| [Ryan Lobus](/player/815590) | P | - | - |
-| [Trey Supak](/player/657022) | P | - | - |
-| [Trevor Hauver](/player/669386) | RF | - | - |
-| [Andrew Velazquez](/player/623205) | SS | - | - |
-| [Cameron Cauley](/player/695508) | SS | - | - |
-| [Richie Martin](/player/621006) | SS | - | - |
-| [Sebastian Walcott](/player/806964) | SS | AA | 7 |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/140.svg" alt="Texas Rangers logo" style="height:22px;" />
+      <div class="card-title teamlink">Texas Rangers</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/642180">Tyler Wade</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/681146">Jonah Bride</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/666194">Cooper Johnson</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/645444">Jose Herrera</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701648">Aaron Zavala</a></td><td class="num">LF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/596295">Austin Gomber</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701717">Dalton Pence</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686539">Declan Cronin</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/823793">Eric Loomis</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/686560">Gavin Collyer</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/622250">Josh Sborz</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/815048">Josh Trentadue</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/682608">Peyton Gray</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695239">Robby Ahlstrom</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/815590">Ryan Lobus</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/657022">Trey Supak</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/669386">Trevor Hauver</a></td><td class="num">RF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/623205">Andrew Velazquez</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/695508">Cameron Cauley</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/621006">Richie Martin</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/806964">Sebastian Walcott</a></td><td class="num">SS</td><td class="num">AA</td><td class="num">7</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="141"></a>
-## Toronto Blue Jays
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Charles McAdoo](/player/807727) | 2B | - | - |
-| [Rafael Lantigua](/player/672463) | 2B | - | - |
-| [Carlos Mendoza](/player/685332) | 3B | - | - |
-| [Cutter Coffey](/player/702690) | 3B | - | - |
-| [Riley Tirotta](/player/694661) | 3B | - | - |
-| [Sean Keys](/player/815873) | 3B | - | - |
-| [Aaron Parker](/player/801590) | C | - | - |
-| [C.J. Stubbs](/player/667690) | C | - | - |
-| [Edward Duran](/player/698927) | C | - | - |
-| [Geovanny Planchart](/player/685712) | C | - | - |
-| [Robert Brooks](/player/806394) | C | - | - |
-| [RJ Schreck](/player/702302) | LF | - | - |
-| [Eloy Jiménez](/player/650391) | OF | - | - |
-| [CJ Van Eyk](/player/669310) | P | - | - |
-| [Chad Dallas](/player/689149) | P | - | - |
-| [Chay Yeager](/player/807410) | P | - | - |
-| [Connor Seabold](/player/657756) | P | - | - |
-| [Fernando Perez](/player/800125) | P | - | - |
-| [Gage Stanifer](/player/804948) | P | - | - |
-| [Javen Coleman](/player/694495) | P | - | - |
-| [Jorge Alcala](/player/660896) | P | - | - |
-| [Michael Plassmeyer](/player/674681) | P | - | - |
-| [Ryan Jennings](/player/688214) | P | - | - |
-| [Yariel Rodríguez](/player/684320) | P | - | - |
-| [Arjun Nimmala](/player/805796) | SS | A+ | 77 |
-| [Josh Kasevich](/player/688460) | SS | - | - |
-| [Josh Rivera](/player/687069) | SS | - | - |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/141.svg" alt="Toronto Blue Jays logo" style="height:22px;" />
+      <div class="card-title teamlink">Toronto Blue Jays</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/807727">Charles McAdoo</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/672463">Rafael Lantigua</a></td><td class="num">2B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/685332">Carlos Mendoza</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702690">Cutter Coffey</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694661">Riley Tirotta</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/815873">Sean Keys</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/801590">Aaron Parker</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/667690">C.J. Stubbs</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/698927">Edward Duran</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/685712">Geovanny Planchart</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/806394">Robert Brooks</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702302">RJ Schreck</a></td><td class="num">LF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/650391">Eloy Jiménez</a></td><td class="num">OF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/669310">CJ Van Eyk</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/689149">Chad Dallas</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/807410">Chay Yeager</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/657756">Connor Seabold</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/800125">Fernando Perez</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/804948">Gage Stanifer</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/694495">Javen Coleman</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/660896">Jorge Alcala</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/674681">Michael Plassmeyer</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/688214">Ryan Jennings</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/684320">Yariel Rodríguez</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/805796">Arjun Nimmala</a></td><td class="num">SS</td><td class="num">A+</td><td class="num">77</td></tr>
+          <tr><td><a href="/player/688460">Josh Kasevich</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687069">Josh Rivera</a></td><td class="num">SS</td><td class="num">-</td><td class="num">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
 <a id="120"></a>
-## Washington Nationals
-
-| Player | Position | Highest Level | Top 100 Rank (MLB.com) (MLB.com) |
-|---|---:|---:|---:|---:|
-| [Yohandy Morales](/player/691002) | 1B | - | - |
-| [Cayden Wallace](/player/691024) | 3B | - | - |
-| [Trey Lipscomb](/player/702358) | 3B | - | - |
-| [Caleb Lomavita](/player/701616) | C | - | - |
-| [Riley Adams](/player/656180) | C | - | - |
-| [Andrew Pinckney](/player/687605) | LF | - | - |
-| [Phillip Glasser](/player/701298) | LF | - | - |
-| [Andry Lara](/player/691251) | P | - | - |
-| [Jarlin Susana](/player/703186) | P | AA | 80 |
-| [Shinnosuke Ogasawara](/player/829272) | P | - | - |
-| [Travis Sykora](/player/805809) | P | - | - |
-| [Seaver King](/player/814409) | SS | AA | 54 |
-
+<div class="card">
+  <div class="card-header">
+    <div class="teamcell">
+      <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/120.svg" alt="Washington Nationals logo" style="height:22px;" />
+      <div class="card-title teamlink">Washington Nationals</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th class="num">Pos</th>
+            <th class="num">Highest</th>
+            <th class="num">Top 100</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><a href="/player/691002">Yohandy Morales</a></td><td class="num">1B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/691024">Cayden Wallace</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/702358">Trey Lipscomb</a></td><td class="num">3B</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701616">Caleb Lomavita</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/656180">Riley Adams</a></td><td class="num">C</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/687605">Andrew Pinckney</a></td><td class="num">LF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/701298">Phillip Glasser</a></td><td class="num">LF</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/691251">Andry Lara</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/703186">Jarlin Susana</a></td><td class="num">P</td><td class="num">AA</td><td class="num">80</td></tr>
+          <tr><td><a href="/player/829272">Shinnosuke Ogasawara</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/805809">Travis Sykora</a></td><td class="num">P</td><td class="num">-</td><td class="num">-</td></tr>
+          <tr><td><a href="/player/814409">Seaver King</a></td><td class="num">SS</td><td class="num">AA</td><td class="num">54</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 ---
 
-<!-- Total NRIs: 432 -->
+<div class="small muted mono">Total NRIs: 432</div>
