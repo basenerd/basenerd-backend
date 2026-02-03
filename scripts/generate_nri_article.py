@@ -123,7 +123,11 @@ def main():
 
     out.append(f"<!-- Total NRIs: {total_nri} -->\n")
 
-    print("\n".join(out))
+    with open("articles/spring-training-nri-2026.md", "w", encoding="utf-8") as f:
+        f.write("\n".join(out))
 
 if __name__ == "__main__":
     main()
+
+
+
