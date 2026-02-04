@@ -418,6 +418,11 @@
   }
 }
 
+  /* Dotted red line for playoff cutoff */
+.playoff-cutoff {
+    border-bottom: 2px dotted rgba(255, 80, 80, 0.7) !important;
+}
+  
 </style>
 
 {% macro teamchip(t) %}
@@ -657,7 +662,7 @@
                   {% set p = (t.pct|float if t.pct is not none else none) %}
                   {% set wcr = (t.wild_card_rank|default(0)|int) %}
                   {% set rd = (t.run_diff|int(0)) %}
-                  <tr>
+                  <tr {% if t.wild_card_rank|int == 3 %}class="playoff-cutoff"{% endif %}>
                     <td class="tagcol">
                       {% if wcr in (1,2,3) %}
                         <span class="pp-pill wc" style="height:20px;">WC{{ wcr }}</span>
@@ -782,7 +787,7 @@
                   {% set p = (t.pct|float if t.pct is not none else none) %}
                   {% set wcr = (t.wild_card_rank|default(0)|int) %}
                   {% set rd = (t.run_diff|int(0)) %}
-                  <tr>
+                  <tr {% if t.wild_card_rank|int == 3 %}class="playoff-cutoff"{% endif %}>
                     <td class="tagcol">
                       {% if wcr in (1,2,3) %}
                         <span class="pp-pill wc" style="height:20px;">WC{{ wcr }}</span>
