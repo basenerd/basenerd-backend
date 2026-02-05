@@ -40,7 +40,14 @@ from services.articles import load_articles, get_article
 from services.articles import get_markdown_page
 from services.postseason import get_postseason_series, build_playoff_bracket
 
-
+import random
+# Load the active players list once when the app starts
+try:
+    with open("active_players.json", "r") as f:
+        ACTIVE_PLAYER_IDS = json.load(f)
+except Exception as e:
+    print(f"Warning: Could not load active_players.json: {e}")
+    ACTIVE_PLAYER_IDS = []
 
 
 app = Flask(__name__)
@@ -352,25 +359,20 @@ def stats_json():
 def random_player_play():
     mode = request.args.get("mode")
     
-    # Filter out players who haven't played since this date
-    ACTIVE_CUTOFF = "2024-01-01"
-
-    for _ in range(20):
-        pid = get_random_player_id("players_index.json")
+    for _ in range(15):
         try:
+            # === NEW Active Player LOGIC ===
+            if mode == "active" and ACTIVE_PLAYER_IDS:
+                # Instant selection from your new file!
+                pid = random.choice(ACTIVE_PLAYER_IDS)
+            else:
+                # Standard logic (1990-Present)
+                pid = get_random_player_id("players_index.json")
+
+            # Fetch the data
             player = get_player_full(pid)
             
-            # === ACTIVE FILTER ===
-            if mode == "active":
-                is_active = player.get("active")
-                last_played = player.get("lastPlayedDate")
-
-                # Must be active AND have played recently
-                if not is_active:
-                    continue
-                if not last_played or last_played < ACTIVE_CUTOFF:
-                    continue
-            # =====================
+            # (No need to check 'active' status here anymore—we know they are active!)
 
             headshot_url = get_player_headshot_url(pid, size=420)
             yby = extract_year_by_year_rows(player)
@@ -414,7 +416,7 @@ def random_player_play():
             )
 
         except Exception as e:
-            print(f"[random-player] failed pid={pid}: {e}")
+            print(f"[random-player] retry due to error: {e}")
             continue
 
     return "Could not fetch a random player right now.", 500
