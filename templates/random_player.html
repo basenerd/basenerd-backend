@@ -80,7 +80,11 @@
 
     <!-- Roll Button -->
     <div style="margin-top:18px; display:flex; gap:10px; justify-content:center;">
-      <a class="btn" id="rollBtn" href="/random-player/play" style="text-decoration:none;">Roll Again 🎲</a>
+    <a class="btn" id="rollBtn" 
+        href="/random-player/play{% if mode == 'active' %}?mode=active{% endif %}" 
+        style="text-decoration:none;">
+        Roll Again 🎲
+    </a>
 
       {% if player %}
         <a href="/player/{{ player.id }}">
