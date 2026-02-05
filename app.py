@@ -350,13 +350,25 @@ def stats_json():
 
 @app.get("/random-player/play")
 def random_player_play():
+    # 1. Get the mode from the URL (e.g. ?mode=active)
+    mode = request.args.get("mode")
+    
+    # Try up to 15 times to find a valid player matching the criteria
     for _ in range(15):
         pid = get_random_player_id("players_index.json")
         try:
             player = get_player_full(pid)
+            
+            # 2. FILTER: If mode is 'active', skip if the player is not active
+            if mode == "active":
+                # Check explicit 'active' flag or if 'lastPlayedDate' is recent
+                is_active = player.get("active")
+                if not is_active:
+                    continue  # Skip this player and try again
+            
             headshot_url = get_player_headshot_url(pid, size=420)
             yby = extract_year_by_year_rows(player)
-
+            
             role = get_player_role(player)
             if role == "pitching":
                 pitching_groups = group_year_by_year(yby, "pitching")
@@ -370,12 +382,11 @@ def random_player_play():
 
             career_hitting = get_player_career_totals(pid, "hitting") if role != "pitching" else None
             career_pitching = get_player_career_totals(pid, "pitching") if role != "hitting" else None
-
+            
             awards = get_player_awards(pid)
             accolades = build_accolade_pills(awards)
             award_year_map = build_award_year_map(awards)
 
-            # ✅ prevent NameError (template can ignore these if unused)
             yby_bg_hitting = {}
             yby_bg_pitching = {}
 
@@ -392,7 +403,8 @@ def random_player_play():
                 career_pitching=career_pitching,
                 accolades=accolades,
                 award_year_map=award_year_map,
-                title="Random Player • Basenerd"
+                title="Random Player • Basenerd",
+                mode=mode  # Pass 'mode' so the HTML knows which tab to highlight
             )
 
         except Exception as e:
