@@ -350,22 +350,28 @@ def stats_json():
 
 @app.get("/random-player/play")
 def random_player_play():
-    # 1. Get the mode from the URL (e.g. ?mode=active)
     mode = request.args.get("mode")
     
-    # Try up to 15 times to find a valid player matching the criteria
-    for _ in range(15):
+    # Filter out players who haven't played since this date
+    ACTIVE_CUTOFF = "2024-01-01"
+
+    for _ in range(20):
         pid = get_random_player_id("players_index.json")
         try:
             player = get_player_full(pid)
             
-            # 2. FILTER: If mode is 'active', skip if the player is not active
+            # === ACTIVE FILTER ===
             if mode == "active":
-                # Check explicit 'active' flag or if 'lastPlayedDate' is recent
                 is_active = player.get("active")
+                last_played = player.get("lastPlayedDate")
+
+                # Must be active AND have played recently
                 if not is_active:
-                    continue  # Skip this player and try again
-            
+                    continue
+                if not last_played or last_played < ACTIVE_CUTOFF:
+                    continue
+            # =====================
+
             headshot_url = get_player_headshot_url(pid, size=420)
             yby = extract_year_by_year_rows(player)
             
@@ -404,7 +410,7 @@ def random_player_play():
                 accolades=accolades,
                 award_year_map=award_year_map,
                 title="Random Player • Basenerd",
-                mode=mode  # Pass 'mode' so the HTML knows which tab to highlight
+                mode=mode
             )
 
         except Exception as e:
