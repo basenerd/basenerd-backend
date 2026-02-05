@@ -523,14 +523,21 @@
   const btn = document.getElementById("rollBtn");
   const overlay = document.getElementById("loadingOverlay");
 
-  btn?.addEventListener("click", () => {
+  // Updated Click Listener
+btn?.addEventListener("click", (e) => {
+    // 1. Stop the link from opening immediately (so we see the animation)
+    e.preventDefault();
+
     overlay.style.display = "flex";
-    btn.disabled = true;
+    
+    // If it's an <a> tag, 'disabled' doesn't stop clicks, but might style it
+    if (btn.classList) btn.classList.add("disabled"); 
 
     setTimeout(() => {
-      window.location.href = "/random-player/play";
+        // 2. Go to the DYNAMIC link (which includes ?mode=active if selected)
+        window.location.href = btn.href;
     }, 2000);
-  });
+});
 
   // Expand/collapse year children (multi-team seasons)
   document.querySelectorAll(".yexp").forEach(b => {
