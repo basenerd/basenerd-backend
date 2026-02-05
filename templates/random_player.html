@@ -4,6 +4,18 @@
 <!-- TOP CARD (Landing / Player Display) -->
 <!-- ===================== -->
 
+<div class="standings-tabs" style="justify-content: center; margin-bottom: 20px;">
+    <a class="standings-tab {% if mode != 'active' %}active{% endif %}" 
+       href="/random-player/play">
+       1990 → Present
+    </a>
+
+    <a class="standings-tab {% if mode == 'active' %}active{% endif %}" 
+       href="/random-player/play?mode=active">
+       Active Only
+    </a>
+</div>
+
 <div class="card" style="text-align:center;">
   <div class="card-header">
     <div class="card-title">🎲 Random MLB Player</div>
