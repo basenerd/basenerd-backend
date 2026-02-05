@@ -4,23 +4,17 @@
 <!-- TOP CARD (Landing / Player Display) -->
 <!-- ===================== -->
 
-<div class="standings-tabs" style="justify-content: center; margin-bottom: 20px;">
-    <a class="standings-tab {% if mode != 'active' %}active{% endif %}" 
-       href="/random-player/play">
-       1990 → Present
-    </a>
 
-    <a class="standings-tab {% if mode == 'active' %}active{% endif %}" 
-       href="/random-player/play?mode=active">
-       Active Only
-    </a>
-</div>
-
-<div class="card" style="text-align:center;">
-  <div class="card-header">
+<div class="card-header" style="position: relative;">
     <div class="card-title">🎲 Random MLB Player</div>
-    <div class="card-subtitle">1990 → Present</div>
-  </div>
+    <div class="card-subtitle">
+        <select id="modeSelect" onchange="updateNextRoll()" 
+                style="background: transparent; border: 1px solid rgba(0,0,0,0.2); border-radius: 4px; color: inherit; font-family: inherit; font-size: inherit; padding: 2px 5px; cursor: pointer;">
+            <option value="all" {% if mode != 'active' %}selected{% endif %}>1990 → Present</option>
+            <option value="active" {% if mode == 'active' %}selected{% endif %}>Active Only</option>
+        </select>
+    </div>
+</div>
 
   <div style="padding:16px;">
 
@@ -86,7 +80,7 @@
 
     <!-- Roll Button -->
     <div style="margin-top:18px; display:flex; gap:10px; justify-content:center;">
-      <button class="btn" id="rollBtn" type="button">Roll Again 🎲</button>
+      <a class="btn" id="rollBtn" href="/random-player/play" style="text-decoration:none;">Roll Again 🎲</a>
 
       {% if player %}
         <a href="/player/{{ player.id }}">
@@ -545,6 +539,20 @@
       rows.forEach(r => r.style.display = isOpen ? "table-row" : "none");
     });
   });
+</script>
+
+// Update which mode is selected
+<script>
+function updateNextRoll() {
+    var mode = document.getElementById("modeSelect").value;
+    var btn = document.getElementById("rollBtn");
+
+    if (mode === "active") {
+        btn.href = "/random-player/play?mode=active";
+    } else {
+        btn.href = "/random-player/play";
+    }
+}
 </script>
 
 {% endblock %}
