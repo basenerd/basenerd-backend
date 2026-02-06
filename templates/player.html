@@ -185,6 +185,116 @@
     margin-right:6px;
     margin-bottom:4px;
   }
+
+  /* ==========================
+     Scouting Report (Savant-style)
+     ========================== */
+  .sr-wrap{ display:flex; flex-direction:column; gap:14px; }
+
+  .sr-group-title{
+    font-weight:900;
+    letter-spacing:.2px;
+    color:#111827;
+    margin-bottom:6px;
+  }
+
+  .sr-grid{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+
+  .sr-row{
+    display:grid;
+    grid-template-columns: 140px 1fr 86px;
+    gap:10px;
+    align-items:center;
+  }
+  @media (max-width: 980px){
+    .sr-row{ grid-template-columns: 120px 1fr 70px; }
+  }
+
+  .sr-label{
+    font-size:11px;
+    font-weight:800;
+    color: var(--muted);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .sr-value{
+    text-align:right;
+    font-size:11px;
+    font-weight:900;
+    font-variant-numeric: tabular-nums;
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+    color:#111827;
+    white-space:nowrap;
+  }
+
+  .sr-bar{
+    position:relative;
+    height:14px;
+    border-radius:999px;
+    overflow:hidden;
+    border:1px solid var(--border);
+    background:#fff;
+  }
+
+  /* Basenerd-flavored Savant gradient */
+  .sr-grad{
+    position:absolute;
+    inset:0;
+    background: linear-gradient(
+      90deg,
+      rgba(37,99,235,.78) 0%,
+      rgba(255,255,255,.55) 50%,
+      rgba(239,68,68,.78) 100%
+    );
+  }
+
+  .sr-marker{
+    position:absolute;
+    top:-6px;
+    width:20px;
+    height:20px;
+    border-radius:999px;
+    background: rgba(11,18,32,.92);
+    border:1px solid rgba(255,255,255,.30);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow: 0 8px 18px rgba(0,0,0,.12);
+  }
+
+  .sr-marker span{
+    font-size:10px;
+    font-weight:900;
+    color:#fff;
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+    line-height:1;
+  }
+
+  .sr-muted{
+    margin-top:10px;
+    font-size:11px;
+    color: var(--muted);
+  }
+
+  .sr-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:10px;
+    font-weight:900;
+    padding:3px 8px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:#fff;
+    color:#111827;
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
 </style>
 
 <!-- =======================
@@ -325,6 +435,7 @@
   <button class="tab-btn active" data-tab="tab-yby">Year-by-Year</button>
   <button class="tab-btn" data-tab="tab-gamelog">Game Logs</button>
   <button class="tab-btn" data-tab="tab-tx">Transactions</button>
+  <button class="tab-btn" data-tab="tab-scouting">Scouting Report</button>
 </div>
 
 <!-- =======================
@@ -685,6 +796,79 @@
         </div>
       {% else %}
         <div class="muted">No transactions found.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- =======================
+     Scouting Report
+     ======================= -->
+<div id="tab-scouting" class="tab-panel">
+  <div class="card">
+    <div class="card-header" style="align-items:center;">
+      <div>
+        <div class="card-title">Scouting Report</div>
+        <div class="card-subtitle">Statcast-style percentiles • Basenerd theme</div>
+      </div>
+
+      {% if season_found %}
+        <div class="sr-pill">Season {{ season_found }}</div>
+      {% endif %}
+    </div>
+
+    <div class="card-body">
+      {% if savant_profile and savant_profile.available %}
+        <div class="sr-wrap">
+          {% for g in savant_profile.groups %}
+            <div>
+              <div class="sr-group-title">{{ g.title }}</div>
+
+              <div class="sr-grid">
+                {% for r in g.rows %}
+                  <div class="sr-row">
+                    <div class="sr-label mono">{{ r.label }}</div>
+
+                    <div class="sr-bar" title="{{ r.label }}">
+                      <div class="sr-grad"></div>
+
+                      {% if r.pct is not none %}
+                        {% set p = r.pct %}
+                        <div class="sr-marker" style="left: calc({{ p }}% - 10px);">
+                          <span>{{ p }}</span>
+                        </div>
+                      {% else %}
+                        <div class="sr-marker" style="left: -2px; opacity:.55;">
+                          <span>—</span>
+                        </div>
+                      {% endif %}
+                    </div>
+
+                    <div class="sr-value">
+                      {% if r.value is none %}
+                        —
+                      {% else %}
+                        {% if r.fmt == "3f" %}{{ "%.3f"|format(r.value) }}
+                        {% elif r.fmt == "1f" %}{{ "%.1f"|format(r.value) }}
+                        {% else %}{{ r.value }}
+                        {% endif %}
+                        {{ r.suffix if r.suffix is defined else "" }}
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="sr-muted">
+          Percentiles are relative to the season pool. (For K%, Whiff%, Chase%, lower is better.)
+        </div>
+      {% else %}
+        <div class="muted">
+          No Statcast scouting data found for this season yet.
+        </div>
       {% endif %}
     </div>
   </div>
