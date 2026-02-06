@@ -16,7 +16,10 @@
     {{ val }}
   {% endif %}
 {% endmacro %}
-
+<div class="mono" style="font-size:12px; opacity:.8; margin:8px 0;">
+  DEBUG • savant_profile={{ "yes" if savant_profile else "no" }}
+  {% if savant_profile %} • available={{ savant_profile.available }} • season={{ savant_profile.season }}{% endif %}
+</div>
 {% macro mini_cards(stat, kind, bg_map) %}
   <div class="headline-grid">
     {% if kind == "pitching" %}
