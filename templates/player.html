@@ -16,6 +16,38 @@
     {{ val }}
   {% endif %}
 {% endmacro %}
+{# -----------------------
+   Scouting Report color scale
+   0 = blue, 50 = light gray, 100 = red
+   ----------------------- #}
+{% macro sr_color(pct) %}
+  {%- if pct is none -%}
+    rgba(229,231,235,1)
+  {%- else -%}
+    {%- set p = pct|int -%}
+    {%- if p < 0 -%}{%- set p = 0 -%}{%- endif -%}
+    {%- if p > 100 -%}{%- set p = 100 -%}{%- endif -%}
+
+    {# anchor colors (RGB) #}
+    {# blue: 37, 99, 235 (#2563eb) #}
+    {# gray: 229, 231, 235 (#e5e7eb) #}
+    {# red: 239, 68, 68 (#ef4444) #}
+
+    {%- if p <= 50 -%}
+      {%- set t = p / 50 -%}
+      {%- set r = (37  + (229-37)  * t) | round | int -%}
+      {%- set g = (99  + (231-99)  * t) | round | int -%}
+      {%- set b = (235 + (235-235) * t) | round | int -%}
+      rgb({{ r }}, {{ g }}, {{ b }})
+    {%- else -%}
+      {%- set t = (p - 50) / 50 -%}
+      {%- set r = (229 + (239-229) * t) | round | int -%}
+      {%- set g = (231 + (68-231)  * t) | round | int -%}
+      {%- set b = (235 + (68-235)  * t) | round | int -%}
+      rgb({{ r }}, {{ g }}, {{ b }})
+    {%- endif -%}
+  {%- endif -%}
+{% endmacro %}
 <div class="mono" style="font-size:12px; opacity:.8; margin:8px 0;">
   DEBUG • savant_profile={{ "yes" if savant_profile else "no" }}
   {% if savant_profile %} • available={{ savant_profile.available }} • season={{ savant_profile.season }}{% endif %}
@@ -276,7 +308,7 @@
   border-radius:999px;
   overflow:hidden;
   border:1px solid var(--border);
-  background: linear-gradient(180deg, #f8fafc, #eef2f7);
+  background:#f1f5f9;
 }
 
 .sr-fill{
@@ -284,13 +316,7 @@
   inset:0 auto 0 0;
   width:0%;
   border-radius:999px;
-
-  /* real gradient INSIDE the filled part */
-  background: linear-gradient(
-    90deg,
-    var(--sr-left),
-    var(--sr-right)
-  );
+  /* background is set inline by Jinja */
 }
 /* we’ll recolor via data attribute shortly */
      
@@ -850,16 +876,8 @@
                     <div class="sr-bar" title="{{ r.label }}">
 
                        {% if r.pct is not none %}
-                         <div
-                          class="sr-fill"
-                          style="
-                            width: {{ r.pct }}%;
-                            --sr-left: {{ '#60a5fa' if r.pct <= 30 else '#e5e7eb' if r.pct < 70 else '#fecaca' }};
-                            --sr-right: {{ '#2563eb' if r.pct <= 30 else '#9ca3af' if r.pct < 70 else '#dc2626' }};
-                          ">
-                        </div>
-                       {% endif %}
-                     
+                          <div class="sr-fill" style="width: {{ r.pct }}%; background: {{ sr_color(r.pct) }};"></div>
+                        {% endif %}                     
                        {% if r.pct is not none %}
                          {% set p = r.pct %}
                          <div class="sr-marker" style="left: {{ p }}%;">
