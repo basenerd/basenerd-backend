@@ -3,6 +3,7 @@ import json
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request, jsonify
+from services.spray_db import fetch_player_spray
 from services.savant_profile import get_player_savant_profile
 from services.mlb_api import (
     get_random_player_id,
@@ -71,6 +72,18 @@ from services.mlb_api import (
 
 from services.mlb_api import extract_year_by_year_rows
 
+@app.get("/player/<int:player_id>/spray.json")
+def player_spray_json(player_id: int):
+    season = request.args.get("season", type=int)
+
+    # If season wasn't provided, fall back to current year.
+    # (Your template defaults to season_found anyway.)
+    if not season:
+        season = datetime.utcnow().year
+
+    points = fetch_player_spray(player_id, season, limit=8000)
+    return jsonify({"player_id": player_id, "season": season, "points": points})
+    
 @app.get("/random-player")
 def random_player_landing():
     # Just render the page with no player yet
