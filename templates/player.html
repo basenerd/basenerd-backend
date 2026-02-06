@@ -19,6 +19,8 @@
 <div class="mono" style="font-size:12px; opacity:.8; margin:8px 0;">
   DEBUG • savant_profile={{ "yes" if savant_profile else "no" }}
   {% if savant_profile %} • available={{ savant_profile.available }} • season={{ savant_profile.season }}{% endif %}
+</div><div class="mono" style="font-size:12px; opacity:.8; margin:8px 0;">
+  DEBUG • player route hit • bio.id={{ bio.id }} • season_found={{ season_found }} • log_year={{ log_year }}
 </div>
 {% macro mini_cards(stat, kind, bg_map) %}
   <div class="headline-grid">
