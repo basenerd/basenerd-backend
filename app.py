@@ -1460,7 +1460,7 @@ def player(player_id: int):
     savant_profile = {"available": True, "season": 2025, "groups": []}
     print("DEBUG: building savant_profile", "player_id=", bio.id, "season=", season_found)
     season_for_scouting = int(season_found or log_year or 2025)
-    player_id = int(bio.id)  # or int(bio["id"]) depending on your bio object
+    player_id = int(bio["id"])  # or int(bio["id"]) depending on your bio object
     
     savant_profile = get_player_savant_profile(player_id, season_for_scouting, min_pa=1)
     
