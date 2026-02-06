@@ -1420,7 +1420,7 @@ def player(player_id: int):
     # -------------------------
     career_hitting = get_player_career_totals(player_id, "hitting") if role != "pitching" else None
     career_pitching = get_player_career_totals(player_id, "pitching") if role != "hitting" else None
-
+    
     # -------------------------
     # Awards (for year-by-year pills)
     # -------------------------
@@ -1456,7 +1456,7 @@ def player(player_id: int):
         transactions = get_player_transactions(player_id)
     except Exception:
         transactions = []
-
+    savant_profile = {"available": True, "season": 2025, "groups": []}
     return render_template(
         "player.html",
         title=f"{bio.get('fullName','Player')} • Basenerd",
@@ -1492,6 +1492,8 @@ def player(player_id: int):
 
         # transactions
         transactions=transactions,
+        # savant profile
+        savant_profile=savant_profile
     )
 
 
