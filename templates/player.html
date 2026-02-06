@@ -276,7 +276,7 @@
   border-radius:999px;
   overflow:hidden;
   border:1px solid var(--border);
-  background:#f1f5f9;
+  background: linear-gradient(180deg, #f8fafc, #eef2f7);
 }
 
 .sr-fill{
@@ -284,10 +284,12 @@
   inset:0 auto 0 0;
   width:0%;
   border-radius:999px;
+
+  /* real gradient INSIDE the filled part */
   background: linear-gradient(
-    180deg,
-    var(--sr-color),
-    var(--sr-color-dark)
+    90deg,
+    var(--sr-left),
+    var(--sr-right)
   );
 }
 /* we’ll recolor via data attribute shortly */
@@ -849,13 +851,13 @@
 
                        {% if r.pct is not none %}
                          <div
-                           class="sr-fill"
-                           style="
-                             width: {{ r.pct }}%;
-                             --sr-color: {{ '#ef4444' if r.pct >= 70 else '#60a5fa' if r.pct <= 30 else '#e5e7eb' }};
-                             --sr-color-dark: {{ '#dc2626' if r.pct >= 70 else '#3b82f6' if r.pct <= 30 else '#d1d5db' }};
-                           ">
-                         </div>
+                          class="sr-fill"
+                          style="
+                            width: {{ r.pct }}%;
+                            --sr-left: {{ '#60a5fa' if r.pct <= 30 else '#e5e7eb' if r.pct < 70 else '#fecaca' }};
+                            --sr-right: {{ '#2563eb' if r.pct <= 30 else '#9ca3af' if r.pct < 70 else '#dc2626' }};
+                          ">
+                        </div>
                        {% endif %}
                      
                        {% if r.pct is not none %}
