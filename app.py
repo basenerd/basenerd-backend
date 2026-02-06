@@ -3,6 +3,7 @@ import json
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request, jsonify
+from services.savant_profile import get_player_savant_profile
 from services.mlb_api import (
     get_random_player_id,
     get_player_full,
@@ -1457,6 +1458,13 @@ def player(player_id: int):
     except Exception:
         transactions = []
     savant_profile = {"available": True, "season": 2025, "groups": []}
+    print("DEBUG: building savant_profile", "player_id=", bio.id, "season=", season_found)
+    season_for_scouting = int(season_found or log_year or 2025)
+    player_id = int(bio.id)  # or int(bio["id"]) depending on your bio object
+    
+    savant_profile = get_player_savant_profile(player_id, season_for_scouting, min_pa=1)
+    
+    print("DEBUG: savant_profile available =", savant_profile.get("available"), "groups =", len(savant_profile.get("groups", [])))
     return render_template(
         "player.html",
         title=f"{bio.get('fullName','Player')} • Basenerd",
