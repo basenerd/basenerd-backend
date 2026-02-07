@@ -88,7 +88,7 @@ def player_spray_json(player_id: int):
     if not season:
         season = datetime.utcnow().year
 
-    points = fetch_player_spray(player_id, season, limit=8000)
+    points = fetch_player_spray(player_id, season, limit=1000)
     return jsonify({"player_id": player_id, "season": season, "points": points})
     
 @app.get("/random-player")
