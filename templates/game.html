@@ -24,6 +24,44 @@
   {%- endif -%}
 {%- endmacro %}
 
+
+<style>
+  /* Mini spray chart next to strike zone (PBP) */
+  .pbp-viz-row{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+  @media (max-width: 720px){
+    .pbp-viz-row{ flex-direction:column; }
+  }
+  .spray-mini-wrap{ min-width: 240px; }
+  .spray-mini-card{
+    border: 1px solid rgba(2,6,23,.12);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .spray-svg-mini{
+    width: 240px;
+    height: 240px;
+    display: block;
+    background: #fff;
+  }
+  @media (max-width: 720px){
+    .spray-svg-mini{ width: 220px; height: 220px; }
+    .spray-mini-wrap{ min-width: 220px; }
+  }
+  .spray-missing-note{
+    padding: 6px 8px;
+    font-size: 11px;
+    color: var(--muted);
+    background: rgba(2,6,23,.03);
+    border-top: 1px solid rgba(2,6,23,.10);
+  }
+</style>
+
 {# Convert IP string like "7.2" into outs (23) for simple scoring #}
 {% macro ip_outs(ip_val) -%}
   {%- set s = (ip_val|string)|trim -%}
@@ -865,7 +903,33 @@
                       <div class="pa-body">
                         <div class="pa-grid">
                           <div class="zone-wrap">
-                            <svg class="strike-zone" data-pitches='{{ (pa.pitches or []) | tojson }}' width="200" height="240"></svg>
+                            <div class="pbp-viz-row">
+                              <div>
+                                <svg class="strike-zone" data-pitches='{{ (pa.pitches or []) | tojson }}' width="200" height="240"></svg>
+                              </div>
+
+                              {% if is_final %}
+                                {% set bb = (pa.battedBall if pa.battedBall is defined else none) %}
+                                <div class="spray-mini-wrap">
+                                  <div class="zone-title">Spray</div>
+                                  <div class="spray-mini-card">
+                                    <svg class="spray-svg-mini"
+                                         viewBox="0 0 250 250"
+                                         preserveAspectRatio="xMidYMid meet"
+                                         data-bb='{{ {
+                                           "has": 1 if bb else 0,
+                                           "x": (bb.coordX if bb else none),
+                                           "y": (bb.coordY if bb else none),
+                                           "event": (pa.summaryEvent if pa.summaryEvent is defined else (pa.event or "")) 
+                                         } | tojson }}'>
+                                      <g class="sprayOverlay"></g>
+                                      <g class="sprayPoints"></g>
+                                    </svg>
+                                    <div class="spray-missing-note" style="display:none;">batted ball coordinates not available for this play</div>
+                                  </div>
+                                </div>
+                              {% endif %}
+                            </div>
                           </div>
 
                           {% if pa.pitches and (pa.pitches|length) > 0 %}
@@ -1036,6 +1100,160 @@
       renderZone(svg, pitches);
     }catch(e){}
   });
+
+  // -----------------------------
+  // Mini Spray Chart (one PA)
+  // Uses the same SVG overlay approach as player.html
+  // -----------------------------
+  const STADIUM_URL = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
+
+  const BASE_W = 250;
+  const BASE_H = 250;
+  const PLATE = { x: 125, y: 199 };
+  const EXTRA_SPREAD = 1.045;
+  const NUDGE_X = 0;
+  const NUDGE_Y = -10;
+
+  let overlaySvgEl = null;
+  let sprayVB = { minX: 0, minY: 0, w: 250, h: 250 };
+  let overlayLoaded = false;
+
+  function sprayColorForEvent(label){
+    const raw = (label || "").toLowerCase().trim();
+
+    // Normalize common MLB event labels -> statcast-ish codes
+    // Examples: "Home Run", "Double", "Single", "Groundout"
+    const e = raw.replace(/\s+/g, " ");
+    if(e === "single") return "#22c55e";
+    if(e === "double") return "#3b82f6";
+    if(e === "triple") return "#a855f7";
+    if(e === "home run" || e === "home_run" || e === "home-run") return "#ef4444";
+
+    // Anything else (outs, errors, etc.)
+    return "#f59e0b";
+  }
+
+  function parseViewBox(vb){
+    const parts = (vb || "").split(/\s+/).map(Number).filter(n=>isFinite(n));
+    if(parts.length === 4){
+      return { minX: parts[0], minY: parts[1], w: parts[2], h: parts[3] };
+    }
+    return { minX: 0, minY: 0, w: 250, h: 250 };
+  }
+
+  function mapPointToStadium(sx, sy, scaleX, scaleY){
+    const dx = (sx - PLATE.x) * scaleX;
+    const dy = (sy - PLATE.y) * scaleY;
+
+    const x = sprayVB.minX + (PLATE.x * scaleX) + (dx * EXTRA_SPREAD) + NUDGE_X;
+    const y = sprayVB.minY + (PLATE.y * scaleY) + (dy * EXTRA_SPREAD) + NUDGE_Y;
+    return { x, y };
+  }
+
+  async function loadOverlayOnce(){
+    if(overlayLoaded) return;
+    overlayLoaded = true;
+
+    try{
+      const res = await fetch(STADIUM_URL, { cache: "force-cache" });
+      if(!res.ok) throw new Error("stadium overlay fetch failed");
+      const svgText = await res.text();
+
+      const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+      overlaySvgEl = doc.documentElement;
+
+      const vb = overlaySvgEl.getAttribute("viewBox");
+      sprayVB = parseViewBox(vb);
+    }catch(e){
+      console.error(e);
+      overlaySvgEl = null;
+    }
+  }
+
+  function injectOverlayInto(svg){
+    if(!svg) return;
+    const g = svg.querySelector("g.sprayOverlay");
+    if(!g) return;
+    if(g.childNodes && g.childNodes.length) return; // already injected
+
+    if(!overlaySvgEl) return;
+
+    // Match viewBox so dots align to the overlay
+    const vb = overlaySvgEl.getAttribute("viewBox");
+    if(vb) svg.setAttribute("viewBox", vb);
+
+    // Copy all children from the overlay SVG into this chart's overlay group
+    const frag = document.createDocumentFragment();
+    Array.from(overlaySvgEl.childNodes).forEach(n=>{
+      frag.appendChild(n.cloneNode(true));
+    });
+    g.appendChild(frag);
+  }
+
+  function renderSingleDot(svg, bb, noteEl){
+    const pointsG = svg.querySelector("g.sprayPoints");
+    if(!pointsG) return;
+    pointsG.innerHTML = "";
+
+    const has = !!(bb && bb.has);
+    const xRaw = bb ? bb.x : null;
+    const yRaw = bb ? bb.y : null;
+
+    // Show/hide "coords missing" note
+    if(noteEl){
+      if(has && (xRaw === null || xRaw === undefined || yRaw === null || yRaw === undefined)){
+        noteEl.style.display = "block";
+      }else{
+        noteEl.style.display = "none";
+      }
+    }
+
+    // No ball in play, or missing coords => no dot
+    if(!has) return;
+    if(xRaw === null || xRaw === undefined || yRaw === null || yRaw === undefined) return;
+
+    const sx = Number(xRaw);
+    const sy = Number(yRaw);
+    if(!isFinite(sx) || !isFinite(sy)) return;
+
+    const scaleX = sprayVB.w / BASE_W;
+    const scaleY = sprayVB.h / BASE_H;
+    const { x, y } = mapPointToStadium(sx, sy, scaleX, scaleY);
+
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c.setAttribute("cx", x.toFixed(2));
+    c.setAttribute("cy", y.toFixed(2));
+    c.setAttribute("r", "3.6");
+    c.setAttribute("fill", sprayColorForEvent(bb.event));
+    c.setAttribute("fill-opacity", "0.90");
+    c.setAttribute("stroke", "rgba(15,23,42,.25)");
+    c.setAttribute("stroke-width", "0.6");
+    pointsG.appendChild(c);
+  }
+
+  async function initMiniSprays(){
+    const svgs = Array.from(document.querySelectorAll("svg.spray-svg-mini"));
+    if(!svgs.length) return;
+
+    await loadOverlayOnce();
+
+    svgs.forEach(svg=>{
+      injectOverlayInto(svg);
+
+      let bb = null;
+      try{
+        bb = JSON.parse(svg.getAttribute("data-bb") || "null");
+      }catch(e){
+        bb = null;
+      }
+      const wrap = svg.closest(".spray-mini-card");
+      const noteEl = wrap ? wrap.querySelector(".spray-missing-note") : null;
+      renderSingleDot(svg, bb, noteEl);
+    });
+  }
+
+  initMiniSprays();
+
 })();
 </script>
 
