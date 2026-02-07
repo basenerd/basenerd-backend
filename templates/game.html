@@ -26,16 +26,39 @@
 
 
 <style>
-  /* Mini spray chart next to strike zone (PBP) */
-  .pbp-viz-row{
-    display:flex;
+  /* ==========================================================
+     PBP: 4-column layout inside each PA
+     Zone | Pitches | Spray | BB metrics
+     (Scoped to game.html only)
+     ========================================================== */
+
+  /* override global .pa-grid (styles.css sets 2 cols) */
+  #tab-pbp .pa-grid{
+    display:grid;
+    grid-template-columns: 220px minmax(320px, 1fr) 240px 170px;
     gap:12px;
-    align-items:flex-start;
-    flex-wrap:wrap;
+    align-items:start;
+  }
+  @media (max-width: 980px){
+    #tab-pbp .pa-grid{
+      grid-template-columns: 220px 1fr;
+    }
   }
   @media (max-width: 720px){
-    .pbp-viz-row{ flex-direction:column; }
+    #tab-pbp .pa-grid{
+      grid-template-columns: 1fr;
+    }
   }
+
+  /* Make sure panels can shrink without overflow */
+  #tab-pbp .zone-wrap,
+  #tab-pbp .pitch-wrap,
+  #tab-pbp .spray-mini-wrap,
+  #tab-pbp .bb-metrics-wrap{
+    min-width:0;
+  }
+
+  /* Mini spray chart */
   .spray-mini-wrap{ min-width: 240px; }
   .spray-mini-card{
     border: 1px solid rgba(2,6,23,.12);
@@ -59,6 +82,51 @@
     color: var(--muted);
     background: rgba(2,6,23,.03);
     border-top: 1px solid rgba(2,6,23,.10);
+  }
+
+  /* BB metrics: vertical stack so it doesn't eat horizontal space */
+  .bb-metrics-wrap{
+    border:1px solid rgba(226,232,240,.9);
+    border-radius:14px;
+    background:#fff;
+    padding:10px 10px 8px 10px;
+  }
+  .bb-metrics-title{
+    font-weight:900;
+    margin-bottom:8px;
+  }
+  .bb-stack{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .bb-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:6px 8px;
+    border:1px solid rgba(226,232,240,.65);
+    border-radius:10px;
+    background: rgba(15,23,42,.02);
+  }
+  .bb-k{
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size:10.5px;
+    color:var(--muted);
+    white-space:nowrap;
+  }
+  .bb-v{
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size:12px;
+    font-weight:900;
+    white-space:nowrap;
+  }
+
+  /* On the 2-col breakpoint, make spray + metrics sit nicely */
+  @media (max-width: 980px){
+    #tab-pbp .spray-mini-wrap{ justify-self:start; }
+    #tab-pbp .bb-metrics-wrap{ justify-self:stretch; }
   }
 </style>
 
@@ -184,7 +252,6 @@
   {%- if s.inning is defined and s.inning -%}
     {{ icon }}{{ s.inning }}
   {%- else -%}
-    {# best-effort parse number from inningLabel by stripping words/suffixes #}
     {%- set n = il
       |replace('Top','')|replace('top','')
       |replace('Bottom','')|replace('bottom','')
@@ -460,12 +527,6 @@
 
   {% set perf_sorted = (perf.items|sort(attribute="score", reverse=true)) %}
   {% set top_perf = perf_sorted[:5] %}
-
-  {# -----------------------------
-     Layout:
-       [Top Performers]   [Scoring Summary]
-       [Top Exit Velos]   [Top Pitching Velos]
-     ----------------------------- #}
 
   <div class="grid2" style="margin-top:14px; align-items:stretch;">
     <!-- Top Performers -->
@@ -902,39 +963,17 @@
 
                       <div class="pa-body">
                         <div class="pa-grid">
-                          <div class="zone-wrap">
-                            <div class="pbp-viz-row">
-                              <div>
-                                <svg class="strike-zone" data-pitches='{{ (pa.pitches or []) | tojson }}' width="200" height="240"></svg>
-                              </div>
 
-                              {% if is_final %}
-                                {% set bb = (pa.battedBall if pa.battedBall is defined else none) %}
-                                <div class="spray-mini-wrap">
-                                  <div class="zone-title">Spray</div>
-                                  <div class="spray-mini-card">
-                                    <svg class="spray-svg-mini"
-                                         viewBox="0 0 250 250"
-                                         preserveAspectRatio="xMidYMid meet"
-                                         data-bb='{{ {
-                                           "has": 1 if bb else 0,
-                                           "x": (bb.coordX if bb else none),
-                                           "y": (bb.coordY if bb else none),
-                                           "event": (pa.summaryEvent if pa.summaryEvent is defined else (pa.event or "")) 
-                                         } | tojson }}'>
-                                      <g class="sprayOverlay"></g>
-                                      <g class="sprayPoints"></g>
-                                    </svg>
-                                    <div class="spray-missing-note" style="display:none;">batted ball coordinates not available for this play</div>
-                                  </div>
-                                </div>
-                              {% endif %}
-                            </div>
+                          <!-- 1) Strike zone (left, unchanged) -->
+                          <div class="zone-wrap">
+                            <div class="zone-title">Zone</div>
+                            <svg class="strike-zone" data-pitches='{{ (pa.pitches or []) | tojson }}' width="200" height="240"></svg>
                           </div>
 
-                          {% if pa.pitches and (pa.pitches|length) > 0 %}
-                            <div class="pitch-wrap">
-                              <div class="zone-title">Pitches</div>
+                          <!-- 2) Pitches table (ONLY pitches) -->
+                          <div class="pitch-wrap">
+                            <div class="zone-title">Pitches</div>
+                            {% if pa.pitches and (pa.pitches|length) > 0 %}
                               <div style="overflow-x:auto;">
                                 <table class="tbl">
                                   <thead>
@@ -965,39 +1004,79 @@
                                   </tbody>
                                 </table>
                               </div>
+                            {% else %}
+                              <div class="muted" style="padding:6px 0;">No pitch data available.</div>
+                            {% endif %}
+                          </div>
 
-                              {% if pa.battedBall is defined and pa.battedBall %}
-                                <div style="margin-top:8px; overflow-x:auto;">
-                                  <table class="tbl">
-                                    <thead>
-                                      <tr>
-                                        <th class="mono">Exit Velo</th>
-                                        <th class="mono">LA</th>
-                                        <th class="mono">Dist</th>
-                                        <th class="mono">xBA</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      <tr>
-                                        <td class="mono">
-                                          {% if pa.battedBall.exitVelo is not none %}
-                                            <span class="grad-pill" style="{{ pa.battedBall.evStyle if pa.battedBall.evStyle is defined else '' }}">{{ '%.1f'|format(pa.battedBall.exitVelo) }}{% if pa.battedBall.evFire %} 🔥{% endif %}</span>
-                                          {% else %}-{% endif %}
-                                        </td>
-                                        <td class="mono">{% if pa.battedBall.launchAngle is not none %}{{ '%.0f'|format(pa.battedBall.launchAngle) }}°{% else %}-{% endif %}</td>
-                                        <td class="mono">{% if pa.battedBall.distance is not none %}{{ '%.0f'|format(pa.battedBall.distance) }} ft{% else %}-{% endif %}</td>
-                                        <td class="mono">
-                                          {% if pa.battedBall.xBA is not none %}
-                                            {{ '%.3f'|format(pa.battedBall.xBA) }}
-                                          {% else %}-{% endif %}
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                </div>
-                              {% endif %}
+                          <!-- 3) Spray chart (right of pitches, no "Spray" title) -->
+                          {% if is_final %}
+                            {% set bb = (pa.battedBall if pa.battedBall is defined else none) %}
+                            <div class="spray-mini-wrap">
+                              <div class="spray-mini-card">
+                                <svg class="spray-svg-mini"
+                                     viewBox="0 0 250 250"
+                                     preserveAspectRatio="xMidYMid meet"
+                                     data-bb='{{ {
+                                       "has": 1 if bb else 0,
+                                       "x": (bb.coordX if bb else none),
+                                       "y": (bb.coordY if bb else none),
+                                       "event": (pa.summaryEvent if pa.summaryEvent is defined else (pa.event or "")) 
+                                     } | tojson }}'>
+                                  <g class="sprayOverlay"></g>
+                                  <g class="sprayPoints"></g>
+                                </svg>
+                                <div class="spray-missing-note" style="display:none;">batted ball coordinates not available for this play</div>
+                              </div>
                             </div>
+                          {% else %}
+                            <div></div>
                           {% endif %}
+
+                          <!-- 4) BB metrics (right of spray, vertical stack) -->
+                          {% if pa.battedBall is defined and pa.battedBall %}
+                            <div class="bb-metrics-wrap">
+                              <div class="bb-metrics-title">Batted Ball</div>
+
+                              <div class="bb-stack">
+                                <div class="bb-item">
+                                  <div class="bb-k">EV</div>
+                                  <div class="bb-v">
+                                    {% if pa.battedBall.exitVelo is not none %}
+                                      <span class="grad-pill" style="{{ pa.battedBall.evStyle if pa.battedBall.evStyle is defined else '' }}">
+                                        {{ '%.1f'|format(pa.battedBall.exitVelo) }}{% if pa.battedBall.evFire %} 🔥{% endif %}
+                                      </span>
+                                    {% else %}-{% endif %}
+                                  </div>
+                                </div>
+
+                                <div class="bb-item">
+                                  <div class="bb-k">LA</div>
+                                  <div class="bb-v">
+                                    {% if pa.battedBall.launchAngle is not none %}{{ '%.0f'|format(pa.battedBall.launchAngle) }}°{% else %}-{% endif %}
+                                  </div>
+                                </div>
+
+                                <div class="bb-item">
+                                  <div class="bb-k">Dist</div>
+                                  <div class="bb-v">
+                                    {% if pa.battedBall.distance is not none %}{{ '%.0f'|format(pa.battedBall.distance) }} ft{% else %}-{% endif %}
+                                  </div>
+                                </div>
+
+                                <div class="bb-item">
+                                  <div class="bb-k">xBA</div>
+                                  <div class="bb-v">
+                                    {% if pa.battedBall.xBA is not none %}{{ '%.3f'|format(pa.battedBall.xBA) }}{% else %}-{% endif %}
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          {% else %}
+                            <div></div>
+                          {% endif %}
+
                         </div>
                       </div>
                     </details>
@@ -1103,7 +1182,6 @@
 
   // -----------------------------
   // Mini Spray Chart (one PA)
-  // Uses the same SVG overlay approach as player.html
   // -----------------------------
   const STADIUM_URL = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
 
@@ -1120,16 +1198,11 @@
 
   function sprayColorForEvent(label){
     const raw = (label || "").toLowerCase().trim();
-
-    // Normalize common MLB event labels -> statcast-ish codes
-    // Examples: "Home Run", "Double", "Single", "Groundout"
     const e = raw.replace(/\s+/g, " ");
     if(e === "single") return "#22c55e";
     if(e === "double") return "#3b82f6";
     if(e === "triple") return "#a855f7";
     if(e === "home run" || e === "home_run" || e === "home-run") return "#ef4444";
-
-    // Anything else (outs, errors, etc.)
     return "#f59e0b";
   }
 
@@ -1171,29 +1244,25 @@
   }
 
   function injectOverlayInto(svg){
-     if(!svg) return;
-     const g = svg.querySelector("g.sprayOverlay");
-     if(!g) return;
-     if(g.childNodes && g.childNodes.length) return; // already injected
-   
-     if(!overlaySvgEl) return;
-   
-     // Match viewBox so dots align to the overlay
-     const vb = overlaySvgEl.getAttribute("viewBox");
-     if(vb) svg.setAttribute("viewBox", vb);
-   
-     // Copy all children from the overlay SVG into this chart's overlay group
-     const frag = document.createDocumentFragment();
-     Array.from(overlaySvgEl.childNodes).forEach(n=>{
-       frag.appendChild(n.cloneNode(true));
-     });
-     g.appendChild(frag);
-   
-     // ✅ Flip ONLY the stadium background (overlay), not the dots.
-     // Works even if viewBox minY isn't 0.
-     const ty = (2 * sprayVB.minY) + sprayVB.h;
-     g.setAttribute("transform", `translate(0 ${ty}) scale(1 -1)`);
-   }
+    if(!svg) return;
+    const g = svg.querySelector("g.sprayOverlay");
+    if(!g) return;
+    if(g.childNodes && g.childNodes.length) return;
+    if(!overlaySvgEl) return;
+
+    const vb = overlaySvgEl.getAttribute("viewBox");
+    if(vb) svg.setAttribute("viewBox", vb);
+
+    const frag = document.createDocumentFragment();
+    Array.from(overlaySvgEl.childNodes).forEach(n=>{
+      frag.appendChild(n.cloneNode(true));
+    });
+    g.appendChild(frag);
+
+    // Flip ONLY the stadium overlay (not dots)
+    const ty = (2 * sprayVB.minY) + sprayVB.h;
+    g.setAttribute("transform", `translate(0 ${ty}) scale(1 -1)`);
+  }
 
   function renderSingleDot(svg, bb, noteEl){
     const pointsG = svg.querySelector("g.sprayPoints");
@@ -1204,7 +1273,6 @@
     const xRaw = bb ? bb.x : null;
     const yRaw = bb ? bb.y : null;
 
-    // Show/hide "coords missing" note
     if(noteEl){
       if(has && (xRaw === null || xRaw === undefined || yRaw === null || yRaw === undefined)){
         noteEl.style.display = "block";
@@ -1213,7 +1281,6 @@
       }
     }
 
-    // No ball in play, or missing coords => no dot
     if(!has) return;
     if(xRaw === null || xRaw === undefined || yRaw === null || yRaw === undefined) return;
 
@@ -1225,14 +1292,22 @@
     const scaleY = sprayVB.h / BASE_H;
     const { x, y } = mapPointToStadium(sx, sy, scaleX, scaleY);
 
+    // More pronounced dot: halo + main
+    const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    halo.setAttribute("cx", x.toFixed(2));
+    halo.setAttribute("cy", y.toFixed(2));
+    halo.setAttribute("r", "7.2");
+    halo.setAttribute("fill", "rgba(15,23,42,.22)");
+    pointsG.appendChild(halo);
+
     const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     c.setAttribute("cx", x.toFixed(2));
     c.setAttribute("cy", y.toFixed(2));
-    c.setAttribute("r", "3.6");
+    c.setAttribute("r", "5.2");
     c.setAttribute("fill", sprayColorForEvent(bb.event));
-    c.setAttribute("fill-opacity", "0.90");
-    c.setAttribute("stroke", "rgba(15,23,42,.25)");
-    c.setAttribute("stroke-width", "0.6");
+    c.setAttribute("fill-opacity", "0.96");
+    c.setAttribute("stroke", "rgba(255,255,255,.9)");
+    c.setAttribute("stroke-width", "1.2");
     pointsG.appendChild(c);
   }
 
