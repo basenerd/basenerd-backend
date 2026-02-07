@@ -76,6 +76,58 @@ from services.mlb_api import (
     get_player_headshot_url,
     extract_career_statline,
 )
+# -------------------------
+# Venue -> Stadium SVG mapping (MLB parks)
+# Filenames are nickname-only: angels.svg, marlins.svg, etc.
+# If a venue isn't recognized (special event parks), we fall back to home team's park.
+# -------------------------
+_VENUE_TO_SVG = {
+    # AL
+    "angel stadium": "angels.svg",
+    "minute maid park": "astros.svg",
+    "oakland coliseum": "athletics.svg",
+    "t-mobile park": "mariners.svg",
+    "globe life field": "rangers.svg",
+
+    "camden yards": "orioles.svg",
+    "yankee stadium": "yankees.svg",
+    "fenway park": "red_sox.svg",
+    "rogers centre": "blue_jays.svg",
+    "tropicana field": "rays.svg",
+
+    "progressive field": "guardians.svg",
+    "comerica park": "tigers.svg",
+    "guaranteed rate field": "white_sox.svg",
+    "kauffman stadium": "royals.svg",
+    "target field": "twins.svg",
+
+    # NL
+    "truist park": "braves.svg",
+    "loanDepot park": "marlins.svg",
+    "nationals park": "nationals.svg",
+    "citi field": "mets.svg",
+    "citizens bank park": "phillies.svg",
+
+    "wrigley field": "cubs.svg",
+    "great american ball park": "reds.svg",
+    "american family field": "brewers.svg",
+    "pnc park": "pirates.svg",
+    "busch stadium": "cardinals.svg",
+
+    "chase field": "dbacks.svg",
+    "coors field": "rockies.svg",
+    "dodger stadium": "dodgers.svg",
+    "petco park": "padres.svg",
+    "oracle park": "giants.svg",
+}
+
+def _norm_venue_name(name: str) -> str:
+    s = (name or "").strip().lower()
+    s = s.replace("®", "").replace("’", "'")
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
 
 from services.mlb_api import extract_year_by_year_rows
 
@@ -946,12 +998,36 @@ def game_detail(game_pk: int):
 
     feed = get_game_feed(game_pk)
     game_obj = normalize_game_detail(feed, tz_name=user_tz)
-    
+
     # ✅ always available for template debugging / links
     if isinstance(game_obj, dict):
         game_obj.setdefault("gamePk", game_pk)
-    
-    return render_template("game.html", title="Game", game=game_obj, user_tz=user_tz)
+
+    # -------------------------
+    # Stadium SVG (venue-based, fallback to home team park)
+    # -------------------------
+    stadium_svg = "generic.svg"
+    try:
+        venue_name = (((feed or {}).get("gameData") or {}).get("venue") or {}).get("name")
+        candidate = _VENUE_TO_SVG.get(_norm_venue_name(venue_name or ""))
+        if candidate and os.path.exists(os.path.join("static", "stadium_svgs", candidate)):
+            stadium_svg = candidate
+        else:
+            # fallback: home team nickname
+            home_id = (((feed or {}).get("gameData") or {}).get("teams") or {}).get("home", {}).get("id")
+            if home_id:
+                tdata = get_team(home_id) or {}
+                teams = tdata.get("teams") or []
+                t0 = teams[0] if teams else {}
+                team_name = t0.get("teamName")  # nickname only
+                if team_name:
+                    candidate2 = teamname_to_svg(team_name)
+                    if os.path.exists(os.path.join("static", "stadium_svgs", candidate2)):
+                        stadium_svg = candidate2
+    except Exception as e:
+        print("stadium svg lookup failed:", e)
+
+    return render_template("game.html", title="Game", game=game_obj, user_tz=user_tz, stadium_svg=stadium_svg)
 
 
 
