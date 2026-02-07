@@ -240,11 +240,7 @@
   /* ==========================
      Scouting Report (Savant-style)
      ========================== */
-  .sr-wrap{
-    display:flex;
-    flex-direction:column;
-    gap:14px;
-  }
+  .sr-wrap{ display:flex; flex-direction:column; gap:14px; }
   .sr-group-title{
     font-weight:900;
     letter-spacing:.2px;
@@ -253,12 +249,7 @@
     padding-bottom:4px;
     border-bottom:1px dashed var(--border);
   }
-
-  .sr-grid{
-    display:flex;
-    flex-direction:column;
-    gap:9px;
-  }
+  .sr-grid{ display:flex; flex-direction:column; gap:9px; }
 
   .sr-row{
     display:grid;
@@ -266,7 +257,6 @@
     gap:12px;
     align-items:center;
   }
-
   @media (max-width: 980px){
     .sr-row{ grid-template-columns: 110px 1fr 64px; }
   }
@@ -279,7 +269,6 @@
     overflow:hidden;
     text-overflow:ellipsis;
   }
-
   .sr-value{
     text-align:right;
     font-size:12px;
@@ -305,7 +294,6 @@
     box-shadow:0 4px 10px rgba(0,0,0,.18);
     pointer-events:none;
   }
-
   .sr-marker span{
     font-size:10px;
     font-weight:900;
@@ -322,7 +310,6 @@
     border:1px solid var(--border);
     background:#f1f5f9;
   }
-
   .sr-fill{
     position:absolute;
     inset:0 auto 0 0;
@@ -330,12 +317,7 @@
     border-radius:999px;
   }
 
-  .sr-muted{
-    margin-top:10px;
-    font-size:11px;
-    color:var(--muted);
-  }
-
+  .sr-muted{ margin-top:10px; font-size:11px; color:var(--muted); }
   .sr-pill{
     display:inline-flex;
     align-items:center;
@@ -351,7 +333,7 @@
   }
 
   /* ==========================
-     Spray Chart (Hits only, stadium)
+     Spray Chart (Hits only, MLBAM stadium coords)
      ========================== */
   .spray-controls{
     display:flex;
@@ -368,6 +350,7 @@
     color:#111827;
     cursor:pointer;
   }
+
   .spray-legend{
     display:flex;
     gap:10px;
@@ -391,7 +374,7 @@
     width:100%;
     height:auto;
     display:block;
-    background: #ffffff; /* removed green hue */
+    background:#ffffff; /* no green hue */
   }
   .spray-note{ margin-top:10px; font-size:11px; color: var(--muted); }
 </style>
@@ -503,7 +486,7 @@
 </div>
 
 <!-- =======================
-     Career Stats (directly under snapshot)
+     Career Stats
      ======================= -->
 <div class="card">
   <div class="card-header">
@@ -537,7 +520,7 @@
 </div>
 
 <!-- =======================
-     Year-by-Year (mirrors random-player.html)
+     Year-by-Year
      ======================= -->
 <div id="tab-yby" class="tab-panel active">
 
@@ -770,7 +753,7 @@
 </div>
 
 <!-- =======================
-     Game Logs (table)
+     Game Logs
      ======================= -->
 <div id="tab-gamelog" class="tab-panel">
   <div class="card">
@@ -898,7 +881,7 @@
 </div>
 
 <!-- =======================
-     Scouting Report + Spray (hits only, stadium overlay)
+     Scouting Report + Spray (Hits only, stadium overlay)
      ======================= -->
 <div id="tab-scouting" class="tab-panel">
   <div class="card">
@@ -972,7 +955,7 @@
           {% endif %}
         </div>
 
-        <!-- RIGHT: Spray (Hits only) -->
+        <!-- RIGHT: Spray (Hits only; MLBAM coords directly on stadium SVG) -->
         <div>
           <div class="subcard-title" style="margin:0 0 8px 0;">Spray Chart (Hits)</div>
 
@@ -1007,7 +990,7 @@
           </div>
 
           <div class="spray-note">
-            Uses the player’s home-team stadium SVG ({{ stadium_svg|default('generic.svg') }}). Hits only on player pages.
+            MLBAM coordinate system from GeomMLBStadiums: home plate is ~ (125, 199). Hits only on player pages. Stadium SVG: {{ stadium_svg|default('generic.svg') }}.
           </div>
         </div>
 
@@ -1030,7 +1013,7 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }));
 
-  // Expand/collapse year children (multi-team seasons)
+  // Expand/collapse year children
   document.querySelectorAll(".yexp").forEach(b => {
     b.addEventListener("click", () => {
       const year = b.getAttribute("data-year");
@@ -1042,7 +1025,7 @@
   });
 
   // -------------------------
-  // Spray Chart (Hits only, stadium overlay)
+  // Spray Chart (Hits only; MLBAM coords directly on stadium SVG)
   // -------------------------
   const sprayPanel = document.getElementById("tab-scouting");
   const spraySvg = document.getElementById("spraySvg");
@@ -1056,7 +1039,7 @@
   let sprayTimer = null;
   let overlayReady = false;
 
-  // viewBox info for mapping hc_x / hc_y into stadium coordinate space
+  // viewBox info for plotting with minX/minY offsets if needed
   let sprayVB = { minX: 0, minY: 0, w: 250, h: 250 };
 
   function sprayColorFor(ev){
@@ -1083,7 +1066,7 @@
     const innerSvg = doc.querySelector("svg");
     if(!innerSvg) throw new Error("stadium svg missing <svg>");
 
-    // Adopt stadium viewBox so points share the same coordinate system
+    // Adopt stadium viewBox; GeomMLBStadiums expects MLBAM coords (home plate ~ 125,199)
     const vb = innerSvg.getAttribute("viewBox") || "0 0 250 250";
     spraySvg.setAttribute("viewBox", vb);
 
@@ -1095,15 +1078,15 @@
       h: parts[3] || 250
     };
 
-    // Clear overlay and insert stadium layers as-authored
     while(sprayOverlayG.firstChild) sprayOverlayG.removeChild(sprayOverlayG.firstChild);
 
+    // Import overlay as-authored (NO flipping)
     const kids = Array.from(innerSvg.childNodes);
     for(const k of kids){
       sprayOverlayG.appendChild(document.importNode(k, true));
     }
 
-    // IMPORTANT: do NOT flip the whole world; we’ll flip Y for points only
+    // Ensure NO world transform (SVG y-axis points down; that matches MLBAM hc_y)
     if(sprayWorld) sprayWorld.removeAttribute("transform");
 
     overlayReady = true;
@@ -1126,10 +1109,10 @@
       const sy = Number(fy);
       if(!isFinite(sx) || !isFinite(sy)) continue;
 
-      // Map Statcast coords (0..250-ish) into stadium SVG viewBox space.
-      // Fix upside-down by flipping Y within the viewBox height.
+      // Plot directly in MLBAM stadium coordinate system:
+      // home plate ~ (125, 199), y increases downward.
       const x = sprayVB.minX + sx;
-      const y = sprayVB.minY + (sprayVB.h - sy);
+      const y = sprayVB.minY + sy;
 
       const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       c.setAttribute("cx", x.toFixed(2));
@@ -1192,7 +1175,6 @@
     }
   }));
 
-  // If scouting starts active for any reason
   if(sprayPanel && sprayPanel.classList.contains("active")){
     loadSpray();
     startSprayAuto();
