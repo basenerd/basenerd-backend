@@ -1203,10 +1203,22 @@ def player(player_id: int):
     # Your filenames are nickname-only: angels.svg, blue_jays.svg, etc.
     # So we use team["teamName"] from the team endpoint.
     # -------------------------
-    stadium_svg = team_id_to_svg.get(
-        (bio.get("currentTeam") or {}).get("id"),
-        "generic.svg"
-    )
+    stadium_svg = "generic.svg"
+
+    try:
+        team_id = (bio.get("currentTeam") or {}).get("id")
+        if team_id:
+            tdata = get_team(team_id) or {}
+            teams = tdata.get("teams") or []
+            t0 = teams[0] if teams else {}
+            team_name = t0.get("teamName")  # nickname only (Angels, Marlins, Blue Jays, etc)
+    
+            if team_name:
+                candidate = teamname_to_svg(team_name)
+                if os.path.exists(os.path.join("static", "stadium_svgs", candidate)):
+                    stadium_svg = candidate
+    except Exception as e:
+        print("stadium svg lookup failed:", e)
     # debut year (stop searching after debut year)
     debut = (bio.get("mlbDebutDate") or "")[:10]
     try:
