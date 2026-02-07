@@ -1171,24 +1171,29 @@
   }
 
   function injectOverlayInto(svg){
-    if(!svg) return;
-    const g = svg.querySelector("g.sprayOverlay");
-    if(!g) return;
-    if(g.childNodes && g.childNodes.length) return; // already injected
-
-    if(!overlaySvgEl) return;
-
-    // Match viewBox so dots align to the overlay
-    const vb = overlaySvgEl.getAttribute("viewBox");
-    if(vb) svg.setAttribute("viewBox", vb);
-
-    // Copy all children from the overlay SVG into this chart's overlay group
-    const frag = document.createDocumentFragment();
-    Array.from(overlaySvgEl.childNodes).forEach(n=>{
-      frag.appendChild(n.cloneNode(true));
-    });
-    g.appendChild(frag);
-  }
+     if(!svg) return;
+     const g = svg.querySelector("g.sprayOverlay");
+     if(!g) return;
+     if(g.childNodes && g.childNodes.length) return; // already injected
+   
+     if(!overlaySvgEl) return;
+   
+     // Match viewBox so dots align to the overlay
+     const vb = overlaySvgEl.getAttribute("viewBox");
+     if(vb) svg.setAttribute("viewBox", vb);
+   
+     // Copy all children from the overlay SVG into this chart's overlay group
+     const frag = document.createDocumentFragment();
+     Array.from(overlaySvgEl.childNodes).forEach(n=>{
+       frag.appendChild(n.cloneNode(true));
+     });
+     g.appendChild(frag);
+   
+     // ✅ Flip ONLY the stadium background (overlay), not the dots.
+     // Works even if viewBox minY isn't 0.
+     const ty = (2 * sprayVB.minY) + sprayVB.h;
+     g.setAttribute("transform", `translate(0 ${ty}) scale(1 -1)`);
+   }
 
   function renderSingleDot(svg, bb, noteEl){
     const pointsG = svg.querySelector("g.sprayPoints");
