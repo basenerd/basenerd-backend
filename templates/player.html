@@ -1171,6 +1171,7 @@
       sprayCache = await res.json();
 
       await loadStadiumOverlay();
+      drawDebugAnchors();
       renderSpray();
     }catch(err){
       console.error(err);
