@@ -35,6 +35,7 @@ from services.mlb_api import (
     normalize_schedule_game,
     get_stats_leaderboard,
     get_teams,
+    get_team,
     get_40man_roster_grouped,
     )
 
@@ -63,6 +64,12 @@ def about():
 
 from services.mlb_api import get_random_player_id, get_player_full
 
+def teamname_to_svg(team_name: str) -> str:
+    s = (team_name or "").lower().strip()
+    s = s.replace(" ", "_")
+    s = re.sub(r"[^a-z0-9_]", "", s)
+    return f"{s}.svg"
+    
 from services.mlb_api import (
     get_random_player_id,
     get_player_full,
@@ -1191,7 +1198,26 @@ def player(player_id: int):
 
     bio = get_player(player_id)
     role = get_player_role(bio)
-
+        # -------------------------
+    # Stadium SVG (player current team)
+    # Your filenames are nickname-only: angels.svg, blue_jays.svg, etc.
+    # So we use team["teamName"] from the team endpoint.
+    # -------------------------
+    stadium_svg = "generic.svg"
+    try:
+        team_id = ((bio.get("currentTeam") or {}).get("id"))
+        if team_id:
+            tdata = get_team(team_id) or {}
+            teams = tdata.get("teams") or []
+            t0 = teams[0] if teams else {}
+            team_name = t0.get("teamName")  # <-- nickname-only (Angels, Blue Jays)
+            if team_name:
+                candidate = teamname_to_svg(team_name)
+                # only use it if the file exists in static/stadium_svgs
+                if os.path.exists(os.path.join("static", "stadium_svgs", candidate)):
+                    stadium_svg = candidate
+    except Exception as e:
+        print("[player] stadium svg lookup failed:", e)
     # debut year (stop searching after debut year)
     debut = (bio.get("mlbDebutDate") or "")[:10]
     try:
@@ -1514,11 +1540,17 @@ def player(player_id: int):
         # transactions
         transactions=transactions,
         # savant profile
-        savant_profile=savant_profile
+        savant_profile=savant_profile,
+        stadium_svg=stadium_svg,
     )
 
 
-
+@app.get("/player/<int:player_id>/spray.json")
+def player_spray_json(player_id: int):
+    season = request.args.get("season", type=int)
+    pts = fetch_player_spray(player_id, season=season, limit=12000)
+    return jsonify({"player_id": player_id, "season": season, "points": pts})
+    
 @app.get("/articles")
 def articles():
     articles = load_articles()
