@@ -1543,13 +1543,6 @@ def player(player_id: int):
         savant_profile=savant_profile,
         stadium_svg=stadium_svg,
     )
-
-
-@app.get("/player/<int:player_id>/spray.json")
-def player_spray_json(player_id: int):
-    season = request.args.get("season", type=int)
-    pts = fetch_player_spray(player_id, season=season, limit=12000)
-    return jsonify({"player_id": player_id, "season": season, "points": pts})
     
 @app.get("/articles")
 def articles():
