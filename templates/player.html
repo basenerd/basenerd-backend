@@ -16,6 +16,7 @@
     {{ val }}
   {% endif %}
 {% endmacro %}
+
 {# -----------------------
    Scouting Report color scale
    0 = blue, 50 = light gray, 100 = red
@@ -48,12 +49,15 @@
     {%- endif -%}
   {%- endif -%}
 {% endmacro %}
+
 <div class="mono" style="font-size:12px; opacity:.8; margin:8px 0;">
   DEBUG • savant_profile={{ "yes" if savant_profile else "no" }}
   {% if savant_profile %} • available={{ savant_profile.available }} • season={{ savant_profile.season }}{% endif %}
-</div><div class="mono" style="font-size:12px; opacity:.8; margin:8px 0;">
+</div>
+<div class="mono" style="font-size:12px; opacity:.8; margin:8px 0;">
   DEBUG • player route hit • bio.id={{ bio.id }} • season_found={{ season_found }} • log_year={{ log_year }}
 </div>
+
 {% macro mini_cards(stat, kind, bg_map) %}
   <div class="headline-grid">
     {% if kind == "pitching" %}
@@ -139,16 +143,17 @@
     font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
   }
 
-.sr-two-col{
-  display:grid;
-  grid-template-columns: 1fr 380px;
-  gap:14px;
-  align-items:start;
-}
-@media (max-width: 980px){
-  .sr-two-col{ grid-template-columns: 1fr; }
-}
-.spray-svg{ max-width: 380px; margin-left:auto; margin-right:auto; }
+  .sr-two-col{
+    display:grid;
+    grid-template-columns: 1fr 380px;
+    gap:14px;
+    align-items:start;
+  }
+  @media (max-width: 980px){
+    .sr-two-col{ grid-template-columns: 1fr; }
+  }
+  .spray-svg{ max-width: 380px; margin-left:auto; margin-right:auto; }
+
   /* tabs */
   .tabs{ display:flex; gap:8px; flex-wrap:wrap; }
   .tab-btn{
@@ -236,119 +241,118 @@
   /* ==========================
      Scouting Report (Savant-style)
      ========================== */
- .sr-wrap{
-  display:flex;
-  flex-direction:column;
-  gap:14px;
-}
-.sr-group-title{
-  font-weight:900;
-  letter-spacing:.2px;
-  color:#111827;
-  margin:6px 0 6px;
-  padding-bottom:4px;
-  border-bottom:1px dashed var(--border);
-}
-
-.sr-grid{
-  display:flex;
-  flex-direction:column;
-  gap:9px;
-}
-
-.sr-row{
-  display:grid;
-  grid-template-columns: 120px 1fr 72px;
-  gap:12px;
-  align-items:center;
-}
-
-@media (max-width: 980px){
-  .sr-row{
-    grid-template-columns: 110px 1fr 64px;
+  .sr-wrap{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
   }
-}
+  .sr-group-title{
+    font-weight:900;
+    letter-spacing:.2px;
+    color:#111827;
+    margin:6px 0 6px;
+    padding-bottom:4px;
+    border-bottom:1px dashed var(--border);
+  }
 
-.sr-label{
-  font-size:12px;
-  font-weight:700;
-  color:#374151;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
+  .sr-grid{
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+  }
 
-.sr-value{
-  text-align:right;
-  font-size:12px;
-  font-weight:800;
-  letter-spacing:.2px;
-  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
-  color:#111827;
-  white-space:nowrap;
-}
+  .sr-row{
+    display:grid;
+    grid-template-columns: 120px 1fr 72px;
+    gap:12px;
+    align-items:center;
+  }
 
-.sr-marker{
-  position:absolute;
-  top:50%;
-  transform:translate(-50%, -50%);
-  width:22px;
-  height:22px;
-  border-radius:999px;
-  background:#0b1220;
-  border:2px solid #ffffff;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  box-shadow:0 4px 10px rgba(0,0,0,.18);
-  pointer-events:none;
-}
+  @media (max-width: 980px){
+    .sr-row{
+      grid-template-columns: 110px 1fr 64px;
+    }
+  }
 
-.sr-marker span{
-  font-size:10px;
-  font-weight:900;
-  color:#ffffff;
-  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
-  line-height:1;
-}
+  .sr-label{
+    font-size:12px;
+    font-weight:700;
+    color:#374151;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
 
-.sr-bar{
-  position:relative;
-  height:14px;
-  border-radius:999px;
-  overflow:hidden;
-  border:1px solid var(--border);
-  background:#f1f5f9;
-}
+  .sr-value{
+    text-align:right;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.2px;
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+    color:#111827;
+    white-space:nowrap;
+  }
 
-.sr-fill{
-  position:absolute;
-  inset:0 auto 0 0;
-  width:0%;
-  border-radius:999px;
-  /* background is set inline by Jinja */
-}
-/* we’ll recolor via data attribute shortly */
+  .sr-marker{
+    position:absolute;
+    top:50%;
+    transform:translate(-50%, -50%);
+    width:22px;
+    height:22px;
+    border-radius:999px;
+    background:#0b1220;
+    border:2px solid #ffffff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 4px 10px rgba(0,0,0,.18);
+    pointer-events:none;
+  }
 
-.sr-muted{
-  margin-top:10px;
-  font-size:11px;
-  color:var(--muted);
-}
+  .sr-marker span{
+    font-size:10px;
+    font-weight:900;
+    color:#ffffff;
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+    line-height:1;
+  }
 
-.sr-pill{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  font-size:10px;
-  font-weight:900;
-  padding:3px 8px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  background:#fff;
-  color:#111827;
-  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
-}
+  .sr-bar{
+    position:relative;
+    height:14px;
+    border-radius:999px;
+    overflow:hidden;
+    border:1px solid var(--border);
+    background:#f1f5f9;
+  }
+
+  .sr-fill{
+    position:absolute;
+    inset:0 auto 0 0;
+    width:0%;
+    border-radius:999px;
+    /* background is set inline by Jinja */
+  }
+
+  .sr-muted{
+    margin-top:10px;
+    font-size:11px;
+    color:var(--muted);
+  }
+
+  .sr-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:10px;
+    font-weight:900;
+    padding:3px 8px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:#fff;
+    color:#111827;
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
 
   /* ==========================
      Spray Chart
@@ -394,7 +398,6 @@
     background: radial-gradient(circle at 50% 20%, rgba(34,197,94,.18), rgba(34,197,94,.06) 45%, rgba(15,23,42,.02) 70%);
   }
   .spray-note{ margin-top:10px; font-size:11px; color: var(--muted); }
-
 </style>
 
 <!-- =======================
@@ -466,8 +469,7 @@
 <div class="card">
   <div class="card-header">
     <div>
-      <div class="card-title">{{ season_found if season_found else "—" }} Stats
-      </div>
+      <div class="card-title">{{ season_found if season_found else "—" }} Stats</div>
     </div>
   </div>
 
@@ -536,6 +538,7 @@
   <button class="tab-btn" data-tab="tab-gamelog">Game Logs</button>
   <button class="tab-btn" data-tab="tab-tx">Transactions</button>
   <button class="tab-btn" data-tab="tab-scouting">Scouting Report</button>
+  <button class="tab-btn" data-tab="tab-spray">Spray Chart</button>
 </div>
 
 <!-- =======================
@@ -737,7 +740,6 @@
                 {% for p in g.parts %}
                   {% set ps = p.stat %}
                   {% set rk2 = g.year ~ ':' ~ p.team %}
-                  {% set rk2 = g.year ~ ':' ~ p.team %}
                   <tr class="ychild ychild-pitching ychild-{{ g.year }}" style="display:none; opacity:.92;">
                     <td style="white-space:nowrap; padding-left:16px;">{{ p.year }}</td>
                     <td style="white-space:nowrap;">{{ p.team }}</td>
@@ -770,7 +772,6 @@
       </div>
     </div>
   {% endif %}
-
 </div>
 
 <!-- =======================
@@ -931,21 +932,22 @@
 
                     <div class="sr-bar" title="{{ r.label }}">
 
-                       {% if r.pct is not none %}
-                          <div class="sr-fill" style="width: {{ r.pct }}%; background: {{ sr_color(r.pct) }};"></div>
-                        {% endif %}
-                       {% if r.pct is not none %}
-                         {% set p = r.pct %}
-                         <div class="sr-marker" style="left: {{ p }}%;">
-                           <span>{{ p }}</span>
-                         </div>
-                       {% else %}
-                         <div class="sr-marker" style="left: 0; opacity:.55;">
-                           <span>—</span>
-                         </div>
-                       {% endif %}
+                      {% if r.pct is not none %}
+                        <div class="sr-fill" style="width: {{ r.pct }}%; background: {{ sr_color(r.pct) }};"></div>
+                      {% endif %}
 
-                     </div>
+                      {% if r.pct is not none %}
+                        {% set p = r.pct %}
+                        <div class="sr-marker" style="left: {{ p }}%;">
+                          <span>{{ p }}</span>
+                        </div>
+                      {% else %}
+                        <div class="sr-marker" style="left: 0; opacity:.55;">
+                          <span>—</span>
+                        </div>
+                      {% endif %}
+
+                    </div>
 
                     <div class="sr-value">
                       {% if r.value is none %}
@@ -1075,18 +1077,22 @@
     // -------------------------
     // Spray Chart (player)
     // -------------------------
-    const sprayPanel = document.getElementById("tab-scouting"); // spray now lives in scouting tab
+    const sprayPanel = document.getElementById("tab-spray");
     const spraySvg = document.getElementById("spraySvg");
     const sprayPointsG = document.getElementById("sprayPoints");
+
+    // Optional overlay structure (not present in the simple field SVG)
     const sprayWorld = document.getElementById("sprayWorld");
     const sprayOverlayG = document.getElementById("sprayOverlay");
+
     const sprayHitsOnly = document.getElementById("sprayHitsOnly");
     const sprayShowOuts = document.getElementById("sprayShowOuts");
     const spraySeasonSel = document.getElementById("spraySeason");
     const sprayRefreshBtn = document.getElementById("sprayRefreshBtn");
 
-    let sprayCache = null;       // raw points from API
+    let sprayCache = null;
     let sprayTimer = null;
+    let overlayReady = false;
 
     function sprayColorFor(ev, isHit){
       const e = (ev || "").toLowerCase();
@@ -1097,55 +1103,61 @@
       if(!isHit) return "#94a3b8";
       return "#f59e0b";
     }
-    let overlayReady = false;
 
     async function loadStadiumOverlay(){
+      // If you don't have the overlay groups in this SVG, skip.
       if(!sprayWorld || !sprayOverlayG) return;
       if(overlayReady) return;
-   
-     // You must pass this from Flask as a template variable.
-     // Example value: "marlins.svg"
+
       const stadiumFile = "{{ stadium_svg|default('generic.svg') }}";
       const url = `/static/stadium_svgs/${stadiumFile}`;
-   
+
       const res = await fetch(url, { cache: "force-cache" });
       if(!res.ok) throw new Error(`stadium svg fetch failed: ${res.status}`);
-   
+
       const svgText = await res.text();
       const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
       const innerSvg = doc.querySelector("svg");
       if(!innerSvg) throw new Error("stadium svg missing <svg>");
-   
-     // adopt viewBox so our plotting coords match the stadium coords
+
+      // adopt viewBox so our plotting coords match the stadium coords
       const vb = innerSvg.getAttribute("viewBox") || "0 0 250 250";
       spraySvg.setAttribute("viewBox", vb);
-   
-     // Extract vb height so we can flip Y around the bottom edge
+
+      // Extract vb height so we can flip Y around the bottom edge
       const parts = vb.split(/\s+/).map(Number);
       const vbMinX = parts[0] || 0;
       const vbMinY = parts[1] || 0;
       const vbW = parts[2] || 250;
       const vbH = parts[3] || 250;
-   
-     // Clear + insert stadium paths into overlay group
+
+      // Clear + insert stadium paths into overlay group
       while(sprayOverlayG.firstChild) sprayOverlayG.removeChild(sprayOverlayG.firstChild);
-   
-     // Copy all children of the stadium SVG into our overlay group
+
+      // Copy all children of the stadium SVG into our overlay group
       const kids = Array.from(innerSvg.childNodes);
       for(const k of kids){
         sprayOverlayG.appendChild(document.importNode(k, true));
       }
 
-     // Flip the *entire world* so stadium is upright AND points match it
-     // If your stadiums were exported upside down, this corrects them.
-     // Uses vbMinY/vbH so it flips around the viewBox.
+      // Flip the *entire world* so stadium is upright AND points match it
       sprayWorld.setAttribute("transform", `translate(0 ${vbMinY + vbH}) scale(1 -1)`);
-   
+
       overlayReady = true;
     }
-     
+
+    // Minimal Statcast -> simple field transform.
+    // If you already have a better one elsewhere, keep yours; this just avoids a ReferenceError.
+    function statcastToField(hc_x, hc_y){
+      // Typical Statcast scale is around 0..250.
+      // Center x around 125, and push y "up" by subtracting from 250-ish.
+      const x = (hc_x - 125) * 2.0;
+      const y = -(hc_y - 250) * 2.0;
+      return { x, y };
+    }
+
     function renderSpray(){
-      if(!sprayPointsG) return 
+      if(!sprayPointsG) return;
       if(!sprayCache || !Array.isArray(sprayCache.points)) return;
 
       const hitsOnly = sprayHitsOnly && sprayHitsOnly.checked;
@@ -1154,7 +1166,6 @@
       // Clear
       while(sprayPointsG.firstChild) sprayPointsG.removeChild(sprayPointsG.firstChild);
 
-      // Filter + draw
       for(const p of sprayCache.points){
         const isHit = !!p.is_hit;
         const isOut = !isHit;
@@ -1168,11 +1179,9 @@
         if(fx === null || fx === undefined || fy === null || fy === undefined) continue;
 
         const { x, y } = statcastToField(Number(fx), Number(fy));
-
-        // SVG y-axis is down; outfield should go up => invert y
         const sx = Number(x);
         const sy = Number(y);
-         if(!isFinite(sx) || !isFinite(sy)) continue;
+        if(!isFinite(sx) || !isFinite(sy)) continue;
 
         const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         c.setAttribute("cx", sx.toFixed(2));
@@ -1208,7 +1217,6 @@
 
     function startSprayAuto(){
       stopSprayAuto();
-      // refresh every 30s while the tab is open
       sprayTimer = setInterval(() => {
         const active = sprayPanel && sprayPanel.classList.contains("active");
         if(active) loadSpray();
@@ -1230,15 +1238,19 @@
 
     // when switching tabs, lazily load spray only when opened
     btns.forEach(b => b.addEventListener("click", () => {
-      if(b.dataset.tab === "tab-scouting"){
+      if(b.dataset.tab === "tab-spray"){
         loadSpray();
         startSprayAuto();
       }else{
-        // keep timer running only if spray tab is active
         stopSprayAuto();
       }
     }));
 
+    // if the spray tab starts active for any reason, load it
+    if (sprayPanel && sprayPanel.classList.contains("active")) {
+      loadSpray();
+      startSprayAuto();
+    }
   })();
 </script>
 
