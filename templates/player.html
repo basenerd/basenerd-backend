@@ -333,7 +333,7 @@
   }
 
   /* ==========================
-     Spray Chart (Hits only; stadium overlay)
+     Spray Chart (Hits only)
      ========================== */
   .spray-controls{
     display:flex;
@@ -374,7 +374,7 @@
     width:100%;
     height:auto;
     display:block;
-    background:#ffffff; /* no green hue */
+    background:#ffffff;
   }
   .spray-note{ margin-top:10px; font-size:11px; color: var(--muted); }
 </style>
@@ -443,7 +443,7 @@
 </div>
 
 <!-- =======================
-     Season Snapshot
+     Season Snapshot (from year-by-year source)
      ======================= -->
 <div class="card">
   <div class="card-header">
@@ -881,7 +881,7 @@
 </div>
 
 <!-- =======================
-     Scouting Report + Spray (Hits only; stadium overlay)
+     Scouting Report + Spray
      ======================= -->
 <div id="tab-scouting" class="tab-panel">
   <div class="card">
@@ -955,7 +955,7 @@
           {% endif %}
         </div>
 
-        <!-- RIGHT: Spray (Hits only; stadium overlay) -->
+        <!-- RIGHT: Spray -->
         <div>
           <div class="subcard-title" style="margin:0 0 8px 0;">Spray Chart (Hits)</div>
 
@@ -976,7 +976,6 @@
             <svg id="spraySvg" class="spray-svg" xmlns="http://www.w3.org/2000/svg" aria-label="Spray chart stadium">
               <g id="sprayWorld">
                 <g id="sprayOverlay"></g>
-                <g id="sprayDebug" style="display:none;"></g>
                 <g id="sprayPoints"></g>
               </g>
             </svg>
@@ -991,8 +990,7 @@
           </div>
 
           <div class="spray-note">
-            Stadium SVG: {{ stadium_svg|default('generic.svg') }}. Hits only on player pages.
-            Tip: add <span class="mono">?spraydebug=1</span> to the URL to show a coordinate grid + anchors.
+            MLBAM-style coords scaled into stadium viewBox. Home plate baseline ≈ (125, 199). Stadium SVG: {{ stadium_svg|default('generic.svg') }}.
           </div>
         </div>
 
@@ -1027,34 +1025,39 @@
   });
 
   // -------------------------
-  // Spray Chart (Hits only; stadium overlay)
+  // Spray Chart (Hits only)
   // -------------------------
   const sprayPanel = document.getElementById("tab-scouting");
   const spraySvg = document.getElementById("spraySvg");
   const sprayWorld = document.getElementById("sprayWorld");
   const sprayOverlayG = document.getElementById("sprayOverlay");
-  const sprayDebugG = document.getElementById("sprayDebug");
   const sprayPointsG = document.getElementById("sprayPoints");
   const spraySeasonSel = document.getElementById("spraySeason");
   const sprayRefreshBtn = document.getElementById("sprayRefreshBtn");
-
-  const debugMode = (() => {
-    try{
-      return new URLSearchParams(window.location.search).has("spraydebug");
-    }catch(e){
-      return false;
-    }
-  })();
 
   let sprayCache = null;
   let sprayTimer = null;
   let overlayReady = false;
 
-  // viewBox info for plotting
+  // Stadium viewBox info
   let sprayVB = { minX: 0, minY: 0, w: 250, h: 250 };
 
-  // mapping from MLBAM-ish coords (hc_x/hc_y) -> stadium SVG viewBox coords
-  let sprayMap = { s: 1, tx: 0, ty: 0 };
+  // ---- TUNING KNOBS (small!) ----
+  // Makes the cloud match Savant a touch better.
+  // If you want "more up": make NUDGE_Y more negative.
+  // If you want "more spread": bump EXTRA_SPREAD slightly (1.00–1.08 is sane).
+  const BASE_W = 250;
+  const BASE_H = 250;
+  const PLATE = { x: 125, y: 199 };
+  const EXTRA_SPREAD = 1.045;  // tiny outward spread around home plate
+  const NUDGE_X = 0;           // px in stadium viewBox space
+  const NUDGE_Y = -10;         // px in stadium viewBox space (negative = up)
+  const SHOW_DEBUG = false;    // turn on if you want anchor dots
+
+  function clearNode(n){
+    if(!n) return;
+    while(n.firstChild) n.removeChild(n.firstChild);
+  }
 
   function sprayColorFor(ev){
     const e = (ev || "").toLowerCase();
@@ -1065,37 +1068,29 @@
     return "#f59e0b";
   }
 
-  function clearNode(node){
-    if(!node) return;
-    while(node.firstChild) node.removeChild(node.firstChild);
+  function drawAnchor(x, y, color, label){
+    if(!sprayPointsG) return;
+    const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx", x);
+    c.setAttribute("cy", y);
+    c.setAttribute("r", "5");
+    c.setAttribute("fill", color);
+    const t = document.createElementNS("http://www.w3.org/2000/svg","title");
+    t.textContent = label;
+    c.appendChild(t);
+    sprayPointsG.appendChild(c);
   }
 
-  function computeSprayMap(){
-    const w = sprayVB.w;
-    const h = sprayVB.h;
+  function drawDebugAnchors(scaleX, scaleY){
+    // plate in stadium space (scaled into viewBox units)
+    const plateX = sprayVB.minX + PLATE.x * scaleX;
+    const plateY = sprayVB.minY + PLATE.y * scaleY;
 
-    // scale MLBAM-ish (0..250) into the stadium's viewBox width
-    const s = w / 250;
-
-    // Based on what we observed: in these SVGs, home plate is roughly centered and near the bottom.
-    // 480/560 ≈ 0.857 (your screenshot). Keep it constant for consistent "field orientation".
-    const targetX = sprayVB.minX + (w / 2);
-    const targetY = sprayVB.minY + (h * 0.857);
-
-    // “Home plate” in MLBAM-like coords (what you provided)
-    const plateX = 125;
-    const plateY = 199;
-
-    const tx = targetX - (s * plateX);
-    const ty = targetY - (s * plateY);
-
-    sprayMap = { s, tx, ty };
-
-    // Helpful logs when debugging
-    if(debugMode){
-      console.log("sprayVB:", sprayVB);
-      console.log("sprayMap:", sprayMap);
-    }
+    drawAnchor(plateX, plateY, "#ef4444", "HOME (125,199) scaled");
+    drawAnchor(sprayVB.minX, sprayVB.minY, "#111827", "(minX,minY)");
+    drawAnchor(sprayVB.minX + sprayVB.w, sprayVB.minY, "#3b82f6", "(minX+w,minY)");
+    drawAnchor(sprayVB.minX, sprayVB.minY + sprayVB.h, "#22c55e", "(minX,minY+h)");
+    drawAnchor(sprayVB.minX + sprayVB.w, sprayVB.minY + sprayVB.h, "#a855f7", "(minX+w,minY+h)");
   }
 
   async function loadStadiumOverlay(){
@@ -1119,114 +1114,50 @@
 
     const parts = vb.trim().split(/\s+/).map(Number);
     sprayVB = {
-      minX: parts[0] || 0,
-      minY: parts[1] || 0,
-      w: parts[2] || 250,
-      h: parts[3] || 250
+      minX: Number.isFinite(parts[0]) ? parts[0] : 0,
+      minY: Number.isFinite(parts[1]) ? parts[1] : 0,
+      w:    Number.isFinite(parts[2]) ? parts[2] : 250,
+      h:    Number.isFinite(parts[3]) ? parts[3] : 250
     };
 
-    // Clear overlay + insert stadium SVG children as-is (NO flipping here)
-    // Clear overlay + insert stadium SVG children
-   clearNode(sprayOverlayG);
-   
-   const overlayInner = document.createElementNS("http://www.w3.org/2000/svg", "g");
-   overlayInner.setAttribute("id", "sprayOverlayInner");
-   sprayOverlayG.appendChild(overlayInner);
-   
-   const kids = Array.from(innerSvg.childNodes);
-   for (const k of kids) {
-     overlayInner.appendChild(document.importNode(k, true));
-   }
-   
-   // ✅ Flip ONLY the overlay so the stadium isn't upside down.
-   // ✅ Do NOT flip sprayWorld, and do NOT flip points.
-   overlayInner.setAttribute(
-     "transform",
-     `translate(0 ${sprayVB.minY + sprayVB.h}) scale(1 -1)`
-   );
-   
-   if (sprayWorld) sprayWorld.removeAttribute("transform");
+    // Clear + insert stadium into overlay group
+    clearNode(sprayOverlayG);
 
-    // Compute mapping after we know the stadium viewBox
-    computeSprayMap();
+    const overlayInner = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    overlayInner.setAttribute("id", "sprayOverlayInner");
+    sprayOverlayG.appendChild(overlayInner);
+
+    const kids = Array.from(innerSvg.childNodes);
+    for(const k of kids){
+      overlayInner.appendChild(document.importNode(k, true));
+    }
+
+    // ✅ Flip ONLY the stadium drawing so it isn't upside down.
+    // Points are drawn in normal viewBox space and do NOT get flipped.
+    overlayInner.setAttribute(
+      "transform",
+      `translate(0 ${sprayVB.minY + sprayVB.h}) scale(1 -1)`
+    );
+
+    // Ensure we are NOT flipping the world
+    if(sprayWorld) sprayWorld.removeAttribute("transform");
 
     overlayReady = true;
   }
 
-  // ---------- Debug grid ----------
-  function drawLine(g, x1, y1, x2, y2, stroke, width, dash){
-    const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    l.setAttribute("x1", x1);
-    l.setAttribute("y1", y1);
-    l.setAttribute("x2", x2);
-    l.setAttribute("y2", y2);
-    l.setAttribute("stroke", stroke);
-    l.setAttribute("stroke-width", String(width || 1));
-    if(dash) l.setAttribute("stroke-dasharray", dash);
-    l.setAttribute("opacity", "0.55");
-    g.appendChild(l);
-  }
+  function mapPointToStadium(sx, sy, scaleX, scaleY){
+    // Convert Statcast-ish (0..250) -> stadium viewBox units
+    // Then apply a tiny outward expansion around home plate (Savant-like)
+    const plateX = PLATE.x;
+    const plateY = PLATE.y;
 
-  function drawText(g, x, y, txt){
-    const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    t.setAttribute("x", x);
-    t.setAttribute("y", y);
-    t.setAttribute("font-size", "10");
-    t.setAttribute("font-family", "ui-monospace, Menlo, Monaco, monospace");
-    t.setAttribute("fill", "rgba(15,23,42,.75)");
-    t.textContent = txt;
-    g.appendChild(t);
-  }
+    const dx = (sx - plateX) * scaleX;
+    const dy = (sy - plateY) * scaleY;
 
-  function drawDot(g, x, y, color, label){
-    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    c.setAttribute("cx", x);
-    c.setAttribute("cy", y);
-    c.setAttribute("r", "4.5");
-    c.setAttribute("fill", color);
-    c.setAttribute("stroke", "rgba(15,23,42,.35)");
-    c.setAttribute("stroke-width", "1");
+    const x = sprayVB.minX + (plateX * scaleX) + (dx * EXTRA_SPREAD) + NUDGE_X;
+    const y = sprayVB.minY + (plateY * scaleY) + (dy * EXTRA_SPREAD) + NUDGE_Y;
 
-    const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-    title.textContent = label;
-    c.appendChild(title);
-
-    g.appendChild(c);
-    drawText(g, x + 6, y - 6, label);
-  }
-
-  function drawDebugGrid(){
-    if(!sprayDebugG) return;
-    sprayDebugG.style.display = "block";
-    clearNode(sprayDebugG);
-
-    const minX = sprayVB.minX;
-    const minY = sprayVB.minY;
-    const maxX = sprayVB.minX + sprayVB.w;
-    const maxY = sprayVB.minY + sprayVB.h;
-
-    const step = Math.max(25, Math.round(sprayVB.w / 20)); // adaptive
-
-    for(let x = Math.ceil(minX/step)*step; x <= maxX; x += step){
-      drawLine(sprayDebugG, x, minY, x, maxY, "rgba(15,23,42,.18)", 1, x % (step*2) === 0 ? null : "3,3");
-      if(x % (step*2) === 0) drawText(sprayDebugG, x + 2, minY + 12, String(Math.round(x)));
-    }
-
-    for(let y = Math.ceil(minY/step)*step; y <= maxY; y += step){
-      drawLine(sprayDebugG, minX, y, maxX, y, "rgba(15,23,42,.18)", 1, y % (step*2) === 0 ? null : "3,3");
-      if(y % (step*2) === 0) drawText(sprayDebugG, minX + 2, y - 2, String(Math.round(y)));
-    }
-
-    // corners of viewBox
-    drawDot(sprayDebugG, minX, minY, "#111827", "(minX,minY)");
-    drawDot(sprayDebugG, maxX, minY, "#3b82f6", "(maxX,minY)");
-    drawDot(sprayDebugG, minX, maxY, "#22c55e", "(minX,maxY)");
-    drawDot(sprayDebugG, maxX, maxY, "#a855f7", "(maxX,maxY)");
-
-    // home plate in mapped coords
-    const hx = sprayMap.tx + sprayMap.s * 125;
-    const hy = sprayMap.ty + sprayMap.s * 199;
-    drawDot(sprayDebugG, hx, hy, "#ef4444", "HOME (125,199) mapped");
+    return { x, y };
   }
 
   function renderSpray(){
@@ -1234,6 +1165,14 @@
     if(!sprayCache || !Array.isArray(sprayCache.points)) return;
 
     clearNode(sprayPointsG);
+
+    // stadium scaling factors (viewBox could be 550×550, etc.)
+    const scaleX = sprayVB.w / BASE_W;
+    const scaleY = sprayVB.h / BASE_H;
+
+    if(SHOW_DEBUG){
+      drawDebugAnchors(scaleX, scaleY);
+    }
 
     for(const p of sprayCache.points){
       if(!p || !p.is_hit) continue;
@@ -1246,11 +1185,7 @@
       const sy = Number(fy);
       if(!isFinite(sx) || !isFinite(sy)) continue;
 
-      // Map MLBAM-ish coords into the stadium SVG viewBox space (affine transform)
-      const x = sprayMap.tx + (sprayMap.s * sx);
-      const y = sprayMap.ty + (sprayMap.s * sy);
-
-      if(!isFinite(x) || !isFinite(y)) continue;
+      const { x, y } = mapPointToStadium(sx, sy, scaleX, scaleY);
 
       const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       c.setAttribute("cx", x.toFixed(2));
@@ -1262,7 +1197,7 @@
       c.setAttribute("stroke-width", "0.6");
 
       const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-      title.textContent = `${p.event || "hit"}${p.inning ? " • inn " + p.inning : ""} • (${sx},${sy})`;
+      title.textContent = `${p.event || "hit"}${p.inning ? " • inn " + p.inning : ""} • (${sx.toFixed(1)}, ${sy.toFixed(1)})`;
       c.appendChild(title);
 
       sprayPointsG.appendChild(c);
@@ -1279,13 +1214,6 @@
       sprayCache = await res.json();
 
       await loadStadiumOverlay();
-
-      // recompute in case viewBox changed or future parks differ
-      computeSprayMap();
-
-      if(debugMode) drawDebugGrid();
-      else if(sprayDebugG) sprayDebugG.style.display = "none";
-
       renderSpray();
     }catch(err){
       console.error(err);
@@ -1320,7 +1248,6 @@
     }
   }));
 
-  // If page loads already on scouting (rare), load it
   if(sprayPanel && sprayPanel.classList.contains("active")){
     loadSpray();
     startSprayAuto();
