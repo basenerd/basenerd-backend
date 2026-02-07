@@ -1122,7 +1122,7 @@
       // Plot directly in MLBAM stadium coordinate system:
       // home plate ~ (125, 199), y increases downward.
       const x = sprayVB.minX + sx;
-      const y = sprayVB.minY + (sprayVB.h - sy);
+      const y = sprayVB.minY + sy;
 
       const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       c.setAttribute("cx", x.toFixed(2));
