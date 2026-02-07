@@ -1101,7 +1101,27 @@
    if(sprayWorld) sprayWorld.removeAttribute("transform");
        overlayReady = true;
      }
-
+   function drawAnchor(x, y, color, label){
+     const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+     c.setAttribute("cx", x);
+     c.setAttribute("cy", y);
+     c.setAttribute("r", "5");
+     c.setAttribute("fill", color);
+     const t = document.createElementNS("http://www.w3.org/2000/svg","title");
+     t.textContent = label;
+     c.appendChild(t);
+     sprayPointsG.appendChild(c);
+   }
+   
+   function drawDebugAnchors(){
+     const plateX = 125, plateY = 199;
+   
+     drawAnchor(plateX, plateY, "#ef4444", "HOME (125,199)");
+     drawAnchor(0, 0, "#111827", "(0,0)");
+     drawAnchor(sprayVB.w, 0, "#3b82f6", "(w,0)");
+     drawAnchor(0, sprayVB.h, "#22c55e", "(0,h)");
+     drawAnchor(sprayVB.w, sprayVB.h, "#a855f7", "(w,h)");
+   }
   function renderSpray(){
     if(!sprayPointsG) return;
     if(!sprayCache || !Array.isArray(sprayCache.points)) return;
