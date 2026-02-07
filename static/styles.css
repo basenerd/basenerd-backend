@@ -1370,3 +1370,10 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   opacity:.85;
   line-height:1.3;
 }
+
+/* Game page only – flip the field overlay, not the dots */
+.game-container .spray-chart svg .spray-bg {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scaleY(-1);
+}
