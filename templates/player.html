@@ -1078,19 +1078,29 @@
       h: parts[3] || 250
     };
 
-    while(sprayOverlayG.firstChild) sprayOverlayG.removeChild(sprayOverlayG.firstChild);
-
-    // Import overlay as-authored (NO flipping)
-    const kids = Array.from(innerSvg.childNodes);
-    for(const k of kids){
-      sprayOverlayG.appendChild(document.importNode(k, true));
-    }
-
-    // Ensure NO world transform (SVG y-axis points down; that matches MLBAM hc_y)
-    if(sprayWorld) sprayWorld.removeAttribute("transform");
-
-    overlayReady = true;
-  }
+    // Clear + insert stadium into a wrapper group we can transform
+   while(sprayOverlayG.firstChild) sprayOverlayG.removeChild(sprayOverlayG.firstChild);
+   
+   const overlayInner = document.createElementNS("http://www.w3.org/2000/svg", "g");
+   overlayInner.setAttribute("id", "sprayOverlayInner");
+   sprayOverlayG.appendChild(overlayInner);
+   
+   // Copy all children from the stadium SVG into overlayInner
+   const kids = Array.from(innerSvg.childNodes);
+   for(const k of kids){
+     overlayInner.appendChild(document.importNode(k, true));
+   }
+   
+   // Flip overlay vertically around the stadium viewBox (ONLY overlay)
+   overlayInner.setAttribute(
+     "transform",
+     `translate(0 ${sprayVB.minY + sprayVB.h}) scale(1 -1)`
+   );
+   
+   // IMPORTANT: do NOT flip the world
+   if(sprayWorld) sprayWorld.removeAttribute("transform");
+       overlayReady = true;
+     }
 
   function renderSpray(){
     if(!sprayPointsG) return;
@@ -1112,7 +1122,7 @@
       // Plot directly in MLBAM stadium coordinate system:
       // home plate ~ (125, 199), y increases downward.
       const x = sprayVB.minX + sx;
-      const y = sprayVB.minY + sy;
+      const y = sprayVB.minY + (sprayVB.h - sy);
 
       const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       c.setAttribute("cx", x.toFixed(2));
