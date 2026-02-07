@@ -1126,19 +1126,26 @@
     };
 
     // Clear overlay + insert stadium SVG children as-is (NO flipping here)
-    clearNode(sprayOverlayG);
-
-    const overlayInner = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    overlayInner.setAttribute("id", "sprayOverlayInner");
-    sprayOverlayG.appendChild(overlayInner);
-
-    const kids = Array.from(innerSvg.childNodes);
-    for(const k of kids){
-      overlayInner.appendChild(document.importNode(k, true));
-    }
-
-    // Keep world untransformed; we want a single consistent coordinate space
-    if(sprayWorld) sprayWorld.removeAttribute("transform");
+    // Clear overlay + insert stadium SVG children
+   clearNode(sprayOverlayG);
+   
+   const overlayInner = document.createElementNS("http://www.w3.org/2000/svg", "g");
+   overlayInner.setAttribute("id", "sprayOverlayInner");
+   sprayOverlayG.appendChild(overlayInner);
+   
+   const kids = Array.from(innerSvg.childNodes);
+   for (const k of kids) {
+     overlayInner.appendChild(document.importNode(k, true));
+   }
+   
+   // ✅ Flip ONLY the overlay so the stadium isn't upside down.
+   // ✅ Do NOT flip sprayWorld, and do NOT flip points.
+   overlayInner.setAttribute(
+     "transform",
+     `translate(0 ${sprayVB.minY + sprayVB.h}) scale(1 -1)`
+   );
+   
+   if (sprayWorld) sprayWorld.removeAttribute("transform");
 
     // Compute mapping after we know the stadium viewBox
     computeSprayMap();
