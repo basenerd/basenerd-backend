@@ -37,6 +37,9 @@ from services.mlb_api import (
     get_teams,
     get_team,
     get_40man_roster_grouped,
+    get_40man_directory, 
+    filter_40man_by_letter, 
+    suggest_40man_players,
     )
 
 from services.articles import load_articles, get_article
@@ -1214,10 +1217,48 @@ def team_transactions_json(team_id):
 
 @app.get("/players")
 def players():
-    q = request.args.get("q", "").strip()
-    results = search_players(q) if q else []
-    return render_template("players.html", q=q, results=results)
+    season = datetime.now().year
 
+    letter = (request.args.get("letter") or "A").upper()
+    letters = [chr(c) for c in range(ord("A"), ord("Z")+1)] + ["#"]
+    if letter not in letters:
+        letter = "A"
+
+    q = (request.args.get("q") or "").strip()
+
+    if q:
+        matches = suggest_40man_players(q, season=season, limit=200)
+        directory = get_40man_directory(season=season)
+        by_id = {p["id"]: p for p in directory}
+        players = [by_id.get(m["id"]) for m in matches if by_id.get(m["id"])]
+    else:
+        players = filter_40man_by_letter(letter, season=season)
+
+    alpha = [chr(c) for c in range(ord("A"), ord("Z")+1)]
+    if letter == "#":
+        prev_letter = "Z"
+        next_letter = "A"
+    else:
+        i = alpha.index(letter)
+        prev_letter = alpha[i-1] if i > 0 else "Z"
+        next_letter = alpha[i+1] if i < len(alpha)-1 else "A"
+
+    return render_template(
+        "players.html",
+        q=q,
+        letter=letter,
+        letters=letters,
+        prev_letter=prev_letter,
+        next_letter=next_letter,
+        players=players,
+    )
+    
+@app.get("/players/suggest")
+def players_suggest():
+    season = datetime.now().year
+    q = (request.args.get("q") or "").strip()
+    return jsonify(suggest_40man_players(q, season=season, limit=10))
+    
 from datetime import datetime
 from services.mlb_api import (
     get_player,
