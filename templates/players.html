@@ -6,7 +6,7 @@
   <div class="card-header">
     <div>
       <div class="card-title">Players</div>
-      <div class="card-subtitle">Active 40-man roster (all teams)</div>
+      <div class="card-subtitle">All players currently on a 40-man roster</div>
     </div>
   </div>
 
@@ -18,7 +18,7 @@
         id="playerSearch"
         type="text"
         value="{{ q or '' }}"
-        placeholder="Search players (try partials or misspellings)…"
+        placeholder="Search players"
         autocomplete="off"
         style="width:100%;"
       />
@@ -26,9 +26,6 @@
         <div class="card-body" style="padding:6px;">
           <div id="suggestList" style="display:flex; flex-direction:column; gap:4px;"></div>
         </div>
-      </div>
-      <div class="mono" style="font-size:12px; opacity:.8; margin-top:6px;">
-        Tip: use ↑/↓ then Enter, or click a suggestion to jump to the player page.
       </div>
     </div>
 
@@ -51,12 +48,10 @@
       <a class="pill mono" style="text-decoration:none; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18);"
          href="{{ url_for('players', letter=prev_letter) }}">← Prev</a>
 
-      <div class="mono" style="opacity:.85;">Showing last names starting with <b>{{ letter }}</b></div>
-
       <a class="pill mono" style="text-decoration:none; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18);"
          href="{{ url_for('players', letter=next_letter) }}">Next →</a>
     </div>
-
+    <div class="mono" style="opacity:.85;"><b>{{ letter }}</b></div>
     {% if q %}
       <div class="mono" style="margin:10px 0; opacity:.85;">
         Search: <b>{{ q }}</b> — showing matches in the active 40-man pool.
