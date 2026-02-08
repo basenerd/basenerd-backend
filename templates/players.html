@@ -2,24 +2,200 @@
 {% from "_links.html" import player_link %}
 
 {% block content %}
-<h1>Players</h1>
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Players</div>
+      <div class="card-subtitle">Active 40-man roster (all teams)</div>
+    </div>
+  </div>
 
-<form method="get" action="{{ url_for('players') }}" style="margin-bottom: 16px;">
-  <input type="text" name="q" value="{{ q }}" placeholder="Search players (e.g., Juan Soto)" />
-  <button type="submit">Search</button>
-</form>
+  <div class="card-body">
 
-{% if q and results %}
-  <ul>
-    {% for p in results %}
-      <li>
-        {{ player_link(p.id, p.fullName) }}
-        {% if p.primaryPosition %} — {{ p.primaryPosition.name }}{% endif %}
-        {% if p.currentTeam %} — {{ p.currentTeam.name }}{% endif %}
-      </li>
-    {% endfor %}
-  </ul>
-{% elif q %}
-  <p>No results for "{{ q }}".</p>
-{% endif %}
+    <!-- Search (with suggestions) -->
+    <div style="position:relative; max-width:520px; margin-bottom:12px;">
+      <input
+        id="playerSearch"
+        type="text"
+        value="{{ q or '' }}"
+        placeholder="Search players (try partials or misspellings)…"
+        autocomplete="off"
+        style="width:100%;"
+      />
+      <div id="suggestBox" class="card" style="display:none; position:absolute; left:0; right:0; top:100%; margin-top:6px; z-index:20;">
+        <div class="card-body" style="padding:6px;">
+          <div id="suggestList" style="display:flex; flex-direction:column; gap:4px;"></div>
+        </div>
+      </div>
+      <div class="mono" style="font-size:12px; opacity:.8; margin-top:6px;">
+        Tip: use ↑/↓ then Enter, or click a suggestion to jump to the player page.
+      </div>
+    </div>
+
+    <!-- A–Z Tabs -->
+    <div style="display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 12px;">
+      {% for ch in letters %}
+        {% set active = (ch == letter) %}
+        <a href="{{ url_for('players', letter=ch) }}"
+           class="pill mono"
+           style="text-decoration:none; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18);
+                  background: {{ 'rgba(255,255,255,.12)' if active else 'transparent' }};
+                  opacity: {{ '1' if active else '.85' }};">
+          {{ ch }}
+        </a>
+      {% endfor %}
+    </div>
+
+    <!-- Prev / Next -->
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+      <a class="pill mono" style="text-decoration:none; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18);"
+         href="{{ url_for('players', letter=prev_letter) }}">← Prev</a>
+
+      <div class="mono" style="opacity:.85;">Showing last names starting with <b>{{ letter }}</b></div>
+
+      <a class="pill mono" style="text-decoration:none; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18);"
+         href="{{ url_for('players', letter=next_letter) }}">Next →</a>
+    </div>
+
+    {% if q %}
+      <div class="mono" style="margin:10px 0; opacity:.85;">
+        Search: <b>{{ q }}</b> — showing matches in the active 40-man pool.
+      </div>
+    {% endif %}
+
+    <!-- List -->
+    <div class="card" style="border:1px solid rgba(255,255,255,.15); border-radius:12px;">
+      <div class="card-body" style="padding:10px;">
+        {% if players and players|length %}
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            {% for p in players %}
+              <div style="display:flex; gap:10px; align-items:center; padding:6px 8px; border-radius:10px; border:1px solid rgba(255,255,255,.08);">
+                <div style="min-width:0;">
+                  <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    {{ player_link(p.id, p.fullName) }}
+                    <span class="mono" style="opacity:.75;"> • {{ p.pos }} • {{ p.team }}</span>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="mono" style="opacity:.8;">No players found.</div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(() => {
+  const input = document.getElementById("playerSearch");
+  const box = document.getElementById("suggestBox");
+  const list = document.getElementById("suggestList");
+
+  let activeIndex = -1;
+  let activeItems = [];
+  let lastQ = "";
+  let t = null;
+
+  function hide() {
+    box.style.display = "none";
+    list.innerHTML = "";
+    activeIndex = -1;
+    activeItems = [];
+  }
+
+  function show() {
+    box.style.display = "block";
+  }
+
+  function escapeHtml(s) {
+    return (s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function render(items) {
+    activeItems = items || [];
+    activeIndex = -1;
+    list.innerHTML = "";
+
+    if (!activeItems.length) { hide(); return; }
+
+    activeItems.forEach((it, idx) => {
+      const a = document.createElement("a");
+      a.href = it.url;
+      a.style.textDecoration = "none";
+      a.style.padding = "8px 10px";
+      a.style.borderRadius = "10px";
+      a.style.border = "1px solid rgba(255,255,255,.10)";
+      a.style.display = "block";
+      a.innerHTML = `<span>${escapeHtml(it.label)}</span>`;
+      a.addEventListener("mouseenter", () => {
+        activeIndex = idx;
+        highlight();
+      });
+      list.appendChild(a);
+    });
+
+    show();
+    highlight();
+  }
+
+  function highlight() {
+    const children = Array.from(list.children);
+    children.forEach((el, i) => {
+      el.style.background = (i === activeIndex) ? "rgba(255,255,255,.10)" : "transparent";
+    });
+  }
+
+  async function fetchSuggest(q) {
+    const res = await fetch(`/players/suggest?q=${encodeURIComponent(q)}`, { headers: { "Accept": "application/json" }});
+    if (!res.ok) return [];
+    return await res.json();
+  }
+
+  function debounceFetch() {
+    const q = (input.value || "").trim();
+    if (!q) { hide(); return; }
+    if (q === lastQ) return;
+
+    if (t) clearTimeout(t);
+    t = setTimeout(async () => {
+      lastQ = q;
+      const items = await fetchSuggest(q);
+      render(items);
+    }, 120);
+  }
+
+  input.addEventListener("input", debounceFetch);
+
+  input.addEventListener("keydown", (e) => {
+    if (box.style.display === "none") return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      activeIndex = Math.min(activeIndex + 1, activeItems.length - 1);
+      highlight();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      activeIndex = Math.max(activeIndex - 1, 0);
+      highlight();
+    } else if (e.key === "Enter") {
+      if (activeIndex >= 0 && activeItems[activeIndex]) {
+        e.preventDefault();
+        window.location.href = activeItems[activeIndex].url;
+      } else {
+        const q = (input.value || "").trim();
+        if (q) window.location.href = `/players?letter={{ letter }}&q=${encodeURIComponent(q)}`;
+      }
+    } else if (e.key === "Escape") {
+      hide();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!box.contains(e.target) && e.target !== input) hide();
+  });
+})();
+</script>
 {% endblock %}
