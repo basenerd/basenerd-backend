@@ -7,7 +7,8 @@ import random
 import bisect
 from datetime import datetime, date, timedelta
 from typing import Any, Dict, Optional, List, Tuple
-
+import unicodedata
+import difflib
 import requests
 
 BASE = "https://statsapi.mlb.com/api/v1"
@@ -18,7 +19,180 @@ MLB_API_BASE = BASE  # for older helpers that reference MLB_API_BASE
 # ----------------------------
 _cache: Dict[str, Dict[str, Any]] = {}
 CACHE_TTL_SECONDS = 60 * 5  # 5 minutes
+# ----------------------------
+# 40-man directory (All teams)
+# ----------------------------
 
+FORTYMAN_TTL_SECONDS = 60 * 60 * 24  # 24 hours
+
+def _norm_txt(s: str) -> str:
+    """
+    Normalize for loose matching:
+    - strip accents/diacritics
+    - lowercase
+    - remove punctuation
+    - collapse whitespace
+    """
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = s.lower()
+    # keep letters/numbers/spaces
+    s = "".join(ch if (ch.isalnum() or ch.isspace()) else " " for ch in s)
+    s = " ".join(s.split())
+    return s
+
+def get_40man_directory(season: int = None) -> List[dict]:
+    """
+    Returns a sorted list of 40-man players across all MLB teams.
+    Each item: {id, fullName, firstName, lastName, pos, team}
+    Cached for 24 hours.
+    """
+    if season is None:
+        season = datetime.now().year
+
+    cache_key = f"40man_directory:{season}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    teams_data = get_teams(season) or {}
+    teams = (teams_data.get("teams") or [])
+
+    # teamId -> abbreviation (e.g., 146 -> MIA)
+    team_abbrev = {}
+    for t in teams:
+        tid = t.get("id")
+        ab = t.get("abbreviation") or t.get("abbrev")
+        if tid and ab:
+            team_abbrev[int(tid)] = ab
+
+    out: List[dict] = []
+    seen_ids = set()
+
+    for tid, ab in team_abbrev.items():
+        url = f"{BASE}/teams/{tid}/roster/40Man"
+        params = {
+            "hydrate": "person",
+            "fields": "roster,person,id,fullName,firstName,lastName,position,abbreviation"
+        }
+        r = requests.get(url, params=params, timeout=25)
+        r.raise_for_status()
+        roster = (r.json() or {}).get("roster", []) or []
+
+        for row in roster:
+            person = (row.get("person") or {})
+            pid = person.get("id")
+            if not pid:
+                continue
+            pid = int(pid)
+            if pid in seen_ids:
+                continue
+            seen_ids.add(pid)
+
+            full = person.get("fullName") or ""
+            first = person.get("firstName") or ""
+            last = person.get("lastName") or ""
+
+            pos_obj = (row.get("position") or {})
+            pos = pos_obj.get("abbreviation") or pos_obj.get("code") or pos_obj.get("name") or ""
+
+            out.append({
+                "id": pid,
+                "fullName": full,
+                "firstName": first,
+                "lastName": last,
+                "pos": pos,
+                "team": ab,
+                "_k": _norm_txt(f"{full} {last} {first} {ab} {pos}"),
+            })
+
+    def _sort_key(p: dict):
+        ln = (p.get("lastName") or "").strip()
+        fn = (p.get("firstName") or "").strip()
+        if not ln:
+            full = (p.get("fullName") or "").strip()
+            ln = full.split()[-1] if full else ""
+        return (_norm_txt(ln), _norm_txt(fn), _norm_txt(p.get("fullName") or ""))
+
+    out.sort(key=_sort_key)
+
+    _set_cached(cache_key, out, ttl=FORTYMAN_TTL_SECONDS)
+    return out
+
+def _fuzzy_score(qn: str, kn: str) -> float:
+    """
+    Score query normalized string vs key normalized string.
+    Combines substring/prefix boosts with similarity ratio (misspellings).
+    """
+    if not qn or not kn:
+        return 0.0
+
+    score = 0.0
+    if kn.startswith(qn):
+        score += 2.2
+    if f" {qn}" in kn:
+        score += 1.6
+    if qn in kn:
+        score += 1.2
+
+    score += difflib.SequenceMatcher(None, qn, kn).ratio()
+    return score
+
+def suggest_40man_players(query: str, season: int = None, limit: int = 10) -> List[dict]:
+    """
+    Returns top matches from the 40-man directory for autocomplete.
+    Each item: {id, label, url}
+    """
+    q = _norm_txt(query or "")
+    if not q:
+        return []
+
+    players = get_40man_directory(season=season)
+    scored = []
+    for p in players:
+        kn = p.get("_k") or ""
+        s = _fuzzy_score(q, kn)
+        if s > 0.55:
+            scored.append((s, p))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top = [p for _, p in scored[:max(1, int(limit))]]
+
+    out = []
+    for p in top:
+        label = f"{p.get('fullName','')} \u2022 {p.get('pos','')} \u2022 {p.get('team','')}"
+        out.append({
+            "id": p["id"],
+            "label": label,
+            "url": f"/player/{p['id']}",
+        })
+    return out
+
+def filter_40man_by_letter(letter: str, season: int = None) -> List[dict]:
+    """
+    Filter directory by starting letter of last name.
+    letter: "A".."Z" or "#"
+    """
+    players = get_40man_directory(season=season)
+    L = (letter or "A").upper()
+
+    def last_initial(p: dict) -> str:
+        ln = (p.get("lastName") or "").strip()
+        if not ln:
+            full = (p.get("fullName") or "").strip()
+            ln = full.split()[-1] if full else ""
+        ln_norm = _norm_txt(ln)
+        ch = (ln_norm[:1] or "")
+        if ch and ch[0].isalpha():
+            return ch[0].upper()
+        return "#"
+
+    if L == "#":
+        return [p for p in players if last_initial(p) == "#"]
+    return [p for p in players if last_initial(p) == L]
+    
 def get_player_role(player: dict) -> str:
     """
     Returns: "pitching" or "hitting" (or "two-way")
