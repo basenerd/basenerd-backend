@@ -41,7 +41,11 @@ from services.mlb_api import (
     filter_40man_by_letter, 
     suggest_40man_players,
     )
-
+from services.pitching_report import (
+    list_pitching_games,
+    pitching_report_summary,
+    pitching_heatmap,
+)
 from services.articles import load_articles, get_article
 from services.articles import get_markdown_page
 from services.postseason import get_postseason_series, build_playoff_bracket
@@ -145,7 +149,45 @@ def player_spray_json(player_id: int):
 
     points = fetch_player_spray(player_id, season, limit=1000)
     return jsonify({"player_id": player_id, "season": season, "points": points})
-    
+@app.get("/player/<int:player_id>/pitching_games.json")
+def player_pitching_games_json(player_id: int):
+    season = request.args.get("season", type=int)
+    if not season:
+        season = datetime.utcnow().year
+    games = list_pitching_games(player_id, season)
+    return jsonify({"ok": True, "player_id": player_id, "season": season, "games": games})
+
+@app.get("/player/<int:player_id>/pitching_report.json")
+def player_pitching_report_json(player_id: int):
+    season = request.args.get("season", type=int)
+    game_pk = request.args.get("game_pk", type=int)
+    if not season:
+        season = datetime.utcnow().year
+    data = pitching_report_summary(player_id, season, game_pk)
+    return jsonify(data)
+
+@app.get("/player/<int:player_id>/pitching_heatmap.json")
+def player_pitching_heatmap_json(player_id: int):
+    season = request.args.get("season", type=int)
+    game_pk = request.args.get("game_pk", type=int)
+    pitch_type = request.args.get("pitch_type", default="", type=str)
+    stand = request.args.get("stand", default="L", type=str)  # "L" or "R"
+    metric = request.args.get("metric", default="density", type=str)
+
+    if not season:
+        season = datetime.utcnow().year
+    if not pitch_type:
+        return jsonify({"ok": False, "reason": "missing_pitch_type"})
+
+    data = pitching_heatmap(
+        pitcher_id=player_id,
+        season=season,
+        pitch_type=pitch_type,
+        stand_lr=stand.upper(),
+        metric=metric.lower(),
+        game_pk=game_pk,
+    )
+    return jsonify(data)    
 @app.get("/random-player")
 def random_player_landing():
     # Just render the page with no player yet
