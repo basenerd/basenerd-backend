@@ -8,21 +8,20 @@ from typing import Any, Dict, List, Optional, Tuple
 import psycopg
 
 
-# --- Fixed zone (keep your existing values) ---
+# --- Fixed zone (matches your previous file constants) ---
 ZONE_TOP = 3.3942716630565757
 ZONE_BOT = 1.594602333802632
 ZONE_LEFT = -0.83
 ZONE_RIGHT = 0.83
 
-# Canvas/grid domain (bigger than zone)
+# Heatmap domain (bigger than zone)
 X_MIN, X_MAX = -2.0, 2.0
 Z_MIN, Z_MAX = 0.0, 5.0
 
 GRID_NX = 70
 GRID_NZ = 70
 
-# “KDE style”: blur histogram with a Gaussian kernel
-GAUSS_SIGMA = 1.7
+GAUSS_SIGMA = 1.7  # smoothing
 
 SWING_DESCRIPTIONS = {
     "swinging_strike",
@@ -75,7 +74,8 @@ def _mean(nums: List[Optional[float]]) -> Optional[float]:
 
 def _stand_lr(stand: Optional[str], p_throws: Optional[str]) -> Optional[str]:
     """
-    Split-only classification. NO coordinate flipping.
+    For batter-handedness filtering only. Does NOT flip coordinates.
+
     If stand == 'S', map based on pitcher handedness:
       RHP => treat as LHH
       LHP => treat as RHH
@@ -131,9 +131,6 @@ def _zeros_grid() -> List[List[float]]:
 
 
 def _hist2d(points: List[Tuple[float, float]]) -> List[List[float]]:
-    """
-    Returns grid shape (NZ rows, NX cols) where row is z-bin, col is x-bin.
-    """
     H = _zeros_grid()
     for x, z in points:
         ix = _bin_index(x, X_MIN, X_MAX, GRID_NX)
@@ -145,7 +142,6 @@ def _hist2d(points: List[Tuple[float, float]]) -> List[List[float]]:
 
 
 def _gaussian_kernel_1d(sigma: float) -> List[float]:
-    # radius ~ 3*sigma (standard)
     r = max(1, int(math.ceil(3.0 * sigma)))
     xs = list(range(-r, r + 1))
     k = [math.exp(-(x * x) / (2.0 * sigma * sigma)) for x in xs]
@@ -171,18 +167,14 @@ def _convolve_1d(arr: List[float], kernel: List[float]) -> List[float]:
 
 
 def _blur_grid(grid: List[List[float]], sigma: float = GAUSS_SIGMA) -> List[List[float]]:
-    """
-    Separable Gaussian blur (pure Python).
-    grid is [NZ][NX]
-    """
     if not grid:
         return grid
-    kz = _gaussian_kernel_1d(sigma)
+    k = _gaussian_kernel_1d(sigma)
 
     # blur X
     tmp = []
     for row in grid:
-        tmp.append(_convolve_1d(row, kz))
+        tmp.append(_convolve_1d(row, k))
 
     # blur Z
     nz = len(tmp)
@@ -190,14 +182,14 @@ def _blur_grid(grid: List[List[float]], sigma: float = GAUSS_SIGMA) -> List[List
     out = [[0.0 for _ in range(nx)] for _ in range(nz)]
     for x in range(nx):
         col = [tmp[z][x] for z in range(nz)]
-        colb = _convolve_1d(col, kz)
+        colb = _convolve_1d(col, k)
         for z in range(nz):
             out[z][x] = colb[z]
     return out
 
 
 # ----------------------------
-# Core queries (psycopg)
+# DB query
 # ----------------------------
 def _fetch_pitches(
     pitcher_id: int,
@@ -205,8 +197,8 @@ def _fetch_pitches(
     game_pk: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Pulls pitch-level statcast data for a pitcher from statcast_pitches.
-    NOTE: adjust selected columns ONLY if your table differs.
+    Pull pitch-level Statcast rows for a pitcher.
+    IMPORTANT: These column names must exist in statcast_pitches.
     """
     sql = """
     SELECT
@@ -240,7 +232,10 @@ def _fetch_pitches(
             return [dict(zip(cols, r)) for r in rows]
 
 
-def pitching_games(pitcher_id: int, season: int) -> List[Dict[str, Any]]:
+# ----------------------------
+# PUBLIC: matches app.py imports
+# ----------------------------
+def list_pitching_games(pitcher_id: int, season: int) -> List[Dict[str, Any]]:
     sql = """
     SELECT DISTINCT game_pk
     FROM statcast_pitches
@@ -255,9 +250,6 @@ def pitching_games(pitcher_id: int, season: int) -> List[Dict[str, Any]]:
             return [{"game_pk": int(r[0]), "label": str(r[0])} for r in rows if r and r[0] is not None]
 
 
-# ----------------------------
-# Public API: summary + heatmaps
-# ----------------------------
 def pitching_report_summary(
     pitcher_id: int,
     season: int,
@@ -274,10 +266,14 @@ def pitching_report_summary(
 
     total = len(arr)
     mix: List[Dict[str, Any]] = []
+    shapes: List[Dict[str, Any]] = []
+    pitches: List[Dict[str, Any]] = []
 
     for pt, rows in by_pt.items():
         n = len(rows)
         pitch_name = (rows[0].get("pitch_name") or pt) if rows else pt
+
+        pitches.append({"pitch_type": pt, "pitch_name": pitch_name, "n": n})
 
         velo = [_safe_float(x.get("release_speed")) for x in rows]
         spin = [_safe_float(x.get("release_spin_rate")) for x in rows]
@@ -294,6 +290,7 @@ def pitching_report_summary(
                 swings += 1
             if desc in WHIFF_DESCRIPTIONS:
                 whiffs += 1
+
             xw = _safe_float(x.get("estimated_woba_using_speedangle"))
             if xw is not None:
                 xw_list.append(xw)
@@ -308,14 +305,27 @@ def pitching_report_summary(
                 "usage": (n / total * 100.0) if total else 0.0,
                 "velo": _mean(velo),
                 "spin": _mean(spin),
-                "hb": _mean(hb),
-                "vb": _mean(vb),
+                "hb": _mean(hb),  # feet
+                "vb": _mean(vb),  # feet
                 "xwoba": _mean(xw_list),
                 "whiff_pct": whiff_pct,
             }
         )
 
+        shapes.append(
+            {
+                "pitch_type": pt,
+                "pitch_name": pitch_name,
+                "n": n,
+                "pfx_x": _mean(hb),
+                "pfx_z": _mean(vb),
+                "velo": _mean(velo),
+            }
+        )
+
+    pitches.sort(key=lambda x: x["n"], reverse=True)
     mix.sort(key=lambda x: x["n"], reverse=True)
+    shapes.sort(key=lambda x: x["n"], reverse=True)
 
     return {
         "ok": True,
@@ -323,81 +333,73 @@ def pitching_report_summary(
         "season": int(season),
         "game_pk": int(game_pk) if game_pk else None,
         "total": total,
+        "pitches": pitches,  # used by your front-end dropdown builder
         "mix": mix,
+        "shapes": shapes,
         "zone": {"left": ZONE_LEFT, "right": ZONE_RIGHT, "top": ZONE_TOP, "bot": ZONE_BOT},
     }
 
 
-def pitching_location_heatmap(
+def pitching_heatmap(
     pitcher_id: int,
     season: int,
     pitch_type: str,
-    batter_side: str,
+    stand_lr: str = "L",
+    metric: str = "density",
     game_pk: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    Density heatmap of pitch locations (plate_x, plate_z) for a given pitch_type and batter-side bucket.
-    batter_side: "L" or "R" (switch hitters mapped using p_throws in _stand_lr)
+    Matches app.py call signature exactly:
+      pitching_heatmap(pitcher_id=..., season=..., pitch_type=..., stand_lr=..., metric=..., game_pk=...)
+
+    metric:
+      - "density" => pitch location density
+      - "xwoba"   => estimated_woba_using_speedangle mean per bin (blurred)
     """
     pt = (pitch_type or "").strip()
-    side = (batter_side or "").upper().strip()
-    if not pt or side not in ("L", "R"):
-        return {"ok": False}
+    side = (stand_lr or "L").upper().strip()
+    m = (metric or "density").lower().strip()
+    if not pt:
+        return {"ok": False, "reason": "missing_pitch_type"}
+    if side not in ("L", "R"):
+        return {"ok": False, "reason": "bad_stand"}
+    if m not in ("density", "xwoba"):
+        return {"ok": False, "reason": "bad_metric"}
 
     arr = _fetch_pitches(pitcher_id, season, game_pk=game_pk)
     if not arr:
-        return {"ok": False}
+        return {"ok": False, "reason": "no_data"}
 
-    pts: List[Tuple[float, float]] = []
-    for r in arr:
-        if (r.get("pitch_type") or "").strip() != pt:
-            continue
-        lr = _stand_lr(r.get("stand"), r.get("p_throws"))
-        if lr != side:
-            continue
-        x = _safe_float(r.get("plate_x"))
-        z = _safe_float(r.get("plate_z"))
-        if x is None or z is None:
-            continue
-        pts.append((x, z))
+    if m == "density":
+        pts: List[Tuple[float, float]] = []
+        for r in arr:
+            if (r.get("pitch_type") or "").strip() != pt:
+                continue
+            lr = _stand_lr(r.get("stand"), r.get("p_throws"))
+            if lr != side:
+                continue
+            x = _safe_float(r.get("plate_x"))
+            z = _safe_float(r.get("plate_z"))
+            if x is None or z is None:
+                continue
+            pts.append((x, z))
 
-    if not pts:
-        return {"ok": False}
+        if not pts:
+            return {"ok": False, "reason": "no_points"}
 
-    H = _hist2d(pts)
-    Hb = _blur_grid(H, GAUSS_SIGMA)
+        H = _hist2d(pts)
+        Hb = _blur_grid(H, GAUSS_SIGMA)
 
-    # normalize to 0..1 for rendering
-    mx = max((max(row) for row in Hb), default=0.0) or 1.0
-    for iz in range(GRID_NZ):
-        for ix in range(GRID_NX):
-            Hb[iz][ix] = Hb[iz][ix] / mx
+        mx = max((max(row) for row in Hb), default=0.0) or 1.0
+        for iz in range(GRID_NZ):
+            for ix in range(GRID_NX):
+                Hb[iz][ix] = Hb[iz][ix] / mx
 
-    out = _grid_payload(Hb)
-    out.update({"ok": True, "metric": "density", "pitch_type": pt, "batter_side": side})
-    return out
+        out = _grid_payload(Hb)
+        out.update({"ok": True, "metric": "density", "pitch_type": pt, "stand_lr": side})
+        return out
 
-
-def pitching_woba_heatmap(
-    pitcher_id: int,
-    season: int,
-    pitch_type: str,
-    batter_side: str,
-    game_pk: Optional[int] = None,
-) -> Dict[str, Any]:
-    """
-    xwOBA heatmap binned on (plate_x, plate_z) for a given pitch_type and batter-side bucket.
-    Uses estimated_woba_using_speedangle as proxy.
-    """
-    pt = (pitch_type or "").strip()
-    side = (batter_side or "").upper().strip()
-    if not pt or side not in ("L", "R"):
-        return {"ok": False}
-
-    arr = _fetch_pitches(pitcher_id, season, game_pk=game_pk)
-    if not arr:
-        return {"ok": False}
-
+    # m == "xwoba"
     sum_grid = _zeros_grid()
     cnt_grid = [[0 for _ in range(GRID_NX)] for __ in range(GRID_NZ)]
 
@@ -407,6 +409,7 @@ def pitching_woba_heatmap(
         lr = _stand_lr(r.get("stand"), r.get("p_throws"))
         if lr != side:
             continue
+
         x = _safe_float(r.get("plate_x"))
         z = _safe_float(r.get("plate_z"))
         xw = _safe_float(r.get("estimated_woba_using_speedangle"))
@@ -421,16 +424,21 @@ def pitching_woba_heatmap(
         sum_grid[iz][ix] += float(xw)
         cnt_grid[iz][ix] += 1
 
-    # mean per bin
     avg_grid = _zeros_grid()
+    any_cell = False
     for iz in range(GRID_NZ):
         for ix in range(GRID_NX):
             c = cnt_grid[iz][ix]
-            avg_grid[iz][ix] = (sum_grid[iz][ix] / c) if c else 0.0
+            if c:
+                any_cell = True
+                avg_grid[iz][ix] = sum_grid[iz][ix] / c
+            else:
+                avg_grid[iz][ix] = 0.0
 
-    # blur AFTER averaging (keeps scale sane)
+    if not any_cell:
+        return {"ok": False, "reason": "no_xwoba"}
+
     avg_blur = _blur_grid(avg_grid, GAUSS_SIGMA)
-
     out = _grid_payload(avg_blur)
-    out.update({"ok": True, "metric": "xwoba", "pitch_type": pt, "batter_side": side})
+    out.update({"ok": True, "metric": "xwoba", "pitch_type": pt, "stand_lr": side})
     return out
