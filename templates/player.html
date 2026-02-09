@@ -611,7 +611,7 @@
             {% set team = g.team or "TOT" %}
             {% set y = g.year or "" %}
             {% set rk = (y|string) ~ ":" ~ (team|string) %}
-            {% set bg = (yby_bg_hitting.get(rk) if yby_bg_hitting is defined else {}) %}
+            {% set bg = (yby_bg_hitting or {}).get(rk, {}) %}
             <tr>
               <td class="mono">{{ y }}</td>
               <td class="mono">{{ team }}</td>
@@ -668,7 +668,7 @@
             {% set team = g.team or "TOT" %}
             {% set y = g.year or "" %}
             {% set rk = (y|string) ~ ":" ~ (team|string) %}
-            {% set bg = (yby_bg_pitching.get(rk) if yby_bg_pitching is defined else {}) %}
+            {% set bg = (yby_bg_pitching or {}).get(rk, {}) %}
             <tr>
               <td class="mono">{{ y }}</td>
               <td class="mono">{{ team }}</td>
