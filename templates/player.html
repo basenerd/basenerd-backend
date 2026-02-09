@@ -60,26 +60,22 @@
         ('gamesPlayed','G'),('gamesStarted','GS')
       ] %}
         {% if stat and stat.get(key) is not none and stat.get(key) != '' %}
-          <div class="headline-stat"
-               {% set _bg = (bg_map.get(key) if bg_map is defined and bg_map else None) %}
-               {% if _bg %}style="background: {{ _bg }};"{% endif %}>
-            <div class="headline-label">{{ label }}</div>
-            <div class="headline-val mono">{{ stat.get(key) }}</div>
+          <div class="headline-stat" {% set _bg = (bg_map.get(key) if bg_map is defined and bg_map else None) %}{% if _bg %}style="background: {{ _bg }};"{% endif %}>
+            <div class="k">{{ label }}</div>
+            <div class="v">{{ stat.get(key) }}</div>
           </div>
         {% endif %}
       {% endfor %}
     {% else %}
       {% for key, label in [
-        ('avg','AVG'),('obp','OBP'),('slg','SLG'),('ops','OPS'),
-        ('homeRuns','HR'),('rbi','RBI'),('runs','R'),
-        ('hits','H'),('stolenBases','SB'),('plateAppearances','PA')
+        ('gamesPlayed','G'),('atBats','AB'),('hits','H'),('homeRuns','HR'),
+        ('rbi','RBI'),('runs','R'),('stolenBases','SB'),
+        ('avg','AVG'),('obp','OBP'),('slg','SLG'),('ops','OPS')
       ] %}
         {% if stat and stat.get(key) is not none and stat.get(key) != '' %}
-          <div class="headline-stat"
-               {% set _bg = (bg_map.get(key) if bg_map is defined and bg_map else None) %}
-               {% if _bg %}style="background: {{ _bg }};"{% endif %}>
-            <div class="headline-label">{{ label }}</div>
-            <div class="headline-val mono">{{ stat.get(key) }}</div>
+          <div class="headline-stat" {% set _bg = (bg_map.get(key) if bg_map is defined and bg_map else None) %}{% if _bg %}style="background: {{ _bg }};"{% endif %}>
+            <div class="k">{{ label }}</div>
+            <div class="v">{{ stat.get(key) }}</div>
           </div>
         {% endif %}
       {% endfor %}
@@ -87,92 +83,238 @@
   </div>
 {% endmacro %}
 
-{# -----------------------
-   helpers
-   ----------------------- #}
-{% macro dash(v) -%}
-  {%- if v is none or v == '' or v == 'None' or v == '-' -%}-{% else %}{{ v }}{% endif -%}
-{%- endmacro %}
-
 <style>
-  /* ==========================
-     Player page tweaks
-     ========================== */
-  .player-top{ margin-top:10px; }
-  .player-header-card{ align-items:center; }
+  .player-header-card{ align-items:stretch; }
   .player-header{
-    display:flex; gap:14px; align-items:center;
+    display:flex;
+    align-items:stretch;
+    gap:14px;
+    width:100%;
   }
   .player-headshot{
-    width:92px; height:92px; border-radius:999px; object-fit:cover;
-    border:1px solid rgba(226,232,240,.9); background:#fff;
+    width:150px;
+    height:100%;
+    min-height:170px;
+    object-fit:cover;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:#0b1220;
+    flex:0 0 auto;
   }
-  .player-meta{ min-width:0; }
-  .player-name{
-    font-weight:900; font-size:18px; letter-spacing:.2px; color:#111318;
-    line-height:1.1;
-  }
-  .player-lines .muted{ font-size:12px; }
-  .player-links{
-    margin-top:6px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;
-  }
-  .player-links a{
-    font-size:11px; font-weight:800; padding:5px 10px; border-radius:999px;
-    border:1px solid rgba(226,232,240,.9); background:#fff; color:#111318;
-    text-decoration:none;
-  }
-  .player-links a:hover{ opacity:.9; text-decoration:underline; }
+  .player-meta{ min-width:0; display:flex; flex-direction:column; justify-content:center; }
+  .player-name{ font-size:18px; font-weight:800; letter-spacing:.2px; }
+  .player-lines{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
 
-  /* ==========================
-     Headline grid
-     ========================== */
   .headline-grid{
     display:grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap:10px;
+    grid-template-columns: repeat(11, minmax(0, 1fr));
+    gap:8px;
   }
-  @media (max-width: 900px){
-    .headline-grid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
-  }
-  @media (max-width: 520px){
-    .headline-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  @media (max-width: 980px){
+    .headline-grid{ grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .player-headshot{ width:170px; }
   }
   .headline-stat{
-    border:1px solid rgba(226,232,240,.9);
-    border-radius:14px;
+    border:1px solid var(--border);
     background:#fff;
-    padding:10px 10px 8px 10px;
-    min-width:0;
-  }
-  .headline-label{
-    font-size:10.5px;
-    color: var(--muted);
-    font-weight:800;
-    letter-spacing:.2px;
-  }
-  .headline-val{
-    margin-top:4px;
-    font-weight:900;
-    font-size:16px;
-    color:#111318;
-    white-space:nowrap;
+    border-radius:10px;
+    padding:8px 10px;
     overflow:hidden;
-    text-overflow:ellipsis;
+  }
+  .headline-stat .k{
+    font-size:10px;
+    color: var(--muted);
+    font-weight:700;
+    letter-spacing:.2px;
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  .headline-stat .v{
+    margin-top:2px;
+    font-size:14px;
+    font-weight:900;
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
   }
 
-  /* ==========================
-     SR (existing hitter scouting)
-     ========================== */
   .sr-two-col{
     display:grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: 1fr 380px;
     gap:14px;
     align-items:start;
   }
   @media (max-width: 980px){
     .sr-two-col{ grid-template-columns: 1fr; }
   }
+
+  /* tabs */
+  .tabs{ display:flex; gap:8px; flex-wrap:wrap; }
+  .tab-btn{
+    border:1px solid var(--border);
+    background:#fff;
+    padding:8px 10px;
+    border-radius:10px;
+    font-weight:800;
+    font-size:12px;
+    cursor:pointer;
+  }
+  .tab-btn.active{ background:#0b1220; color:#fff; border-color:#0b1220; }
+  .tab-panel{ display:none; margin-top:10px; }
+  .tab-panel.active{ display:block; }
+
+  /* selects + buttons */
+  .season-select{
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:7px 10px;
+    font-weight:700;
+    background:#fff;
+  }
+  .btn{
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:7px 10px;
+    font-weight:800;
+    background:#fff;
+    cursor:pointer;
+  }
+
+  /* transactions */
+  .tx-list{ display:flex; flex-direction:column; gap:10px; }
+  .tx-row{
+    display:grid;
+    grid-template-columns: 110px 1fr;
+    gap:12px;
+    padding:10px 10px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:#fff;
+  }
+  .tx-date{
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size:11px;
+    font-weight:900;
+    color:#394150;
+    white-space:nowrap;
+  }
+  .tx-desc{ font-size:12px; color:#111827; }
+
+  /* Year-by-year expanders */
+  .yearcell{ display:inline-flex; align-items:center; gap:8px; }
+  .yspacer{ display:inline-block; width:18px; height:18px; }
+  .yexp{
+    width:18px;
+    height:18px;
+    border-radius:6px;
+    border:1px solid var(--border);
+    background:#fff;
+    color:#111827;
+    font-weight:900;
+    line-height:1;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .yexp.open{ transform: rotate(180deg); }
+
+  .acc-pill{
+    font-size:10px;
+    font-weight:900;
+    padding:2px 7px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:#fff;
+    color:#111827;
+    display:inline-block;
+    margin-right:6px;
+    margin-bottom:4px;
+  }
+
+  /* ==========================
+     Scouting Report (Savant-style)
+     ========================== */
+  .sr-wrap{ display:flex; flex-direction:column; gap:14px; }
+  .sr-group-title{
+    font-weight:900;
+    letter-spacing:.2px;
+    color:#111827;
+    margin:6px 0 6px;
+    padding-bottom:4px;
+    border-bottom:1px dashed var(--border);
+  }
+  .sr-grid{ display:flex; flex-direction:column; gap:9px; }
+
+  .sr-row{
+    display:grid;
+    grid-template-columns: 120px 1fr 72px;
+    gap:12px;
+    align-items:center;
+  }
+  @media (max-width: 980px){
+    .sr-row{ grid-template-columns: 110px 1fr 64px; }
+  }
+
+  .sr-label{
+    font-size:12px;
+    font-weight:700;
+    color:#374151;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .sr-value{
+    text-align:right;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.2px;
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+    color:#111827;
+    white-space:nowrap;
+  }
+
+  .sr-marker{
+    position:absolute;
+    top:50%;
+    transform:translate(-50%, -50%);
+    width:22px;
+    height:22px;
+    border-radius:999px;
+    background:#0b1220;
+    border:2px solid #ffffff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 4px 10px rgba(0,0,0,.18);
+    pointer-events:none;
+  }
+  .sr-marker span{
+    font-size:10px;
+    font-weight:900;
+    color:#ffffff;
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+    line-height:1;
+  }
+
+  .sr-bar{
+    position:relative;
+    height:14px;
+    border-radius:999px;
+    overflow:hidden;
+    border:1px solid var(--border);
+    background:#f1f5f9;
+  }
+  .sr-fill{
+    position:absolute;
+    inset:0 auto 0 0;
+    width:0%;
+    border-radius:999px;
+  }
+
+  .sr-muted{ margin-top:10px; font-size:11px; color:var(--muted); }
   .sr-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:10px;
     font-weight:900;
     padding:3px 8px;
     border-radius:999px;
@@ -180,77 +322,10 @@
     background:#fff;
     color:#111827;
     font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
-    font-size:11px;
-  }
-  .sr-wrap{ margin-top:4px; }
-  .sr-group-title{
-    font-weight:900;
-    margin:8px 0 8px 0;
-    font-size:12px;
-    color:#111318;
-  }
-  .sr-grid{
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-  }
-  .sr-row{
-    display:grid;
-    grid-template-columns: 140px 1fr;
-    gap:10px;
-    align-items:center;
-  }
-  @media (max-width: 520px){
-    .sr-row{ grid-template-columns: 120px 1fr; }
-  }
-  .sr-label{
-    font-size:11px;
-    font-weight:900;
-    color:#111318;
-    opacity:.9;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-  .sr-bar{
-    position:relative;
-    height:12px;
-    border-radius:999px;
-    border:1px solid rgba(226,232,240,.9);
-    background: rgba(2,6,23,.03);
-    overflow:hidden;
-  }
-  .sr-fill{
-    height:100%;
-    border-radius:999px;
-  }
-  .sr-marker{
-    position:absolute;
-    top:50%;
-    transform:translate(-50%,-50%);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    width:22px;
-    height:22px;
-    border-radius:999px;
-    border:1px solid rgba(15,23,42,.22);
-    background: rgba(255,255,255,.95);
-    font-size:10px;
-    font-weight:900;
-    color:#111318;
-    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
-    box-shadow: 0 1px 2px rgba(0,0,0,.08);
-    pointer-events:none;
-  }
-  .sr-muted{
-    margin-top:10px;
-    font-size:11px;
-    color: var(--muted);
   }
 
   /* ==========================
-     Spray Chart (existing)
+     Spray Chart (Hits only)
      ========================== */
   .spray-controls{
     display:flex;
@@ -294,176 +369,6 @@
     background:#ffffff;
   }
   .spray-note{ margin-top:10px; font-size:11px; color: var(--muted); }
-
-  /* ==========================
-     Pitching scouting report
-     ========================== */
-  .sr-subtabs{
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
-    margin-bottom:10px;
-  }
-  .sr-subbtn{
-    border:1px solid rgba(226,232,240,.9);
-    background:#fff;
-    border-radius:999px;
-    padding:6px 10px;
-    font-weight:900;
-    font-size:11px;
-    cursor:pointer;
-  }
-  .sr-subbtn.active{
-    background: rgba(15,23,42,.04);
-  }
-
-  .pit-controls{
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    align-items:center;
-    margin-bottom:10px;
-  }
-  .pit-controls label{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    font-size:12px;
-    font-weight:800;
-    color:#111827;
-  }
-  .pit-controls select{
-    height:34px;
-    border-radius:10px;
-    border:1px solid rgba(226,232,240,.9);
-    background:#fff;
-    padding:0 10px;
-    font-weight:800;
-    font-family: inherit;
-    color:#111318;
-    outline:none;
-  }
-  .pit-controls .btn{
-    height:34px;
-  }
-
-  .pit-grid{
-    display:grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
-    gap:12px;
-    align-items:start;
-  }
-  @media (max-width: 980px){
-    .pit-grid{ grid-template-columns: 1fr; }
-  }
-
-  .viz-card{
-    border:1px solid rgba(226,232,240,.9);
-    border-radius:14px;
-    background:#fff;
-    overflow:hidden;
-  }
-  .viz-head{
-    padding:10px 12px 8px 12px;
-    border-bottom:1px solid rgba(226,232,240,.9);
-    display:flex;
-    align-items:flex-end;
-    justify-content:space-between;
-    gap:10px;
-  }
-  .viz-title{
-    font-weight:900;
-    font-size:12px;
-    color:#111318;
-  }
-  .viz-sub{
-    font-size:11px;
-    color: var(--muted);
-    margin-top:2px;
-  }
-  .viz-body{
-    padding:10px 12px 12px 12px;
-  }
-
-  .zone-canvas-wrap{
-    position:relative;
-    width:100%;
-    max-width:520px;
-    aspect-ratio: 1 / 1.05;
-    margin: 0 auto;
-  }
-  .zone-canvas{
-    width:100%;
-    height:100%;
-    display:block;
-    border-radius:12px;
-    background:#fff;
-    border:1px solid rgba(226,232,240,.9);
-  }
-  .zone-overlay{
-    position:absolute;
-    inset:0;
-    pointer-events:none;
-  }
-
-  .pit-kpis{
-    display:grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap:10px;
-  }
-  @media (max-width: 520px){
-    .pit-kpis{ grid-template-columns: 1fr; }
-  }
-  .kpi{
-    border:1px solid rgba(226,232,240,.9);
-    border-radius:14px;
-    padding:10px;
-    background: rgba(15,23,42,.02);
-    min-width:0;
-  }
-  .kpi .k{
-    font-size:10.5px;
-    color:var(--muted);
-    font-weight:800;
-  }
-  .kpi .v{
-    margin-top:4px;
-    font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
-    font-weight:900;
-    font-size:13px;
-    color:#111318;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-
-  .mix-table{
-    width:100%;
-    border-collapse:collapse;
-    font-size:12px;
-  }
-  .mix-table th, .mix-table td{
-    padding:8px 6px;
-    border-bottom:1px solid rgba(226,232,240,.9);
-    text-align:left;
-    vertical-align:middle;
-  }
-  .mix-table th{
-    font-size:11px;
-    color: var(--muted);
-    font-weight:900;
-  }
-  .mix-pill{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-  }
-  .swatch{
-    width:10px; height:10px; border-radius:999px;
-    border:1px solid rgba(0,0,0,.15);
-  }
-  .mono{ font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
-
 </style>
 
 <!-- =======================
@@ -494,38 +399,66 @@
           {% if (bio.batSide and bio.batSide.code) or (bio.pitchHand and bio.pitchHand.code) %}
             <div class="muted">
               {% if bio.batSide and bio.batSide.code %}Bats: {{ bio.batSide.code }}{% endif %}
-              {% if bio.pitchHand and bio.pitchHand.code %}
-                {% if bio.batSide and bio.batSide.code %} • {% endif %}
-                Throws: {{ bio.pitchHand.code }}
-              {% endif %}
+              {% if bio.pitchHand and bio.pitchHand.code %}{% if bio.batSide and bio.batSide.code %} • {% endif %}Throws: {{ bio.pitchHand.code }}{% endif %}
+            </div>
+          {% endif %}
+
+          {% if bio.mlbDebutDate %}
+            <div class="muted">MLB Debut: {{ bio.mlbDebutDate[:10] }}</div>
+          {% endif %}
+
+          {% if bio.birthCity or bio.birthStateProvince or bio.birthCountry %}
+            <div class="muted">
+              Born:
+              {% if bio.birthCity %}{{ bio.birthCity }}{% endif %}
+              {% if bio.birthStateProvince %}{% if bio.birthCity %}, {% endif %}{{ bio.birthStateProvince }}{% endif %}
+              {% if bio.birthCountry %}{% if bio.birthCity or bio.birthStateProvince %} • {% endif %}{{ bio.birthCountry }}{% endif %}
+            </div>
+          {% endif %}
+
+          {% if bio.education %}
+            <div class="muted">{{ bio.education }}</div>
+          {% endif %}
+
+          {% if bio.draftYear or bio.draftRound or bio.draftPickNumber %}
+            <div class="muted">
+              Draft:
+              {% if bio.draftYear %}{{ bio.draftYear }}{% endif %}
+              {% if bio.draftRound %}{% if bio.draftYear %} • {% endif %}R{{ bio.draftRound }}{% endif %}
+              {% if bio.draftPickNumber %}{% if bio.draftYear or bio.draftRound %} • {% endif %}Pick {{ bio.draftPickNumber }}{% endif %}
             </div>
           {% endif %}
         </div>
-
-        <div class="player-links">
-          <a href="https://www.mlb.com/player/{{ bio.id }}" target="_blank" rel="noopener">MLB</a>
-          <a href="https://baseballsavant.mlb.com/savant-player/{{ bio.id }}" target="_blank" rel="noopener">Savant</a>
-        </div>
-
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- =======================
+     Season Snapshot (from year-by-year source)
+     ======================= -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">{{ season_found if season_found else "—" }} Stats</div>
     </div>
   </div>
 
   <div class="card-body">
     {% if role == "two-way" %}
       {% if snapshot_hitting %}
-        <div style="margin-bottom:12px;">
-          <div class="subcard-title">Season Snapshot — Hitting</div>
+        <div style="margin-bottom:10px;">
+          <div class="subcard-title">Hitting</div>
           {{ mini_cards(snapshot_hitting, "hitting", snapshot_bg_hitting) }}
         </div>
       {% endif %}
       {% if snapshot_pitching %}
         <div>
-          <div class="subcard-title">Season Snapshot — Pitching</div>
+          <div class="subcard-title">Pitching</div>
           {{ mini_cards(snapshot_pitching, "pitching", snapshot_bg_pitching) }}
         </div>
       {% endif %}
-      {% if not snapshot_hitting and not snapshot_pitching %}
+      {% if (not snapshot_hitting) and (not snapshot_pitching) %}
         <div class="muted">No stats found.</div>
       {% endif %}
     {% elif role == "pitching" %}
@@ -606,40 +539,91 @@
           </tr>
         </thead>
         <tbody>
+
           {% for g in _hg %}
-            {% set r = g.row or {} %}
-            {% set team = g.team or "TOT" %}
-            {% set y = g.year or "" %}
-            {% set rk = (y|string) ~ ":" ~ (team|string) %}
-            {% set bg = (yby_bg_hitting or {}).get(rk, {}) %}
-            <tr>
-              <td class="mono">{{ y }}</td>
-              <td class="mono">{{ team }}</td>
-              <td class="mono">{{ dash(r.get('gamesPlayed')) }}</td>
-              <td class="mono">{{ dash(r.get('plateAppearances')) }}</td>
-              <td class="mono">{{ dash(r.get('atBats')) }}</td>
-              <td class="mono">{{ dash(r.get('hits')) }}</td>
-              <td class="mono">{{ dash(r.get('homeRuns')) }}</td>
-              <td class="mono">{{ dash(r.get('rbi')) }}</td>
-              <td class="mono">{{ dash(r.get('stolenBases')) }}</td>
-              <td class="mono">{{ stat_cell(dash(r.get('avg')), bg.get('avg')) }}</td>
-              <td class="mono">{{ stat_cell(dash(r.get('obp')), bg.get('obp')) }}</td>
-              <td class="mono">{{ stat_cell(dash(r.get('slg')), bg.get('slg')) }}</td>
-              <td class="mono">{{ stat_cell(dash(r.get('ops')), bg.get('ops')) }}</td>
-              <td>
-                {% set pills = (award_year_map.get(y|string) if award_year_map is defined else []) %}
-                {% if pills %}
-                  <div class="pill-row">
-                    {% for p in pills %}
-                      <span class="pill">{{ p }}</span>
+            {% set r = g.total %}
+            {% if r %}
+              {% set s = r.stat %}
+              {% set has_parts = (g.parts and (g.parts|length) > 0) %}
+              {% set rk = g.year ~ ':Total' %}
+
+              <tr class="year-row">
+                <td style="white-space:nowrap;">
+                  <span class="yearcell">
+                    <span>{{ g.year }}</span>
+
+                    {% if has_parts %}
+                      <button class="yexp" type="button" data-kind="hitting" data-year="{{ g.year }}" aria-label="Expand year">▾</button>
+                    {% else %}
+                      <span class="yspacer"></span>
+                    {% endif %}
+                  </span>
+                </td>
+
+                <td style="min-width:220px;">{{ "Total" if has_parts else r.team }}</td>
+
+                <td>{{ stat_cell(s.gamesPlayed or "—", (yby_bg_hitting.get(rk) or {}).get('gamesPlayed')) }}</td>
+                <td>{{ stat_cell(s.plateAppearances or "—", (yby_bg_hitting.get(rk) or {}).get('plateAppearances')) }}</td>
+                <td>{{ stat_cell(s.atBats or "—", (yby_bg_hitting.get(rk) or {}).get('atBats')) }}</td>
+                <td>{{ stat_cell(s.hits or "—", (yby_bg_hitting.get(rk) or {}).get('hits')) }}</td>
+                <td>{{ stat_cell(s.homeRuns or "—", (yby_bg_hitting.get(rk) or {}).get('homeRuns')) }}</td>
+                <td>{{ stat_cell(s.rbi or "—", (yby_bg_hitting.get(rk) or {}).get('rbi')) }}</td>
+                <td>{{ stat_cell(s.stolenBases or "—", (yby_bg_hitting.get(rk) or {}).get('stolenBases')) }}</td>
+                <td>{{ stat_cell(s.avg or "—", (yby_bg_hitting.get(rk) or {}).get('avg')) }}</td>
+                <td>{{ stat_cell(s.obp or "—", (yby_bg_hitting.get(rk) or {}).get('obp')) }}</td>
+                <td>{{ stat_cell(s.slg or "—", (yby_bg_hitting.get(rk) or {}).get('slg')) }}</td>
+                <td>{{ stat_cell(s.ops or "—", (yby_bg_hitting.get(rk) or {}).get('ops')) }}</td>
+                <td>
+                  {% set y = g.year %}
+                  {% if award_year_map is defined and award_year_map[y] is defined %}
+                    {% set award_labels = {
+                      "mvp":"MVP",
+                      "cyyoung":"CY",
+                      "roy":"ROY",
+                      "goldglove":"GG",
+                      "platinumglove":"PG",
+                      "silverslugger":"SS",
+                      "allstar":"AS",
+                      "battingchamp":"BC",
+                      "hrderby":"HRD",
+                      "wsmvp":"WS-MVP",
+                      "wschamp":"WS",
+                      "hof":"HOF"
+                    } %}
+                    {% for k in award_year_map[y] %}
+                      <span class="acc-pill acc-{{ k }}">
+                        {{ award_labels[k] if award_labels[k] is defined else k|upper }}
+                      </span>
                     {% endfor %}
-                  </div>
-                {% else %}
-                  <span class="muted">—</span>
-                {% endif %}
-              </td>
-            </tr>
+                  {% endif %}
+                </td>
+              </tr>
+
+              {% if has_parts %}
+                {% for p in g.parts %}
+                  {% set ps = p.stat %}
+                  {% set rk2 = g.year ~ ':' ~ p.team %}
+                  <tr class="ychild ychild-hitting ychild-{{ g.year }}" style="display:none; opacity:.92;">
+                    <td style="white-space:nowrap; padding-left:16px;">{{ p.year }}</td>
+                    <td style="min-width:220px;">{{ p.team }}</td>
+                    <td>{{ stat_cell(ps.gamesPlayed or "—", (yby_bg_hitting.get(rk2) or {}).get('gamesPlayed')) }}</td>
+                    <td>{{ stat_cell(ps.plateAppearances or "—", (yby_bg_hitting.get(rk2) or {}).get('plateAppearances')) }}</td>
+                    <td>{{ stat_cell(ps.atBats or "—", (yby_bg_hitting.get(rk2) or {}).get('atBats')) }}</td>
+                    <td>{{ stat_cell(ps.hits or "—", (yby_bg_hitting.get(rk2) or {}).get('hits')) }}</td>
+                    <td>{{ stat_cell(ps.homeRuns or "—", (yby_bg_hitting.get(rk2) or {}).get('homeRuns')) }}</td>
+                    <td>{{ stat_cell(ps.rbi or "—", (yby_bg_hitting.get(rk2) or {}).get('rbi')) }}</td>
+                    <td>{{ stat_cell(ps.stolenBases or "—", (yby_bg_hitting.get(rk2) or {}).get('stolenBases')) }}</td>
+                    <td>{{ stat_cell(ps.avg or "—", (yby_bg_hitting.get(rk2) or {}).get('avg')) }}</td>
+                    <td>{{ stat_cell(ps.obp or "—", (yby_bg_hitting.get(rk2) or {}).get('obp')) }}</td>
+                    <td>{{ stat_cell(ps.slg or "—", (yby_bg_hitting.get(rk2) or {}).get('slg')) }}</td>
+                    <td>{{ stat_cell(ps.ops or "—", (yby_bg_hitting.get(rk2) or {}).get('ops')) }}</td>
+                    <td></td>
+                  </tr>
+                {% endfor %}
+              {% endif %}
+            {% endif %}
           {% endfor %}
+
         </tbody>
       </table>
     </div>
@@ -653,59 +637,108 @@
     </div>
 
     <div style="overflow:auto;">
-      <table class="table" style="width:100%; min-width:900px;">
+      <table class="table" style="width:100%; min-width:980px;">
         <thead>
           <tr>
             <th>Year</th>
             <th>Team</th>
-            <th>G</th><th>GS</th><th>W</th><th>L</th>
-            <th>IP</th><th>ERA</th><th>WHIP</th><th>SO</th><th>BB</th><th>HR</th><th>Awards</th>
+            <th>G</th><th>GS</th><th>IP</th>
+            <th>W</th><th>L</th><th>SV</th><th>SO</th>
+            <th>ERA</th><th>WHIP</th><th>Awards</th>
           </tr>
         </thead>
         <tbody>
+
           {% for g in _pg %}
-            {% set r = g.row or {} %}
-            {% set team = g.team or "TOT" %}
-            {% set y = g.year or "" %}
-            {% set rk = (y|string) ~ ":" ~ (team|string) %}
-            {% set bg = (yby_bg_pitching or {}).get(rk, {}) %}
-            <tr>
-              <td class="mono">{{ y }}</td>
-              <td class="mono">{{ team }}</td>
-              <td class="mono">{{ dash(r.get('gamesPlayed')) }}</td>
-              <td class="mono">{{ dash(r.get('gamesStarted')) }}</td>
-              <td class="mono">{{ dash(r.get('wins')) }}</td>
-              <td class="mono">{{ dash(r.get('losses')) }}</td>
-              <td class="mono">{{ dash(r.get('inningsPitched')) }}</td>
-              <td class="mono">{{ stat_cell(dash(r.get('era')), bg.get('era')) }}</td>
-              <td class="mono">{{ stat_cell(dash(r.get('whip')), bg.get('whip')) }}</td>
-              <td class="mono">{{ dash(r.get('strikeOuts')) }}</td>
-              <td class="mono">{{ dash(r.get('baseOnBalls')) }}</td>
-              <td class="mono">{{ dash(r.get('homeRuns')) }}</td>
-              <td>
-                {% set pills = (award_year_map.get(y|string) if award_year_map is defined else []) %}
-                {% if pills %}
-                  <div class="pill-row">
-                    {% for p in pills %}
-                      <span class="pill">{{ p }}</span>
+            {% set r = g.total %}
+            {% if r %}
+              {% set s = r.stat %}
+              {% set has_parts = (g.parts and (g.parts|length) > 0) %}
+              {% set rk = g.year ~ ':Total' %}
+
+              <tr class="year-row">
+                <td style="white-space:nowrap;">
+                  <span class="yearcell">
+                    <span>{{ g.year }}</span>
+
+                    {% if has_parts %}
+                      <button class="yexp" type="button" data-kind="pitching" data-year="{{ g.year }}" aria-label="Expand year">▾</button>
+                    {% else %}
+                      <span class="yspacer"></span>
+                    {% endif %}
+                  </span>
+                </td>
+
+                <td style="white-space:nowrap;">{{ "Total" if has_parts else r.team }}</td>
+
+                <td>{{ s.gamesPitched or "—" }}</td>
+                <td>{{ stat_cell(s.gamesStarted or "—", (yby_bg_pitching.get(rk) or {}).get('gamesStarted')) }}</td>
+                <td>{{ stat_cell(s.inningsPitched or "—", (yby_bg_pitching.get(rk) or {}).get('inningsPitched')) }}</td>
+                <td>{{ stat_cell(s.wins or "—", (yby_bg_pitching.get(rk) or {}).get('wins')) }}</td>
+                <td>{{ stat_cell(s.losses or "—", (yby_bg_pitching.get(rk) or {}).get('losses')) }}</td>
+                <td>{{ stat_cell(s.saves or "—", (yby_bg_pitching.get(rk) or {}).get('saves')) }}</td>
+                <td>{{ stat_cell(s.strikeOuts or "—", (yby_bg_pitching.get(rk) or {}).get('strikeOuts')) }}</td>
+                <td>{{ stat_cell(s.era or "—", (yby_bg_pitching.get(rk) or {}).get('era')) }}</td>
+                <td>{{ stat_cell(s.whip or "—", (yby_bg_pitching.get(rk) or {}).get('whip')) }}</td>
+                <td>
+                  {% set y = g.year %}
+                  {% if award_year_map is defined and award_year_map[y] is defined %}
+                    {% set award_labels = {
+                      "mvp":"MVP",
+                      "cyyoung":"CY",
+                      "roy":"ROY",
+                      "goldglove":"GG",
+                      "platinumglove":"PG",
+                      "silverslugger":"SS",
+                      "allstar":"AS",
+                      "battingchamp":"BC",
+                      "hrderby":"HRD",
+                      "wsmvp":"WS-MVP",
+                      "wschamp":"WS",
+                      "hof":"HOF"
+                    } %}
+                    {% for k in award_year_map[y] %}
+                      <span class="acc-pill acc-{{ k }}">
+                        {{ award_labels[k] if award_labels[k] is defined else k|upper }}
+                      </span>
                     {% endfor %}
-                  </div>
-                {% else %}
-                  <span class="muted">—</span>
-                {% endif %}
-              </td>
-            </tr>
+                  {% endif %}
+                </td>
+              </tr>
+
+              {% if has_parts %}
+                {% for p in g.parts %}
+                  {% set ps = p.stat %}
+                  {% set rk2 = g.year ~ ':' ~ p.team %}
+                  <tr class="ychild ychild-pitching ychild-{{ g.year }}" style="display:none; opacity:.92;">
+                    <td style="white-space:nowrap; padding-left:16px;">{{ p.year }}</td>
+                    <td style="white-space:nowrap;">{{ p.team }}</td>
+                    <td>{{ ps.gamesPitched or "—" }}</td>
+                    <td>{{ stat_cell(ps.gamesStarted or "—", (yby_bg_pitching.get(rk2) or {}).get('gamesStarted')) }}</td>
+                    <td>{{ stat_cell(ps.inningsPitched or "—", (yby_bg_pitching.get(rk2) or {}).get('inningsPitched')) }}</td>
+                    <td>{{ stat_cell(ps.wins or "—", (yby_bg_pitching.get(rk2) or {}).get('wins')) }}</td>
+                    <td>{{ stat_cell(ps.losses or "—", (yby_bg_pitching.get(rk2) or {}).get('losses')) }}</td>
+                    <td>{{ stat_cell(ps.saves or "—", (yby_bg_pitching.get(rk2) or {}).get('saves')) }}</td>
+                    <td>{{ stat_cell(ps.strikeOuts or "—", (yby_bg_pitching.get(rk2) or {}).get('strikeOuts')) }}</td>
+                    <td>{{ stat_cell(ps.era or "—", (yby_bg_pitching.get(rk2) or {}).get('era')) }}</td>
+                    <td>{{ stat_cell(ps.whip or "—", (yby_bg_pitching.get(rk2) or {}).get('whip')) }}</td>
+                    <td></td>
+                  </tr>
+                {% endfor %}
+              {% endif %}
+            {% endif %}
           {% endfor %}
+
         </tbody>
       </table>
     </div>
   </div>
   {% endif %}
 
-  {% if not has_hitting and not has_pitching %}
+  {% if (not has_hitting) and (not has_pitching) %}
     <div class="card" style="margin-top:14px;">
       <div class="card-body">
-        <div class="muted">No year-by-year rows found.</div>
+        <div class="muted">No year-by-year rows available.</div>
       </div>
     </div>
   {% endif %}
@@ -715,95 +748,79 @@
      Game Logs
      ======================= -->
 <div id="tab-gamelog" class="tab-panel">
-  <div class="card" style="margin-top:14px;">
+  <div class="card">
     <div class="card-header" style="align-items:center;">
       <div>
         <div class="card-title">Game Logs</div>
-        <div class="card-subtitle">Regular season only</div>
+        <div class="card-subtitle">Season selector loads one year at a time.</div>
       </div>
-
-      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <form method="get" action="/player/{{ bio.id }}" style="display:flex; gap:8px; align-items:center;">
-          <input type="hidden" name="tab" value="tab-gamelog">
-          <label class="mono" style="font-size:11px; opacity:.75;">Season</label>
-          <select name="log_year" class="select" style="height:34px;">
-            {% for y in years %}
-              <option value="{{ y }}" {% if log_year and (y|string)==(log_year|string) %}selected{% endif %}>{{ y }}</option>
-            {% endfor %}
-          </select>
-          <button class="btn" type="submit">Go</button>
-        </form>
-      </div>
+      <form method="get" action="/player/{{ bio.id }}" style="display:flex; gap:8px; align-items:center;">
+        <select name="log_year" class="season-select">
+          {% for y in years %}
+            <option value="{{ y }}" {% if y == log_year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn" type="submit">Load</button>
+      </form>
     </div>
 
-    <div class="card-body" style="overflow:auto;">
-      {% if role == "two-way" %}
-        <div style="margin-bottom:12px;">
-          <div class="subcard-title">Hitting</div>
-          {% if game_logs and game_logs.hitting and (game_logs.hitting|length)>0 %}
-            <table class="table" style="width:100%; min-width:700px;">
-              <thead>
-                <tr>
-                  <th>Date</th><th>Opp</th><th class="num">AB</th><th class="num">H</th><th class="num">HR</th><th class="num">RBI</th><th class="num">BB</th><th class="num">SO</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for g in (game_logs.hitting or []) %}
-                  {% set s = g.stat or {} %}
-                  <tr>
-                    <td>{{ g.date }}</td>
-                    <td>{{ g.opponent }}</td>
-                    <td class="num">{{ s.get('atBats','') }}</td>
-                    <td class="num">{{ s.get('hits','') }}</td>
-                    <td class="num">{{ s.get('homeRuns','') }}</td>
-                    <td class="num">{{ s.get('rbi','') }}</td>
-                    <td class="num">{{ s.get('baseOnBalls','') }}</td>
-                    <td class="num">{{ s.get('strikeOuts','') }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          {% else %}
-            <div class="muted">No hitting logs found.</div>
-          {% endif %}
-        </div>
-
-        <div>
-          <div class="subcard-title">Pitching</div>
-          {% if game_logs and game_logs.pitching and (game_logs.pitching|length)>0 %}
-            <table class="table" style="width:100%; min-width:700px;">
-              <thead>
-                <tr>
-                  <th>Date</th><th>Opp</th><th class="num">IP</th><th class="num">H</th><th class="num">R</th><th class="num">ER</th><th class="num">BB</th><th class="num">SO</th><th class="num">HR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for g in (game_logs.pitching or []) %}
-                  {% set s = g.stat or {} %}
-                  <tr>
-                    <td>{{ g.date }}</td>
-                    <td>{{ g.opponent }}</td>
-                    <td class="num">{{ s.get('inningsPitched','') }}</td>
-                    <td class="num">{{ s.get('hits','') }}</td>
-                    <td class="num">{{ s.get('runs','') }}</td>
-                    <td class="num">{{ s.get('earnedRuns','') }}</td>
-                    <td class="num">{{ s.get('baseOnBalls','') }}</td>
-                    <td class="num">{{ s.get('strikeOuts','') }}</td>
-                    <td class="num">{{ s.get('homeRuns','') }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          {% else %}
-            <div class="muted">No pitching logs found.</div>
-          {% endif %}
-        </div>
-      {% elif role == "pitching" %}
-        {% if game_logs and game_logs.pitching and (game_logs.pitching|length)>0 %}
-          <table class="table" style="width:100%; min-width:700px;">
+    <div class="card-body">
+      {% if role != "pitching" %}
+        <div class="subcard-title">Hitting</div>
+        <div class="table-wrap">
+          <table class="table">
             <thead>
               <tr>
-                <th>Date</th><th>Opp</th><th class="num">IP</th><th class="num">H</th><th class="num">R</th><th class="num">ER</th><th class="num">BB</th><th class="num">SO</th><th class="num">HR</th>
+                <th>Date</th>
+                <th>Opponent</th>
+                <th class="num">AB</th>
+                <th class="num">H</th>
+                <th class="num">2B</th>
+                <th class="num">3B</th>
+                <th class="num">HR</th>
+                <th class="num">RBI</th>
+                <th class="num">R</th>
+                <th class="num">BB</th>
+                <th class="num">SO</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for g in (game_logs.hitting or []) %}
+                {% set s = g.stat or {} %}
+                <tr>
+                  <td>{{ g.date }}</td>
+                  <td>{{ g.opponent }}</td>
+                  <td class="num">{{ s.get('atBats','') }}</td>
+                  <td class="num">{{ s.get('hits','') }}</td>
+                  <td class="num">{{ s.get('doubles','') }}</td>
+                  <td class="num">{{ s.get('triples','') }}</td>
+                  <td class="num">{{ s.get('homeRuns','') }}</td>
+                  <td class="num">{{ s.get('rbi','') }}</td>
+                  <td class="num">{{ s.get('runs','') }}</td>
+                  <td class="num">{{ s.get('baseOnBalls','') }}</td>
+                  <td class="num">{{ s.get('strikeOuts','') }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+
+      {% if role != "hitting" %}
+        <div class="subcard-title" style="margin-top:16px;">Pitching</div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Opponent</th>
+                <th class="num">IP</th>
+                <th class="num">H</th>
+                <th class="num">R</th>
+                <th class="num">ER</th>
+                <th class="num">BB</th>
+                <th class="num">SO</th>
+                <th class="num">HR</th>
               </tr>
             </thead>
             <tbody>
@@ -823,36 +840,7 @@
               {% endfor %}
             </tbody>
           </table>
-        {% else %}
-          <div class="muted">No pitching logs found.</div>
-        {% endif %}
-      {% else %}
-        {% if game_logs and game_logs.hitting and (game_logs.hitting|length)>0 %}
-          <table class="table" style="width:100%; min-width:700px;">
-            <thead>
-              <tr>
-                <th>Date</th><th>Opp</th><th class="num">AB</th><th class="num">H</th><th class="num">HR</th><th class="num">RBI</th><th class="num">BB</th><th class="num">SO</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for g in (game_logs.hitting or []) %}
-                {% set s = g.stat or {} %}
-                <tr>
-                  <td>{{ g.date }}</td>
-                  <td>{{ g.opponent }}</td>
-                  <td class="num">{{ s.get('atBats','') }}</td>
-                  <td class="num">{{ s.get('hits','') }}</td>
-                  <td class="num">{{ s.get('homeRuns','') }}</td>
-                  <td class="num">{{ s.get('rbi','') }}</td>
-                  <td class="num">{{ s.get('baseOnBalls','') }}</td>
-                  <td class="num">{{ s.get('strikeOuts','') }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        {% else %}
-          <div class="muted">No hitting logs found.</div>
-        {% endif %}
+        </div>
       {% endif %}
     </div>
   </div>
@@ -862,7 +850,7 @@
      Transactions
      ======================= -->
 <div id="tab-tx" class="tab-panel">
-  <div class="card" style="margin-top:14px;">
+  <div class="card">
     <div class="card-header">
       <div class="card-title">Transactions</div>
       <div class="card-subtitle">Entire history • newest first.</div>
@@ -885,14 +873,14 @@
 </div>
 
 <!-- =======================
-     Scouting Report
+     Scouting Report + Spray
      ======================= -->
 <div id="tab-scouting" class="tab-panel">
-  <div class="card" style="margin-top:14px;">
+  <div class="card">
     <div class="card-header" style="align-items:center;">
       <div>
         <div class="card-title">Scouting Report</div>
-        <div class="card-subtitle">Hitting = Savant-style percentiles • Pitching = heatmaps, shapes, and results</div>
+        <div class="card-subtitle">Statcast-style percentiles • Basenerd theme</div>
       </div>
 
       {% if season_found %}
@@ -901,901 +889,362 @@
     </div>
 
     <div class="card-body">
+      <div class="sr-two-col">
 
-      {# --------------------------
-         Two-way subtabs
-         -------------------------- #}
-      {% if role == "two-way" %}
-        <div class="sr-subtabs">
-          <button class="sr-subbtn active" type="button" data-srsub="sr-hit">Hitting</button>
-          <button class="sr-subbtn" type="button" data-srsub="sr-pit">Pitching</button>
-        </div>
-      {% endif %}
+        <!-- LEFT: sliders/bars -->
+        <div>
+          {% if savant_profile and savant_profile.available %}
+            <div class="sr-wrap">
+              {% for g in savant_profile.groups %}
+                <div>
+                  <div class="sr-group-title">{{ g.title }}</div>
 
-      {# ==========================
-         HITTING SCOUTING (existing)
-         ========================== #}
-      <div id="sr-hit" class="sr-subpanel" {% if role == "two-way" %}style="display:block;"{% endif %}>
-        {% if role != "pitching" %}
-          <div class="sr-two-col">
+                  <div class="sr-grid">
+                    {% for r in g.rows %}
+                      <div class="sr-row">
+                        <div class="sr-label mono">{{ r.label }}</div>
 
-            <!-- LEFT: sliders/bars -->
-            <div>
-              {% if savant_profile and savant_profile.available %}
-                <div class="sr-wrap">
-                  {% for g in savant_profile.groups %}
-                    <div>
-                      <div class="sr-group-title">{{ g.title }}</div>
+                        <div class="sr-bar" title="{{ r.label }}">
+                          {% if r.pct is not none %}
+                            <div class="sr-fill" style="width: {{ r.pct }}%; background: {{ sr_color(r.pct) }};"></div>
+                          {% endif %}
 
-                      <div class="sr-grid">
-                        {% for r in g.rows %}
-                          <div class="sr-row">
-                            <div class="sr-label mono">{{ r.label }}</div>
-
-                            <div class="sr-bar" title="{{ r.label }}">
-                              {% if r.pct is not none %}
-                                <div class="sr-fill" style="width: {{ r.pct }}%; background: {{ sr_color(r.pct) }};"></div>
-                              {% endif %}
-
-                              {% if r.pct is not none %}
-                                {% set p = r.pct %}
-                                <div class="sr-marker" style="left: {{ p }}%;">
-                                  <span>{{ p }}</span>
-                                </div>
-                              {% else %}
-                                <div class="sr-marker" style="left: 0; opacity:.55;">
-                                  <span>—</span>
-                                </div>
-                              {% endif %}
+                          {% if r.pct is not none %}
+                            {% set p = r.pct %}
+                            <div class="sr-marker" style="left: {{ p }}%;">
+                              <span>{{ p }}</span>
                             </div>
-
-                            <div class="mono" style="font-size:11px; text-align:right; opacity:.85;">
-                              {% if r.value is not none %}
-                                {% if r.fmt == "3f" %}{{ "%.3f"|format(r.value) }}
-                                {% elif r.fmt == "1f" %}{{ "%.1f"|format(r.value) }}
-                                {% else %}{{ r.value }}
-                                {% endif %}
-                                {{ r.suffix if r.suffix is defined else "" }}
-                              {% else %}
-                                —
-                              {% endif %}
+                          {% else %}
+                            <div class="sr-marker" style="left: 0; opacity:.55;">
+                              <span>—</span>
                             </div>
-                          </div>
-                        {% endfor %}
+                          {% endif %}
+                        </div>
+
+                        <div class="sr-value">
+                          {% if r.value is none %}
+                            —
+                          {% else %}
+                            {% if r.fmt == "3f" %}{{ "%.3f"|format(r.value) }}
+                            {% elif r.fmt == "1f" %}{{ "%.1f"|format(r.value) }}
+                            {% else %}{{ r.value }}
+                            {% endif %}
+                            {{ r.suffix if r.suffix is defined else "" }}
+                          {% endif %}
+                        </div>
                       </div>
-                    </div>
-                  {% endfor %}
-                </div>
-
-                <div class="sr-muted">
-                  Percentiles are relative to the season pool. (For K%, Whiff%, Chase%, lower is better.)
-                </div>
-              {% else %}
-                <div class="muted">No Statcast scouting data found for this season yet.</div>
-              {% endif %}
-            </div>
-
-            <!-- RIGHT: Spray -->
-            <div>
-              <div class="subcard-title" style="margin:0 0 8px 0;">Spray Chart (Hits)</div>
-
-              <div class="spray-controls" style="margin-bottom:8px;">
-                <label title="Season">
-                  <span class="mono" style="font-size:11px; opacity:.75;">Season</span>
-                  <select id="spraySeason" class="season-select">
-                    {% for y in years %}
-                      <option value="{{ y }}" {% if season_found and (y|string) == (season_found|string) %}selected{% endif %}>{{ y }}</option>
                     {% endfor %}
-                  </select>
-                </label>
-
-                <button id="sprayRefreshBtn" class="btn" type="button">Refresh</button>
-              </div>
-
-              <div class="spray-wrap">
-                <svg id="spraySvg" class="spray-svg" xmlns="http://www.w3.org/2000/svg" aria-label="Spray chart stadium">
-                  <g id="sprayWorld">
-                    <g id="sprayOverlay"></g>
-                    <g id="sprayPoints"></g>
-                  </g>
-                </svg>
-              </div>
-
-              <div class="spray-legend">
-                <span class="spray-key"><span class="spray-swatch" style="background:#22c55e;"></span> 1B</span>
-                <span class="spray-key"><span class="spray-swatch" style="background:#3b82f6;"></span> 2B</span>
-                <span class="spray-key"><span class="spray-swatch" style="background:#a855f7;"></span> 3B</span>
-                <span class="spray-key"><span class="spray-swatch" style="background:#ef4444;"></span> HR</span>
-                <span class="spray-key"><span class="spray-swatch" style="background:#f59e0b;"></span> Other Hit</span>
-              </div>
-
-              <div class="spray-note">
-                MLBAM-style coords scaled into stadium viewBox. Home plate baseline ≈ (125, 199). Stadium SVG: {{ stadium_svg|default('generic.svg') }}.
-              </div>
+                  </div>
+                </div>
+              {% endfor %}
             </div>
 
-          </div>
-        {% else %}
-          <div class="muted">Hitting scouting report not applicable for this player.</div>
-        {% endif %}
-      </div>
+            <div class="sr-muted">
+              Percentiles are relative to the season pool. (For K%, Whiff%, Chase%, lower is better.)
+            </div>
+          {% else %}
+            <div class="muted">No Statcast scouting data found for this season yet.</div>
+          {% endif %}
+        </div>
 
-      {# ==========================
-         PITCHING SCOUTING (new)
-         ========================== #}
-      <div id="sr-pit" class="sr-subpanel" {% if role == "two-way" %}style="display:none;"{% endif %}>
-        {% if role != "hitting" %}
+        <!-- RIGHT: Spray -->
+        <div>
+          <div class="subcard-title" style="margin:0 0 8px 0;">Spray Chart (Hits)</div>
 
-          <div class="pit-controls">
-            <label>
+          <div class="spray-controls" style="margin-bottom:8px;">
+            <label title="Season">
               <span class="mono" style="font-size:11px; opacity:.75;">Season</span>
-              <select id="pitSeason">
+              <select id="spraySeason" class="season-select">
                 {% for y in years %}
                   <option value="{{ y }}" {% if season_found and (y|string) == (season_found|string) %}selected{% endif %}>{{ y }}</option>
                 {% endfor %}
               </select>
             </label>
 
-            <label>
-              <span class="mono" style="font-size:11px; opacity:.75;">Game</span>
-              <select id="pitGame">
-                <option value="ALL">Season (All Games)</option>
-              </select>
-            </label>
-
-            <label>
-              <span class="mono" style="font-size:11px; opacity:.75;">Batter</span>
-              <select id="pitBatterSide">
-                <option value="ALL">All</option>
-                <option value="L">vs L</option>
-                <option value="R">vs R</option>
-              </select>
-            </label>
-
-            <label>
-              <span class="mono" style="font-size:11px; opacity:.75;">Pitch</span>
-              <select id="pitPitchType">
-                <option value="ALL">All Pitches</option>
-              </select>
-            </label>
-
-            <label>
-              <span class="mono" style="font-size:11px; opacity:.75;">Heat</span>
-              <select id="pitHeatMode">
-                <option value="density">Location Density</option>
-                <option value="xwoba">xwOBA (by location)</option>
-              </select>
-            </label>
-
-            <button id="pitRefreshBtn" class="btn" type="button">Refresh</button>
+            <button id="sprayRefreshBtn" class="btn" type="button">Refresh</button>
           </div>
 
-          <div class="pit-grid">
-
-            <div class="viz-card">
-              <div class="viz-head">
-                <div>
-                  <div class="viz-title">Pitch Location Heatmap</div>
-                  <div class="viz-sub">Smooth KDE-style surface • Catcher POV • Fixed zone bounds</div>
-                </div>
-                <div class="mono" id="pitCountLabel" style="font-size:11px; opacity:.75;">—</div>
-              </div>
-              <div class="viz-body">
-                <div class="zone-canvas-wrap">
-                  <canvas id="pitHeat" class="zone-canvas" width="520" height="546"></canvas>
-                  <svg class="zone-overlay" viewBox="0 0 520 546" preserveAspectRatio="none" aria-hidden="true">
-                    <rect id="zoneRect"
-                          x="0" y="0" width="0" height="0"
-                          fill="rgba(15,23,42,.03)"
-                          stroke="rgba(226,232,240,.9)"
-                          stroke-width="2"></rect>
-                  </svg>
-                </div>
-                <div class="sr-muted" id="pitHeatNote" style="margin-top:10px;">
-                  Select a pitch type to view usage/command by pitch. Switch “Heat” to xwOBA for result quality by location.
-                </div>
-              </div>
-            </div>
-
-            <div class="viz-card">
-              <div class="viz-head">
-                <div>
-                  <div class="viz-title">Pitch Mix & Shape</div>
-                  <div class="viz-sub">Usage, velocity/spin, and movement</div>
-                </div>
-              </div>
-              <div class="viz-body">
-
-                <div class="pit-kpis" style="margin-bottom:12px;">
-                  <div class="kpi">
-                    <div class="k">Whiff%</div>
-                    <div class="v" id="kpiWhiff">—</div>
-                  </div>
-                  <div class="kpi">
-                    <div class="k">Chase%</div>
-                    <div class="v" id="kpiChase">—</div>
-                  </div>
-                  <div class="kpi">
-                    <div class="k">Zone%</div>
-                    <div class="v" id="kpiZone">—</div>
-                  </div>
-                  <div class="kpi">
-                    <div class="k">Avg xwOBA</div>
-                    <div class="v" id="kpiXwoba">—</div>
-                  </div>
-                </div>
-
-                <div style="overflow:auto; margin-bottom:12px;">
-                  <table class="mix-table" id="mixTable">
-                    <thead>
-                      <tr>
-                        <th>Pitch</th>
-                        <th class="mono">%</th>
-                        <th class="mono">Velo</th>
-                        <th class="mono">Spin</th>
-                        <th class="mono">HB (in)</th>
-                        <th class="mono">IVB (in)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr><td class="muted" colspan="6">No data loaded yet.</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div class="viz-card" style="border:none; border-radius:0; box-shadow:none;">
-                  <div class="viz-head" style="border:1px solid rgba(226,232,240,.9); border-radius:14px; margin-bottom:10px;">
-                    <div>
-                      <div class="viz-title">Movement Plot</div>
-                      <div class="viz-sub">Horizontal (HB) vs Induced Vertical Break (IVB)</div>
-                    </div>
-                  </div>
-                  <div class="viz-body" style="padding:0;">
-                    <div style="padding:0 0 4px 0;">
-                      <canvas id="pitMove" class="zone-canvas" width="520" height="360" style="aspect-ratio:auto; height:auto;"></canvas>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
+          <div class="spray-wrap">
+            <svg id="spraySvg" class="spray-svg" xmlns="http://www.w3.org/2000/svg" aria-label="Spray chart stadium">
+              <g id="sprayWorld">
+                <g id="sprayOverlay"></g>
+                <g id="sprayPoints"></g>
+              </g>
+            </svg>
           </div>
 
-        {% else %}
-          <div class="muted">Pitching scouting report not applicable for this player.</div>
-        {% endif %}
+          <div class="spray-legend">
+            <span class="spray-key"><span class="spray-swatch" style="background:#22c55e;"></span> 1B</span>
+            <span class="spray-key"><span class="spray-swatch" style="background:#3b82f6;"></span> 2B</span>
+            <span class="spray-key"><span class="spray-swatch" style="background:#a855f7;"></span> 3B</span>
+            <span class="spray-key"><span class="spray-swatch" style="background:#ef4444;"></span> HR</span>
+            <span class="spray-key"><span class="spray-swatch" style="background:#f59e0b;"></span> Other Hit</span>
+          </div>
+
+          <div class="spray-note">
+            MLBAM-style coords scaled into stadium viewBox. Home plate baseline ≈ (125, 199). Stadium SVG: {{ stadium_svg|default('generic.svg') }}.
+          </div>
+        </div>
+
       </div>
-
     </div>
   </div>
 </div>
 
 <script>
 (function(){
-  // -----------------------------
-  // Tabs (main)
-  // -----------------------------
+  // Tabs
   const btns = document.querySelectorAll(".tab-btn");
   const panels = document.querySelectorAll(".tab-panel");
   btns.forEach(b => b.addEventListener("click", () => {
     btns.forEach(x => x.classList.remove("active"));
     panels.forEach(p => p.classList.remove("active"));
     b.classList.add("active");
-    const id = b.getAttribute("data-tab");
-    const panel = document.getElementById(id);
+    const panel = document.getElementById(b.dataset.tab);
     if(panel) panel.classList.add("active");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }));
 
-  // Respect ?tab=...
-  try{
-    const params = new URLSearchParams(window.location.search);
-    const t = params.get("tab");
-    if(t){
-      const b = document.querySelector('.tab-btn[data-tab="'+t+'"]');
-      if(b) b.click();
-    }
-  }catch(e){}
+  // Expand/collapse year children
+  document.querySelectorAll(".yexp").forEach(b => {
+    b.addEventListener("click", () => {
+      const year = b.getAttribute("data-year");
+      const kind = b.getAttribute("data-kind");
+      const rows = document.querySelectorAll(`.ychild-${kind}.ychild-${year}`);
+      const isOpen = b.classList.toggle("open");
+      rows.forEach(r => r.style.display = isOpen ? "table-row" : "none");
+    });
+  });
 
-  // -----------------------------
-  // Scouting subtabs (two-way only)
-  // -----------------------------
-  const subBtns = document.querySelectorAll(".sr-subbtn");
-  if(subBtns && subBtns.length){
-    subBtns.forEach(b => b.addEventListener("click", () => {
-      subBtns.forEach(x => x.classList.remove("active"));
-      b.classList.add("active");
-      const key = b.getAttribute("data-srsub");
-      document.querySelectorAll(".sr-subpanel").forEach(p => p.style.display = "none");
-      const target = document.getElementById(key);
-      if(target) target.style.display = "block";
-    }));
-  }
+  // -------------------------
+  // Spray Chart (Hits only)
+  // -------------------------
+  const sprayPanel = document.getElementById("tab-scouting");
+  const spraySvg = document.getElementById("spraySvg");
+  const sprayWorld = document.getElementById("sprayWorld");
+  const sprayOverlayG = document.getElementById("sprayOverlay");
+  const sprayPointsG = document.getElementById("sprayPoints");
+  const spraySeasonSel = document.getElementById("spraySeason");
+  const sprayRefreshBtn = document.getElementById("sprayRefreshBtn");
 
-  // -----------------------------
-  // Spray chart (existing)
-  // -----------------------------
-  const STADIUM_URL = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
+  let sprayCache = null;
+  let sprayTimer = null;
+  let overlayReady = false;
+
+  // Stadium viewBox info
+  let sprayVB = { minX: 0, minY: 0, w: 250, h: 250 };
+
+  // ---- TUNING KNOBS (small!) ----
+  // Makes the cloud match Savant a touch better.
+  // If you want "more up": make NUDGE_Y more negative.
+  // If you want "more spread": bump EXTRA_SPREAD slightly (1.00–1.08 is sane).
   const BASE_W = 250;
   const BASE_H = 250;
   const PLATE = { x: 125, y: 199 };
-  const EXTRA_SPREAD = 1.0;
+  const EXTRA_SPREAD = 1.045;  // tiny outward spread around home plate
+  const NUDGE_X = 0;           // px in stadium viewBox space
+  const NUDGE_Y = -10;         // px in stadium viewBox space (negative = up)
+  const SHOW_DEBUG = false;    // turn on if you want anchor dots
 
-  const spraySvg = document.getElementById("spraySvg");
-  const sprayWorld = document.getElementById("sprayWorld");
-  const sprayOverlay = document.getElementById("sprayOverlay");
-  const sprayPoints = document.getElementById("sprayPoints");
-  const spraySeasonSel = document.getElementById("spraySeason");
-  const sprayBtn = document.getElementById("sprayRefreshBtn");
-
-  function setViewBoxToBase(){
-    if(!spraySvg) return;
-    spraySvg.setAttribute("viewBox", `0 0 ${BASE_W} ${BASE_H}`);
+  function clearNode(n){
+    if(!n) return;
+    while(n.firstChild) n.removeChild(n.firstChild);
   }
-  setViewBoxToBase();
 
-  function hitColor(ev){
-    const s = (ev || "").toLowerCase();
-    if(s.includes("home_run")) return "#ef4444";
-    if(s.includes("triple")) return "#a855f7";
-    if(s.includes("double")) return "#3b82f6";
-    if(s.includes("single")) return "#22c55e";
+  function sprayColorFor(ev){
+    const e = (ev || "").toLowerCase();
+    if(e === "single") return "#22c55e";
+    if(e === "double") return "#3b82f6";
+    if(e === "triple") return "#a855f7";
+    if(e === "home_run") return "#ef4444";
     return "#f59e0b";
   }
 
-  async function loadStadium(){
-    if(!sprayOverlay) return;
-    try{
-      const res = await fetch(STADIUM_URL, {cache:"force-cache"});
-      const txt = await res.text();
-      sprayOverlay.innerHTML = txt;
-      setViewBoxToBase();
-    }catch(e){
-      sprayOverlay.innerHTML = "";
-    }
+  function drawAnchor(x, y, color, label){
+    if(!sprayPointsG) return;
+    const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx", x);
+    c.setAttribute("cy", y);
+    c.setAttribute("r", "5");
+    c.setAttribute("fill", color);
+    const t = document.createElementNS("http://www.w3.org/2000/svg","title");
+    t.textContent = label;
+    c.appendChild(t);
+    sprayPointsG.appendChild(c);
   }
 
-  function renderSpray(points){
-    if(!sprayPoints) return;
-    sprayPoints.innerHTML = "";
-    if(!points || !points.length) return;
+  function drawDebugAnchors(scaleX, scaleY){
+    // plate in stadium space (scaled into viewBox units)
+    const plateX = sprayVB.minX + PLATE.x * scaleX;
+    const plateY = sprayVB.minY + PLATE.y * scaleY;
 
-    // Fit to base viewBox; points are already normalized by your backend
-    points.forEach(p=>{
-      const cx = p.x, cy = p.y;
-      if(cx == null || cy == null) return;
-      const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
-      c.setAttribute("cx", cx);
-      c.setAttribute("cy", cy);
-      c.setAttribute("r", 3.2);
-      c.setAttribute("fill", hitColor(p.events));
-      c.setAttribute("fill-opacity", "0.8");
+    drawAnchor(plateX, plateY, "#ef4444", "HOME (125,199) scaled");
+    drawAnchor(sprayVB.minX, sprayVB.minY, "#111827", "(minX,minY)");
+    drawAnchor(sprayVB.minX + sprayVB.w, sprayVB.minY, "#3b82f6", "(minX+w,minY)");
+    drawAnchor(sprayVB.minX, sprayVB.minY + sprayVB.h, "#22c55e", "(minX,minY+h)");
+    drawAnchor(sprayVB.minX + sprayVB.w, sprayVB.minY + sprayVB.h, "#a855f7", "(minX+w,minY+h)");
+  }
+
+  async function loadStadiumOverlay(){
+    if(!sprayOverlayG || !spraySvg) return;
+    if(overlayReady) return;
+
+    const stadiumFile = "{{ stadium_svg|default('generic.svg') }}";
+    const url = `/static/stadium_svgs/${stadiumFile}`;
+
+    const res = await fetch(url, { cache: "force-cache" });
+    if(!res.ok) throw new Error(`stadium svg fetch failed: ${res.status}`);
+
+    const svgText = await res.text();
+    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const innerSvg = doc.querySelector("svg");
+    if(!innerSvg) throw new Error("stadium svg missing <svg>");
+
+    // Adopt stadium viewBox
+    const vb = innerSvg.getAttribute("viewBox") || "0 0 250 250";
+    spraySvg.setAttribute("viewBox", vb);
+
+    const parts = vb.trim().split(/\s+/).map(Number);
+    sprayVB = {
+      minX: Number.isFinite(parts[0]) ? parts[0] : 0,
+      minY: Number.isFinite(parts[1]) ? parts[1] : 0,
+      w:    Number.isFinite(parts[2]) ? parts[2] : 250,
+      h:    Number.isFinite(parts[3]) ? parts[3] : 250
+    };
+
+    // Clear + insert stadium into overlay group
+    clearNode(sprayOverlayG);
+
+    const overlayInner = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    overlayInner.setAttribute("id", "sprayOverlayInner");
+    sprayOverlayG.appendChild(overlayInner);
+
+    const kids = Array.from(innerSvg.childNodes);
+    for(const k of kids){
+      overlayInner.appendChild(document.importNode(k, true));
+    }
+
+    // ✅ Flip ONLY the stadium drawing so it isn't upside down.
+    // Points are drawn in normal viewBox space and do NOT get flipped.
+    overlayInner.setAttribute(
+      "transform",
+      `translate(0 ${sprayVB.minY + sprayVB.h}) scale(1 -1)`
+    );
+
+    // Ensure we are NOT flipping the world
+    if(sprayWorld) sprayWorld.removeAttribute("transform");
+
+    overlayReady = true;
+  }
+
+  function mapPointToStadium(sx, sy, scaleX, scaleY){
+    // Convert Statcast-ish (0..250) -> stadium viewBox units
+    // Then apply a tiny outward expansion around home plate (Savant-like)
+    const plateX = PLATE.x;
+    const plateY = PLATE.y;
+
+    const dx = (sx - plateX) * scaleX;
+    const dy = (sy - plateY) * scaleY;
+
+    const x = sprayVB.minX + (plateX * scaleX) + (dx * EXTRA_SPREAD) + NUDGE_X;
+    const y = sprayVB.minY + (plateY * scaleY) + (dy * EXTRA_SPREAD) + NUDGE_Y;
+
+    return { x, y };
+  }
+
+  function renderSpray(){
+    if(!sprayPointsG) return;
+    if(!sprayCache || !Array.isArray(sprayCache.points)) return;
+
+    clearNode(sprayPointsG);
+
+    // stadium scaling factors (viewBox could be 550×550, etc.)
+    const scaleX = sprayVB.w / BASE_W;
+    const scaleY = sprayVB.h / BASE_H;
+
+    if(SHOW_DEBUG){
+      drawDebugAnchors(scaleX, scaleY);
+    }
+
+    for(const p of sprayCache.points){
+      if(!p || !p.is_hit) continue;
+
+      const fx = p.hc_x;
+      const fy = p.hc_y;
+      if(fx === null || fx === undefined || fy === null || fy === undefined) continue;
+
+      const sx = Number(fx);
+      const sy = Number(fy);
+      if(!isFinite(sx) || !isFinite(sy)) continue;
+
+      const { x, y } = mapPointToStadium(sx, sy, scaleX, scaleY);
+
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", x.toFixed(2));
+      c.setAttribute("cy", y.toFixed(2));
+      c.setAttribute("r", "3.2");
+      c.setAttribute("fill", sprayColorFor(p.event));
+      c.setAttribute("fill-opacity", "0.85");
       c.setAttribute("stroke", "rgba(15,23,42,.25)");
       c.setAttribute("stroke-width", "0.6");
-      sprayPoints.appendChild(c);
-    });
-  }
 
-  async function refreshSpray(){
-    if(!spraySeasonSel) return;
-    const season = spraySeasonSel.value;
-    try{
-      const url = `/player/{{ bio.id }}/spray.json?season=${encodeURIComponent(season)}`;
-      const res = await fetch(url, {cache:"no-store"});
-      const data = await res.json();
-      renderSpray(data.points || []);
-    }catch(e){
-      renderSpray([]);
+      const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+      title.textContent = `${p.event || "hit"}${p.inning ? " • inn " + p.inning : ""} • (${sx.toFixed(1)}, ${sy.toFixed(1)})`;
+      c.appendChild(title);
+
+      sprayPointsG.appendChild(c);
     }
   }
 
-  if(sprayBtn) sprayBtn.addEventListener("click", refreshSpray);
-  if(spraySvg){
-    loadStadium().then(refreshSpray);
-  }
-
-  // -----------------------------
-  // Pitching scouting report (new)
-  // -----------------------------
-  const role = "{{ role|default('hitting') }}";
-  const playerId = {{ bio.id|int }};
-  const pitSeason = document.getElementById("pitSeason");
-  const pitGame = document.getElementById("pitGame");
-  const pitBatterSide = document.getElementById("pitBatterSide");
-  const pitPitchType = document.getElementById("pitPitchType");
-  const pitHeatMode = document.getElementById("pitHeatMode");
-  const pitBtn = document.getElementById("pitRefreshBtn");
-
-  const pitCountLabel = document.getElementById("pitCountLabel");
-  const kpiWhiff = document.getElementById("kpiWhiff");
-  const kpiChase = document.getElementById("kpiChase");
-  const kpiZone = document.getElementById("kpiZone");
-  const kpiXwoba = document.getElementById("kpiXwoba");
-  const mixTable = document.getElementById("mixTable");
-
-  const heatCanvas = document.getElementById("pitHeat");
-  const moveCanvas = document.getElementById("pitMove");
-  const zoneRect = document.getElementById("zoneRect");
-
-  // Fixed zone bounds (your requirement)
-  const ZONE = {
-    top: 3.3942716630565757,
-    bot: 1.594602333802632,
-    left: -0.83,
-    right: 0.83
-  };
-
-  // Heatmap plot window (slightly larger than zone)
-  // Keep consistent w/ catcher POV and DO NOT flip for batter handedness.
-  const WINDOW = {
-    xMin: -2.0,
-    xMax:  2.0,
-    yMin:  0.5,
-    yMax:  4.5
-  };
-
-  function fmtPct(x){
-    if(x == null || isNaN(x)) return "—";
-    return (x*100).toFixed(1) + "%";
-  }
-  function fmt1(x){
-    if(x == null || isNaN(x)) return "—";
-    return Number(x).toFixed(1);
-  }
-  function fmt0(x){
-    if(x == null || isNaN(x)) return "—";
-    return Math.round(Number(x)).toString();
-  }
-
-  function setZoneOverlay(){
-    if(!heatCanvas || !zoneRect) return;
-    const w = heatCanvas.width, h = heatCanvas.height;
-
-    const xScale = (x)=> ( (x - WINDOW.xMin) / (WINDOW.xMax - WINDOW.xMin) ) * w;
-    const yScale = (y)=> h - ( (y - WINDOW.yMin) / (WINDOW.yMax - WINDOW.yMin) ) * h;
-
-    const zx = xScale(ZONE.left);
-    const zy = yScale(ZONE.top);
-    const zw = xScale(ZONE.right) - xScale(ZONE.left);
-    const zh = yScale(ZONE.bot) - yScale(ZONE.top);
-
-    zoneRect.setAttribute("x", zx);
-    zoneRect.setAttribute("y", zy);
-    zoneRect.setAttribute("width", zw);
-    zoneRect.setAttribute("height", zh);
-  }
-  setZoneOverlay();
-
-  function gaussianKernel1D(sigma, radius){
-    const k = [];
-    const s2 = sigma*sigma;
-    let sum = 0;
-    for(let i=-radius; i<=radius; i++){
-      const v = Math.exp(-(i*i)/(2*s2));
-      k.push(v);
-      sum += v;
-    }
-    // normalize
-    for(let i=0; i<k.length; i++) k[i] /= sum;
-    return k;
-  }
-
-  function blurSeparable(grid, gw, gh, sigma){
-    // grid is Float32Array length gw*gh
-    const radius = Math.max(1, Math.round(sigma*3));
-    const k = gaussianKernel1D(sigma, radius);
-    const tmp = new Float32Array(gw*gh);
-    const out = new Float32Array(gw*gh);
-
-    // horizontal
-    for(let y=0; y<gh; y++){
-      for(let x=0; x<gw; x++){
-        let acc = 0;
-        for(let j=-radius; j<=radius; j++){
-          const xx = Math.min(gw-1, Math.max(0, x+j));
-          acc += grid[y*gw + xx] * k[j+radius];
-        }
-        tmp[y*gw + x] = acc;
-      }
-    }
-
-    // vertical
-    for(let x=0; x<gw; x++){
-      for(let y=0; y<gh; y++){
-        let acc = 0;
-        for(let j=-radius; j<=radius; j++){
-          const yy = Math.min(gh-1, Math.max(0, y+j));
-          acc += tmp[yy*gw + x] * k[j+radius];
-        }
-        out[y*gw + x] = acc;
-      }
-    }
-    return out;
-  }
-
-  function drawHeatmap(points, mode){
-    if(!heatCanvas) return;
-    const ctx = heatCanvas.getContext("2d");
-    const W = heatCanvas.width, H = heatCanvas.height;
-
-    // Clear
-    ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0,0,W,H);
-
-    if(!points || !points.length){
-      ctx.fillStyle = "rgba(91,101,119,.8)";
-      ctx.font = '12px "IBM Plex Mono", ui-monospace, Menlo, monospace';
-      ctx.fillText("No pitch locations for this filter.", 12, 24);
-      setZoneOverlay();
-      return;
-    }
-
-    // Downsampled grid for speed (KDE-ish)
-    const gw = 120, gh = 130;
-    const grid = new Float32Array(gw*gh);
-    const gridN = new Float32Array(gw*gh); // for xwOBA averaging
-
-    const xToGX = (x)=> Math.floor( ( (x - WINDOW.xMin) / (WINDOW.xMax - WINDOW.xMin) ) * gw );
-    const yToGY = (y)=> Math.floor( ( (y - WINDOW.yMin) / (WINDOW.yMax - WINDOW.yMin) ) * gh );
-
-    for(const p of points){
-      const x = p.plate_x, y = p.plate_z;
-      if(x == null || y == null) continue;
-      const gx = xToGX(x), gy = yToGY(y);
-      if(gx<0 || gx>=gw || gy<0 || gy>=gh) continue;
-
-      if(mode === "xwoba"){
-        const w = (p.xwoba == null ? null : Number(p.xwoba));
-        if(w == null || isNaN(w)) continue;
-        grid[gx + gy*gw] += w;
-        gridN[gx + gy*gw] += 1;
-      }else{
-        grid[gx + gy*gw] += 1;
-      }
-    }
-
-    if(mode === "xwoba"){
-      for(let i=0;i<grid.length;i++){
-        if(gridN[i] > 0) grid[i] = grid[i] / gridN[i];
-        else grid[i] = 0;
-      }
-    }
-
-    // Blur (smooth)
-    const blurred = blurSeparable(grid, gw, gh, 1.2);
-
-    // Normalize to 0..1
-    let mn = Infinity, mx = -Infinity;
-    for(let i=0;i<blurred.length;i++){
-      const v = blurred[i];
-      if(v < mn) mn = v;
-      if(v > mx) mx = v;
-    }
-    const denom = (mx - mn) || 1;
-
-    // Draw to image buffer at grid resolution then scale up
-    const img = ctx.createImageData(gw, gh);
-    for(let i=0;i<blurred.length;i++){
-      const t = (blurred[i] - mn) / denom; // 0..1
-
-      // Basenerd-ish palette: low = blue-ish, mid = light gray, high = red-ish
-      let r,g,b,a;
-      if(mode === "xwoba"){
-        // xwOBA naturally ~0..1; we normalize to 0..1 anyway.
-        // Keep higher = "hotter"
-      }
-      if(t <= 0.5){
-        const u = t / 0.5;
-        r = 37  + (229-37)*u;
-        g = 99  + (231-99)*u;
-        b = 235 + (235-235)*u;
-      }else{
-        const u = (t-0.5)/0.5;
-        r = 229 + (239-229)*u;
-        g = 231 + (68-231)*u;
-        b = 235 + (68-235)*u;
-      }
-      a = 220; // opacity
-      const idx = i*4;
-      img.data[idx+0] = Math.max(0, Math.min(255, r));
-      img.data[idx+1] = Math.max(0, Math.min(255, g));
-      img.data[idx+2] = Math.max(0, Math.min(255, b));
-      img.data[idx+3] = Math.max(0, Math.min(255, a));
-    }
-
-    // Paint
-    ctx.save();
-    ctx.imageSmoothingEnabled = true;
-    // drawImage from offscreen
-    const off = document.createElement("canvas");
-    off.width = gw; off.height = gh;
-    off.getContext("2d").putImageData(img, 0, 0);
-    ctx.drawImage(off, 0, 0, W, H);
-    ctx.restore();
-
-    // Subtle fade outside view window is already white background; overlay zone
-    setZoneOverlay();
-  }
-
-  function drawMovementPlot(rows){
-    if(!moveCanvas) return;
-    const ctx = moveCanvas.getContext("2d");
-    const W = moveCanvas.width, H = moveCanvas.height;
-
-    ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0,0,W,H);
-
-    // axes bounds in inches
-    const xMin = -25, xMax = 25;   // HB
-    const yMin = -5,  yMax = 25;   // IVB
-
-    const xScale = (x)=> ((x - xMin)/(xMax-xMin))*W;
-    const yScale = (y)=> H - ((y - yMin)/(yMax-yMin))*H;
-
-    // grid
-    ctx.strokeStyle = "rgba(226,232,240,.9)";
-    ctx.lineWidth = 1;
-    for(let i=0;i<=10;i++){
-      const x = (i/10)*W;
-      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
-    }
-    for(let i=0;i<=10;i++){
-      const y = (i/10)*H;
-      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
-    }
-
-    // zero lines
-    ctx.strokeStyle = "rgba(15,23,42,.22)";
-    ctx.beginPath(); ctx.moveTo(xScale(0),0); ctx.lineTo(xScale(0),H); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,yScale(0)); ctx.lineTo(W,yScale(0)); ctx.stroke();
-
-    // labels
-    ctx.fillStyle = "rgba(91,101,119,.9)";
-    ctx.font = '11px "IBM Plex Mono", ui-monospace, Menlo, monospace';
-    ctx.fillText("HB (in)", 10, 18);
-    ctx.fillText("IVB (in)", 10, 34);
-
-    if(!rows || !rows.length){
-      ctx.fillText("No movement data.", 10, 56);
-      return;
-    }
-
-    // plot points (one per pitch type centroid)
-    rows.forEach((r, idx)=>{
-      const hb = r.hb_in, ivb = r.ivb_in;
-      if(hb == null || ivb == null) return;
-
-      // deterministic swatch-ish color via hue rotation by index (no hardcoding team colors)
-      const hue = (idx*57) % 360;
-      const fill = `hsla(${hue}, 75%, 50%, .70)`;
-      const stroke = `hsla(${hue}, 75%, 30%, .85)`;
-
-      const cx = xScale(hb);
-      const cy = yScale(ivb);
-
-      ctx.beginPath();
-      ctx.arc(cx, cy, 6, 0, Math.PI*2);
-      ctx.fillStyle = fill;
-      ctx.fill();
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = stroke;
-      ctx.stroke();
-
-      // label
-      ctx.fillStyle = "rgba(15,23,42,.85)";
-      ctx.font = '10px "IBM Plex Mono", ui-monospace, Menlo, monospace';
-      ctx.fillText(r.pitch || "", cx+8, cy+3);
-    });
-  }
-
-  function setMixTable(rows){
-    if(!mixTable) return;
-    const tbody = mixTable.querySelector("tbody");
-    if(!tbody) return;
-
-    if(!rows || !rows.length){
-      tbody.innerHTML = `<tr><td class="muted" colspan="6">No pitch mix data for this filter.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = rows.map((r, idx)=>{
-      const hue = (idx*57) % 360;
-      const sw = `<span class="swatch" style="background: hsla(${hue},75%,50%,.70)"></span>`;
-      return `
-        <tr>
-          <td>
-            <span class="mix-pill">${sw}<span style="font-weight:900;">${r.pitch || "—"}</span></span>
-          </td>
-          <td class="mono">${(r.usage_pct != null ? (r.usage_pct*100).toFixed(1) : "—")}</td>
-          <td class="mono">${(r.vavg != null ? r.vavg.toFixed(1) : "—")}</td>
-          <td class="mono">${(r.spin != null ? Math.round(r.spin) : "—")}</td>
-          <td class="mono">${(r.hb_in != null ? r.hb_in.toFixed(1) : "—")}</td>
-          <td class="mono">${(r.ivb_in != null ? r.ivb_in.toFixed(1) : "—")}</td>
-        </tr>
-      `;
-    }).join("");
-  }
-
-  function fillPitchTypeOptions(pitchTypes){
-    if(!pitPitchType) return;
-    const cur = pitPitchType.value || "ALL";
-    const opts = [`<option value="ALL">All Pitches</option>`];
-    (pitchTypes || []).forEach(pt=>{
-      const v = pt.code || pt.pitch_type || pt;
-      const label = pt.name || pt.pitch_name || v;
-      if(!v) return;
-      opts.push(`<option value="${String(v)}">${label}</option>`);
-    });
-    pitPitchType.innerHTML = opts.join("");
-    // restore if possible
-    const exists = Array.from(pitPitchType.options).some(o => o.value === cur);
-    pitPitchType.value = exists ? cur : "ALL";
-  }
-
-  async function loadPitchingGames(season){
-    if(!pitGame) return;
-    pitGame.innerHTML = `<option value="ALL">Season (All Games)</option>`;
-    try{
-      const url = `/player/${playerId}/pitching_games_json?season=${encodeURIComponent(season)}`;
-      const res = await fetch(url, {cache:"no-store"});
-      const data = await res.json();
-      const games = data.games || [];
-      // each game: {game_pk, label}
-      const extra = games.map(g=>{
-        return `<option value="${g.game_pk}">${g.label}</option>`;
-      }).join("");
-      pitGame.insertAdjacentHTML("beforeend", extra);
-    }catch(e){
-      // keep season-only option
-    }
-  }
-
-  async function loadPitchingReport(){
-    if(!pitSeason || !heatCanvas) return;
-
-    const season = pitSeason.value;
-    const gamePk = (pitGame && pitGame.value) ? pitGame.value : "ALL";
-    const batter = (pitBatterSide && pitBatterSide.value) ? pitBatterSide.value : "ALL";
-    const pitch = (pitPitchType && pitPitchType.value) ? pitPitchType.value : "ALL";
-    const heatMode = (pitHeatMode && pitHeatMode.value) ? pitHeatMode.value : "density";
-
-    // Endpoint contract (expected):
-    // {
-    //   season, game_pk,
-    //   pitch_types:[{code,name}],
-    //   pitches:[{pitch_type, pitch_name, plate_x, plate_z, pfx_x, pfx_z, release_speed, release_spin_rate, xwoba, is_whiff, is_chase, is_zone}],
-    //   summary:{whiff_pct, chase_pct, zone_pct, xwoba_avg},
-    //   mix:[{pitch, usage_pct, vavg, spin, hb_in, ivb_in}]
-    // }
-    const url = `/player/${playerId}/pitching_report_json?season=${encodeURIComponent(season)}&game_pk=${encodeURIComponent(gamePk)}&batter_side=${encodeURIComponent(batter)}`;
+  async function loadSpray(){
+    const season = spraySeasonSel ? spraySeasonSel.value : "";
+    const url = `/player/{{ bio.id }}/spray.json?season=${encodeURIComponent(season)}`;
 
     try{
-      const res = await fetch(url, {cache:"no-store"});
-      const data = await res.json();
+      const res = await fetch(url, { cache: "no-store" });
+      if(!res.ok) throw new Error(`spray fetch failed: ${res.status}`);
+      sprayCache = await res.json();
 
-      fillPitchTypeOptions(data.pitch_types || []);
-
-      // filter by pitch type client-side
-      let pitches = data.pitches || [];
-      if(pitch !== "ALL"){
-        pitches = pitches.filter(p=> String(p.pitch_type || p.pitch || "") === String(pitch));
-      }
-
-      // count
-      if(pitCountLabel){
-        pitCountLabel.textContent = `${pitches.length} pitches`;
-      }
-
-      // KPIs (prefer server-provided, else compute quick)
-      const s = data.summary || {};
-      const wh = (s.whiff_pct != null ? s.whiff_pct : null);
-      const ch = (s.chase_pct != null ? s.chase_pct : null);
-      const zn = (s.zone_pct != null ? s.zone_pct : null);
-      const xw = (s.xwoba_avg != null ? s.xwoba_avg : null);
-
-      if(kpiWhiff) kpiWhiff.textContent = (wh != null ? (wh*100).toFixed(1)+"%" : "—");
-      if(kpiChase) kpiChase.textContent = (ch != null ? (ch*100).toFixed(1)+"%" : "—");
-      if(kpiZone)  kpiZone.textContent = (zn != null ? (zn*100).toFixed(1)+"%" : "—");
-      if(kpiXwoba) kpiXwoba.textContent = (xw != null ? (Number(xw).toFixed(3)) : "—");
-
-      // Heatmap data mapping
-      const pts = pitches.map(p=>{
-        return {
-          plate_x: (p.plate_x ?? p.px ?? null),
-          plate_z: (p.plate_z ?? p.pz ?? null),
-          xwoba: (p.xwoba ?? p.estimated_woba_using_speedangle ?? p.xwOBA ?? null)
-        };
-      });
-
-      drawHeatmap(pts, heatMode);
-
-      // Mix + movement plot (use server mix if available; else aggregate rough)
-      let mix = data.mix || null;
-
-      if(!mix){
-        // rough aggregate
-        const by = {};
-        for(const p of pitches){
-          const k = (p.pitch_name || p.pitch_type || "UNK");
-          if(!by[k]) by[k] = {pitch:k, n:0, v:0, sp:0, hb:0, ivb:0, hbN:0, ivbN:0};
-          by[k].n++;
-          const v = Number(p.release_speed ?? p.v ?? p.velo);
-          if(!isNaN(v)) by[k].v += v;
-          const sp = Number(p.release_spin_rate ?? p.spin ?? p.spin_rate);
-          if(!isNaN(sp)) by[k].sp += sp;
-
-          // pfx_x / pfx_z are in feet; convert to inches
-          const px = Number(p.pfx_x ?? p.hmov ?? null);
-          const pz = Number(p.pfx_z ?? p.ivb ?? null);
-          if(!isNaN(px)){ by[k].hb += px*12; by[k].hbN++; }
-          if(!isNaN(pz)){ by[k].ivb += pz*12; by[k].ivbN++; }
-        }
-        const total = Object.values(by).reduce((a,r)=>a+r.n,0) || 1;
-        mix = Object.values(by)
-          .map(r=>({
-            pitch: r.pitch,
-            usage_pct: r.n/total,
-            vavg: (r.v/r.n),
-            spin: (r.sp/r.n),
-            hb_in: (r.hbN ? r.hb/r.hbN : null),
-            ivb_in: (r.ivbN ? r.ivb/r.ivbN : null)
-          }))
-          .sort((a,b)=> (b.usage_pct||0) - (a.usage_pct||0));
-      }
-
-      setMixTable(mix);
-      drawMovementPlot(mix);
-
-    }catch(e){
-      if(pitCountLabel) pitCountLabel.textContent = "—";
-      if(kpiWhiff) kpiWhiff.textContent = "—";
-      if(kpiChase) kpiChase.textContent = "—";
-      if(kpiZone)  kpiZone.textContent = "—";
-      if(kpiXwoba) kpiXwoba.textContent = "—";
-      setMixTable(null);
-      drawMovementPlot(null);
-      drawHeatmap([], "density");
+      await loadStadiumOverlay();
+      renderSpray();
+    }catch(err){
+      console.error(err);
     }
   }
 
-  async function initPitching(){
-    if(role === "hitting") return;
-    if(!pitSeason) return;
-
-    await loadPitchingGames(pitSeason.value);
-    await loadPitchingReport();
+  function startSprayAuto(){
+    stopSprayAuto();
+    sprayTimer = setInterval(() => {
+      const active = sprayPanel && sprayPanel.classList.contains("active");
+      if(active) loadSpray();
+    }, 30000);
   }
 
-  if(pitSeason){
-    pitSeason.addEventListener("change", async ()=>{
-      await loadPitchingGames(pitSeason.value);
-      if(pitGame) pitGame.value = "ALL";
-      await loadPitchingReport();
-    });
-  }
-  if(pitGame){
-    pitGame.addEventListener("change", loadPitchingReport);
-  }
-  if(pitBatterSide){
-    pitBatterSide.addEventListener("change", loadPitchingReport);
-  }
-  if(pitPitchType){
-    pitPitchType.addEventListener("change", loadPitchingReport);
-  }
-  if(pitHeatMode){
-    pitHeatMode.addEventListener("change", loadPitchingReport);
-  }
-  if(pitBtn){
-    pitBtn.addEventListener("click", loadPitchingReport);
+  function stopSprayAuto(){
+    if(sprayTimer){
+      clearInterval(sprayTimer);
+      sprayTimer = null;
+    }
   }
 
-  // load pitching report when tab becomes visible (simple heuristic)
-  // also load on page init for pitchers
-  initPitching();
+  if(sprayRefreshBtn) sprayRefreshBtn.addEventListener("click", loadSpray);
+  if(spraySeasonSel) spraySeasonSel.addEventListener("change", loadSpray);
 
+  // Lazy-load spray when Scouting tab opens
+  btns.forEach(b => b.addEventListener("click", () => {
+    if(b.dataset.tab === "tab-scouting"){
+      loadSpray();
+      startSprayAuto();
+    }else{
+      stopSprayAuto();
+    }
+  }));
+
+  if(sprayPanel && sprayPanel.classList.contains("active")){
+    loadSpray();
+    startSprayAuto();
+  }
 })();
 </script>
 
-{% endblock content %}
+{% endblock %}
