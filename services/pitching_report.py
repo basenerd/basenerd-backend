@@ -47,7 +47,7 @@ from sqlalchemy import text as sql_text
 def _get_engine():
     # your existing implementation
     from sqlalchemy import create_engine
-    db_url = os.environ.get("DATABASE_URL") or os.environ.get("DB_URL")
+    db_url = 'postgresql://basenerd_user:d5LmELIOiEszYPBSLSDT1oIi79gkgDV6@dpg-d5i0tku3jp1c73f1d3gg-a.oregon-postgres.render.com/basenerd?sslmode=require'
     if not db_url:
         raise RuntimeError("DATABASE_URL not set")
     return create_engine(db_url)
