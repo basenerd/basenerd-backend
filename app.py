@@ -62,6 +62,30 @@ except Exception as e:
 
 app = Flask(__name__)
 
+@app.template_global()
+def sr_color(pct):
+    if pct is None:
+        return "rgba(229,231,235,1)"
+    try:
+        p = int(pct)
+    except Exception:
+        return "rgba(229,231,235,1)"
+    p = max(0, min(100, p))
+
+    # blue -> gray -> red
+    if p <= 50:
+        t = p / 50.0
+        r = round(37  + (229 - 37) * t)
+        g = round(99  + (231 - 99) * t)
+        b = round(235 + (235 - 235) * t)
+    else:
+        t = (p - 50) / 50.0
+        r = round(229 + (239 - 229) * t)
+        g = round(231 + (68  - 231) * t)
+        b = round(235 + (68  - 235) * t)
+
+    return f"rgb({r},{g},{b})"
+    
 @app.get("/about")
 def about():
     page = get_markdown_page("about.md")
