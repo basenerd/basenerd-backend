@@ -1377,3 +1377,74 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   transform-origin: center;
   transform: scaleY(-1);
 }
+/* =========================
+   Pitching report (player scouting)
+   ========================= */
+.pr-controls{
+  display:flex;
+  gap:10px;
+  align-items:flex-end;
+  flex-wrap:wrap;
+  margin-bottom:10px;
+}
+.pr-label{
+  display:block;
+  font-size:11px;
+  opacity:.75;
+  margin-bottom:2px;
+}
+.pr-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+@media (max-width: 900px){
+  .pr-grid{ grid-template-columns: 1fr; }
+}
+.pr-shapes-wrap{
+  width:100%;
+  overflow:auto;
+}
+.pr-shapes-svg{
+  width:100%;
+  height:auto;
+  min-height:280px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  padding:6px;
+  background: rgba(0,0,0,.08);
+}
+.pr-heat-row{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+@media (max-width: 900px){
+  .pr-heat-row{ grid-template-columns: 1fr; }
+}
+.pr-heat{
+  width:100%;
+  height:auto;
+  aspect-ratio: 1.18 / 1;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  background: rgba(0,0,0,.08);
+}
+.pr-heat-title{
+  font-size:12px;
+  opacity:.85;
+  margin-bottom:6px;
+}
+.pr-heat-note{
+  margin-top:8px;
+  font-size:11px;
+  opacity:.7;
+}
+.pr-metric{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.pr-metric-btn.active{
+  outline: 2px solid rgba(255,255,255,.18);
+}
