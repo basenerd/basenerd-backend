@@ -8,68 +8,63 @@ from typing import Any, Dict, List, Optional, Tuple
 import psycopg
 
 
-# --- Fixed zone (matches your previous file constants) ---
+# --- Fixed zone (matches your previous fixed zone request) ---
 ZONE_TOP = 3.3942716630565757
 ZONE_BOT = 1.594602333802632
 ZONE_LEFT = -0.83
 ZONE_RIGHT = 0.83
 
-# Heatmap domain (bigger than zone)
-X_MIN, X_MAX = -2.0, 2.0
-Z_MIN, Z_MAX = 0.0, 5.0
+# --- Heatmap grid settings (in Statcast plate_x/plate_z units: feet) ---
+X_MIN = -2.0
+X_MAX = 2.0
+Z_MIN = 0.0
+Z_MAX = 5.0
 
-GRID_NX = 70
-GRID_NZ = 70
+GRID_NX = 60
+GRID_NZ = 60
 
-GAUSS_SIGMA = 1.7  # smoothing
+GAUSS_SIGMA = 1.4  # KDE-ish smoothness
 
-SWING_DESCRIPTIONS = {
+# Statcast descriptions that count as "swing"
+SWING = {
     "swinging_strike",
     "swinging_strike_blocked",
     "foul",
     "foul_tip",
     "foul_bunt",
-    "missed_bunt",
     "hit_into_play",
     "hit_into_play_no_out",
     "hit_into_play_score",
 }
-WHIFF_DESCRIPTIONS = {
-    "swinging_strike",
-    "swinging_strike_blocked",
-    "missed_bunt",
-}
+
+# Statcast descriptions that count as "whiff" (swing + miss)
+WHIFF = {"swinging_strike", "swinging_strike_blocked"}
 
 
-# ----------------------------
-# DB URL (match savant_profile style)
-# ----------------------------
 def _db_url() -> str:
-    url = os.getenv("DATABASE_URL")
+    url = os.environ.get("DATABASE_URL") or os.environ.get("DATABASE_URL_PG") or ""
     if not url:
-        raise RuntimeError("DATABASE_URL is not set")
-    if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
+        raise RuntimeError("Missing DATABASE_URL env var")
     return url
 
 
-def _safe_float(x) -> Optional[float]:
+def _safe_float(x: Any) -> Optional[float]:
     try:
         if x is None:
             return None
-        f = float(x)
-        if not math.isfinite(f):
+        v = float(x)
+        if not math.isfinite(v):
             return None
-        return f
+        return v
     except Exception:
         return None
 
 
-def _mean(nums: List[Optional[float]]) -> Optional[float]:
-    vals = [x for x in nums if x is not None and math.isfinite(float(x))]
-    if not vals:
+def _mean(vals: List[Optional[float]]) -> Optional[float]:
+    vv = [v for v in vals if v is not None and math.isfinite(v)]
+    if not vv:
         return None
-    return float(sum(vals)) / float(len(vals))
+    return float(sum(vv)) / float(len(vv))
 
 
 def _stand_lr(stand: Optional[str], p_throws: Optional[str]) -> Optional[str]:
@@ -92,24 +87,6 @@ def _stand_lr(stand: Optional[str], p_throws: Optional[str]) -> Optional[str]:
         if pt == "L":
             return "R"
     return None
-
-
-def _grid_payload(grid: List[List[float]]) -> Dict[str, Any]:
-    return {
-        "nx": GRID_NX,
-        "nz": GRID_NZ,
-        "x_min": X_MIN,
-        "x_max": X_MAX,
-        "z_min": Z_MIN,
-        "z_max": Z_MAX,
-        "grid": grid,
-        "zone": {
-            "left": ZONE_LEFT,
-            "right": ZONE_RIGHT,
-            "top": ZONE_TOP,
-            "bot": ZONE_BOT,
-        },
-    }
 
 
 def _bin_index(v: float, vmin: float, vmax: float, n: int) -> Optional[int]:
@@ -186,6 +163,19 @@ def _blur_grid(grid: List[List[float]], sigma: float = GAUSS_SIGMA) -> List[List
         for z in range(nz):
             out[z][x] = colb[z]
     return out
+
+
+def _grid_payload(grid: List[List[float]]) -> Dict[str, Any]:
+    return {
+        "grid": grid,
+        "nx": GRID_NX,
+        "nz": GRID_NZ,
+        "x_min": X_MIN,
+        "x_max": X_MAX,
+        "z_min": Z_MIN,
+        "z_max": Z_MAX,
+        "zone": {"left": ZONE_LEFT, "right": ZONE_RIGHT, "top": ZONE_TOP, "bot": ZONE_BOT},
+    }
 
 
 # ----------------------------
@@ -265,6 +255,18 @@ def pitching_report_summary(
         by_pt.setdefault(pt, []).append(r)
 
     total = len(arr)
+
+    # usage split vs LHH / RHH (switch-hitters mapped by pitcher handedness)
+    side_totals: Dict[str, int] = {"L": 0, "R": 0}
+    side_by_pt: Dict[str, Dict[str, int]] = {}
+    for r in arr:
+        pt0 = (r.get("pitch_type") or "").strip() or "UNK"
+        side0 = _stand_lr(r.get("stand"), r.get("p_throws"))
+        if side0 in ("L", "R"):
+            side_totals[side0] += 1
+            d = side_by_pt.setdefault(pt0, {"L": 0, "R": 0})
+            d[side0] += 1
+
     mix: List[Dict[str, Any]] = []
     shapes: List[Dict[str, Any]] = []
     pitches: List[Dict[str, Any]] = []
@@ -286,46 +288,64 @@ def pitching_report_summary(
 
         for x in rows:
             desc = (x.get("description") or "").lower().strip()
-            if desc in SWING_DESCRIPTIONS:
+            if desc in SWING:
                 swings += 1
-            if desc in WHIFF_DESCRIPTIONS:
+            if desc in WHIFF:
                 whiffs += 1
 
             xw = _safe_float(x.get("estimated_woba_using_speedangle"))
             if xw is not None:
                 xw_list.append(xw)
 
-        whiff_pct = (whiffs / swings * 100.0) if swings else None
-
         mix.append(
             {
                 "pitch_type": pt,
                 "pitch_name": pitch_name,
                 "n": n,
-                "usage": (n / total * 100.0) if total else 0.0,
+                "usage": (100.0 * n / total) if total else 0.0,
                 "velo": _mean(velo),
                 "spin": _mean(spin),
-                "hb": _mean(hb),  # feet
-                "vb": _mean(vb),  # feet
+                "hb": (_mean(hb) * 12.0) if _mean(hb) is not None else None,  # inches
+                "ivb": (_mean(vb) * 12.0) if _mean(vb) is not None else None,  # inches
                 "xwoba": _mean(xw_list),
-                "whiff_pct": whiff_pct,
+                "whiff": (100.0 * whiffs / swings) if swings else None,
             }
         )
 
+        # shapes feed the movement plot
         shapes.append(
             {
                 "pitch_type": pt,
                 "pitch_name": pitch_name,
                 "n": n,
-                "pfx_x": _mean(hb),
-                "pfx_z": _mean(vb),
-                "velo": _mean(velo),
+                "pfx_x": _mean(hb),  # feet
+                "pfx_z": _mean(vb),  # feet
             }
         )
 
     pitches.sort(key=lambda x: x["n"], reverse=True)
     mix.sort(key=lambda x: x["n"], reverse=True)
     shapes.sort(key=lambda x: x["n"], reverse=True)
+
+    usage_lr: List[Dict[str, Any]] = []
+    ltot = int(side_totals.get("L") or 0)
+    rtot = int(side_totals.get("R") or 0)
+    for p in pitches:
+        pt0 = (p.get("pitch_type") or "").strip() or "UNK"
+        name0 = p.get("pitch_name") or pt0
+        d = side_by_pt.get(pt0) or {"L": 0, "R": 0}
+        lc = int(d.get("L") or 0)
+        rc = int(d.get("R") or 0)
+        usage_lr.append(
+            {
+                "pitch_type": pt0,
+                "pitch_name": name0,
+                "l_count": lc,
+                "r_count": rc,
+                "l_usage": (100.0 * lc / ltot) if ltot else 0.0,
+                "r_usage": (100.0 * rc / rtot) if rtot else 0.0,
+            }
+        )
 
     return {
         "ok": True,
@@ -336,6 +356,8 @@ def pitching_report_summary(
         "pitches": pitches,  # used by your front-end dropdown builder
         "mix": mix,
         "shapes": shapes,
+        "usage_lr": usage_lr,
+        "side_totals": side_totals,
         "zone": {"left": ZONE_LEFT, "right": ZONE_RIGHT, "top": ZONE_TOP, "bot": ZONE_BOT},
     }
 
@@ -344,99 +366,73 @@ def pitching_heatmap(
     pitcher_id: int,
     season: int,
     pitch_type: str,
-    stand_lr: str = "L",
+    stand_lr: str,
     metric: str = "density",
     game_pk: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """
-    Matches app.py call signature exactly:
-      pitching_heatmap(pitcher_id=..., season=..., pitch_type=..., stand_lr=..., metric=..., game_pk=...)
-
-    metric:
-      - "density" => pitch location density
-      - "xwoba"   => estimated_woba_using_speedangle mean per bin (blurred)
-    """
-    pt = (pitch_type or "").strip()
-    side = (stand_lr or "L").upper().strip()
-    m = (metric or "density").lower().strip()
-    if not pt:
-        return {"ok": False, "reason": "missing_pitch_type"}
-    if side not in ("L", "R"):
-        return {"ok": False, "reason": "bad_stand"}
-    if m not in ("density", "xwoba"):
-        return {"ok": False, "reason": "bad_metric"}
-
     arr = _fetch_pitches(pitcher_id, season, game_pk=game_pk)
     if not arr:
-        return {"ok": False, "reason": "no_data"}
+        return {"ok": False, "reason": "no_pitches"}
 
-    if m == "density":
-        pts: List[Tuple[float, float]] = []
-        for r in arr:
-            if (r.get("pitch_type") or "").strip() != pt:
-                continue
-            lr = _stand_lr(r.get("stand"), r.get("p_throws"))
-            if lr != side:
-                continue
-            x = _safe_float(r.get("plate_x"))
-            z = _safe_float(r.get("plate_z"))
-            if x is None or z is None:
-                continue
-            pts.append((x, z))
+    pt = (pitch_type or "").strip() or ""
+    side = (stand_lr or "").strip().upper()
+    if side not in ("L", "R"):
+        return {"ok": False, "reason": "bad_stand"}
 
-        if not pts:
-            return {"ok": False, "reason": "no_points"}
-
-        H = _hist2d(pts)
-        Hb = _blur_grid(H, GAUSS_SIGMA)
-
-        mx = max((max(row) for row in Hb), default=0.0) or 1.0
-        for iz in range(GRID_NZ):
-            for ix in range(GRID_NX):
-                Hb[iz][ix] = Hb[iz][ix] / mx
-
-        out = _grid_payload(Hb)
-        out.update({"ok": True, "metric": "density", "pitch_type": pt, "stand_lr": side})
-        return out
-
-    # m == "xwoba"
-    sum_grid = _zeros_grid()
-    cnt_grid = [[0 for _ in range(GRID_NX)] for __ in range(GRID_NZ)]
+    pts: List[Tuple[float, float]] = []
+    xw_pts: List[Tuple[float, float, float]] = []
 
     for r in arr:
         if (r.get("pitch_type") or "").strip() != pt:
             continue
-        lr = _stand_lr(r.get("stand"), r.get("p_throws"))
-        if lr != side:
+        s = _stand_lr(r.get("stand"), r.get("p_throws"))
+        if s != side:
             continue
 
         x = _safe_float(r.get("plate_x"))
         z = _safe_float(r.get("plate_z"))
-        xw = _safe_float(r.get("estimated_woba_using_speedangle"))
-        if x is None or z is None or xw is None:
+        if x is None or z is None:
             continue
 
+        pts.append((x, z))
+
+        xw = _safe_float(r.get("estimated_woba_using_speedangle"))
+        if xw is not None:
+            xw_pts.append((x, z, xw))
+
+    if not pts:
+        return {"ok": False, "reason": "no_points"}
+
+    if metric == "density":
+        H = _hist2d(pts)
+        Hb = _blur_grid(H, GAUSS_SIGMA)
+        out = _grid_payload(Hb)
+        out.update({"ok": True, "metric": "density", "pitch_type": pt, "stand_lr": side})
+        return out
+
+    # xwOBA heatmap: average xwOBA per cell
+    if not xw_pts:
+        return {"ok": False, "reason": "no_xwoba"}
+
+    sum_grid = _zeros_grid()
+    cnt_grid = _zeros_grid()
+
+    for x, z, xw in xw_pts:
         ix = _bin_index(x, X_MIN, X_MAX, GRID_NX)
         iz = _bin_index(z, Z_MIN, Z_MAX, GRID_NZ)
         if ix is None or iz is None:
             continue
-
         sum_grid[iz][ix] += float(xw)
-        cnt_grid[iz][ix] += 1
+        cnt_grid[iz][ix] += 1.0
 
     avg_grid = _zeros_grid()
-    any_cell = False
     for iz in range(GRID_NZ):
         for ix in range(GRID_NX):
             c = cnt_grid[iz][ix]
-            if c:
-                any_cell = True
+            if c > 0:
                 avg_grid[iz][ix] = sum_grid[iz][ix] / c
             else:
                 avg_grid[iz][ix] = 0.0
-
-    if not any_cell:
-        return {"ok": False, "reason": "no_xwoba"}
 
     avg_blur = _blur_grid(avg_grid, GAUSS_SIGMA)
     out = _grid_payload(avg_blur)
