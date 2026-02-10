@@ -1593,11 +1593,11 @@
     ctx.moveTo(x0,zeroY); ctx.lineTo(x1,zeroY);
     ctx.stroke();
 
-    ctx.fillStyle = "rgba(15,23,42,.75)";
-    ctx.font = "12px ui-monospace, Menlo, monospace";
-    ctx.fillText("HB (in)", x1-62, y0+26);
-    ctx.fillText("IVB (in)", x0-24, y1-10);
-
+    // axis labels + ticks
+   ctx.fillStyle = "rgba(15,23,42,.75)";
+   ctx.font = "12px ui-monospace, Menlo, monospace";
+   ctx.fillText("HB (in)", x1-62, y0+26);
+   ctx.fillText("IVB (in)", x0-24, y1-10);
     const shapes = (report && report.shapes) ? report.shapes : [];
     const pts = shapes.map(s => ({
       name: s.pitch_name || s.pitch_type || "UNK",
@@ -1621,7 +1621,7 @@
     const padY = (maxY-minY) * 0.18 + 2;
     minX -= padX; maxX += padX;
     minY -= padY; maxY += padY;
-
+    
     function sx(x){ return x0 + (x - minX) / (maxX - minX) * (x1 - x0); }
     function sy(y){ return y0 - (y - minY) / (maxY - minY) * (y0 - y1); }
 
@@ -1646,11 +1646,51 @@
       ctx.fillText(p.name, cx + r + 5, cy + 3);
     }
   }
-
-  function renderHeatmap(canvas, payload, metric){
-    const ctx = canvas.getContext("2d");
-    const W = canvas.width, H = canvas.height;
-    ctx.clearRect(0,0,W,H);
+  // ----- ticks + numeric labels -----
+   function niceTicks(min, max, n=5){
+     const span = max - min;
+     if(!isFinite(span) || span <= 0) return [min, max];
+     const step0 = span / (n-1);
+     const pow = Math.pow(10, Math.floor(Math.log10(step0)));
+     const step = Math.round(step0 / pow) * pow;
+     const start = Math.floor(min / step) * step;
+     const end   = Math.ceil(max / step) * step;
+     const out = [];
+     for(let v=start; v<=end + 1e-9; v+=step) out.push(v);
+     return out;
+   }
+   
+   ctx.save();
+   ctx.strokeStyle = "rgba(15,23,42,.22)";
+   ctx.fillStyle = "rgba(15,23,42,.70)";
+   ctx.font = "11px ui-monospace, Menlo, monospace";
+   ctx.lineWidth = 1;
+   
+   const xt = niceTicks(minX, maxX, 6);
+   xt.forEach(v=>{
+     const px = sx(v);
+     ctx.beginPath();
+     ctx.moveTo(px, y0);
+     ctx.lineTo(px, y0+6);
+     ctx.stroke();
+     ctx.fillText(v.toFixed(0), px-6, y0+20);
+   });
+   
+   const yt = niceTicks(minY, maxY, 6);
+   yt.forEach(v=>{
+     const py = sy(v);
+     ctx.beginPath();
+     ctx.moveTo(x0-6, py);
+     ctx.lineTo(x0, py);
+     ctx.stroke();
+     ctx.fillText(v.toFixed(0), x0-34, py+4);
+   });
+   
+   ctx.restore();
+     function renderHeatmap(canvas, payload, metric){
+       const ctx = canvas.getContext("2d");
+       const W = canvas.width, H = canvas.height;
+       ctx.clearRect(0,0,W,H);
 
     if(!payload || !payload.ok){
       ctx.fillStyle = "rgba(15,23,42,.6)";
