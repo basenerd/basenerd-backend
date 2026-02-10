@@ -175,11 +175,12 @@ def player_spray_json(player_id: int):
     return jsonify({"player_id": player_id, "season": season, "points": points})
 @app.get("/player/<int:player_id>/pitching_games.json")
 def player_pitching_games_json(player_id: int):
-    season = request.args.get("season", type=int)
-    if not season:
-        season = datetime.utcnow().year
-    games = list_pitching_games(player_id, season)
-    return jsonify({"ok": True, "player_id": player_id, "season": season, "games": games})
+    season = request.args.get("season", type=int) or datetime.utcnow().year
+    try:
+        games = list_pitching_games(player_id, season)
+        return jsonify({"ok": True, "player_id": player_id, "season": season, "games": games})
+    except Exception as e:
+        return jsonify({"ok": False, "player_id": player_id, "season": season, "reason": str(e)}), 200
 
 @app.get("/player/<int:player_id>/pitching_report.json")
 def player_pitching_report_json(player_id: int):
