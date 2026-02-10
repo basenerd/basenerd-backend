@@ -1035,8 +1035,6 @@
                   <option value="">All games</option>
                 </select>
               </label>
-
-              <button id="pitchRefreshBtn" class="btn" type="button">Refresh</button>
             </div>
 
             <div class="mono" id="pitchStatus" style="font-size:11px; opacity:.75;">Ready</div>
@@ -1409,7 +1407,6 @@
 
   const pitchSeasonSel = document.getElementById("pitchSeason");
   const pitchGameSel = document.getElementById("pitchGame");
-  const pitchRefreshBtn = document.getElementById("pitchRefreshBtn");
   const pitchStatus = document.getElementById("pitchStatus");
 
   const arsenalBody = document.getElementById("arsenalBody");
@@ -1479,17 +1476,42 @@
   }
 
   async function loadGames(season){
-    const url = `/player/${playerId}/pitching_games.json?season=${encodeURIComponent(season)}`;
-    const data = await getJSON(url);
-    const games = (data && data.games) ? data.games : [];
-    if(!pitchGameSel) return;
-    pitchGameSel.innerHTML = `<option value="">All games</option>` + games.map(g => {
-      const val = g.game_pk;
-      const lab = g.label || String(val);
-      return `<option value="${val}">${lab}</option>`;
-    }).join("");
-  }
-
+     const url = `/player/${playerId}/pitching_games.json?season=${encodeURIComponent(season)}`;
+     const data = await getJSON(url);
+     const games = (data && data.games) ? data.games : [];
+   
+     if(pitchGameSel){
+       pitchGameSel.innerHTML =
+         `<option value="">All games</option>` +
+         games.map(g => {
+           const val = g.game_pk;
+           const lab = g.label || String(val);
+           return `<option value="${val}">${lab}</option>`;
+         }).join("");
+     }
+   
+     return games;
+   }
+  async function findMostRecentPitchSeason(){
+     // years comes from the template; ensure numeric and sorted desc
+     const ys = (Array.isArray(years) ? years.slice() : [])
+       .map(y => Number(y))
+       .filter(y => Number.isFinite(y))
+       .sort((a,b) => b - a);
+   
+     for(const y of ys){
+       try{
+         const games = await loadGames(y);
+         if(games && games.length){
+           return y;
+         }
+       }catch(e){
+         // If one year errors, keep trying older years
+         console.error("pitching_games failed for season", y, e);
+       }
+     }
+     return null;
+   }
   function fmt1(x){ return (x===null || x===undefined || !isFinite(x)) ? "—" : Number(x).toFixed(1); }
   function fmt0(x){ return (x===null || x===undefined || !isFinite(x)) ? "—" : Math.round(Number(x)); }
   function fmt3(x){ return (x===null || x===undefined || !isFinite(x)) ? "—" : Number(x).toFixed(3); }
@@ -1752,19 +1774,33 @@
   }
 
   async function loadPitchingAll(){
-    if(!pitchSeasonSel || !pitchGameSel) return;
-    if(!pitchSeasonSel.value) pitchSeasonSel.value = String(seasonDefault);
-
-    try{
-      setStatus("Loading games…");
-      await loadGames(Number(pitchSeasonSel.value));
-      setStatus("Ready");
-      await loadReportAndRender();
-    }catch(e){
-      console.error(e);
-      setStatus("Error loading pitching data.");
-    }
-  }
+     if(!pitchSeasonSel || !pitchGameSel) return;
+   
+     try{
+       setStatus("Finding most recent season…");
+   
+       const bestSeason = await findMostRecentPitchSeason();
+       if(!bestSeason){
+         setStatus("No pitching seasons found for this player.");
+         renderArsenal({mix:[]});
+         renderBreakChart({shapes:[]});
+         if(heatPitchTypeSel) heatPitchTypeSel.innerHTML = "";
+         if(heatL) renderHeatmap(heatL, null, "density");
+         if(heatR) renderHeatmap(heatR, null, "density");
+         return;
+       }
+   
+       // Set season dropdown to the best season and ensure games dropdown is already populated
+       pitchSeasonSel.value = String(bestSeason);
+   
+       setStatus(`Loading ${bestSeason} pitching…`);
+       await loadReportAndRender(); // this will call heatmaps too
+       setStatus("Ready");
+     }catch(e){
+       console.error(e);
+       setStatus("Error loading pitching data.");
+     }
+   }
 
   if(pitchSeasonSel){
     pitchSeasonSel.addEventListener("change", async () => {
@@ -1785,17 +1821,6 @@
       }catch(e){
         console.error(e);
         setStatus("Error loading game.");
-      }
-    });
-  }
-
-  if(pitchRefreshBtn){
-    pitchRefreshBtn.addEventListener("click", async () => {
-      try{
-        await loadReportAndRender();
-      }catch(e){
-        console.error(e);
-        setStatus("Error refreshing.");
       }
     });
   }
