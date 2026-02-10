@@ -876,8 +876,14 @@
      Scouting Report + Spray
      ======================= -->
 <div id="tab-scouting" class="tab-panel">
+  {% set _hg = (hitting_groups if hitting_groups is defined else []) %}
+  {% set _pg = (pitching_groups if pitching_groups is defined else []) %}
+  {% set has_hitting = (_hg|length) > 0 %}
+  {% set has_pitching = (_pg|length) > 0 %}
+  {% set is_two_way = has_hitting and has_pitching %}
+
   <div class="card">
-    <div class="card-header" style="align-items:center;">
+    <div class="card-header" style="align-items:center; justify-content:space-between; gap:10px;">
       <div>
         <div class="card-title">Scouting Report</div>
         <div class="card-subtitle">Statcast-style percentiles • Basenerd theme</div>
@@ -888,8 +894,7 @@
           <div class="sr-pill">Season {{ season_found }}</div>
         {% endif %}
 
-        {# NEW: two-way dropdown (ONLY for two-way players) #}
-        {% if role == "two-way" %}
+        {% if is_two_way %}
           <label style="display:flex; flex-direction:column; gap:2px;">
             <span class="mono" style="font-size:11px; opacity:.75;">View</span>
             <select id="srModeSelect" class="season-select">
@@ -903,12 +908,10 @@
 
     <div class="card-body">
 
-      {# =========================
-         HITTING VIEW (UNCHANGED)
-         Show for hitters and (default) two-way
-         Hide for pitcher-only
-         ========================= #}
-      <div id="srHittingView" style="{% if role == 'pitching' %}display:none;{% else %}display:block;{% endif %}">
+      <!-- ============================
+           HITTING VIEW (UNCHANGED)
+           ============================ -->
+      <div id="srHittingView" style="{% if (not has_hitting) and has_pitching %}display:none;{% endif %}">
         <div class="sr-two-col">
 
           <!-- LEFT: sliders/bars -->
@@ -1009,15 +1012,13 @@
         </div>
       </div>
 
-      {# =========================
-         PITCHING VIEW (NEW)
-         Show for pitchers and two-way (when selected)
-         Hide for hitter-only
-         ========================= #}
-      <div id="srPitchingView" style="{% if role == 'hitting' %}display:none;{% else %}display:{% if role == 'pitching' %}block{% else %}none{% endif %};{% endif %}">
+      <!-- ============================
+           PITCHING VIEW (NEW)
+           ============================ -->
+      <div id="srPitchingView" style="{% if (has_hitting and not has_pitching) %}display:none;{% elif has_pitching %}display:block;{% else %}display:none;{% endif %}">
         <div style="display:flex; flex-direction:column; gap:12px;">
 
-          <!-- Controls -->
+          <!-- Controls (no refresh button) -->
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; border:1px solid rgba(226,232,240,.9); border-radius:12px; padding:10px 12px; background:#fff;">
             <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
               <label>
@@ -1038,6 +1039,15 @@
             </div>
 
             <div class="mono" id="pitchStatus" style="font-size:11px; opacity:.75;">Ready</div>
+          </div>
+
+          <!-- Basic stats (season/game) -->
+          <div id="pitchBasicCard" style="border:1px solid rgba(226,232,240,.9); border-radius:12px; background:#fff; overflow:hidden;">
+            <div style="padding:10px 12px; border-bottom:1px solid rgba(226,232,240,.9); display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-weight:900;">Basic Line</div>
+              <div class="mono" id="pitchBasicSub" style="font-size:11px; opacity:.75;">Season / Game</div>
+            </div>
+            <div id="pitchBasicBody" style="padding:10px 12px;" class="mono">—</div>
           </div>
 
           <!-- Arsenal table -->
@@ -1062,7 +1072,7 @@
                   </tr>
                 </thead>
                 <tbody id="arsenalBody">
-                  <tr><td colspan="9" class="muted">Select a season/game and click Refresh.</td></tr>
+                  <tr><td colspan="9" class="muted">Loading…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1074,12 +1084,12 @@
             <div style="border:1px solid rgba(226,232,240,.9); border-radius:12px; background:#fff; overflow:hidden;">
               <div style="padding:10px 12px; border-bottom:1px solid rgba(226,232,240,.9); display:flex; align-items:center; justify-content:space-between;">
                 <div style="font-weight:900;">Pitch Shape</div>
-                <div class="mono" style="font-size:11px; opacity:.75;">Horizontal vs Vertical Break</div>
+                <div class="mono" style="font-size:11px; opacity:.75;">Horizontal vs Vertical Break (in)</div>
               </div>
               <div style="padding:10px 12px;">
                 <canvas id="breakCanvas" width="520" height="360" style="width:100%; max-width:100%; border:1px solid rgba(226,232,240,.9); border-radius:12px; background:linear-gradient(180deg, rgba(246,248,251,1), rgba(238,242,247,.95));"></canvas>
                 <div class="mono" style="font-size:11px; opacity:.75; margin-top:8px;">
-                  Axes: HB (in) left↔right, IVB (in) down↔up • Dots = pitch types (weighted by usage)
+                  Axes: HB (in) left↔right, IVB (in) down↔up • Dots = pitch types (size ~ count)
                 </div>
               </div>
             </div>
@@ -1112,14 +1122,14 @@
                 </div>
 
                 <div class="mono" style="font-size:11px; opacity:.75; padding:0 12px 10px 12px;">
-                  Color scale: blue → gray → red. (Density is normalized; xwOBA uses per-bin average.)
+                  Color scale: blue → gray → red. Strike zone is drawn to scale (same units on x and z).
                 </div>
               </div>
 
               <div style="border:1px solid rgba(226,232,240,.9); border-radius:12px; background:#fff; overflow:hidden;">
                 <div style="padding:10px 12px; border-bottom:1px solid rgba(226,232,240,.9); display:flex; align-items:center; justify-content:space-between;">
                   <div style="font-weight:900;">Quick Notes</div>
-                  <div class="mono" style="font-size:11px; opacity:.75;">(auto from the selected split)</div>
+                  <div class="mono" style="font-size:11px; opacity:.75;">(auto from selection)</div>
                 </div>
                 <div id="pitchNotes" style="padding:10px 12px;" class="muted">—</div>
               </div>
@@ -1389,17 +1399,18 @@
 })();
 </script>
 
-{# NEW: Pitching scouting report JS (separate IIFE; does not change your existing script above) #}
 <script>
+/* ============================
+   Pitching Scouting Report JS
+   ============================ */
 (function(){
-  const role = "{{ role }}";
-  const isTwoWay = role === "two-way";
-  const isPitcher = role === "pitching";
-  const canPitch = isPitcher || isTwoWay;
-
   const playerId = {{ bio.id|int }};
   const years = {{ years|tojson }};
   const seasonDefault = {{ (season_found if season_found else years[0])|int }};
+
+  const hasHitting = {{ 'true' if (hitting_groups and (hitting_groups|length)>0) else 'false' }};
+  const hasPitching = {{ 'true' if (pitching_groups and (pitching_groups|length)>0) else 'false' }};
+  const isTwoWay = {{ 'true' if ((hitting_groups and (hitting_groups|length)>0) and (pitching_groups and (pitching_groups|length)>0)) else 'false' }};
 
   const modeSel = document.getElementById("srModeSelect");
   const hitView = document.getElementById("srHittingView");
@@ -1409,6 +1420,9 @@
   const pitchGameSel = document.getElementById("pitchGame");
   const pitchStatus = document.getElementById("pitchStatus");
 
+  const basicBody = document.getElementById("pitchBasicBody");
+  const basicSub  = document.getElementById("pitchBasicSub");
+
   const arsenalBody = document.getElementById("arsenalBody");
   const heatPitchTypeSel = document.getElementById("heatPitchType");
   const heatMetricSel = document.getElementById("heatMetric");
@@ -1417,7 +1431,7 @@
   const breakCanvas = document.getElementById("breakCanvas");
   const pitchNotes = document.getElementById("pitchNotes");
 
-  if(!canPitch) return;
+  let hasLoadedOnce = false;
 
   function setStatus(msg){ if(pitchStatus) pitchStatus.textContent = msg; }
 
@@ -1438,15 +1452,18 @@
     modeSel.value = "hitting";
   }
 
-  if(isPitcher && hitView && pitView){
+  // Pitcher-only case: hide hitting view automatically
+  if(!isTwoWay && hasPitching && !hasHitting && hitView && pitView){
     hitView.style.display = "none";
     pitView.style.display = "block";
   }
 
+  // ---------- Color helpers (blue -> gray -> red) ----------
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
   function lerp(a,b,t){ return a + (b-a)*t; }
 
   function blueGrayRed(t){
+    // anchors match your sr_color: blue #2563eb, gray #e5e7eb, red #ef4444
     t = clamp01(t);
     const blue = [37,99,235];
     const gray = [229,231,235];
@@ -1469,6 +1486,7 @@
     return h % 360;
   }
 
+  // ---------- Fetch helpers ----------
   async function getJSON(url){
     const res = await fetch(url, { cache: "no-store" });
     if(!res.ok) throw new Error(`fetch failed ${res.status}`);
@@ -1476,50 +1494,70 @@
   }
 
   async function loadGames(season){
-     const url = `/player/${playerId}/pitching_games.json?season=${encodeURIComponent(season)}`;
-     const data = await getJSON(url);
-     const games = (data && data.games) ? data.games : [];
-   
-     if(pitchGameSel){
-       pitchGameSel.innerHTML =
-         `<option value="">All games</option>` +
-         games.map(g => {
-           const val = g.game_pk;
-           const lab = g.label || String(val);
-           return `<option value="${val}">${lab}</option>`;
-         }).join("");
-     }
-   
-     return games;
-   }
+    const url = `/player/${playerId}/pitching_games.json?season=${encodeURIComponent(season)}`;
+    const data = await getJSON(url);
+    const games = (data && data.games) ? data.games : [];
+
+    if(pitchGameSel){
+      pitchGameSel.innerHTML =
+        `<option value="">All games</option>` +
+        games.map(g => {
+          const val = g.game_pk;
+          const lab = g.label || String(val);
+          return `<option value="${val}">${lab}</option>`;
+        }).join("");
+    }
+    return games;
+  }
+
   async function findMostRecentPitchSeason(){
-     // years comes from the template; ensure numeric and sorted desc
-     const ys = (Array.isArray(years) ? years.slice() : [])
-       .map(y => Number(y))
-       .filter(y => Number.isFinite(y))
-       .sort((a,b) => b - a);
-   
-     for(const y of ys){
-       try{
-         const games = await loadGames(y);
-         if(games && games.length){
-           return y;
-         }
-       }catch(e){
-         // If one year errors, keep trying older years
-         console.error("pitching_games failed for season", y, e);
-       }
-     }
-     return null;
-   }
+    const ys = (Array.isArray(years) ? years.slice() : [])
+      .map(y => Number(y))
+      .filter(y => Number.isFinite(y))
+      .sort((a,b) => b - a);
+
+    for(const y of ys){
+      try{
+        const games = await loadGames(y);
+        if(games && games.length){
+          return y;
+        }
+      }catch(e){
+        console.error("pitching_games failed for season", y, e);
+      }
+    }
+    return null;
+  }
+
   function fmt1(x){ return (x===null || x===undefined || !isFinite(x)) ? "—" : Number(x).toFixed(1); }
   function fmt0(x){ return (x===null || x===undefined || !isFinite(x)) ? "—" : Math.round(Number(x)); }
   function fmt3(x){ return (x===null || x===undefined || !isFinite(x)) ? "—" : Number(x).toFixed(3); }
 
+  function renderBasic(report){
+    if(!basicBody) return;
+
+    const b = report && report.basic ? report.basic : null;
+    if(!b){
+      basicBody.textContent = "—";
+      if(basicSub) basicSub.textContent = report && report.game_pk ? "Selected game" : "Season / Game";
+      return;
+    }
+
+    const parts = [];
+    if(b.ip != null) parts.push(`IP ${b.ip}`);
+    if(b.pitches != null) parts.push(`Pitches ${b.pitches}`);
+    if(b.h != null) parts.push(`H ${b.h}`);
+    if(b.er != null) parts.push(`ER ${b.er}`);
+    if(b.bb != null) parts.push(`BB ${b.bb}`);
+    if(b.so != null) parts.push(`SO ${b.so}`);
+    if(b.hr != null) parts.push(`HR ${b.hr}`);
+
+    basicBody.textContent = parts.length ? parts.join("  •  ") : "—";
+    if(basicSub) basicSub.textContent = report && report.game_pk ? "Selected game" : "Season totals";
+  }
+
   function renderArsenal(report){
     const mix = (report && report.mix) ? report.mix : [];
-    if(!arsenalBody) return;
-
     if(!mix.length){
       arsenalBody.innerHTML = `<tr><td colspan="9" class="muted">No pitches found for that selection.</td></tr>`;
       if(heatPitchTypeSel) heatPitchTypeSel.innerHTML = "";
@@ -1556,7 +1594,7 @@
 
     const top = pts[0];
     const topRow = mix.find(x => (x.pitch_type||"UNK") === (top ? top.pt : ""));
-    if(pitchNotes && topRow){
+    if(topRow && pitchNotes){
       const hb = (topRow.hb==null) ? null : topRow.hb*12.0;
       const vb = (topRow.vb==null) ? null : topRow.vb*12.0;
       pitchNotes.innerHTML = `
@@ -1570,14 +1608,14 @@
   }
 
   function renderBreakChart(report){
-    if(!breakCanvas) return;
     const ctx = breakCanvas.getContext("2d");
     const W = breakCanvas.width, H = breakCanvas.height;
     ctx.clearRect(0,0,W,H);
 
-    const pad = 42;
+    const pad = 46;
     const x0 = pad, y0 = H - pad, x1 = W - pad, y1 = pad;
 
+    // axis lines
     ctx.strokeStyle = "rgba(15,23,42,.25)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -1585,20 +1623,19 @@
     ctx.moveTo(x0,y0); ctx.lineTo(x0,y1);
     ctx.stroke();
 
-    const zeroX = (x0 + x1) / 2;
-    const zeroY = (y0 + y1) / 2;
-    ctx.strokeStyle = "rgba(15,23,42,.12)";
-    ctx.beginPath();
-    ctx.moveTo(zeroX,y0); ctx.lineTo(zeroX,y1);
-    ctx.moveTo(x0,zeroY); ctx.lineTo(x1,zeroY);
-    ctx.stroke();
+    // axis titles
+    ctx.fillStyle = "rgba(15,23,42,.75)";
+    ctx.font = "12px ui-monospace, Menlo, monospace";
+    ctx.fillText("HB (in)", x1-62, y0+28);
+    ctx.fillText("IVB (in)", x0-24, y1-12);
 
-    // axis labels + ticks
-   ctx.fillStyle = "rgba(15,23,42,.75)";
-   ctx.font = "12px ui-monospace, Menlo, monospace";
-   ctx.fillText("HB (in)", x1-62, y0+26);
-   ctx.fillText("IVB (in)", x0-24, y1-10);
     const shapes = (report && report.shapes) ? report.shapes : [];
+    if(!shapes.length){
+      ctx.fillStyle = "rgba(15,23,42,.55)";
+      ctx.fillText("No pitch shape data.", x0+10, y1+22);
+      return;
+    }
+
     const pts = shapes.map(s => ({
       name: s.pitch_name || s.pitch_type || "UNK",
       pt: s.pitch_type || "UNK",
@@ -1609,7 +1646,7 @@
 
     if(!pts.length){
       ctx.fillStyle = "rgba(15,23,42,.55)";
-      ctx.fillText("No pitch shape data.", x0+10, y1+20);
+      ctx.fillText("No break values.", x0+10, y1+22);
       return;
     }
 
@@ -1617,14 +1654,64 @@
     let maxX = Math.max(...pts.map(p=>p.hb));
     let minY = Math.min(...pts.map(p=>p.vb));
     let maxY = Math.max(...pts.map(p=>p.vb));
+
     const padX = (maxX-minX) * 0.18 + 2;
     const padY = (maxY-minY) * 0.18 + 2;
     minX -= padX; maxX += padX;
     minY -= padY; maxY += padY;
-    
+
     function sx(x){ return x0 + (x - minX) / (maxX - minX) * (x1 - x0); }
     function sy(y){ return y0 - (y - minY) / (maxY - minY) * (y0 - y1); }
 
+    // zero lines
+    const zx = sx(0);
+    const zy = sy(0);
+    ctx.strokeStyle = "rgba(15,23,42,.12)";
+    ctx.beginPath();
+    ctx.moveTo(zx,y0); ctx.lineTo(zx,y1);
+    ctx.moveTo(x0,zy); ctx.lineTo(x1,zy);
+    ctx.stroke();
+
+    // ticks
+    function niceTicks(min, max, n=6){
+      const span = max - min;
+      if(!isFinite(span) || span <= 0) return [min, max];
+      const step0 = span / (n-1);
+      const pow = Math.pow(10, Math.floor(Math.log10(step0)));
+      const step = Math.max(pow, Math.round(step0 / pow) * pow);
+      const start = Math.floor(min / step) * step;
+      const end   = Math.ceil(max / step) * step;
+      const out = [];
+      for(let v=start; v<=end + 1e-9; v+=step) out.push(v);
+      return out;
+    }
+
+    ctx.save();
+    ctx.strokeStyle = "rgba(15,23,42,.20)";
+    ctx.fillStyle = "rgba(15,23,42,.70)";
+    ctx.font = "11px ui-monospace, Menlo, monospace";
+
+    niceTicks(minX, maxX, 6).forEach(v=>{
+      const px = sx(v);
+      ctx.beginPath();
+      ctx.moveTo(px, y0);
+      ctx.lineTo(px, y0+6);
+      ctx.stroke();
+      ctx.fillText(v.toFixed(0), px-6, y0+22);
+    });
+
+    niceTicks(minY, maxY, 6).forEach(v=>{
+      const py = sy(v);
+      ctx.beginPath();
+      ctx.moveTo(x0-6, py);
+      ctx.lineTo(x0, py);
+      ctx.stroke();
+      ctx.fillText(v.toFixed(0), x0-36, py+4);
+    });
+
+    ctx.restore();
+
+    // dots
     const maxN = Math.max(...pts.map(p=>p.n||1), 1);
 
     for(const p of pts){
@@ -1646,51 +1733,11 @@
       ctx.fillText(p.name, cx + r + 5, cy + 3);
     }
   }
-  // ----- ticks + numeric labels -----
-   function niceTicks(min, max, n=5){
-     const span = max - min;
-     if(!isFinite(span) || span <= 0) return [min, max];
-     const step0 = span / (n-1);
-     const pow = Math.pow(10, Math.floor(Math.log10(step0)));
-     const step = Math.round(step0 / pow) * pow;
-     const start = Math.floor(min / step) * step;
-     const end   = Math.ceil(max / step) * step;
-     const out = [];
-     for(let v=start; v<=end + 1e-9; v+=step) out.push(v);
-     return out;
-   }
-   
-   ctx.save();
-   ctx.strokeStyle = "rgba(15,23,42,.22)";
-   ctx.fillStyle = "rgba(15,23,42,.70)";
-   ctx.font = "11px ui-monospace, Menlo, monospace";
-   ctx.lineWidth = 1;
-   
-   const xt = niceTicks(minX, maxX, 6);
-   xt.forEach(v=>{
-     const px = sx(v);
-     ctx.beginPath();
-     ctx.moveTo(px, y0);
-     ctx.lineTo(px, y0+6);
-     ctx.stroke();
-     ctx.fillText(v.toFixed(0), px-6, y0+20);
-   });
-   
-   const yt = niceTicks(minY, maxY, 6);
-   yt.forEach(v=>{
-     const py = sy(v);
-     ctx.beginPath();
-     ctx.moveTo(x0-6, py);
-     ctx.lineTo(x0, py);
-     ctx.stroke();
-     ctx.fillText(v.toFixed(0), x0-34, py+4);
-   });
-   
-   ctx.restore();
-     function renderHeatmap(canvas, payload, metric){
-       const ctx = canvas.getContext("2d");
-       const W = canvas.width, H = canvas.height;
-       ctx.clearRect(0,0,W,H);
+
+  function renderHeatmap(canvas, payload, metric){
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
 
     if(!payload || !payload.ok){
       ctx.fillStyle = "rgba(15,23,42,.6)";
@@ -1709,6 +1756,7 @@
       return;
     }
 
+    // map values -> 0..1
     let vmin = Infinity, vmax = -Infinity;
     for(let z=0; z<nz; z++){
       for(let x=0; x<nx; x++){
@@ -1722,31 +1770,51 @@
       vmin = 0; vmax = 1;
     }
 
-    const cellW = W / nx;
-    const cellH = H / nz;
+    // ---- To-scale plotting (same units on x and z) ----
+    const xMin = payload.x_min, xMax = payload.x_max;
+    const zMin = payload.z_min, zMax = payload.z_max;
 
-    for(let z=0; z<nz; z++){
-      for(let x=0; x<nx; x++){
-        const v = Number(grid[z][x]);
+    const xRange = (xMax - xMin);
+    const zRange = (zMax - zMin);
+
+    const s = Math.min(W / xRange, H / zRange);   // pixels per unit
+
+    const plotW = xRange * s;
+    const plotH = zRange * s;
+    const offX = (W - plotW) / 2;
+    const offY = (H - plotH) / 2;
+
+    const dx = xRange / nx;
+    const dz = zRange / nz;
+
+    function px(x){ return offX + (x - xMin) * s; }
+    function pz(z){ return offY + (zMax - z) * s; } // invert
+
+    for(let zi=0; zi<nz; zi++){
+      for(let xi=0; xi<nx; xi++){
+        const v = Number(grid[zi][xi]);
         if(!isFinite(v)) continue;
         if(metric === "xwoba" && v === 0) continue;
+
         const t = (v - vmin) / (vmax - vmin);
         ctx.fillStyle = blueGrayRed(t);
-        ctx.fillRect(x*cellW, z*cellH, cellW+0.5, cellH+0.5);
+
+        const cellX0 = px(xMin + xi*dx);
+        const cellX1 = px(xMin + (xi+1)*dx);
+        const cellZ1 = pz(zMin + zi*dz);
+        const cellZ0 = pz(zMin + (zi+1)*dz);
+
+        ctx.fillRect(cellX0, cellZ0, (cellX1-cellX0)+0.5, (cellZ1-cellZ0)+0.5);
       }
     }
 
+    // draw strike zone rect (to scale)
     const zone = payload.zone;
     if(zone){
-      const xMin = payload.x_min, xMax = payload.x_max;
-      const zMin = payload.z_min, zMax = payload.z_max;
-      function px(x){ return (x - xMin) / (xMax - xMin) * W; }
-      function pz(z){ return H - (z - zMin) / (zMax - zMin) * H; }
-
-      const left = px(zone.left);
+      const left  = px(zone.left);
       const right = px(zone.right);
-      const top = pz(zone.top);
-      const bot = pz(zone.bot);
+      const top   = pz(zone.top);
+      const bot   = pz(zone.bot);
 
       ctx.strokeStyle = "rgba(15,23,42,.55)";
       ctx.lineWidth = 2;
@@ -1754,46 +1822,15 @@
     }
   }
 
-  async function loadReportAndRender(){
-    const season = Number((pitchSeasonSel && pitchSeasonSel.value) ? pitchSeasonSel.value : seasonDefault);
-    const gamePk = (pitchGameSel && pitchGameSel.value) ? Number(pitchGameSel.value) : null;
-
-    setStatus("Loading pitching report…");
-
-    const url = `/player/${playerId}/pitching_report.json?season=${encodeURIComponent(season)}${gamePk ? `&game_pk=${encodeURIComponent(gamePk)}` : ""}`;
-    const report = await getJSON(url);
-
-    if(!report || !report.ok){
-      setStatus("No pitch data for this selection.");
-      renderArsenal({mix:[]});
-      renderBreakChart({shapes:[]});
-      if(heatPitchTypeSel) heatPitchTypeSel.innerHTML = "";
-      if(heatL) renderHeatmap(heatL, null, "density");
-      if(heatR) renderHeatmap(heatR, null, "density");
-      return;
-    }
-
-    renderArsenal(report);
-    renderBreakChart(report);
-
-    if(heatPitchTypeSel && heatPitchTypeSel.options.length){
-      heatPitchTypeSel.value = heatPitchTypeSel.options[0].value;
-    }
-
-    setStatus(`Loaded ${report.total} pitches`);
-    await loadHeatmaps();
-  }
-
   async function loadHeatmaps(){
-    if(!pitchSeasonSel) return;
     const season = Number(pitchSeasonSel.value || seasonDefault);
-    const gamePk = (pitchGameSel && pitchGameSel.value) ? Number(pitchGameSel.value) : null;
-    const pitchType = heatPitchTypeSel ? (heatPitchTypeSel.value || "") : "";
-    const metric = heatMetricSel ? (heatMetricSel.value || "density") : "density";
+    const gamePk = pitchGameSel.value ? Number(pitchGameSel.value) : null;
+    const pitchType = (heatPitchTypeSel && heatPitchTypeSel.value) ? heatPitchTypeSel.value : "";
+    const metric = (heatMetricSel && heatMetricSel.value) ? heatMetricSel.value : "density";
 
     if(!pitchType){
-      if(heatL) renderHeatmap(heatL, null, metric);
-      if(heatR) renderHeatmap(heatR, null, metric);
+      renderHeatmap(heatL, null, metric);
+      renderHeatmap(heatR, null, metric);
       return;
     }
 
@@ -1807,46 +1844,83 @@
       getJSON(base + `&stand=R`)
     ]);
 
-    if(heatL) renderHeatmap(heatL, l, metric);
-    if(heatR) renderHeatmap(heatR, r, metric);
+    renderHeatmap(heatL, l, metric);
+    renderHeatmap(heatR, r, metric);
 
     setStatus("Ready");
   }
 
+  async function loadReportAndRender(){
+    const season = Number(pitchSeasonSel.value || seasonDefault);
+    const gamePk = pitchGameSel.value ? Number(pitchGameSel.value) : null;
+
+    setStatus("Loading pitching report…");
+
+    const url = `/player/${playerId}/pitching_report.json?season=${encodeURIComponent(season)}${gamePk ? `&game_pk=${encodeURIComponent(gamePk)}` : ""}`;
+    const report = await getJSON(url);
+
+    if(!report || !report.ok){
+      setStatus("No pitch data for this selection.");
+      renderBasic(report || {});
+      renderArsenal({mix:[]});
+      renderBreakChart({shapes:[]});
+      if(heatPitchTypeSel) heatPitchTypeSel.innerHTML = "";
+      renderHeatmap(heatL, null, "density");
+      renderHeatmap(heatR, null, "density");
+      return;
+    }
+
+    renderBasic(report);
+    renderArsenal(report);
+    renderBreakChart(report);
+
+    if(heatPitchTypeSel && heatPitchTypeSel.options.length){
+      heatPitchTypeSel.value = heatPitchTypeSel.options[0].value;
+    }
+
+    setStatus(`Loaded ${report.total} pitches`);
+    await loadHeatmaps();
+  }
+
   async function loadPitchingAll(){
-     if(!pitchSeasonSel || !pitchGameSel) return;
-   
-     try{
-       setStatus("Finding most recent season…");
-   
-       const bestSeason = await findMostRecentPitchSeason();
-       if(!bestSeason){
-         setStatus("No pitching seasons found for this player.");
-         renderArsenal({mix:[]});
-         renderBreakChart({shapes:[]});
-         if(heatPitchTypeSel) heatPitchTypeSel.innerHTML = "";
-         if(heatL) renderHeatmap(heatL, null, "density");
-         if(heatR) renderHeatmap(heatR, null, "density");
-         return;
-       }
-   
-       // Set season dropdown to the best season and ensure games dropdown is already populated
-       pitchSeasonSel.value = String(bestSeason);
-   
-       setStatus(`Loading ${bestSeason} pitching…`);
-       await loadReportAndRender(); // this will call heatmaps too
-       setStatus("Ready");
-     }catch(e){
-       console.error(e);
-       setStatus("Error loading pitching data.");
-     }
-   }
+    if(!pitchSeasonSel || !pitchGameSel) return;
+    if(!pitView || pitView.style.display === "none") return;
+    if(hasLoadedOnce) return;
+
+    try{
+      setStatus("Finding most recent season…");
+      const bestSeason = await findMostRecentPitchSeason();
+      if(!bestSeason){
+        setStatus("No pitching seasons found.");
+        if(arsenalBody) arsenalBody.innerHTML = `<tr><td colspan="9" class="muted">No pitches found for this player.</td></tr>`;
+        if(pitchNotes) pitchNotes.textContent = "—";
+        renderBasic({});
+        renderHeatmap(heatL, null, "density");
+        renderHeatmap(heatR, null, "density");
+        return;
+      }
+
+      pitchSeasonSel.value = String(bestSeason);
+      // loadGames(bestSeason) already ran inside findMostRecentPitchSeason and set dropdown; run again to be safe:
+      await loadGames(bestSeason);
+
+      setStatus(`Loading ${bestSeason}…`);
+      await loadReportAndRender();
+      setStatus("Ready");
+      hasLoadedOnce = true;
+    }catch(e){
+      console.error(e);
+      setStatus("Error loading pitching data.");
+    }
+  }
 
   if(pitchSeasonSel){
     pitchSeasonSel.addEventListener("change", async () => {
       try{
+        setStatus("Loading season…");
         await loadGames(Number(pitchSeasonSel.value));
         await loadReportAndRender();
+        setStatus("Ready");
       }catch(e){
         console.error(e);
         setStatus("Error loading season.");
@@ -1866,24 +1940,36 @@
   }
 
   if(heatPitchTypeSel){
-    heatPitchTypeSel.addEventListener("change", loadHeatmaps);
+    heatPitchTypeSel.addEventListener("change", () => loadHeatmaps().catch(console.error));
   }
   if(heatMetricSel){
-    heatMetricSel.addEventListener("change", loadHeatmaps);
+    heatMetricSel.addEventListener("change", () => loadHeatmaps().catch(console.error));
   }
 
-  // Lazy-load pitching when Scouting tab opens AND pitching view is visible
+  // Lazy-load pitching when Scouting tab opens (and pitching view is visible)
   document.querySelectorAll(".tab-btn").forEach(b => b.addEventListener("click", () => {
     if(b.dataset.tab === "tab-scouting"){
-      const pitchingVisible = pitView && pitView.style.display !== "none";
-      if(pitchingVisible) loadPitchingAll();
+      if(isTwoWay){
+        if(modeSel && modeSel.value === "pitching") loadPitchingAll();
+      }else if(hasPitching && !hasHitting){
+        loadPitchingAll();
+      }
     }
   }));
 
-  // If pitcher-only and Scouting tab is already open on load
-  if(isPitcher){
-    const scoutingPanel = document.getElementById("tab-scouting");
-    if(scoutingPanel && scoutingPanel.classList.contains("active")){
+  // Two-way toggle
+  if(modeSel){
+    modeSel.addEventListener("change", () => {
+      if(modeSel.value === "pitching") loadPitchingAll();
+    });
+  }
+
+  // If page loads with scouting already active
+  const scoutingPanel = document.getElementById("tab-scouting");
+  if(scoutingPanel && scoutingPanel.classList.contains("active")){
+    if(isTwoWay){
+      if(modeSel && modeSel.value === "pitching") loadPitchingAll();
+    }else if(hasPitching && !hasHitting){
       loadPitchingAll();
     }
   }
