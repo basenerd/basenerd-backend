@@ -1110,9 +1110,9 @@ def gamecast_json(game_pk: int):
     Returns:
       - game state: inning/half/balls/strikes/outs, score, lastPlay
       - runners on base
-      - current batter/pitcher + their game stat lines
-      - current PA pitches (for zone plot + pitches table)
-      - away/home live lineups (includes substitutions as they appear)
+      - current batter/pitcher + their game stat lines + headshots
+      - current PA pitches (for zone plot + pitches table) incl. outcome flags
+      - away/home live lineups (includes substitutions as they appear) incl. headshots + per-PA log
       - defense positions (best-effort from boxscore)
     """
     feed = get_game_feed(game_pk) or {}
@@ -1156,9 +1156,38 @@ def gamecast_json(game_pk: int):
 
     def _half_norm(s):
         sl = (s or "").lower().strip()
-        if sl == "top": return "Top"
-        if sl == "bottom": return "Bottom"
+        if sl == "top":
+            return "Top"
+        if sl == "bottom":
+            return "Bottom"
         return s or ""
+
+    def _ordinal(n: int) -> str:
+        try:
+            n = int(n)
+        except Exception:
+            return ""
+        if 10 <= (n % 100) <= 20:
+            suf = "th"
+        else:
+            suf = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+        return f"{n}{suf}"
+
+    def _last_name(full: str) -> str:
+        s = (full or "").strip()
+        if not s:
+            return ""
+        parts = s.split()
+        return parts[-1] if parts else s
+
+    def _short_name(full: str) -> str:
+        s = (full or "").strip()
+        if not s:
+            return ""
+        parts = s.split()
+        if len(parts) == 1:
+            return s
+        return f"{parts[0][0]}. {parts[-1]}"
 
     def _player_map(side_key: str):
         team = _safe(boxscore, "teams", side_key, default={}) or {}
@@ -1193,7 +1222,7 @@ def gamecast_json(game_pk: int):
         }
 
     def _batter_line(bat: dict):
-        # A: AB-H, HR, RBI, BB, K
+        # AB-H, HR, RBI, BB, K
         if not isinstance(bat, dict) or not bat:
             return ""
         ab = bat.get("atBats")
@@ -1202,13 +1231,12 @@ def gamecast_json(game_pk: int):
         rbi = bat.get("rbi")
         bb = bat.get("baseOnBalls")
         k = bat.get("strikeOuts")
-        # If truly empty, return blank
         if all(v in (None, 0, "0", "") for v in [ab, h, hr, rbi, bb, k]):
             return ""
         return f"{ab}-{h} • HR {hr} • RBI {rbi} • BB {bb} • K {k}"
 
     def _pitcher_line(pit: dict):
-        # A: IP, H, R, ER, BB, K
+        # IP, H, R, ER, BB, K
         if not isinstance(pit, dict) or not pit:
             return ""
         ip = pit.get("inningsPitched")
@@ -1220,6 +1248,22 @@ def gamecast_json(game_pk: int):
         if all(v in (None, 0, "0", "") for v in [ip, h, r, er, bb, k]):
             return ""
         return f"IP {ip} • H {h} • R {r} • ER {er} • BB {bb} • K {k}"
+
+    # Build per-player PA logs from allPlays (best-effort)
+    pa_log = {}
+    for p in (all_plays or []):
+        matchup = (p.get("matchup") or {})
+        batter = (matchup.get("batter") or {})
+        pid = _i(batter.get("id"), None)
+        if not pid:
+            continue
+        about = (p.get("about") or {})
+        inn = _i(about.get("inning"), None)
+        desc = (_safe(p, "result", "description", default="") or "").strip()
+        if not desc:
+            continue
+        key = _ordinal(inn) if inn else ""
+        pa_log.setdefault(pid, []).append({"inning": key, "desc": desc})
 
     def _extract_lineup(side_key: str):
         """
@@ -1235,6 +1279,7 @@ def gamecast_json(game_pk: int):
             name = (person.get("fullName") or "").strip()
             pos = _safe(pdata, "position", "abbreviation", default=None)
             bat = _safe(pdata, "stats", "batting", default={}) or {}
+
             gs = pdata.get("gameStatus")
             gs_str = ""
             if isinstance(gs, dict):
@@ -1242,15 +1287,14 @@ def gamecast_json(game_pk: int):
             else:
                 gs_str = gs or ""
             appeared = str(gs_str).lower() in ("started", "substituted", "entered")
-            # also include if any batting counting exists (pinch runner etc)
-            has_bat = any((bat.get(k) not in (None, "", 0, "0")) for k in ("atBats","hits","runs","rbi","baseOnBalls","strikeOuts","homeRuns"))
-            if not (appeared or has_bat):
+            has_bat = any((bat.get(k) not in (None, "", 0, "0")) for k in ("atBats", "hits", "runs", "rbi", "baseOnBalls", "strikeOuts", "homeRuns"))
+            has_pa = bool(pid and pa_log.get(pid))
+            if not (appeared or has_bat or has_pa):
                 continue
 
             bo_raw = pdata.get("battingOrder")
             bo = None
             try:
-                # StatsAPI uses 100/200/300... sometimes as string
                 bo = int(str(bo_raw)) if bo_raw not in (None, "") else None
             except Exception:
                 bo = None
@@ -1258,14 +1302,16 @@ def gamecast_json(game_pk: int):
             out.append({
                 "id": pid,
                 "name": name,
+                "lastName": _last_name(name),
+                "shortName": _short_name(name),
+                "headshot": get_player_headshot_url(pid, 84) if pid else "",
                 "pos": pos,
                 "batLine": _batter_line(bat),
                 "battingOrder": bo,
+                "pas": pa_log.get(pid, []),
             })
 
-        # Sort: battingOrder if present, else name
         out.sort(key=lambda r: (r["battingOrder"] is None, r["battingOrder"] or 999999, r["name"] or ""))
-        # Convert 100->1, 200->2 for display
         for r in out:
             if isinstance(r.get("battingOrder"), int):
                 r["spot"] = max(1, r["battingOrder"] // 100)
@@ -1279,9 +1325,8 @@ def gamecast_json(game_pk: int):
         Returns dict like {"P": {...}, "C": {...}, "1B": {...}, ...}
         """
         players = _player_map(def_side_key)
-        wanted = ["P","C","1B","2B","3B","SS","LF","CF","RF"]
+        wanted = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"]
         found = {k: None for k in wanted}
-
         for _, pdata in (players or {}).items():
             pos = _safe(pdata, "position", "abbreviation", default=None)
             if pos not in found:
@@ -1289,10 +1334,8 @@ def gamecast_json(game_pk: int):
             person = pdata.get("person") or {}
             pid = _i(person.get("id"), None)
             name = (person.get("fullName") or "").strip()
-            # only take first match per position
             if not found[pos] and pid and name:
-                found[pos] = {"id": pid, "name": name}
-
+                found[pos] = {"id": pid, "name": name, "lastName": _last_name(name)}
         return found
 
     # -------------------------
@@ -1312,13 +1355,13 @@ def gamecast_json(game_pk: int):
     away_runs = _i(_safe(linescore, "teams", "away", "runs"), 0) or 0
     home_runs = _i(_safe(linescore, "teams", "home", "runs"), 0) or 0
 
-    # Last play banner text
     last_play = (_safe(current_play, "result", "description", default="") or "").strip()
     if not last_play and all_plays:
         last_play = (_safe(all_plays[-1], "result", "description", default="") or "").strip()
 
     # Runners on base
     offense = (linescore.get("offense") or {})
+
     def _runner_obj(base_key):
         o = offense.get(base_key)
         if not isinstance(o, dict):
@@ -1327,7 +1370,7 @@ def gamecast_json(game_pk: int):
         nm = (_safe(o, "fullName", default=None) or _safe(o, "person", "fullName", default=None) or "").strip()
         if not pid and not nm:
             return None
-        return {"id": pid, "name": nm}
+        return {"id": pid, "name": nm, "lastName": _last_name(nm)}
 
     runners = {
         "first": _runner_obj("first"),
@@ -1341,9 +1384,7 @@ def gamecast_json(game_pk: int):
     batter_name = (_safe(matchup, "batter", "fullName", default="") or "").strip()
     pitcher_name = (_safe(matchup, "pitcher", "fullName", default="") or "").strip()
 
-    # Which side are they on?
     # Batter is on offense; pitcher on defense. Determine offense by half-inning.
-    # If Top -> away hits; Bottom -> home hits
     offense_side = "away" if (half.lower().startswith("top")) else "home"
     defense_side = "home" if offense_side == "away" else "away"
 
@@ -1354,12 +1395,13 @@ def gamecast_json(game_pk: int):
     pitcher_line = _pitcher_line((pitcher_stats.get("pitching") or {}))
 
     # -------------------------
-    # Current PA pitch list (for zone + pitches table)
+    # Current PA pitch list (for zone + pitches table) incl outcome flags
     # -------------------------
     pitches_out = []
     for ev in (current_play.get("playEvents") or []):
         if not ev.get("isPitch"):
             continue
+
         details = ev.get("details") or {}
         pitch_data = ev.get("pitchData") or {}
         coords = (pitch_data.get("coordinates") or {})
@@ -1367,12 +1409,21 @@ def gamecast_json(game_pk: int):
 
         pitch_type = (_safe(details, "type", "description", default=None) or "").strip()
         mph = _f(pitch_data.get("startSpeed"), None)
-        spin = _i(pitch_data.get("breaks", {}).get("spinRate"), None) or _i(pitch_data.get("spinRate"), None)
+        spin = _i(_safe(pitch_data, "breaks", "spinRate"), None) or _i(pitch_data.get("spinRate"), None)
 
         px = _f(coords.get("pX"), None)
         pz = _f(coords.get("pZ"), None)
         sz_top = _f(pitch_data.get("strikeZoneTop"), None)
         sz_bot = _f(pitch_data.get("strikeZoneBottom"), None)
+
+        call = (details.get("call") or {})
+        code = (call.get("code") or "").upper()
+        ddesc = (details.get("description") or "").lower()
+
+        is_ball = bool(details.get("isBall")) or (code == "B")
+        is_strike = bool(details.get("isStrike")) or (code in ("C", "S"))
+        is_in_play = bool(details.get("isInPlay")) or (code == "X") or ("in play" in ddesc) or ("hit into play" in ddesc)
+        is_foul = bool(details.get("isFoul")) or (code == "F") or ("foul" in ddesc and not is_in_play)
 
         pitches_out.append({
             "n": _i(details.get("pitchNumber"), None) or (len(pitches_out) + 1),
@@ -1381,11 +1432,18 @@ def gamecast_json(game_pk: int):
             "spinRate": spin,
             "vertMove": _f(breaks.get("breakVerticalInduced"), None),
             "horizMove": _f(breaks.get("breakHorizontal"), None),
+
             # for zone renderer:
             "px": px,
             "pz": pz,
             "sz_top": sz_top,
             "sz_bot": sz_bot,
+
+            # outcome flags for coloring (match game.html renderZone)
+            "isBall": is_ball,
+            "isStrike": is_strike,
+            "isFoul": is_foul,
+            "isInPlay": is_in_play,
         })
 
     # -------------------------
@@ -1397,9 +1455,6 @@ def gamecast_json(game_pk: int):
     # Defense positions shown on field: defense side only
     defense_positions = _extract_defense_positions(defense_side)
 
-    # -------------------------
-    # Response
-    # -------------------------
     return jsonify({
         "ok": True,
         "gamePk": game_pk,
@@ -1416,12 +1471,14 @@ def gamecast_json(game_pk: int):
             "id": batter_id,
             "name": batter_stats.get("name") or batter_name,
             "pos": batter_stats.get("pos"),
+            "headshot": get_player_headshot_url(batter_id, 120) if batter_id else "",
             "line": batter_line,
         },
         "pitcher": {
             "id": pitcher_id,
             "name": pitcher_stats.get("name") or pitcher_name,
             "pos": pitcher_stats.get("pos"),
+            "headshot": get_player_headshot_url(pitcher_id, 120) if pitcher_id else "",
             "line": pitcher_line,
         },
 
@@ -1432,6 +1489,7 @@ def gamecast_json(game_pk: int):
         "defenseSide": defense_side,
         "defense": defense_positions,
     })
+
 
 
 @app.get("/team/<int:team_id>/schedule_json")
