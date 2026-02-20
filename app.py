@@ -1099,7 +1099,339 @@ def game_detail(game_pk: int):
 
     return render_template("game.html", title="Game", game=game_obj, user_tz=user_tz, stadium_svg=stadium_svg)
 
+from flask import jsonify
 
+@app.get("/game/<int:game_pk>/gamecast.json")
+def gamecast_json(game_pk: int):
+    """
+    Lightweight JSON endpoint for the GameCast tab.
+    Polled by the browser every ~3s ONLY when GameCast tab is active.
+
+    Returns:
+      - game state: inning/half/balls/strikes/outs, score, lastPlay
+      - runners on base
+      - current batter/pitcher + their game stat lines
+      - current PA pitches (for zone plot + pitches table)
+      - away/home live lineups (includes substitutions as they appear)
+      - defense positions (best-effort from boxscore)
+    """
+    feed = get_game_feed(game_pk) or {}
+    game_data = (feed.get("gameData") or {})
+    live_data = (feed.get("liveData") or {})
+    linescore = (live_data.get("linescore") or {})
+    boxscore = (live_data.get("boxscore") or {})
+    plays = (live_data.get("plays") or {})
+    all_plays = plays.get("allPlays") or []
+    current_play = plays.get("currentPlay") or (all_plays[-1] if all_plays else {})
+
+    # -------------------------
+    # Helpers
+    # -------------------------
+    def _safe(d, *keys, default=None):
+        cur = d
+        for k in keys:
+            if not isinstance(cur, dict):
+                return default
+            cur = cur.get(k)
+        return default if cur is None else cur
+
+    def _i(x, default=None):
+        try:
+            if x is None or x == "":
+                return default
+            return int(x)
+        except Exception:
+            try:
+                return int(float(x))
+            except Exception:
+                return default
+
+    def _f(x, default=None):
+        try:
+            if x is None or x == "":
+                return default
+            return float(x)
+        except Exception:
+            return default
+
+    def _half_norm(s):
+        sl = (s or "").lower().strip()
+        if sl == "top": return "Top"
+        if sl == "bottom": return "Bottom"
+        return s or ""
+
+    def _player_map(side_key: str):
+        team = _safe(boxscore, "teams", side_key, default={}) or {}
+        return (team.get("players") or {})
+
+    def _find_player_stats(pid: int, side_key: str):
+        """
+        Returns dict: batting stats + pitching stats + name/pos if found
+        """
+        players = _player_map(side_key)
+        key1 = f"ID{pid}"
+        pdata = players.get(key1)
+        if not pdata:
+            # fallback scan (rare)
+            for _, p in players.items():
+                if _i(_safe(p, "person", "id"), None) == pid:
+                    pdata = p
+                    break
+        if not pdata:
+            return {}
+
+        person = pdata.get("person") or {}
+        pos = _safe(pdata, "position", "abbreviation", default=None)
+        bat = _safe(pdata, "stats", "batting", default={}) or {}
+        pit = _safe(pdata, "stats", "pitching", default={}) or {}
+        return {
+            "id": _i(person.get("id"), None),
+            "name": (person.get("fullName") or "").strip(),
+            "pos": pos,
+            "batting": bat,
+            "pitching": pit,
+        }
+
+    def _batter_line(bat: dict):
+        # A: AB-H, HR, RBI, BB, K
+        if not isinstance(bat, dict) or not bat:
+            return ""
+        ab = bat.get("atBats")
+        h = bat.get("hits")
+        hr = bat.get("homeRuns")
+        rbi = bat.get("rbi")
+        bb = bat.get("baseOnBalls")
+        k = bat.get("strikeOuts")
+        # If truly empty, return blank
+        if all(v in (None, 0, "0", "") for v in [ab, h, hr, rbi, bb, k]):
+            return ""
+        return f"{ab}-{h} • HR {hr} • RBI {rbi} • BB {bb} • K {k}"
+
+    def _pitcher_line(pit: dict):
+        # A: IP, H, R, ER, BB, K
+        if not isinstance(pit, dict) or not pit:
+            return ""
+        ip = pit.get("inningsPitched")
+        h = pit.get("hits")
+        r = pit.get("runs")
+        er = pit.get("earnedRuns")
+        bb = pit.get("baseOnBalls")
+        k = pit.get("strikeOuts")
+        if all(v in (None, 0, "0", "") for v in [ip, h, r, er, bb, k]):
+            return ""
+        return f"IP {ip} • H {h} • R {r} • ER {er} • BB {bb} • K {k}"
+
+    def _extract_lineup(side_key: str):
+        """
+        Build live lineup list from boxscore players:
+          - includes started/subbed/entered players (subs appear)
+          - sorts by battingOrder when present
+        """
+        players = _player_map(side_key)
+        out = []
+        for _, pdata in (players or {}).items():
+            person = pdata.get("person") or {}
+            pid = _i(person.get("id"), None)
+            name = (person.get("fullName") or "").strip()
+            pos = _safe(pdata, "position", "abbreviation", default=None)
+            bat = _safe(pdata, "stats", "batting", default={}) or {}
+            gs = pdata.get("gameStatus")
+            gs_str = ""
+            if isinstance(gs, dict):
+                gs_str = (gs.get("status") or gs.get("detailedState") or gs.get("code") or "")
+            else:
+                gs_str = gs or ""
+            appeared = str(gs_str).lower() in ("started", "substituted", "entered")
+            # also include if any batting counting exists (pinch runner etc)
+            has_bat = any((bat.get(k) not in (None, "", 0, "0")) for k in ("atBats","hits","runs","rbi","baseOnBalls","strikeOuts","homeRuns"))
+            if not (appeared or has_bat):
+                continue
+
+            bo_raw = pdata.get("battingOrder")
+            bo = None
+            try:
+                # StatsAPI uses 100/200/300... sometimes as string
+                bo = int(str(bo_raw)) if bo_raw not in (None, "") else None
+            except Exception:
+                bo = None
+
+            out.append({
+                "id": pid,
+                "name": name,
+                "pos": pos,
+                "batLine": _batter_line(bat),
+                "battingOrder": bo,
+            })
+
+        # Sort: battingOrder if present, else name
+        out.sort(key=lambda r: (r["battingOrder"] is None, r["battingOrder"] or 999999, r["name"] or ""))
+        # Convert 100->1, 200->2 for display
+        for r in out:
+            if isinstance(r.get("battingOrder"), int):
+                r["spot"] = max(1, r["battingOrder"] // 100)
+            else:
+                r["spot"] = None
+        return out
+
+    def _extract_defense_positions(def_side_key: str):
+        """
+        Best-effort defense map from boxscore positions.
+        Returns dict like {"P": {...}, "C": {...}, "1B": {...}, ...}
+        """
+        players = _player_map(def_side_key)
+        wanted = ["P","C","1B","2B","3B","SS","LF","CF","RF"]
+        found = {k: None for k in wanted}
+
+        for _, pdata in (players or {}).items():
+            pos = _safe(pdata, "position", "abbreviation", default=None)
+            if pos not in found:
+                continue
+            person = pdata.get("person") or {}
+            pid = _i(person.get("id"), None)
+            name = (person.get("fullName") or "").strip()
+            # only take first match per position
+            if not found[pos] and pid and name:
+                found[pos] = {"id": pid, "name": name}
+
+        return found
+
+    # -------------------------
+    # Current situation
+    # -------------------------
+    status = _safe(game_data, "status", "detailedState", default="") or ""
+    count = (current_play.get("count") or {})
+    about = (current_play.get("about") or {})
+    matchup = (current_play.get("matchup") or {})
+
+    inning = _i(about.get("inning"), None)
+    half = _half_norm(about.get("halfInning"))
+    balls = _i(count.get("balls"), 0) or 0
+    strikes = _i(count.get("strikes"), 0) or 0
+    outs = _i(count.get("outs"), 0) or 0
+
+    away_runs = _i(_safe(linescore, "teams", "away", "runs"), 0) or 0
+    home_runs = _i(_safe(linescore, "teams", "home", "runs"), 0) or 0
+
+    # Last play banner text
+    last_play = (_safe(current_play, "result", "description", default="") or "").strip()
+    if not last_play and all_plays:
+        last_play = (_safe(all_plays[-1], "result", "description", default="") or "").strip()
+
+    # Runners on base
+    offense = (linescore.get("offense") or {})
+    def _runner_obj(base_key):
+        o = offense.get(base_key)
+        if not isinstance(o, dict):
+            return None
+        pid = _i(_safe(o, "id"), None) or _i(_safe(o, "person", "id"), None)
+        nm = (_safe(o, "fullName", default=None) or _safe(o, "person", "fullName", default=None) or "").strip()
+        if not pid and not nm:
+            return None
+        return {"id": pid, "name": nm}
+
+    runners = {
+        "first": _runner_obj("first"),
+        "second": _runner_obj("second"),
+        "third": _runner_obj("third"),
+    }
+
+    # Batter / Pitcher
+    batter_id = _i(_safe(matchup, "batter", "id"), None)
+    pitcher_id = _i(_safe(matchup, "pitcher", "id"), None)
+    batter_name = (_safe(matchup, "batter", "fullName", default="") or "").strip()
+    pitcher_name = (_safe(matchup, "pitcher", "fullName", default="") or "").strip()
+
+    # Which side are they on?
+    # Batter is on offense; pitcher on defense. Determine offense by half-inning.
+    # If Top -> away hits; Bottom -> home hits
+    offense_side = "away" if (half.lower().startswith("top")) else "home"
+    defense_side = "home" if offense_side == "away" else "away"
+
+    batter_stats = _find_player_stats(batter_id, offense_side) if batter_id else {}
+    pitcher_stats = _find_player_stats(pitcher_id, defense_side) if pitcher_id else {}
+
+    batter_line = _batter_line((batter_stats.get("batting") or {}))
+    pitcher_line = _pitcher_line((pitcher_stats.get("pitching") or {}))
+
+    # -------------------------
+    # Current PA pitch list (for zone + pitches table)
+    # -------------------------
+    pitches_out = []
+    for ev in (current_play.get("playEvents") or []):
+        if not ev.get("isPitch"):
+            continue
+        details = ev.get("details") or {}
+        pitch_data = ev.get("pitchData") or {}
+        coords = (pitch_data.get("coordinates") or {})
+        breaks = (pitch_data.get("breaks") or {})
+
+        pitch_type = (_safe(details, "type", "description", default=None) or "").strip()
+        mph = _f(pitch_data.get("startSpeed"), None)
+        spin = _i(pitch_data.get("breaks", {}).get("spinRate"), None) or _i(pitch_data.get("spinRate"), None)
+
+        px = _f(coords.get("pX"), None)
+        pz = _f(coords.get("pZ"), None)
+        sz_top = _f(pitch_data.get("strikeZoneTop"), None)
+        sz_bot = _f(pitch_data.get("strikeZoneBottom"), None)
+
+        pitches_out.append({
+            "n": _i(details.get("pitchNumber"), None) or (len(pitches_out) + 1),
+            "pitchType": pitch_type or (_safe(details, "type", "code", default="") or "").upper(),
+            "mph": mph,
+            "spinRate": spin,
+            "vertMove": _f(breaks.get("breakVerticalInduced"), None),
+            "horizMove": _f(breaks.get("breakHorizontal"), None),
+            # for zone renderer:
+            "px": px,
+            "pz": pz,
+            "sz_top": sz_top,
+            "sz_bot": sz_bot,
+        })
+
+    # -------------------------
+    # Lineups (live, includes subs)
+    # -------------------------
+    away_lineup = _extract_lineup("away")
+    home_lineup = _extract_lineup("home")
+
+    # Defense positions shown on field: defense side only
+    defense_positions = _extract_defense_positions(defense_side)
+
+    # -------------------------
+    # Response
+    # -------------------------
+    return jsonify({
+        "ok": True,
+        "gamePk": game_pk,
+        "status": status,
+        "inning": inning,
+        "half": half,
+        "balls": balls,
+        "strikes": strikes,
+        "outs": outs,
+        "score": {"away": away_runs, "home": home_runs},
+        "lastPlay": last_play,
+
+        "batter": {
+            "id": batter_id,
+            "name": batter_stats.get("name") or batter_name,
+            "pos": batter_stats.get("pos"),
+            "line": batter_line,
+        },
+        "pitcher": {
+            "id": pitcher_id,
+            "name": pitcher_stats.get("name") or pitcher_name,
+            "pos": pitcher_stats.get("pos"),
+            "line": pitcher_line,
+        },
+
+        "runners": runners,
+        "pitches": pitches_out,
+
+        "lineups": {"away": away_lineup, "home": home_lineup},
+        "defenseSide": defense_side,
+        "defense": defense_positions,
+    })
 
 
 @app.get("/team/<int:team_id>/schedule_json")
