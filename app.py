@@ -33,6 +33,7 @@ from services.mlb_api import (
     normalize_game_detail,
     get_schedule_game_by_pk,
     normalize_schedule_game,
+    normalize_gamecast,
     get_stats_leaderboard,
     get_teams,
     get_team,
@@ -497,7 +498,15 @@ def stats_json():
         "filters": filters,
     })
 
-
+@app.get("/game/<int:game_pk>/gamecast.json")
+def gamecast_json(game_pk: int):
+    try:
+        feed = get_game_feed(game_pk)
+        payload = normalize_gamecast(feed)
+        # Always return 200 so the frontend doesn't throw on HTTP status
+        return jsonify(payload), 200
+    except Exception as e:
+        return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
 @app.get("/random-player/play")
 def random_player_play():
     mode = request.args.get("mode")
