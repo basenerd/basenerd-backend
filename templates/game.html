@@ -274,7 +274,7 @@
   }
 
 
-  @media (max-width: 1100px){
+  @media (max-width: 900px){
     #tab-gamecast .gc-grid{ grid-template-columns: 1fr; }
     #tab-gamecast .gc-midgrid{ grid-template-columns: 1fr; }
   }
@@ -1732,7 +1732,7 @@ function renderPitchTable(tbody, pitches){
     });
   }
 
-  async function fetchGameCast(){
+  async async function fetchGameCast(){
     if(!GC_URL) return;
     try{
       const res = await fetch(GC_URL, { cache: "no-store" });
