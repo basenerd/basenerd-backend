@@ -498,7 +498,7 @@ def stats_json():
         "filters": filters,
     })
 
-@app.get("/game/<int:game_pk>/gamecast.json", endpoint="gamecast_json_live"))
+@app.get("/game/<int:game_pk>/gamecast.json", endpoint="gamecast_json_live")
 def gamecast_json(game_pk: int):
     try:
         feed = get_game_feed(game_pk)
