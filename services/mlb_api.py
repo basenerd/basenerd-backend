@@ -412,7 +412,217 @@ def get_player_headshot_url(pid: int, size: int = 360) -> str:
         f"w_{size},q_100/v1/people/{pid}/headshot/67/current"
     )
 
+def normalize_gamecast(feed: dict) -> dict:
+    """
+    Minimal payload for the GameCast tab polling /game/<pk>/gamecast.json
 
+    Front-end expects:
+      ok, inning, half, balls, strikes, outs,
+      score:{away,home}, lastPlay,
+      batter, pitcher,
+      runners:{first,second,third},
+      pitches:[...],
+      lineups:{away,home}
+    """
+
+    if not feed or (feed.get("scheduleOnly") is True):
+        return {"ok": False, "reason": (feed or {}).get("_fallback_reason") or "scheduleOnly"}
+
+    game_data = feed.get("gameData") or {}
+    live_data = feed.get("liveData") or {}
+
+    status = game_data.get("status") or {}
+    state = (status.get("abstractGameState") or "").lower()  # "live", "final", etc.
+
+    linescore = live_data.get("linescore") or {}
+    teams_ls = linescore.get("teams") or {}
+    offense = linescore.get("offense") or {}
+
+    inning = linescore.get("currentInning")
+    half_raw = (linescore.get("inningHalf") or linescore.get("inningState") or "")
+    half = "Top" if str(half_raw).lower().startswith("top") else ("Bottom" if str(half_raw).lower().startswith("bot") else "")
+
+    # Prefer linescore counts; fallback to current play count
+    balls = linescore.get("balls")
+    strikes = linescore.get("strikes")
+    outs = linescore.get("outs")
+
+    # Current play
+    plays = (live_data.get("plays") or {})
+    current_play = plays.get("currentPlay") or {}
+    matchup = current_play.get("matchup") or {}
+    count = current_play.get("count") or {}
+
+    if balls is None: balls = count.get("balls")
+    if strikes is None: strikes = count.get("strikes")
+    if outs is None: outs = count.get("outs")
+
+    def _short_name(full: str) -> str:
+        s = (full or "").strip()
+        if not s:
+            return ""
+        parts = s.split()
+        if len(parts) == 1:
+            return s
+        return f"{parts[0][0]}. {parts[-1]}"
+
+    def _headshot(pid: int | None) -> str | None:
+        try:
+            return get_player_headshot_url(int(pid), size=120) if pid else None
+        except Exception:
+            return None
+
+    batter_obj = matchup.get("batter") or {}
+    pitcher_obj = matchup.get("pitcher") or {}
+
+    batter_id = batter_obj.get("id")
+    pitcher_id = pitcher_obj.get("id")
+
+    batter = {
+        "id": batter_id,
+        "name": batter_obj.get("fullName") or batter_obj.get("name"),
+        "shortName": _short_name(batter_obj.get("fullName") or batter_obj.get("name") or ""),
+        "headshot": _headshot(batter_id),
+        "pos": "",
+        "line": "",
+    }
+    pitcher = {
+        "id": pitcher_id,
+        "name": pitcher_obj.get("fullName") or pitcher_obj.get("name"),
+        "shortName": _short_name(pitcher_obj.get("fullName") or pitcher_obj.get("name") or ""),
+        "headshot": _headshot(pitcher_id),
+        "pos": "",
+        "line": "",
+    }
+
+    # Last play text
+    last_play = ""
+    try:
+        res = current_play.get("result") or {}
+        last_play = res.get("description") or ""
+        if not last_play:
+            # fallback: last playEvent description
+            evs = current_play.get("playEvents") or []
+            if evs:
+                last_play = ((evs[-1].get("details") or {}).get("description") or "")
+    except Exception:
+        last_play = ""
+
+    # Bases / runners
+    def _runner(base_key: str):
+        o = offense.get(base_key) or {}
+        pid = o.get("id") or (o.get("player") or {}).get("id")
+        nm = o.get("fullName") or o.get("name") or (o.get("player") or {}).get("fullName")
+        return {
+            "id": pid,
+            "name": nm,
+            "shortName": _short_name(nm or ""),
+            "headshot": _headshot(pid),
+        } if (pid or nm) else None
+
+    runners = {
+        "first": _runner("first"),
+        "second": _runner("second"),
+        "third": _runner("third"),
+    }
+
+    # Pitches for zone + table
+    pitches_out = []
+    play_events = current_play.get("playEvents") or []
+    n = 0
+    for ev in play_events:
+        if not ev or not ev.get("isPitch"):
+            continue
+        n += 1
+        details = ev.get("details") or {}
+        pitch_data = ev.get("pitchData") or {}
+        coords = pitch_data.get("coordinates") or {}
+        breaks = pitch_data.get("breaks") or {}
+
+        call = details.get("call") or {}
+        pitches_out.append({
+            "n": n,
+            "px": coords.get("pX"),
+            "pz": coords.get("pZ"),
+            "sz_top": coords.get("strikeZoneTop"),
+            "sz_bot": coords.get("strikeZoneBottom"),
+
+            "pitchType": (details.get("type") or {}).get("description") or "",
+            "mph": pitch_data.get("startSpeed"),
+            "spinRate": breaks.get("spinRate"),
+            "vertMove": breaks.get("inducedVerticalBreak") if breaks.get("inducedVerticalBreak") is not None else breaks.get("breakVertical"),
+            "horizMove": breaks.get("horizontalBreak") if breaks.get("horizontalBreak") is not None else breaks.get("breakHorizontal"),
+
+            # Outcome flags (frontend colors dots)
+            "isBall": details.get("isBall"),
+            "isStrike": details.get("isStrike"),
+            "isInPlay": details.get("isInPlay"),
+            "isFoul": details.get("isFoul"),
+            "call": call.get("description") or call.get("code") or "",
+            "desc": details.get("description") or "",
+        })
+
+    # Lineups (optional but keeps UI happy). If you want richer PA expansion later,
+    # we can wire pas-per-player from normalize_game_detail().
+    lineups = {"away": [], "home": []}
+    try:
+        box = (live_data.get("boxscore") or {}).get("teams") or {}
+        for side in ("away", "home"):
+            t = box.get(side) or {}
+            players = t.get("players") or {}
+            order = t.get("battingOrder") or t.get("batters") or []
+            out = []
+            spot = 0
+            for pid in order:
+                spot += 1
+                p = players.get(f"ID{pid}") or {}
+                person = p.get("person") or {}
+                pos = (p.get("position") or {}).get("abbreviation") or ""
+                stat = (p.get("stats") or {}).get("batting") or {}
+                ab = stat.get("atBats")
+                h = stat.get("hits")
+                bat_line = f"{h}-{ab}" if (ab is not None and h is not None) else ""
+                nm = person.get("fullName") or person.get("name") or ""
+                out.append({
+                    "id": pid,
+                    "name": nm,
+                    "shortName": _short_name(nm),
+                    "headshot": _headshot(pid),
+                    "pos": pos,
+                    "batLine": bat_line,
+                    "spot": spot,
+                    "pas": [],  # can upgrade later
+                })
+            lineups[side] = out
+    except Exception:
+        pass
+
+    score_away = (teams_ls.get("away") or {}).get("runs")
+    score_home = (teams_ls.get("home") or {}).get("runs")
+
+    # If not live yet, still return ok False so UI shows a friendly message
+    if state != "live" and not inning:
+        return {"ok": False, "reason": f"state={state or 'unknown'}"}
+
+    return {
+        "ok": True,
+        "state": state,
+        "inning": inning,
+        "half": half,
+        "balls": balls,
+        "strikes": strikes,
+        "outs": outs,
+        "score": {"away": score_away, "home": score_home},
+        "lastPlay": last_play,
+
+        "batter": batter,
+        "pitcher": pitcher,
+        "runners": runners,
+
+        "pitches": pitches_out,
+        "lineups": lineups,
+    }
+    
 def extract_career_statline(player: dict) -> Tuple[Optional[str], Optional[dict]]:
     """
     Returns (kind, statdict) where kind is 'hitting', 'pitching', or None.
