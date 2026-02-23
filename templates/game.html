@@ -170,9 +170,9 @@
 
   #tab-gamecast .gc-midgrid{
     display:grid;
-    grid-template-columns: 1.1fr 0.9fr 1.2fr;
+    grid-template-columns: 1fr 1fr;
     gap:12px;
-    align-items:start;
+    align-items:stretch;
   }
 
   #tab-gamecast .gc-dots{
@@ -243,6 +243,36 @@
     font-weight:650;
     opacity:.92;
   }
+
+  /* Bases / runners (separate card) */
+  #tab-gamecast .gc-bases-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  #tab-gamecast .gc-base-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:8px 10px;
+    border:1px solid rgba(148,163,184,.22);
+    border-radius:12px;
+    background: rgba(15,23,42,.02);
+  }
+  #tab-gamecast .gc-base-k{
+    font-family: IBM Plex Mono, ui-monospace, Menlo, monospace;
+    font-size:12px;
+    opacity:.7;
+    white-space:nowrap;
+  }
+  #tab-gamecast .gc-base-v{
+    font-weight:800;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
 
   @media (max-width: 1100px){
     #tab-gamecast .gc-grid{ grid-template-columns: 1fr; }
@@ -699,16 +729,6 @@
 
               <div class="gc-midgrid" style="margin-top:14px;">
                 <div class="card" style="margin:0;">
-                  <div class="card-header"><div class="card-title">Field</div></div>
-                  <div style="padding:10px 12px;">
-                    <div id="gc-field" class="gc-field"></div>
-                    <div class="mono" style="margin-top:10px; opacity:.7; font-size:12px;">
-                      <span id="gc-defense-side"></span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="card" style="margin:0;">
                   <div class="card-header"><div class="card-title">Zone</div></div>
                   <div style="padding:12px; display:flex; justify-content:center;">
                     <svg id="gc-zone" class="strike-zone" width="220" height="260"></svg>
@@ -733,6 +753,24 @@
                     </table>
                   </div>
                 </div>
+
+                <div class="card" style="margin:0;">
+                  <div class="card-header"><div class="card-title">Fielders</div></div>
+                  <div style="padding:10px 12px;">
+                    <div id="gc-field" class="gc-field"></div>
+                    <div class="mono" style="margin-top:10px; opacity:.7; font-size:12px;">
+                      <span id="gc-defense-side"></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card" style="margin:0;">
+                  <div class="card-header"><div class="card-title">Bases</div></div>
+                  <div style="padding:10px 12px;">
+                    <div id="gc-bases"></div>
+                  </div>
+                </div>
+              </div>
               </div>
 
             </div>
@@ -1490,8 +1528,14 @@
   // -----------------------------
   const GAME_PK = {{ game.gamePk if game.gamePk is defined else 'null' }};
   const GC_URL = GAME_PK ? (`/game/${GAME_PK}/gamecast.json`) : null;
+  const IS_LIVE = {{ 'true' if is_live else 'false' }};
   let gcTimer = null;
   let gcLastKey = "";
+
+  // Auto-start when GameCast panel is the initial active tab for live games
+  if(IS_LIVE){
+    startGameCast();
+  }
 
   function shortName(full){
     const s = (full || "").trim();
@@ -1536,7 +1580,7 @@
     el.innerHTML = "";
     (players || []).forEach(p=>{
       const hs = p.headshot || "";
-      const nm = p.shortName || shortName(p.name);
+      const nm = p.shortName || fmtShortName(p.name);
       const pos = p.pos || "";
       const line = p.batLine || "";
       const pas = p.pas || [];
@@ -1562,8 +1606,7 @@
       }else{
         paWrap.innerHTML = pas.map(x => `
           <div class="gc-pa-item">
-            <div class="gc-pa-inning">${x.inning || ""}</div>
-            <div>${x.desc || ""}</div>
+            <div class="mono" style="opacity:.85;">${(x.inning || "")}${(x.inning ? " - " : "")}${x.desc || ""}</div>
           </div>
         `).join("");
       }
@@ -1581,80 +1624,94 @@
     return parts[parts.length-1];
   }
 
-  function renderField(el, defense, runners){
-    if(!el) return;
-    el.innerHTML = "";
-
-    // diamond + bases
-    const diamond = document.createElement("div");
-    diamond.className = "gc-diamond";
-    el.appendChild(diamond);
-
-    // base coords (relative to field box)
-    const base = {
-      second: { x: 50, y: 26 },
-      third:  { x: 30, y: 46 },
-      first:  { x: 70, y: 46 },
-      home:   { x: 50, y: 66 },
-    };
-
-    function addBase(key, on){
-      const b = document.createElement("div");
-      b.className = "gc-base" + (on ? " on" : "");
-      b.style.left = base[key].x + "%";
-      b.style.top = base[key].y + "%";
-      el.appendChild(b);
-      return b;
-    }
-
-    const on1 = !!(runners && runners.first);
-    const on2 = !!(runners && runners.second);
-    const on3 = !!(runners && runners.third);
-    addBase("home", false);
-    addBase("first", on1);
-    addBase("second", on2);
-    addBase("third", on3);
-
-    function addRunnerLabel(key, runner){
-      if(!runner || !runner.name) return;
-      const lab = document.createElement("div");
-      lab.className = "gc-label small";
-      lab.textContent = lastNameOnly(runner.name);
-      lab.style.left = base[key].x + "%";
-      lab.style.top = (base[key].y - 7) + "%";
-      el.appendChild(lab);
-    }
-    addRunnerLabel("first", runners && runners.first);
-    addRunnerLabel("second", runners && runners.second);
-    addRunnerLabel("third", runners && runners.third);
-
-    // fielder label positions (percent-based)
-    const posXY = {
-      "CF": {x:50,y:12},
-      "LF": {x:28,y:18},
-      "RF": {x:72,y:18},
-      "SS": {x:43,y:36},
-      "2B": {x:57,y:36},
-      "3B": {x:33,y:46},
-      "1B": {x:67,y:46},
-      "P":  {x:50,y:48},
-      "C":  {x:50,y:74},
-    };
-
-    Object.keys(posXY).forEach(pos=>{
-      const f = defense ? defense[pos] : null;
-      const nm = f && f.name ? lastNameOnly(f.name) : "";
-      if(!nm) return;
-      const lab = document.createElement("div");
-      lab.className = "gc-label";
-      lab.textContent = nm;
-      lab.style.left = posXY[pos].x + "%";
-      lab.style.top = posXY[pos].y + "%";
-      el.appendChild(lab);
-    });
+  function fmtShortName(name){
+    const s = (name || "").trim();
+    if(!s) return "";
+    const parts = s.split(/\s+/);
+    if(parts.length === 1) return s;
+    return `${parts[0][0]}. ${parts[parts.length-1]}`;
   }
 
-  function renderPitchTable(tbody, pitches){
+. ${parts[parts.length-1]}`;
+}
+
+function renderField(el, defense){
+  if(!el) return;
+  el.innerHTML = "";
+
+  // Simple "field" backdrop (uses existing .gc-field styles)
+  const diamond = document.createElement("div");
+  diamond.className = "gc-diamond";
+  el.appendChild(diamond);
+
+  // Positions we want to show (all 9)
+  const posXY = {
+    "CF": {x:50, y:14},
+    "LF": {x:28, y:18},
+    "RF": {x:72, y:18},
+
+    "SS": {x:42, y:38},
+    "2B": {x:58, y:38},
+    "3B": {x:33, y:48},
+    "1B": {x:67, y:48},
+
+    "P":  {x:50, y:48},
+    "C":  {x:50, y:72},
+  };
+
+  const d = defense || {};
+  Object.keys(posXY).forEach(pos=>{
+    const who = d[pos] || {};
+    const nm = who.lastName || lastNameOnly(who.name) || "";
+    if(!nm) return;
+
+    const lab = document.createElement("div");
+    lab.className = "gc-label small";
+    lab.textContent = nm;
+    lab.style.left = posXY[pos].x + "%";
+    lab.style.top  = posXY[pos].y + "%";
+    el.appendChild(lab);
+  });
+}
+
+function renderBases(el, runners){
+  if(!el) return;
+  const list = document.createElement("div");
+  list.className = "gc-bases-list";
+
+  const baseMap = {"1B": "—", "2B": "—", "3B": "—"};
+
+  // backend currently returns either an array [{base:"1B", runner:"..."}]
+  // or an object {first:{name:"..."}, second:{...}, third:{...}}
+  if(Array.isArray(runners)){
+    (runners || []).forEach(r=>{
+      const b = (r.base || "").toUpperCase();
+      if(!(b in baseMap)) return;
+      const nm = r.runnerShort || r.runner || r.name || "";
+      baseMap[b] = nm ? fmtShortName(nm) : "—";
+    });
+  }else if(runners && typeof runners === "object"){
+    const f = runners.first && runners.first.name ? runners.first.name : "";
+    const s = runners.second && runners.second.name ? runners.second.name : "";
+    const t = runners.third && runners.third.name ? runners.third.name : "";
+    if(f) baseMap["1B"] = fmtShortName(f);
+    if(s) baseMap["2B"] = fmtShortName(s);
+    if(t) baseMap["3B"] = fmtShortName(t);
+  }
+
+  ["1B","2B","3B"].forEach(b=>{
+    const row = document.createElement("div");
+    row.className = "gc-base-row";
+    row.innerHTML = `<div class="gc-base-k">${b}:</div><div class="gc-base-v">${baseMap[b]}</div>`;
+    list.appendChild(row);
+  });
+
+  el.innerHTML = "";
+  el.appendChild(list);
+}
+
+
+function renderPitchTable(tbody, pitches){
     if(!tbody) return;
     tbody.innerHTML = "";
     (pitches || []).forEach(p=>{
@@ -1717,7 +1774,9 @@
       renderLineup("home", document.getElementById("gc-lineup-home"), data.lineups?.home);
 
       const fieldEl = document.getElementById("gc-field");
-      renderField(fieldEl, data.defense, data.runners);
+      renderField(fieldEl, data.defense);
+
+      renderBases(document.getElementById("gc-bases"), data.runners);
 
       const ds = document.getElementById("gc-defense-side");
       if(ds) ds.textContent = data.defenseSide ? (`Defense: ${data.defenseSide.toUpperCase()}`) : "";
