@@ -33,10 +33,12 @@
      ========================================================== */
   #tab-gamecast .gc-grid{
     display:grid;
-    grid-template-columns: 320px minmax(380px, 1fr) 320px;
     gap:14px;
     align-items:start;
-  }
+  
+    grid-template-columns: minmax(260px,320px) minmax(520px,1fr) minmax(260px,320px);
+    align-items: start;
+}
   #tab-gamecast .gc-center{
     min-width:0;
   }
@@ -274,7 +276,7 @@
   }
 
 
-  @media (max-width: 900px){
+  @media (max-width: 650px){
     #tab-gamecast .gc-grid{ grid-template-columns: 1fr; }
     #tab-gamecast .gc-midgrid{ grid-template-columns: 1fr; }
   }
@@ -1736,6 +1738,9 @@ function renderPitchTable(tbody, pitches){
     if(!GC_URL) return;
     try{
       const res = await fetch(GC_URL, { cache: "no-store" });
+      if(!res.ok){
+        throw new Error(`gamecast.json HTTP ${res.status}`);
+      }
       const data = await res.json();
       if(!data || !data.ok) return;
 
@@ -1788,7 +1793,14 @@ function renderPitchTable(tbody, pitches){
       const tbody = document.querySelector("#gc-pitch-table tbody");
       renderPitchTable(tbody, pitches);
 
-    }catch(e){}
+    }catch(e){
+      console.error("GameCast fetch failed:", e);
+      const st = document.getElementById("gc-status");
+      if(st){
+        st.style.display = "block";
+        st.textContent = `Live data unavailable (${e?.message || e})`;
+      }
+    }
   }
 
   function startGameCast(){
