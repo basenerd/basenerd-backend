@@ -1710,29 +1710,34 @@ def get_game_feed(game_pk: int) -> dict:
 
         if r.status_code == 200:
             data = r.json() or {}
-        
+
             status = ((data.get("gameData") or {}).get("status") or {})
             state = (status.get("abstractGameState") or "").lower()
-        
-            # live → 30s
+
+            # IMPORTANT:
+            # - live polling UX wants fresh data quickly
+            # - keep TTL short when "live"
             if state == "live":
-                ttl = 30
-        
-            # final → 24 hours
+                ttl = 5
             elif state == "final":
                 ttl = 60 * 60 * 24
-        
-            # scheduled / preview / other → 60s
             else:
-                ttl = 60
-        
+                # preview / warmup / other
+                ttl = 15
+
             _set_cached(cache_key, data, ttl=ttl)
             return data
 
         # Any other status: fallback
         sched_game = get_schedule_game_by_pk(game_pk)
-        data = {"scheduleOnly": True, "scheduleGame": sched_game, "_fallback_reason": f"feed_status={r.status_code}"}
-        _set_cached(cache_key, data)
+        data = {
+            "scheduleOnly": True,
+            "scheduleGame": sched_game,
+            "_fallback_reason": f"feed_status={r.status_code}"
+        }
+
+        # CRITICAL: don't cache fallback for long, or GameCast gets "stuck"
+        _set_cached(cache_key, data, ttl=10)
         return data
 
     except Exception as e:
@@ -1743,8 +1748,14 @@ def get_game_feed(game_pk: int) -> dict:
         except Exception:
             pass
 
-        data = {"scheduleOnly": True, "scheduleGame": sched_game, "_fallback_reason": f"exception={type(e).__name__}"}
-        _set_cached(cache_key, data)
+        data = {
+            "scheduleOnly": True,
+            "scheduleGame": sched_game,
+            "_fallback_reason": f"exception={type(e).__name__}"
+        }
+
+        # CRITICAL: short TTL so we retry soon
+        _set_cached(cache_key, data, ttl=10)
         return data
 
 def normalize_schedule_game(g: dict, tz_name: str = "America/Phoenix") -> dict:
