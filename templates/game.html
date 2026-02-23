@@ -39,7 +39,15 @@
     grid-template-columns: minmax(260px,320px) minmax(520px,1fr) minmax(260px,320px);
     align-items: start;
 }
-  #tab-gamecast .gc-center{
+  
+  #tab-gamecast .gc-grid-wrap{
+    overflow-x:auto;
+  }
+  #tab-gamecast .gc-grid{
+    min-width: 1120px;
+  }
+
+#tab-gamecast .gc-center{
     min-width:0;
   }
   #tab-gamecast .gc-lineup{
@@ -707,7 +715,8 @@
         —
       </div>
 
-      <div class="gc-grid" style="margin-top:14px;">
+      <div class="gc-grid-wrap">
+<div class="gc-grid" style="margin-top:14px;">
         <!-- Away lineup -->
         <div class="card" style="margin:0;">
           <div class="card-header">
@@ -778,6 +787,7 @@
             </div>
           </div>
         </div>
+</div>
 
         <!-- Home lineup -->
         <div class="card" style="margin:0;">
@@ -1734,7 +1744,7 @@ function renderPitchTable(tbody, pitches){
     });
   }
 
-  async async function fetchGameCast(){
+  async async async function fetchGameCast(){
     if(!GC_URL) return;
     try{
       const res = await fetch(GC_URL, { cache: "no-store" });
