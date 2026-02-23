@@ -1451,3 +1451,19 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
 .pr-metric-btn.active{
   outline: 2px solid rgba(255,255,255,.18);
 }
+
+/* FORCE RED INJURY STATUS (D60, IL, etc.) */
+.status-pill.status-other, 
+span.status-pill.status-other {
+    background-color: #fdecec !important; 
+    color: #7a1e1e !important;
+    border: 1px solid #f7b7b7 !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    font-size: 10px !important;
+    letter-spacing: 0.3px !important;
+    padding: 2px 8px !important;
+    border-radius: 999px !important;
+    display: inline-block !important;
+    opacity: 1 !important;
+}
