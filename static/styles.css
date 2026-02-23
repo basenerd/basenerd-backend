@@ -340,8 +340,8 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
 
 .roster-grid { display: grid; gap: 6px; }
 .roster-row {
-  display: grid;
-  grid-template-columns: 44px 1fr 70px 75px;
+  display: grid !important;
+  grid-template-columns: 44px 1fr 70px 75px !important;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
