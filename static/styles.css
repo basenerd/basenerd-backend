@@ -357,10 +357,10 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   font-size: 12px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(255,0,0,0.10);
+  background: rgba(255,0,0,0.15) !important;
   color: #ff4d4d !important;                  /* Bright red text */
   font-weight: 700;               /* Makes the "D60" bold */
-  border: 1px solid rgba(255, 0, 0, 0.2);
+  border: 1px solid rgba(255, 0, 0, 0.3) !important;
 }
 .status-spacer { height: 1px; }
 
@@ -983,12 +983,12 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
 .pill-status{
   display:inline-flex;
   align-items:center;
-  padding:5px 10px;
+  padding:3px 10px;
   border-radius:999px;
-  border:1px solid rgba(226,232,240,.9);
-  background:#fff;
-  font-weight:800;
-  color:#111318;
+  border: 1px solid rgba(255, 0, 0, 0.2) !important;
+  background: rgba(255, 0, 0, 0.1) !important; /* Light red tint */
+  font-weight: 700;
+  color: #ff4d4d !important;
 }
 
 .game-hero-notes{
