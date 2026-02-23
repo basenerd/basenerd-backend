@@ -1546,7 +1546,7 @@
   // -----------------------------
   // GameCast live polling
   // -----------------------------
-  const GAME_PK = {{ (game.gamePk if game.gamePk is defined else none) | tojson }};
+  const GAME_PK = {{ game_pk | tojson }};
   const GC_URL = GAME_PK ? (`/game/${GAME_PK}/gamecast.json`) : null;
   const IS_LIVE = {{ is_live | tojson }};
   let gcTimer = null;
