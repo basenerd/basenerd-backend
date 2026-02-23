@@ -1752,6 +1752,14 @@ function renderPitchTable(tbody, pitches){
         throw new Error(`gamecast.json HTTP ${res.status}`);
       }
       const data = await res.json();
+      console.log("[GameCast] payload:", data);
+
+      if(!data || data.ok === false){
+        const msg = data && data.reason ? data.reason : "No live data available";
+        const lastPlayEl = document.getElementById("gc-lastplay");
+        if(lastPlayEl) lastPlayEl.textContent = `GameCast unavailable (${msg})`;
+        return;
+      }
       if(!data || !data.ok) return;
 
       // prevent unnecessary DOM churn if nothing important changed
