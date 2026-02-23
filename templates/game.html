@@ -58,7 +58,31 @@
     flex-direction:column;
     gap:8px;
   }
+#tab-gamecast .gc-bases-diamond{
+  position:relative;
+  width:140px;
+  height:140px;
+}
 
+#tab-gamecast .gc-base{
+  position:absolute;
+  width:24px;
+  height:24px;
+  border-radius:6px;
+  border:1px solid rgba(148,163,184,.35);
+  background: rgba(255,255,255,.75);
+  transform:translate(-50%,-50%) rotate(45deg);
+}
+
+#tab-gamecast .gc-base.on{
+  background: rgba(250, 204, 21, .95);
+  border-color: rgba(234,179,8,.95);
+}
+
+#tab-gamecast .gc-base.first{ left:80%; top:50%; }
+#tab-gamecast .gc-base.second{ left:50%; top:20%; }
+#tab-gamecast .gc-base.third{ left:20%; top:50%; }
+#tab-gamecast .gc-base.home{ left:50%; top:80%; }
   /* Player row (NOT <details> for whole card) */
   #tab-gamecast .gc-player{
     border:1px solid rgba(148,163,184,.22);
@@ -541,27 +565,35 @@
 
 <!-- TOP: Game hero -->
 <div class="card game-hero">
-  <div class="game-hero-inner">
-    <div class="game-hero-meta">
-      <div class="game-hero-title">
+  <div class="game-hero-inner" style="gap:14px; align-items:stretch;">
+
+    <!-- LEFT: meta -->
+    <div class="game-hero-meta" style="min-width: 280px;">
+      <div class="game-hero-title" style="display:flex; align-items:center; gap:10px;">
         <span class="mono">{{ away.abbrev }}</span>
         <span class="muted">@</span>
         <span class="mono">{{ home.abbrev }}</span>
+
+        <!-- live mini: inning / state (filled by JS when GameCast is running) -->
+        <span id="hero-live-pill" class="pill-lite" style="margin-left:auto; display:none;">
+          <span class="mono muted" id="hero-live-inning">—</span>
+        </span>
       </div>
 
-      <div class="game-hero-sub">
+      <div class="game-hero-sub" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
         <span class="pill-status">{{ game.statusPill }}</span>
         {% if game.when %}<span class="muted">•</span><span>{{ game.when }}</span>{% endif %}
         {% if game.venue %}<span class="muted">•</span><span>{{ game.venue }}</span>{% endif %}
       </div>
 
-      <div class="game-hero-notes">
+      <div class="game-hero-notes" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
         {% if away.record %}<span class="mono muted">{{ away.abbrev }} {{ away.record }}</span>{% endif %}
         {% if home.record %}<span class="muted">•</span><span class="mono muted">{{ home.abbrev }} {{ home.record }}</span>{% endif %}
       </div>
 
-      {% if (not is_final) and game.probables %}
-        <div class="game-hero-row">
+      <!-- Probables: show ONLY before first pitch -->
+      {% if (not is_live) and (not is_final) and game.probables %}
+        <div class="game-hero-row" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
           <span class="mono muted">PP:</span>
           <span class="mono">{% if game.probables.away %}{{ away.abbrev }} {{ game.probables.away }}{% else %}{{ away.abbrev }} TBD{% endif %}</span>
           <span class="muted">•</span>
@@ -573,40 +605,123 @@
         {% set wname = game.decisions.winner if game.decisions.winner is defined else game.decisions.w %}
         {% set lname = game.decisions.loser if game.decisions.loser is defined else game.decisions.l %}
         {% set sname = game.decisions.save if game.decisions.save is defined else game.decisions.s %}
-        <div class="game-hero-row">
+        <div class="game-hero-row" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
           <span class="pill-lite"><span class="mono muted">W</span> {{ dash(wname) }}</span>
           <span class="pill-lite"><span class="mono muted">L</span> {{ dash(lname) }}</span>
           <span class="pill-lite"><span class="mono muted">SV</span> {{ dash(sname) }}</span>
         </div>
       {% endif %}
+
+      <!-- Live: last play (filled by JS). Hidden until we have GameCast data -->
+      <div id="hero-lastplay-wrap" style="margin-top:10px; display:none;">
+        <div class="mono muted" style="font-size:12px; letter-spacing:.04em; text-transform:uppercase;">
+          Last play
+        </div>
+        <div id="hero-lastplay" style="margin-top:4px; line-height:1.2;"></div>
+      </div>
     </div>
 
-    <div class="game-hero-score">
-      <div class="team-score">
-        {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" alt="{{ away.abbrev }} logo">{% endif %}
-        <div class="team-score-meta">
-          <div class="team-score-line">
-            <span class="mono team-abbrev">{{ away.abbrev }}</span>
-            <span class="mono team-runs">{{ dash(away.score if away.score is defined else away.runs if away.runs is defined else none) }}</span>
+    <!-- RIGHT: score -->
+    <div class="game-hero-score" style="flex:1; display:flex; flex-direction:column; gap:10px; justify-content:center;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <!-- away -->
+        <div class="team-score" style="display:flex; align-items:center; gap:10px; min-width:0;">
+          {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" alt="{{ away.abbrev }} logo">{% endif %}
+          <div class="team-score-meta" style="min-width:0;">
+            <div class="team-score-line" style="display:flex; align-items:baseline; gap:10px;">
+              <span class="mono team-abbrev">{{ away.abbrev }}</span>
+              <span class="mono team-runs">{{ dash(away.score if away.score is defined else away.runs if away.runs is defined else none) }}</span>
+            </div>
           </div>
+        </div>
+
+        <div class="team-score vs muted" style="font-weight:600;">@</div>
+
+        <!-- home -->
+        <div class="team-score" style="display:flex; align-items:center; gap:10px; min-width:0; justify-content:flex-end;">
+          <div class="team-score-meta" style="min-width:0;">
+            <div class="team-score-line" style="display:flex; align-items:baseline; gap:10px; justify-content:flex-end;">
+              <span class="mono team-runs">{{ dash(home.score if home.score is defined else home.runs if home.runs is defined else none) }}</span>
+              <span class="mono team-abbrev">{{ home.abbrev }}</span>
+            </div>
+          </div>
+          {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" alt="{{ home.abbrev }} logo">{% endif %}
         </div>
       </div>
 
-      <div class="team-score vs">@</div>
-
-      <div class="team-score">
-        {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" alt="{{ home.abbrev }} logo">{% endif %}
-        <div class="team-score-meta">
-          <div class="team-score-line">
-            <span class="mono team-runs">{{ dash(home.score if home.score is defined else home.runs if home.runs is defined else none) }}</span>
-            <span class="mono team-abbrev">{{ home.abbrev }}</span>
-          </div>
+      <!-- Live mini indicators (bases + outs), filled by JS; hidden until live data available -->
+      <div id="hero-mini-wrap" style="display:none; align-items:center; justify-content:flex-end; gap:10px;">
+        <div id="hero-mini-bases" style="display:flex; align-items:center; gap:6px;"></div>
+        <div class="pill-lite" style="display:flex; align-items:center; gap:8px;">
+          <span class="mono muted">OUTS</span>
+          <span class="mono" id="hero-mini-outs">0</span>
         </div>
       </div>
     </div>
   </div>
 </div>
 
+<script>
+  // Hook GameCast JSON to the hero (no new endpoints)
+  // Requires your existing GAME_PK/GC_URL/IS_LIVE vars + polling to be active.
+
+  function heroBasesHTML(runners){
+    const on1 = !!(runners && runners.first);
+    const on2 = !!(runners && runners.second);
+    const on3 = !!(runners && runners.third);
+
+    const sq = (on) => `<span style="
+      width:10px;height:10px;border-radius:3px;
+      border:1px solid rgba(148,163,184,.45);
+      display:inline-block;
+      background:${on ? 'rgba(250, 204, 21, .95)' : 'rgba(255,255,255,.6)'};
+      transform: rotate(45deg);
+    "></span>`;
+
+    return `
+      <span class="mono muted" style="font-size:12px; letter-spacing:.04em;">BASES</span>
+      ${sq(on3)} ${sq(on2)} ${sq(on1)}
+    `;
+  }
+
+  // Patch into your existing fetchGameCast without rewriting everything:
+  // Call updateHeroFromGamecast(data) after you parse JSON.
+  function updateHeroFromGamecast(data){
+    try{
+      if(!data || !data.ok) return;
+
+      // last play
+      const lpWrap = document.getElementById("hero-lastplay-wrap");
+      const lp = document.getElementById("hero-lastplay");
+      if(lpWrap && lp){
+        lpWrap.style.display = "block";
+        lp.textContent = data.lastPlay || "—";
+      }
+
+      // inning pill
+      const pill = document.getElementById("hero-live-pill");
+      const inn = document.getElementById("hero-live-inning");
+      if(pill && inn){
+        pill.style.display = "inline-flex";
+        const half = (data.half || "").startsWith("Top") ? "Top" : ((data.half || "").startsWith("Bottom") ? "Bot" : "");
+        inn.textContent = data.inning ? `${half} ${data.inning}`.trim() : "—";
+      }
+
+      // mini bases/outs
+      const miniWrap = document.getElementById("hero-mini-wrap");
+      const miniBases = document.getElementById("hero-mini-bases");
+      const miniOuts = document.getElementById("hero-mini-outs");
+      if(miniWrap && miniBases && miniOuts){
+        miniWrap.style.display = "flex";
+        miniBases.innerHTML = heroBasesHTML(data.runners);
+        miniOuts.textContent = (data.outs ?? 0);
+      }
+    }catch(e){
+      // silent: hero should never break GameCast
+      console.warn("[Hero] update failed", e);
+    }
+  }
+</script>
 {# -----------------------------
    Linescore
    ----------------------------- #}
@@ -775,20 +890,21 @@
                   </div>
 
                   <div class="card" style="margin:0;">
-                    <div class="card-header"><div class="card-title">Fielders</div></div>
-                    <div style="padding:10px 12px;">
-                      <div id="gc-field" class="gc-field"></div>
-                      <div class="mono" style="margin-top:10px; opacity:.7; font-size:12px;">
-                        <span id="gc-defense-side"></span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="card" style="margin:0;">
-                    <div class="card-header"><div class="card-title">Bases</div></div>
-                    <div style="padding:10px 12px;">
-                      <div id="gc-bases"></div>
-                    </div>
+                     <div class="card-header">
+                       <div class="card-title">Bases</div>
+                       <div class="card-subtitle mono" style="opacity:.75;">Live runners</div>
+                     </div>
+                  
+                     <!-- Diamond visual -->
+                     <div style="padding:12px 12px 4px 12px; display:flex; justify-content:center;">
+                       <div id="gc-bases-diamond" class="gc-bases-diamond"></div>
+                     </div>
+                  
+                     <!-- Runner list (existing functionality stays) -->
+                     <div style="padding:6px 12px 12px 12px;">
+                       <div id="gc-bases" class="gc-bases" aria-label="Base runners"></div>
+                     </div>
+                  
                   </div>
                 </div>
 
@@ -1661,7 +1777,24 @@ if(gcBtn && gcPanel){
       el.appendChild(wrap);
     });
   }
+function renderBasesDiamond(el, runners){
+  if(!el) return;
 
+  if(!el.dataset.ready){
+    el.innerHTML = `
+      <div class="gc-base second"></div>
+      <div class="gc-base third"></div>
+      <div class="gc-base first"></div>
+      <div class="gc-base home"></div>
+    `;
+    el.dataset.ready = "1";
+  }
+
+  el.querySelector(".gc-base.first")?.classList.toggle("on", !!runners?.first);
+  el.querySelector(".gc-base.second")?.classList.toggle("on", !!runners?.second);
+  el.querySelector(".gc-base.third")?.classList.toggle("on", !!runners?.third);
+}
+   
   function renderField(el, defense){
     if(!el) return;
     el.innerHTML = "";
@@ -1759,6 +1892,7 @@ if(gcBtn && gcPanel){
       }
       const data = await res.json();
       console.log("[GameCast] payload:", data);
+      updateHeroFromGamecast(data);
 
       if(!data || data.ok === false){
         const msg = data && data.reason ? data.reason : "No live data available";
@@ -1803,6 +1937,7 @@ if(gcBtn && gcPanel){
 
       renderField(document.getElementById("gc-field"), data.defense);
       renderBases(document.getElementById("gc-bases"), data.runners);
+      renderBasesDiamond(document.getElementById("gc-bases-diamond"), data.runners);
 
       const ds = document.getElementById("gc-defense-side");
       if(ds) ds.textContent = data.defenseSide ? (`Defense: ${String(data.defenseSide).toUpperCase()}`) : "";
