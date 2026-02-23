@@ -1551,7 +1551,17 @@
   const IS_LIVE = {{ is_live | tojson }};
   let gcTimer = null;
   let gcLastKey = "";
-
+   
+// Default tab (GameCast first), now SAFE because GC_URL/gcTimer exist
+if(gcBtn && gcPanel){
+  gcBtn.classList.add("active");
+  gcPanel.classList.add("active");
+  startGameCast();
+}else{
+  if(ovBtn) ovBtn.classList.add("active");
+  if(ovPanel) ovPanel.classList.add("active");
+}
+   
   // Auto-start when GameCast panel is the initial active tab for live games
   if(IS_LIVE){
     startGameCast();
