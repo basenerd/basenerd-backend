@@ -1116,6 +1116,13 @@ def gamecast_json(game_pk: int):
       - defense positions (best-effort from boxscore)
     """
     feed = get_game_feed(game_pk) or {}
+    # If feed is in fallback mode, tell the browser explicitly (so UI can display it)
+    if (feed or {}).get("scheduleOnly"):
+        return jsonify({
+            "ok": False,
+            "scheduleOnly": True,
+            "reason": (feed.get("_fallback_reason") or "scheduleOnly"),
+        })
     game_data = (feed.get("gameData") or {})
     live_data = (feed.get("liveData") or {})
     linescore = (live_data.get("linescore") or {})
