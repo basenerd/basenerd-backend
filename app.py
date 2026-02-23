@@ -1106,7 +1106,7 @@ def game_detail(game_pk: int):
     except Exception as e:
         print("stadium svg lookup failed:", e)
 
-    return render_template("game.html", title="Game", game=game_obj, user_tz=user_tz, stadium_svg=stadium_svg)
+    return render_template("game.html", title="Game", game=game_obj, game_pk=game_pk,user_tz=user_tz, stadium_svg=stadium_svg)
 
 from flask import jsonify
 
