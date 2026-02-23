@@ -447,15 +447,19 @@ def normalize_gamecast(feed: dict) -> dict:
     strikes = linescore.get("strikes")
     outs = linescore.get("outs")
 
-    # Current play
+    # Plays
     plays = (live_data.get("plays") or {})
+    all_plays = plays.get("allPlays") or []
     current_play = plays.get("currentPlay") or {}
     matchup = current_play.get("matchup") or {}
     count = current_play.get("count") or {}
 
-    if balls is None: balls = count.get("balls")
-    if strikes is None: strikes = count.get("strikes")
-    if outs is None: outs = count.get("outs")
+    if balls is None:
+        balls = count.get("balls")
+    if strikes is None:
+        strikes = count.get("strikes")
+    if outs is None:
+        outs = count.get("outs")
 
     def _short_name(full: str) -> str:
         s = (full or "").strip()
@@ -495,20 +499,42 @@ def normalize_gamecast(feed: dict) -> dict:
         "line": "",
     }
 
-    # Last play text
-    last_play = ""
-    try:
-        res = current_play.get("result") or {}
-        last_play = res.get("description") or ""
-        if not last_play:
-            # fallback: last playEvent description
-            evs = current_play.get("playEvents") or []
-            if evs:
-                last_play = ((evs[-1].get("details") or {}).get("description") or "")
-    except Exception:
-        last_play = ""
+    # -------------------------
+    # LAST PLAY: real at-bat outcome, not "Ball/Strike/Foul"
+    # Prefer most recent completed play's result.description.
+    # -------------------------
+    def _play_desc(p: dict) -> str:
+        if not isinstance(p, dict):
+            return ""
+        res = p.get("result") or {}
+        return (res.get("description") or "").strip()
 
+    def _is_complete(p: dict) -> bool:
+        if not isinstance(p, dict):
+            return False
+        about = p.get("about") or {}
+        return bool(about.get("isComplete"))
+
+    # Find last completed play with a meaningful description
+    last_complete = None
+    for p in reversed(all_plays or []):
+        if _is_complete(p) and _play_desc(p):
+            last_complete = p
+            break
+
+    # If current_play is complete (rare timing), allow it
+    if _is_complete(current_play) and _play_desc(current_play):
+        last_play = _play_desc(current_play)
+    else:
+        last_play = _play_desc(last_complete) if last_complete else ""
+
+    # Fallback if game just started and no completed play exists
+    if not last_play:
+        last_play = "—"
+
+    # -------------------------
     # Bases / runners
+    # -------------------------
     def _runner(base_key: str):
         o = offense.get(base_key) or {}
         pid = o.get("id") or (o.get("player") or {}).get("id")
@@ -526,7 +552,9 @@ def normalize_gamecast(feed: dict) -> dict:
         "third": _runner("third"),
     }
 
-    # Pitches for zone + table
+    # -------------------------
+    # Pitches for zone + table (current PA)
+    # -------------------------
     pitches_out = []
     play_events = current_play.get("playEvents") or []
     n = 0
@@ -562,14 +590,52 @@ def normalize_gamecast(feed: dict) -> dict:
             "desc": details.get("description") or "",
         })
 
-    # Lineups (optional but keeps UI happy). If you want richer PA expansion later,
-    # we can wire pas-per-player from normalize_game_detail().
+    # -------------------------
+    # PA LOG: build from completed allPlays so lineup expansions work
+    # -------------------------
+    def _inning_label(p: dict) -> str:
+        if not isinstance(p, dict):
+            return ""
+        about = p.get("about") or {}
+        inn = about.get("inning")
+        half_inn = (about.get("halfInning") or "").lower()
+        if not inn:
+            return ""
+        half_short = "Top" if half_inn.startswith("top") else ("Bot" if half_inn.startswith("bot") else "")
+        return f"{half_short} {inn}".strip()
+
+    pa_log: dict[int, list[dict]] = {}
+    for p in (all_plays or []):
+        if not _is_complete(p):
+            continue
+        desc = _play_desc(p)
+        if not desc:
+            continue
+        matchup_p = p.get("matchup") or {}
+        batter_p = matchup_p.get("batter") or {}
+        pid = batter_p.get("id")
+        if not pid:
+            continue
+        try:
+            pid_int = int(pid)
+        except Exception:
+            continue
+        pa_log.setdefault(pid_int, []).append({
+            "inning": _inning_label(p),
+            "desc": desc,
+        })
+
+    # -------------------------
+    # Lineups: include per-player PA logs (pas) so UI doesn't show "No PAs yet"
+    # -------------------------
     lineups = {"away": [], "home": []}
     try:
         box = (live_data.get("boxscore") or {}).get("teams") or {}
         for side in ("away", "home"):
             t = box.get(side) or {}
             players = t.get("players") or {}
+
+            # Prefer battingOrder if present; fallback to batters list.
             order = t.get("battingOrder") or t.get("batters") or []
             out = []
             spot = 0
@@ -582,16 +648,22 @@ def normalize_gamecast(feed: dict) -> dict:
                 ab = stat.get("atBats")
                 h = stat.get("hits")
                 bat_line = f"{h}-{ab}" if (ab is not None and h is not None) else ""
+
                 nm = person.get("fullName") or person.get("name") or ""
+                try:
+                    pid_int = int(pid) if pid is not None else None
+                except Exception:
+                    pid_int = None
+
                 out.append({
-                    "id": pid,
+                    "id": pid_int,
                     "name": nm,
                     "shortName": _short_name(nm),
-                    "headshot": _headshot(pid),
+                    "headshot": _headshot(pid_int),
                     "pos": pos,
                     "batLine": bat_line,
                     "spot": spot,
-                    "pas": [],  # can upgrade later
+                    "pas": (pa_log.get(pid_int) or []) if pid_int else [],
                 })
             lineups[side] = out
     except Exception:
