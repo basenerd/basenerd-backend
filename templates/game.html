@@ -1842,24 +1842,44 @@
     g.setAttribute("transform", `translate(0 ${ty}) scale(1 -1)`);
   }
 
-  function __gc_show_takeover(title, subtitle, bodyHTML, ms){
-    const wrap = document.getElementById("gc-takeover");
-    const t = document.getElementById("gc-takeover-title");
-    const st = document.getElementById("gc-takeover-subtitle");
-    const b = document.getElementById("gc-takeover-body");
-    if(!wrap || !t || !st || !b) return;
+let __gc_takeover_timer = null;
+let __gc_takeover_kind = "";   // "dueup" | "bip" | ""
+let __gc_takeover_sticky = false;
 
-    t.textContent = title || "—";
-    st.textContent = subtitle || "";
-    b.innerHTML = bodyHTML || "";
+function __gc_hide_takeover(){
+  const wrap = document.getElementById("gc-takeover");
+  if(!wrap) return;
+  wrap.style.display = "none";
+  __gc_takeover_kind = "";
+  __gc_takeover_sticky = false;
+  if(__gc_takeover_timer) clearTimeout(__gc_takeover_timer);
+  __gc_takeover_timer = null;
+}
 
-    wrap.style.display = "flex";
+function __gc_show_takeover(title, subtitle, bodyHTML, ms, kind){
+  const wrap = document.getElementById("gc-takeover");
+  const t = document.getElementById("gc-takeover-title");
+  const st = document.getElementById("gc-takeover-subtitle");
+  const b = document.getElementById("gc-takeover-body");
+  if(!wrap || !t || !st || !b) return;
 
-    if(__gc_takeover_timer) clearTimeout(__gc_takeover_timer);
-    __gc_takeover_timer = setTimeout(()=>{
-      wrap.style.display = "none";
-    }, ms || 3600);
+  t.textContent = title || "—";
+  st.textContent = subtitle || "";
+  b.innerHTML = bodyHTML || "";
+
+  wrap.style.display = "flex";
+
+  __gc_takeover_kind = kind || "";
+  __gc_takeover_sticky = (ms === null || ms === undefined);
+
+  if(__gc_takeover_timer) clearTimeout(__gc_takeover_timer);
+  __gc_takeover_timer = null;
+
+  // If ms is null/undefined => sticky (no auto-hide)
+  if(!__gc_takeover_sticky){
+    __gc_takeover_timer = setTimeout(__gc_hide_takeover, Math.max(0, ms || 0));
   }
+}
 
   async function __gc_show_bip_takeover(bip){
     // bip should be: { id, x, y, event, description }
@@ -2007,13 +2027,28 @@ if(gcBtn && gcPanel){
   }
 
   function fmtShortName(name){
-    const s = (name || "").trim();
-    if(!s) return "";
-    const parts = s.split(/\s+/);
-    if(parts.length === 1) return s;
-    return `${parts[0][0]}. ${parts[parts.length-1]}`;
-  }
+  const s = (name || "").trim();
+  if(!s) return "";
+  const parts = s.split(/\s+/);
+  if(parts.length === 1) return s;
 
+  const suffixMap = {
+    "jr":"Jr.","jr.":"Jr.",
+    "sr":"Sr.","sr.":"Sr.",
+    "ii":"II","iii":"III","iv":"IV","v":"V"
+  };
+
+  const lastRaw = parts[parts.length-1];
+  const k1 = (lastRaw || "").toLowerCase();
+  const k2 = k1.replace(/\./g,"");
+  const suffix = suffixMap[k1] || suffixMap[k2];
+
+  if(suffix && parts.length >= 3){
+    const baseLast = parts[parts.length-2];
+    return `${parts[0][0]}. ${baseLast}, ${suffix}`;
+  }
+  return `${parts[0][0]}. ${parts[parts.length-1]}`;
+}
   // Updated: player rows expandable (NOT entire lineup card)
   function renderLineup(side, el, players){
     if(!el) return;
