@@ -561,6 +561,12 @@
   {%- elif 'strikeout' in s -%}K
   {%- elif 'walk' in s -%}BB
   {%- elif 'hit by pitch' in s -%}HBP
+  {%- elif 'double play' in s or 'double play' in d or 'into dp' in s or 'into dp' in d -%}
+    {# We know it's a DP, now check what kind #}
+    {%- if 'line' in s or 'line' in d -%}LDP
+    {%- elif 'fly' in s or 'fli' in s or 'fly' in d or 'fli' in d -%}FDP
+    {%- elif 'strikeout' in s or 'strikeout' in d -%}K-DP
+    {%- else -%}GIDP{%- endif -%}
   {%- elif 'flyout' in s or 'flyout' in d -%}
     {%- set p = namespace(val='O', idx=999) -%}
     {%- set outfields = {'left fielder': '7', 'center fielder': '8', 'right fielder': '9'} -%}
