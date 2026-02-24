@@ -1901,7 +1901,7 @@ function __gc_handle_dueup_takeover(data){
     return { minX: 0, minY: 0, w: 250, h: 250 };
   }
 
-  function __gc_map_point(sx, sy, scaleX, scaleY){
+  function __gc_map_point(sx, sy, , scaleY){
     const dx = (sx - __GC_PLATE.x) * scaleX;
     const dy = (sy - __GC_PLATE.y) * scaleY;
     const x = __gc_spray_vb.minX + (__GC_PLATE.x * scaleX) + (dx * __GC_EXTRA_SPREAD) + __GC_NUDGE_X;
@@ -2063,8 +2063,6 @@ async function __gc_show_bip_takeover(bip, endsInning){
   const sy = Number(bip.y);
   if(!isFinite(sx) || !isFinite(sy)) return;
 
-  const scaleX = __gc_spray_vb.w / __GC_BASE_W;
-  const scaleY = __gc_spray_vb.h / __GC_BASE_H;
   const pt = __gc_map_point(sx, sy, scaleX, scaleY);
   // Map home plate to the same stadium coords so the trace starts correctly
    const scaleX = __gc_spray_vb.w / __GC_BASE_W;
