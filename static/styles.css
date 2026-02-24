@@ -1467,3 +1467,24 @@ span.status-pill.status-other {
     display: inline-block !important;
     opacity: 1 !important;
 }
+
+/* Date Navigation Arrows */
+.date-arrow {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 20px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 4px;
+    transition: background 0.15s ease;
+}
+
+.date-arrow:hover {
+    background: var(--rowAlt);
+}
