@@ -916,6 +916,40 @@ def normalize_gamecast(feed: dict) -> dict:
                 ev_name = (res.get("event") or res.get("eventType") or "").strip()
                 desc = (res.get("description") or "").strip()
 
+                # Classify out vs (hit/other) for UI marker (blue dot vs red X).
+                # Anything that isn't clearly an out should render as the non-out marker.
+                ev_type = (res.get("eventType") or "").strip().lower()
+                outish = {
+                    "field_out",
+                    "force_out",
+                    "grounded_into_double_play",
+                    "double_play",
+                    "triple_play",
+                    "sac_fly",
+                    "sac_bunt",
+                    "sac_bunt_double_play",
+                    "sac_fly_double_play",
+                    "fielder_choice_out",
+                    "fielders_choice_out",
+                    "strikeout",
+                }
+                non_outish = {
+                    "single",
+                    "double",
+                    "triple",
+                    "home_run",
+                    "inside_park_home_run",
+                    "field_error",
+                    "reached_on_error",
+                    "fielder_choice",
+                    "fielders_choice",
+                }
+                is_out = False
+                if ev_type in non_outish:
+                    is_out = False
+                elif ev_type in outish or ev_type.endswith("_out"):
+                    is_out = True
+
                 # Metrics (often missing; include if present)
                 evv = to_float(hd_best.get("launchSpeed"))
                 la = to_float(hd_best.get("launchAngle"))
@@ -935,6 +969,7 @@ def normalize_gamecast(feed: dict) -> dict:
                     "ev": evv,
                     "la": la,
                     "dist": dist,
+                    "is_out": is_out,
                 }
     except Exception:
         bip = None
