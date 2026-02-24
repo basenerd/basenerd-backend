@@ -2107,7 +2107,77 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
                 ar = _record_str(away)
                 if hr and ar:
                     subline = f"{away_abbrev} {ar} • {home_abbrev} {hr}"
+                        # -----------------------------
+            # Decide what shows in the "pitcher line" slots on games.html
+            # Scheduled: Probable Pitchers
+            # Live: current Hitter (away slot) + current Pitcher (home slot)
+            # Final: Winner pitcher on winning team slot, Loser pitcher on losing team slot
+            # -----------------------------
+            status = (g.get("status") or {})
+            abstract = (status.get("abstractGameState") or "").lower()  # "live", "final", "preview", etc.
+            detailed = (status.get("detailedState") or "").lower()
 
+            def _short_name(full: str) -> str:
+                s = (full or "").strip()
+                if not s:
+                    return ""
+                parts = s.split()
+                if len(parts) == 1:
+                    return s
+                return f"{parts[0][0]}. {parts[-1]}"
+
+            away_slot = away_pp
+            home_slot = home_pp
+
+            # Live: show current batter/pitcher
+            if abstract == "live" or "in progress" in detailed:
+                try:
+                    feed = get_game_feed(int(g.get("gamePk")))
+                    gc = normalize_gamecast(feed) if feed else {}
+                    if gc.get("ok"):
+                        b = (gc.get("batter") or {})
+                        p = (gc.get("pitcher") or {})
+                        batter_nm = b.get("shortName") or _short_name(b.get("name") or "")
+                        pitcher_nm = p.get("shortName") or _short_name(p.get("name") or "")
+                        away_slot = f"H: {batter_nm}" if batter_nm else "H: —"
+                        home_slot = f"P: {pitcher_nm}" if pitcher_nm else "P: —"
+                    else:
+                        away_slot = "H: —"
+                        home_slot = "P: —"
+                except Exception:
+                    away_slot = "H: —"
+                    home_slot = "P: —"
+
+            # Final: show W/L in the same slots (on the winning/losing team row)
+            elif abstract == "final" or "final" in detailed:
+                winner_short = _short_name(win_p) if win_p else ""
+                loser_short = _short_name(lose_p) if lose_p else ""
+
+                # Determine which team won using score
+                try:
+                    a = away_score if away_score is not None else -999
+                    h = home_score if home_score is not None else -999
+                except Exception:
+                    a, h = -999, -999
+
+                away_won = (a > h)
+                home_won = (h > a)
+
+                if away_won:
+                    away_slot = f"W: {winner_short}" if winner_short else "W: —"
+                    home_slot = f"L: {loser_short}" if loser_short else "L: —"
+                elif home_won:
+                    away_slot = f"L: {loser_short}" if loser_short else "L: —"
+                    home_slot = f"W: {winner_short}" if winner_short else "W: —"
+                else:
+                    # tie/unknown (shouldn't happen often)
+                    away_slot = f"W: {winner_short}" if winner_short else "W: —"
+                    home_slot = f"L: {loser_short}" if loser_short else "L: —"
+
+            # Scheduled/Preview: keep probables, but ONLY if game hasn't started
+            else:
+                away_slot = away_pp
+                home_slot = home_pp
             out.append({
                 "gamePk": g.get("gamePk"),
                 "date": date_ymd,
@@ -2123,7 +2193,7 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
                     "name": home_team.get("name"),
                     "abbrev": home_abbrev,
                     "record": home_rec,
-                    "pp": home_pp,
+                    "slot": home_slot,
                     "logo": f"https://www.mlbstatic.com/team-logos/{home_id}.svg" if home_id else None,
                     "score": home_score,
                 },
@@ -2132,7 +2202,7 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
                     "name": away_team.get("name"),
                     "abbrev": away_abbrev,
                     "record": away_rec,
-                    "pp": away_pp,
+                    "slot": away_slot,
                     "logo": f"https://www.mlbstatic.com/team-logos/{away_id}.svg" if away_id else None,
                     "score": away_score,
                 },
@@ -3195,13 +3265,16 @@ def get_pitcher_season_line(person_id: int, season: int) -> dict:
 
 def _pp_text(pp_obj: dict, season: int) -> str:
     """
-    pp_obj is schedule probablePitchers.home/away object (may include id + fullName).
+    pp_obj is schedule probablePitchers.home/away object.
+    Sometimes name/id are nested (person/fullName).
     """
     if not pp_obj:
         return "PP: TBD"
 
-    name = (pp_obj.get("fullName") or "").strip()
-    pid = pp_obj.get("id")
+    # Some schedule payloads nest person info
+    person = pp_obj.get("person") or {}
+    name = (pp_obj.get("fullName") or person.get("fullName") or person.get("name") or "").strip()
+    pid = pp_obj.get("id") or person.get("id")
 
     if not name:
         return "PP: TBD"
@@ -3215,7 +3288,7 @@ def _pp_text(pp_obj: dict, season: int) -> str:
         return f"PP: {name}"
 
     return f"PP: {name} ({w}-{l} • {era})"
-
+    
 def get_player_stats(player_id: int, season: Optional[int] = None) -> List[dict]:
     season = season or datetime.now().year
     cache_key = f"player_stats:{player_id}:{season}"
