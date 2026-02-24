@@ -617,48 +617,12 @@ def normalize_gamecast(feed: dict) -> dict:
             "desc": details.get("description") or "",
         })
         # -------------------------
-    # BALL IN PLAY (BIP) takeover payload
-    # Pull batted-ball coordinates from the most recent in-play pitch event
-    # so the frontend can animate the spray-dot using the SAME mapping logic as PBP.
     # -------------------------
-    bip = {"has": False, "x": None, "y": None, "event": "", "description": ""}
-
-    last_inplay_ev = None
-    for ev in reversed(play_events or []):
-        if not ev or not ev.get("isPitch"):
-            continue
-        det = ev.get("details") or {}
-        if det.get("isInPlay"):
-            last_inplay_ev = ev
-            break
-
-    if last_inplay_ev:
-        det = last_inplay_ev.get("details") or {}
-        hit = last_inplay_ev.get("hitData") or {}
-        hit_coords = (hit.get("coordinates") or {}) if isinstance(hit, dict) else {}
-        hd = hit
-        evv = _safe_float(hd.get("launchSpeed"), default=None)
-        la  = _safe_float(hd.get("launchAngle"), default=None)
-        dist = _safe_float(hd.get("totalDistance"), default=None)
-
-        # StatsAPI hitData.coordinates commonly includes coordX/coordY for field plots
-        x = hit_coords.get("coordX")
-        y = hit_coords.get("coordY")
-
-        # Some feeds may not have coordX/coordY even though it's "in play"
-        # Still set has=True so UI can show the takeover card + outcome text,
-        # but the dot will only render when x/y are present.
-        bip = {
-            "id": bip_id,
-            "has": True,
-            "x": coord_x,
-            "y": coord_y,
-            "event": ev_name or "In play",
-            "description": desc or "Ball in play",
-            "ev": evv,
-            "la": la,
-            "dist": dist,
-        }
+    # Ball-in-play (BIP) takeover payload
+    # NOTE: computed later in a single canonical block (see below).
+    # Keep a placeholder here so 'bip' is always defined.
+    # -------------------------
+    bip = None
     # -------------------------
     # PA LOG: build from completed allPlays so lineup expansions work
     # -------------------------
