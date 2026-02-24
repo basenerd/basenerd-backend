@@ -468,7 +468,27 @@ def normalize_gamecast(feed: dict) -> dict:
         parts = s.split()
         if len(parts) == 1:
             return s
-        return f"{parts[0][0]}. {parts[-1]}"
+    
+        # Handle suffixes so "Jazz Chisholm Jr." -> "J. Chisholm, Jr."
+        suffix_map = {
+            "jr": "Jr.", "jr.": "Jr.",
+            "sr": "Sr.", "sr.": "Sr.",
+            "ii": "II", "iii": "III", "iv": "IV", "v": "V",
+        }
+    
+        last = parts[-1].strip()
+        last_lc = last.lower().strip(".")
+        # normalize key for map lookup
+        last_key = (last.lower() if last.lower() in suffix_map else (last_lc if last_lc in suffix_map else last.lower()))
+    
+        if last_key in suffix_map and len(parts) >= 3:
+            suffix = suffix_map[last_key]
+            base_last = parts[-2]
+            last_name = f"{base_last}, {suffix}"
+        else:
+            last_name = parts[-1]
+    
+        return f"{parts[0][0]}. {last_name}"
 
     def _headshot(pid: int | None) -> str | None:
         try:
