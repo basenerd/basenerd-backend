@@ -241,7 +241,14 @@ def league_name_to_short(name: str) -> Optional[str]:
     if "national" in n:
         return "NL"
     return None
-
+    
+def _safe_float(x, default: Optional[float] = 0.0) -> Optional[float]:
+    """
+    Like to_float(), but returns `default` instead of None on parse failure.
+    """
+    v = to_float(x)
+    return default if v is None else v
+    
 def to_float(x) -> Optional[float]:
     if x is None:
         return None
