@@ -1808,18 +1808,41 @@ function __gc_handle_dueup_takeover(data){
       __gc_last_between_key = key;
 
       const due = (data?.dueUp || []);
-      const who = due.map(p => (p.shortName || fmtShortName(p.name))).filter(Boolean);
-      const dueHTML = who.length
-        ? `<div class="mono" style="font-size:13px;">${who.join(" • ")}</div>`
-        : `<div class="mono" style="opacity:.75;">—</div>`;
-
+      
+      // 1) Inning summary FIRST
       const sumHTML = __gc_render_inning_summary(data?.inningSummary);
-
+      
+      // 2) Due up rows with headshot, spot, short name, and game line
+      const row = (p) => {
+        const hs = p?.headshot ? `<img src="${p.headshot}" style="width:34px;height:34px;border-radius:999px;border:1px solid rgba(226,232,240,.9);object-fit:cover;background:#fff;" onerror="this.style.display='none'">` : ``;
+        const spot = (p?.spot != null && p?.spot !== "") ? `${p.spot}.` : "";
+        const nm = (p?.shortName || fmtShortName(p?.name) || "—");
+        const line = (p?.batLine || "").trim(); // e.g. "2-3, HR"
+        const lineHTML = line ? `<span class="mono" style="opacity:.75;">(${line})</span>` : "";
+      
+        return `
+          <div style="display:flex; align-items:center; gap:10px; padding:8px 10px;
+                      border:1px solid rgba(226,232,240,.9); border-radius:12px; background:#fff; margin-top:8px;">
+            ${hs}
+            <div style="min-width:0;">
+              <div style="font-weight:1000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                <span class="mono" style="opacity:.75; margin-right:6px;">${spot}</span>${nm}
+                <span style="margin-left:8px;">${lineHTML}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      };
+      
+      const dueHTML = due.length
+        ? `<div style="margin-top:10px;">${due.slice(0,3).map(row).join("")}</div>`
+        : `<div class="mono" style="opacity:.75; margin-top:10px;">Due up not available.</div>`;
+      
       __gc_show_takeover(
         "Due Up",
         "Next inning hitters",
-        `${dueHTML}${sumHTML}`,
-        null,          // null => sticky
+        `${sumHTML}${dueHTML}`,   // summary FIRST
+        null,                    // sticky
         "dueup"
       );
     }
