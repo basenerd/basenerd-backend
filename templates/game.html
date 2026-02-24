@@ -1861,7 +1861,9 @@ function __gc_handle_dueup_takeover(data){
   // ---- GameCast Takeover (Ball In Play / Due Up) ----
   let __gc_last_bip_id = null;
   let __gc_last_between = false;
-
+  let __gc_pending_bip = null;          // { id, firstSeenMs, lastObj }
+  let __gc_pending_bip_shown = false;   // whether we already showed for that pending id
+   
   const __GC_STADIUM_URL = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
 
   // MUST mirror the play-by-play spray mapping constants
@@ -2348,7 +2350,63 @@ function renderPitchTable(tbody, pitches){
     tbody.appendChild(tr);
   });
 }
+function __gc_bip_ready(bip){
+  if(!bip || !bip.id) return false;
 
+  // coords are the #1 requirement for the BIP takeover you want
+  const hasCoords = isFinite(Number(bip.x)) && isFinite(Number(bip.y));
+
+  // metrics: allow showing if at least one is present, since some plays never get all three
+  const hasAnyMetric =
+    isFinite(Number(bip.ev)) ||
+    isFinite(Number(bip.la)) ||
+    isFinite(Number(bip.dist));
+
+  // If you want to require ALL metrics, change hasAnyMetric to:
+  // const hasAnyMetric = isFinite(Number(bip.ev)) && isFinite(Number(bip.la)) && isFinite(Number(bip.dist));
+
+  return hasCoords && hasAnyMetric;
+}
+
+// returns true if it actually triggered showing
+async function __gc_maybe_show_bip_takeover(bip, endsInning){
+  if(!bip || !bip.id) return false;
+
+  const now = Date.now();
+
+  // New id => start pending tracking
+  if(!__gc_pending_bip || __gc_pending_bip.id !== bip.id){
+    __gc_pending_bip = { id: bip.id, firstSeenMs: now, lastObj: bip };
+    __gc_pending_bip_shown = false;
+  }else{
+    // same id; update latest payload
+    __gc_pending_bip.lastObj = bip;
+  }
+
+  if(__gc_pending_bip_shown) return false;
+
+  const ageMs = now - __gc_pending_bip.firstSeenMs;
+  const ready = __gc_bip_ready(__gc_pending_bip.lastObj);
+
+  // show once ready OR if we’ve waited long enough (fallback)
+  // fallback lets you still show something even if metrics never arrive
+  const FALLBACK_MS = 4500;
+
+  if(ready || ageMs >= FALLBACK_MS){
+    __gc_pending_bip_shown = true;
+
+    // Use the latest object we’ve seen (most complete)
+    const useBip = __gc_pending_bip.lastObj;
+
+    // Only mark as “last shown” when we actually show
+    __gc_last_bip_id = useBip.id;
+
+    await __gc_show_bip_takeover(useBip, endsInning);
+    return true;
+  }
+
+  return false;
+}
   // FIXED: single async, no syntax error
   async function fetchGameCast(){
     if(!GC_URL) return;
@@ -2380,10 +2438,10 @@ function renderPitchTable(tbody, pitches){
       if(key === gcLastKey) return;
       gcLastKey = key;
 
-      // 2) Ball-in-play takeover (only when we get a new bip.id)
+     // 2) Ball-in-play takeover (WAIT until coords/metrics present, with fallback timeout)
       if(data.bip && data.bip.id){
         const endsInning = !!data.betweenInnings;
-        __gc_show_bip_takeover(data.bip, endsInning);
+        __gc_maybe_show_bip_takeover(data.bip, endsInning);
       }
       const innEl = document.getElementById("gc-inning");
       if(innEl) innEl.textContent = (data.half && data.inning) ? `${data.half} ${data.inning}` : "—";
