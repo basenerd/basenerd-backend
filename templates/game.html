@@ -1899,26 +1899,47 @@ function renderBasesDiamond(el, runners){
     el.appendChild(list);
   }
 
-  function renderPitchTable(tbody, pitches){
-    if(!tbody) return;
-    tbody.innerHTML = "";
-    (pitches || []).forEach(p=>{
-      const tr = document.createElement("tr");
-      const mph = (p.mph!=null) ? p.mph.toFixed(1) : "";
-      const spin = (p.spinRate!=null) ? p.spinRate : "";
-      const vm = (p.vertMove!=null) ? p.vertMove.toFixed(1) : "";
-      const hm = (p.horizMove!=null) ? p.horizMove.toFixed(1) : "";
-      tr.innerHTML = `
-        <td class="mono">${p.n ?? ""}</td>
-        <td>${p.pitchType || ""}</td>
-        <td class="mono" style="text-align:right;">${mph}</td>
-        <td class="mono" style="text-align:right;">${spin}</td>
-        <td class="mono" style="text-align:right;">${vm}</td>
-        <td class="mono" style="text-align:right;">${hm}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
+  function pitchOutcomeLabel(p){
+  // Backend provides: call (e.g. "Called Strike") and desc (sometimes "Foul")
+  const call = (p && typeof p.call === "string") ? p.call.trim() : "";
+  if(call) return call;
+
+  const desc = (p && typeof p.desc === "string") ? p.desc.trim() : "";
+  if(desc) return desc;
+
+  // Last-ditch fallback using flags
+  if(p?.isInPlay) return "In play";
+  if(p?.isFoul) return "Foul";
+  if(p?.isBall) return "Ball";
+  if(p?.isStrike) return "Strike";
+  return "—";
+}
+
+function renderPitchTable(tbody, pitches){
+  if(!tbody) return;
+  tbody.innerHTML = "";
+
+  (pitches || []).forEach(p => {
+    const tr = document.createElement("tr");
+
+    const mph = (p.mph ?? "");
+    const spin = (p.spinRate ?? "");
+    const vm = (p.vertMove ?? "");
+    const hm = (p.horizMove ?? "");
+    const out = pitchOutcomeLabel(p);
+
+    tr.innerHTML = `
+      <td class="mono">${p.n ?? ""}</td>
+      <td>${p.pitchType || ""}</td>
+      <td class="mono" style="text-align:right;">${(mph !== "" && mph !== null) ? Number(mph).toFixed(1) : ""}</td>
+      <td class="mono" style="text-align:right;">${(spin !== "" && spin !== null) ? Math.round(Number(spin)) : ""}</td>
+      <td class="mono" style="text-align:right;">${(vm !== "" && vm !== null) ? Number(vm).toFixed(1) : ""}</td>
+      <td class="mono" style="text-align:right;">${(hm !== "" && hm !== null) ? Number(hm).toFixed(1) : ""}</td>
+      <td>${out}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
 
   // FIXED: single async, no syntax error
   async function fetchGameCast(){
