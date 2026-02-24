@@ -562,27 +562,30 @@
   {%- elif 'walk' in s -%}BB
   {%- elif 'hit by pitch' in s -%}HBP
   {%- elif 'flyout' in s or 'flyout' in d -%}
-    {%- if 'left fielder' in d -%}F7
-    {%- elif 'center fielder' in d -%}F8
-    {%- elif 'right fielder' in d -%}F9
-    {%- else -%}FO{%- endif -%}
-  {%- elif 'lineout' in s or 'lineout' in d -%}
-    {%- if 'shortstop' in d -%}L6
-    {%- elif 'second baseman' in d -%}L4
-    {%- elif 'third baseman' in d -%}L5
-    {%- elif 'first baseman' in d -%}L3
-    {%- else -%}LO{%- endif -%}
-  {%- elif 'groundout' in s or 'groundout' in d -%}
-    {%- if 'shortstop' in d -%}G6
-    {%- elif 'second baseman' in d -%}G4
-    {%- elif 'third baseman' in d -%}G5
-    {%- elif 'pitcher' in d and 'first baseman' in d -%}
-      {# If BOTH are in the sentence, check which one was typed first #}
-      {%- if d.find('first baseman') < d.find('pitcher') -%}G3{%- else -%}G1{%- endif -%}
-    {%- elif 'pitcher' in d -%}G1
-    {%- elif 'catcher' in d -%}G2
-    {%- elif 'first baseman' in d -%}G3
-    {%- else -%}GO{%- endif -%}
+    {%- set p = namespace(val='O', idx=999) -%}
+    {%- set outfields = {'left fielder': '7', 'center fielder': '8', 'right fielder': '9'} -%}
+    {%- for name, num in outfields.items() -%}
+      {%- set i = d.find(name) -%}
+      {%- if i != -1 and i < p.idx -%}
+        {%- set p.idx = i -%}{%- set p.val = num -%}
+      {%- endif -%}
+    {%- endfor -%}
+    F{{ p.val }}
+  {%- elif 'lineout' in s or 'lineout' in d or 'groundout' in s or 'groundout' in d -%}
+    {%- set prefix = 'L' if ('lineout' in s or 'lineout' in d) else 'G' -%}
+    {%- set p = namespace(val='O', idx=999) -%}
+    {%- set all_pos = {
+      'pitcher': '1', 'catcher': '2', 'first baseman': '3', 
+      'second baseman': '4', 'third baseman': '5', 'shortstop': '6',
+      'left fielder': '7', 'center fielder': '8', 'right fielder': '9'
+    } -%}
+    {%- for name, num in all_pos.items() -%}
+      {%- set i = d.find(name) -%}
+      {%- if i != -1 and i < p.idx -%}
+        {%- set p.idx = i -%}{%- set p.val = num -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{ prefix }}{{ p.val }}
   {%- else -%}
     {{ summary or '' }}
   {%- endif -%}
