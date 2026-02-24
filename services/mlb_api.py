@@ -885,6 +885,7 @@ def normalize_gamecast(feed: dict) -> dict:
 
         hit_ev = None
         pitch_n = 0
+        hit_pitch_n = 0
         for ev in play_events:
             if not ev or not ev.get("isPitch"):
                 continue
@@ -897,8 +898,8 @@ def normalize_gamecast(feed: dict) -> dict:
         if hit_ev is not None:
             hd = hit_ev.get("hitData") or {}
             coords = hd.get("coordinates") if isinstance(hd.get("coordinates"), dict) else {}
-            coord_x = _safe_float(coords.get("coordX"), default=None)
-            coord_y = _safe_float(coords.get("coordY"), default=None)
+            coord_x = to_float(coords.get("coordX"))
+            coord_y = to_float(coords.get("coordY"))
 
             # Event label + description from play result
             res = (current_play.get("result") or {})
