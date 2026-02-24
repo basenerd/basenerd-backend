@@ -58,7 +58,7 @@
                     <span class="muted mono" style="font-size:12px;">{{ g.away.record }}</span>
                   {% endif %}
                   <span class="muted" style="opacity:.6;">•</span>
-                  <span class="small muted">{{ g.away.pp or "PP: TBD" }}</span>
+                  <span class="small muted">{{ g.away.slot or "—" }}</span>
                 </div>
               </div>
             </div>
@@ -80,7 +80,7 @@
                     <span class="muted mono" style="font-size:12px;">{{ g.home.record }}</span>
                   {% endif %}
                   <span class="muted" style="opacity:.6;">•</span>
-                  <span class="small muted">{{ g.home.pp or "PP: TBD" }}</span>
+                  <span class="small muted">{{ g.home.slot or "—" }}</span>
                 </div>
               </div>
             </div>
@@ -101,15 +101,7 @@
             </div>
           {% endif %}
 
-          {% if g.statusPill == "Final" %}
-            <div class="small muted">
-              {% if g.pitching.winner or g.pitching.loser %}
-                W: {{ g.pitching.winner or "—" }} • L: {{ g.pitching.loser or "—" }}
-              {% endif %}
-            </div>
-          {% else %}
-            <div class="small muted">{{ g.detailedState }}</div>
-          {% endif %}
+          <div class="small muted">{{ g.detailedState }}</div>
         </div>
 
       </a>
