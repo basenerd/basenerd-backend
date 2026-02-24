@@ -549,42 +549,39 @@
   {%- endif -%}
 {%- endmacro %}
 
-{# Shorten outcomes: 1B/2B/HR/F8/G6 etc. Best-effort from summary+description #}
+{# Shorten outcomes: 1B/2B/HR/F8/G6 etc. #}
 {% macro outcome_short(summary, desc) -%}
-  {%- set s = (summary or '') -%}
-  {%- set d = (desc or '') -%}
+  {%- set s = (summary or '')|lower -%}
+  {%- set d = (desc or '')|lower -%}
 
-  {%- if 'Home Run' in s -%}HR
-  {%- elif 'Triple' in s -%}3B
-  {%- elif 'Double' in s -%}2B
-  {%- elif 'Single' in s -%}1B
-  {%- elif 'Strikeout' in s -%}K
-  {%- elif 'Walk' in s -%}BB
-  {%- elif 'Hit By Pitch' in s -%}HBP
-  {%- elif 'flyout' in (d|lower) -%}
-    {%- if 'to left fielder' in (d|lower) -%}F7
-    {%- elif 'to center fielder' in (d|lower) -%}F8
-    {%- elif 'to right fielder' in (d|lower) -%}F9
+  {%- if 'home run' in s -%}HR
+  {%- elif 'triple' in s -%}3B
+  {%- elif 'double' in s -%}2B
+  {%- elif 'single' in s -%}1B
+  {%- elif 'strikeout' in s -%}K
+  {%- elif 'walk' in s -%}BB
+  {%- elif 'hit by pitch' in s -%}HBP
+  {%- elif 'flyout' in s or 'flyout' in d -%}
+    {%- if 'left fielder' in d -%}F7
+    {%- elif 'center fielder' in d -%}F8
+    {%- elif 'right fielder' in d -%}F9
     {%- else -%}FO{%- endif -%}
-  {%- elif 'lineout' in (d|lower) -%}
-    {%- if 'to shortstop' in (d|lower) -%}L6
-    {%- elif 'to second baseman' in (d|lower) -%}L4
-    {%- elif 'to first baseman' in (d|lower) -%}L3
-    {%- elif 'to third baseman' in (d|lower) -%}L5
-    {%- elif 'to left fielder' in (d|lower) -%}L7
-    {%- elif 'to center fielder' in (d|lower) -%}L8
-    {%- elif 'to right fielder' in (d|lower) -%}L9
+  {%- elif 'lineout' in s or 'lineout' in d -%}
+    {%- if 'shortstop' in d -%}L6
+    {%- elif 'second baseman' in d -%}L4
+    {%- elif 'first baseman' in d -%}L3
+    {%- elif 'third baseman' in d -%}L5
     {%- else -%}LO{%- endif -%}
-  {%- elif 'groundout' in (d|lower) -%}
-    {%- if 'to shortstop' in (d|lower) -%}G6
-    {%- elif 'to second baseman' in (d|lower) -%}G4
-    {%- elif 'to first baseman' in (d|lower) -%}G3
-    {%- elif 'to third baseman' in (d|lower) -%}G5
-    {%- elif 'to pitcher' in (d|lower) -%}G1
-    {%- elif 'to catcher' in (d|lower) -%}G2
+  {%- elif 'groundout' in s or 'groundout' in d -%}
+    {%- if 'shortstop' in d -%}G6
+    {%- elif 'second baseman' in d -%}G4
+    {%- elif 'first baseman' in d -%}G3
+    {%- elif 'third baseman' in d -%}G5
+    {%- elif 'pitcher' in d -%}G1
+    {%- elif 'catcher' in d -%}G2
     {%- else -%}GO{%- endif -%}
   {%- else -%}
-    {{ (summary or '')[:8] }}
+    {{ summary or '' }} {# Removed the [:8] entirely #}
   {%- endif -%}
 {%- endmacro %}
 
