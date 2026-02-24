@@ -1488,3 +1488,11 @@ span.status-pill.status-other {
 .date-arrow:hover {
     background: var(--rowAlt);
 }
+
+/* ONLY affects the last column (Res) of the Exit Velocity table */
+.ev-table th:last-child,
+.ev-table td:last-child {
+    width: 75px !important; 
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
