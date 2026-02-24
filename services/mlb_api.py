@@ -919,6 +919,22 @@ def normalize_gamecast(feed: dict) -> dict:
                 # Classify out vs (hit/other) for UI marker (blue dot vs red X).
                 # Anything that isn't clearly an out should render as the non-out marker.
                 ev_type = (res.get("eventType") or "").strip().lower()
+                # Hit type (ground vs air) — do NOT depend on LA/Dist
+                traj = (hd.get("trajectory") or "").lower()
+                kind = None
+                if "ground" in traj:
+                    kind = "ground"
+                elif traj in ("line_drive", "fly_ball", "popup"):
+                    kind = "air"
+                
+                # fallback: infer from description/event text
+                if not kind:
+                    text = f"{ev_name} {desc}".lower()
+                    if "ground" in text or "groundout" in text or "ground ball" in text:
+                        kind = "ground"
+                    else:
+                        # treat line drives / fly balls / pop ups / anything else as air
+                        kind = "air"
                 outish = {
                     "field_out",
                     "force_out",
@@ -970,6 +986,7 @@ def normalize_gamecast(feed: dict) -> dict:
                     "la": la,
                     "dist": dist,
                     "is_out": is_out,
+                    "kind": kind,
                 }
     except Exception:
         bip = None
