@@ -629,6 +629,9 @@ def normalize_gamecast(feed: dict) -> dict:
         det = last_inplay_ev.get("details") or {}
         hit = last_inplay_ev.get("hitData") or {}
         hit_coords = (hit.get("coordinates") or {}) if isinstance(hit, dict) else {}
+        evv = _safe_float(hd.get("launchSpeed"), default=None)
+        la  = _safe_float(hd.get("launchAngle"), default=None)
+        dist = _safe_float(hd.get("totalDistance"), default=None)
 
         # StatsAPI hitData.coordinates commonly includes coordX/coordY for field plots
         x = hit_coords.get("coordX")
@@ -638,11 +641,15 @@ def normalize_gamecast(feed: dict) -> dict:
         # Still set has=True so UI can show the takeover card + outcome text,
         # but the dot will only render when x/y are present.
         bip = {
+            "id": bip_id,
             "has": True,
-            "x": x,
-            "y": y,
-            "event": (det.get("event") or "").strip(),
-            "description": (det.get("description") or "").strip(),
+            "x": coord_x,
+            "y": coord_y,
+            "event": ev_name or "In play",
+            "description": desc or "Ball in play",
+            "ev": evv,
+            "la": la,
+            "dist": dist,
         }
     # -------------------------
     # PA LOG: build from completed allPlays so lineup expansions work
