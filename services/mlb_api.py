@@ -796,7 +796,35 @@ def normalize_gamecast(feed: dict) -> dict:
     inning_state = ((linescore or {}).get("inningState") or "").strip()
     # MLB feed uses values like: "Top", "Middle", "Bottom", "End"
     between_innings = inning_state.lower() in ("middle", "end", "between innings")
-
+    inning_summary = None
+    try:
+        innings = (linescore.get("innings") or [])
+        cur_inn = linescore.get("currentInning")
+        if between_innings and cur_inn and innings and cur_inn >= 1:
+            inn_obj = innings[cur_inn - 1] if (cur_inn - 1) < len(innings) else None
+            if isinstance(inn_obj, dict):
+                # Middle = end of TOP (away batted). End = end of BOTTOM (home batted).
+                if str(inning_state).lower().startswith("mid"):
+                    side_key = "away"
+                    half_done = "Top"
+                elif str(inning_state).lower().startswith("end"):
+                    side_key = "home"
+                    half_done = "Bottom"
+                else:
+                    side_key = "away" if half == "Top" else "home"
+                    half_done = half or ""
+    
+                side = (inn_obj.get(side_key) or {})
+                inning_summary = {
+                    "inning": int(cur_inn),
+                    "halfDone": half_done,
+                    "runs": side.get("runs"),
+                    "hits": side.get("hits"),
+                    "errors": side.get("errors"),
+                    "lob": side.get("leftOnBase"),
+                }
+    except Exception:
+        inning_summary = None
     def _dueup_person(o: dict):
         if not isinstance(o, dict):
             return None
@@ -894,7 +922,7 @@ def normalize_gamecast(feed: dict) -> dict:
         "batter": batter,
         "pitcher": pitcher,
         "runners": runners,
-
+        "inningSummary": inning_summary,
         "pitches": pitches_out,
         "lineups": lineups,
         "inningState": inning_state_raw,
