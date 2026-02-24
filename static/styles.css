@@ -1492,7 +1492,10 @@ span.status-pill.status-other {
 /* ONLY affects the last column (Res) of the Exit Velocity table */
 .ev-table th:last-child,
 .ev-table td:last-child {
-    width: 75px !important; 
+    min-width: 85px !important; 
+    width: 85px !important;
+    max-width: 85px !important;
     overflow: visible !important;
     text-overflow: clip !important;
+    display: table-cell !important;
 }
