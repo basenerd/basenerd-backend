@@ -569,16 +569,16 @@
   {%- elif 'lineout' in s or 'lineout' in d -%}
     {%- if 'shortstop' in d -%}L6
     {%- elif 'second baseman' in d -%}L4
-    {%- elif 'first baseman' in d -%}L3
     {%- elif 'third baseman' in d -%}L5
+    {%- elif 'first baseman' in d -%}L3
     {%- else -%}LO{%- endif -%}
   {%- elif 'groundout' in s or 'groundout' in d -%}
     {%- if 'shortstop' in d -%}G6
     {%- elif 'second baseman' in d -%}G4
-    {%- elif 'first baseman' in d -%}G3
     {%- elif 'third baseman' in d -%}G5
     {%- elif 'pitcher' in d -%}G1
     {%- elif 'catcher' in d -%}G2
+    {%- elif 'first baseman' in d -%}G3
     {%- else -%}GO{%- endif -%}
   {%- else -%}
     {{ summary or '' }} {# Removed the [:8] entirely #}
