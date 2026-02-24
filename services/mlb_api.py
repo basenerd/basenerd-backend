@@ -885,28 +885,57 @@ def normalize_gamecast(feed: dict) -> dict:
                 hit_ev = ev
                 hit_pitch_n = pitch_n
 
+                # Pull best available hitData:
+        # 1) from the pitch event that contains hitData (your existing approach)
+        # 2) fall back to current_play.hitData (some feeds put it here)
+        # 3) fall back to scanning any playEvents for hitData
+        hd_best = None
+
         if hit_ev is not None:
-            hd = hit_ev.get("hitData") or {}
-            coords = hd.get("coordinates") if isinstance(hd.get("coordinates"), dict) else {}
+            hd_best = hit_ev.get("hitData")
+
+        if not isinstance(hd_best, dict) or not hd_best:
+            hd_best = current_play.get("hitData")
+
+        if not isinstance(hd_best, dict) or not hd_best:
+            for ev in play_events:
+                hd_try = (ev or {}).get("hitData")
+                if isinstance(hd_try, dict) and hd_try:
+                    hd_best = hd_try
+                    break
+
+        if isinstance(hd_best, dict) and hd_best:
+            coords = hd_best.get("coordinates") if isinstance(hd_best.get("coordinates"), dict) else {}
             coord_x = to_float(coords.get("coordX"))
             coord_y = to_float(coords.get("coordY"))
 
-            # Event label + description from play result
-            res = (current_play.get("result") or {})
-            ev_name = (res.get("event") or res.get("eventType") or "").strip()
-            desc = (res.get("description") or "").strip()
+            # Only build bip if coords exist (so mapping can render)
+            if coord_x is not None and coord_y is not None:
+                # Event label + description from play result
+                res = (current_play.get("result") or {})
+                ev_name = (res.get("event") or res.get("eventType") or "").strip()
+                desc = (res.get("description") or "").strip()
 
-            # A stable id so the browser only animates once per BIP
-            bip_id = f"{at_bat_index}:{hit_pitch_n}"
+                # Metrics (often missing; include if present)
+                evv = to_float(hd_best.get("launchSpeed"))
+                la = to_float(hd_best.get("launchAngle"))
+                dist = to_float(hd_best.get("totalDistance"))
 
-            bip = {
-                "id": bip_id,
-                "has": True,
-                "x": coord_x,
-                "y": coord_y,
-                "event": ev_name or "In play",
-                "description": desc or "Ball in play",
-            }
+                # A stable id so the browser only animates once per BIP
+                # Add coords so repeated balls in play within same PA don’t collide
+                bip_id = f"{at_bat_index}:{hit_pitch_n or pitch_n}:{coord_x}:{coord_y}"
+
+                bip = {
+                    "id": bip_id,
+                    "has": True,
+                    "x": coord_x,
+                    "y": coord_y,
+                    "event": ev_name or "In play",
+                    "description": desc or "Ball in play",
+                    "ev": evv,
+                    "la": la,
+                    "dist": dist,
+                }
     except Exception:
         bip = None
     # If not live yet, still return ok False so UI shows a friendly message
