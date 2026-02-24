@@ -3266,18 +3266,22 @@ def get_pitcher_season_line(person_id: int, season: int) -> dict:
 def _pp_text(pp_obj: dict, season: int) -> str:
     """
     pp_obj is schedule probablePitchers.home/away object.
-    Sometimes name/id are nested (person/fullName).
+    Depending on hydrate, name/id can be at top-level OR nested under `person`.
     """
     if not pp_obj:
         return "PP: TBD"
 
-    # Some schedule payloads nest person info
     person = pp_obj.get("person") or {}
-    name = (pp_obj.get("fullName") or person.get("fullName") or person.get("name") or "").strip()
+    name = (pp_obj.get("fullName") or person.get("fullName") or "").strip()
     pid = pp_obj.get("id") or person.get("id")
 
     if not name:
         return "PP: TBD"
+
+    try:
+        pid = int(pid) if pid is not None else None
+    except Exception:
+        pid = None
 
     line = get_pitcher_season_line(pid, season) if pid else {"w": None, "l": None, "era": None}
     w = line.get("w")
