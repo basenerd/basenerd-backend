@@ -636,6 +636,7 @@ def normalize_gamecast(feed: dict) -> dict:
         det = last_inplay_ev.get("details") or {}
         hit = last_inplay_ev.get("hitData") or {}
         hit_coords = (hit.get("coordinates") or {}) if isinstance(hit, dict) else {}
+        hd = hit
         evv = _safe_float(hd.get("launchSpeed"), default=None)
         la  = _safe_float(hd.get("launchAngle"), default=None)
         dist = _safe_float(hd.get("totalDistance"), default=None)
@@ -715,7 +716,31 @@ def normalize_gamecast(feed: dict) -> dict:
                 stat = (p.get("stats") or {}).get("batting") or {}
                 ab = stat.get("atBats")
                 h = stat.get("hits")
-                bat_line = f"{h}-{ab}" if (ab is not None and h is not None) else ""
+                hr = stat.get("homeRuns")
+                rbi = stat.get("rbi")
+                bb = stat.get("baseOnBalls")
+
+                base = f"{h}-{ab}" if (ab is not None and h is not None) else ""
+                tags = []
+                try:
+                    if hr is not None and int(hr) > 0:
+                        tags.append("HR" if int(hr) == 1 else f"{int(hr)} HR")
+                except Exception:
+                    pass
+                try:
+                    if rbi is not None and int(rbi) > 0:
+                        tags.append(f"{int(rbi)} RBI")
+                except Exception:
+                    pass
+                try:
+                    if bb is not None and int(bb) > 0:
+                        tags.append("BB" if int(bb) == 1 else f"{int(bb)} BB")
+                except Exception:
+                    pass
+
+                bat_line = base
+                game_summary = base + (", " + ", ".join(tags) if tags else "")
+
 
                 nm = person.get("fullName") or person.get("name") or ""
                 try:
@@ -730,6 +755,7 @@ def normalize_gamecast(feed: dict) -> dict:
                     "headshot": _headshot(pid_int),
                     "pos": pos,
                     "batLine": bat_line,
+                                        "gameSummary": game_summary,
                     "spot": spot,
                     "pas": (pa_log.get(pid_int) or []) if pid_int else [],
                 })
