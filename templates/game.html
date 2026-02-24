@@ -2054,21 +2054,110 @@ async function __gc_show_bip_takeover(bip, endsInning){
   const scaleY = __gc_spray_vb.h / __GC_BASE_H;
   const pt = __gc_map_point(sx, sy, scaleX, scaleY);
 
-  const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  halo.setAttribute("cx", pt.x.toFixed(2));
-  halo.setAttribute("cy", pt.y.toFixed(2));
-  halo.setAttribute("r", "9.0");
-  halo.setAttribute("fill", "rgba(15,23,42,.14)");
-  pointsG.appendChild(halo);
+  // --- Animated batted-ball: move from plate -> landing point ---
+  const start = __gc_map_point(__GC_PLATE.x, __GC_PLATE.y, scaleX, scaleY);
 
-  const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  c.setAttribute("cx", pt.x.toFixed(2));
-  c.setAttribute("cy", pt.y.toFixed(2));
-  c.setAttribute("r", "6.4");
-  c.setAttribute("fill", "rgba(59,130,246,.92)");
-  c.setAttribute("stroke", "rgba(255,255,255,.85)");
-  c.setAttribute("stroke-width", "1.2");
-  pointsG.appendChild(c);
+  // Choose arc style (ground vs fly) from launch angle (fallback to dist).
+  const laVal = Number(bip.la);
+  const distVal = Number(bip.dist);
+  const isFly = isFinite(laVal) ? (laVal >= 15) : (isFinite(distVal) ? distVal >= 140 : false);
+
+  // Control point for quadratic-like arc.
+  const midX = (start.x + pt.x) / 2;
+  const midY = (start.y + pt.y) / 2;
+  const arc = isFly
+    ? Math.min(92, Math.max(28, (isFinite(laVal) ? laVal : 30) * 2.1))
+    : 8;
+
+  const ctrlX = midX;
+  const ctrlY = midY - arc; // up (SVG y grows down)
+
+  const d = `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} Q ${ctrlX.toFixed(2)} ${ctrlY.toFixed(2)} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`;
+
+  // Faint path (optional, helps readability for fly balls)
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", d);
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", isFly ? "rgba(59,130,246,.28)" : "rgba(15,23,42,.16)");
+  path.setAttribute("stroke-width", isFly ? "2.2" : "1.6");
+  path.setAttribute("stroke-linecap", "round");
+  path.setAttribute("stroke-dasharray", isFly ? "5 6" : "3 6");
+  pointsG.appendChild(path);
+
+  // The moving ball
+  const ball = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  ball.setAttribute("r", isFly ? "5.0" : "4.6");
+  ball.setAttribute("fill", "rgba(59,130,246,.92)");
+  ball.setAttribute("stroke", "rgba(255,255,255,.85)");
+  ball.setAttribute("stroke-width", "1.1");
+
+  const motion = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
+  motion.setAttribute("dur", isFly ? "820ms" : "520ms");
+  motion.setAttribute("fill", "freeze");
+  motion.setAttribute("path", d);
+  motion.setAttribute("keySplines", "0.2 0.8 0.2 1");
+  motion.setAttribute("calcMode", "spline");
+  motion.setAttribute("keyTimes", "0;1");
+  ball.appendChild(motion);
+  pointsG.appendChild(ball);
+
+  // Final marker
+  const renderFinal = () => {
+    // keep overlay path but fade it a bit
+    path.setAttribute("opacity", "0.75");
+
+    // halo at landing
+    const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    halo.setAttribute("cx", pt.x.toFixed(2));
+    halo.setAttribute("cy", pt.y.toFixed(2));
+    halo.setAttribute("r", "9.0");
+    halo.setAttribute("fill", "rgba(15,23,42,.14)");
+    pointsG.appendChild(halo);
+
+    const isOut = !!bip.is_out;
+    if(isOut){
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      const x = pt.x, y = pt.y;
+      const s = 7.2;
+      const l1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      l1.setAttribute("x1", (x - s).toFixed(2));
+      l1.setAttribute("y1", (y - s).toFixed(2));
+      l1.setAttribute("x2", (x + s).toFixed(2));
+      l1.setAttribute("y2", (y + s).toFixed(2));
+      const l2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      l2.setAttribute("x1", (x - s).toFixed(2));
+      l2.setAttribute("y1", (y + s).toFixed(2));
+      l2.setAttribute("x2", (x + s).toFixed(2));
+      l2.setAttribute("y2", (y - s).toFixed(2));
+      for(const ln of [l1,l2]){
+        ln.setAttribute("stroke", "rgba(239,68,68,.95)");
+        ln.setAttribute("stroke-width", "3.1");
+        ln.setAttribute("stroke-linecap", "round");
+      }
+      g.appendChild(l1);
+      g.appendChild(l2);
+      pointsG.appendChild(g);
+    }else{
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", pt.x.toFixed(2));
+      c.setAttribute("cy", pt.y.toFixed(2));
+      c.setAttribute("r", "6.4");
+      c.setAttribute("fill", "rgba(59,130,246,.92)");
+      c.setAttribute("stroke", "rgba(255,255,255,.85)");
+      c.setAttribute("stroke-width", "1.2");
+      pointsG.appendChild(c);
+    }
+  };
+
+  // Kick off animation.
+  try{ motion.beginElement(); }catch(e){}
+
+  const durMs = isFly ? 820 : 520;
+  setTimeout(() => {
+    // remove moving ball
+    try{ ball.remove(); }catch(e){}
+    renderFinal();
+  }, durMs + 40);
 }
 
   function __gc_show_due_up_takeover(dueUp, inning, half){
