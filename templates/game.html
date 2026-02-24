@@ -1990,15 +1990,6 @@ async function __gc_show_bip_takeover(bip, endsInning){
        <div class="mono" style="padding:6px 10px; border:1px solid rgba(226,232,240,.9); border-radius:10px; background:rgba(15,23,42,.03);">Dist: ${dist}</div>
      </div>
    ` : ``;
-
-  const metricsHTML = `
-    <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-      <div class="mono" style="padding:6px 10px; border:1px solid rgba(226,232,240,.9); border-radius:10px; background:rgba(15,23,42,.03);">EV: ${ev}</div>
-      <div class="mono" style="padding:6px 10px; border:1px solid rgba(226,232,240,.9); border-radius:10px; background:rgba(15,23,42,.03);">LA: ${la}</div>
-      <div class="mono" style="padding:6px 10px; border:1px solid rgba(226,232,240,.9); border-radius:10px; background:rgba(15,23,42,.03);">Dist: ${dist}</div>
-    </div>
-  `;
-
   const body = `
     <div class="gc-bip-wrap">
       <div>
@@ -2400,9 +2391,6 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
     // Use the latest object we’ve seen (most complete)
     const useBip = __gc_pending_bip.lastObj;
 
-    // Only mark as “last shown” when we actually show
-    __gc_last_bip_id = useBip.id;
-
     await __gc_show_bip_takeover(useBip, endsInning);
     return true;
   }
@@ -2497,8 +2485,9 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
         const pulse = (lastN != null) && (prevN == null || lastN !== prevN);
         window.__gc_lastPitchN = lastN;
         renderZone(zone, pitches, { pulseLast: pulse });
-      }const tbody = document.querySelector("#gc-pitch-table tbody");
-      renderPitchTable(tbody, pitches);
+         }
+         const tbody = document.querySelector("#gc-pitch-table tbody");
+         renderPitchTable(tbody, pitches);
 
     }catch(e){
       console.error("GameCast fetch failed:", e);
