@@ -2051,8 +2051,8 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
             probables = g.get("probablePitchers") or {}
             decisions = g.get("decisions") or {}
             season = _season_from_date(date_ymd)
-            home_pp_obj = (probables.get("home") or {})
-            away_pp_obj = (probables.get("away") or {})
+            home_pp_obj = _get_pp_obj_from_game(g, "home")
+            away_pp_obj = _get_pp_obj_from_game(g, "away")
             home_pp = _pp_text(home_pp_obj, season)
             away_pp = _pp_text(away_pp_obj, season)
             home_rec = _record_str(home)
@@ -3262,19 +3262,48 @@ def get_pitcher_season_line(person_id: int, season: int) -> dict:
 
     _set_cached(cache_key, out)
     return out
+def _get_pp_obj_from_game(g: dict, side: str) -> dict:
+    """
+    side = "home" or "away"
+    Try all known places schedule might put probables.
+    Returns a dict that ideally includes name/id either top-level or under person.
+    """
+    teams = (g.get("teams") or {})
+    team_blob = (teams.get(side) or {})
 
+    # 1) The usual hydrated location
+    probables = (g.get("probablePitchers") or {})
+    pp = probables.get(side)
+    if isinstance(pp, dict) and pp:
+        return pp
+
+    # 2) Sometimes schedule uses teams.home.probablePitcher
+    pp2 = team_blob.get("probablePitcher")
+    if isinstance(pp2, dict) and pp2:
+        return pp2
+
+    # 3) Sometimes schedule uses teams.home.probablePitcher (different capitalization / weirdness)
+    # Keep as a safe fallback: nothing found
+    return {}
+
+
+def _pp_name_and_id(pp_obj: dict):
+    """
+    Returns (name, id) from either top-level or nested person.
+    """
+    if not pp_obj:
+        return ("", None)
+
+    person = pp_obj.get("person") or {}
+    name = (pp_obj.get("fullName") or person.get("fullName") or person.get("name") or "").strip()
+    pid = pp_obj.get("id") or person.get("id")
+    return (name, pid)
+    
 def _pp_text(pp_obj: dict, season: int) -> str:
-    """
-    pp_obj is schedule probablePitchers.home/away object.
-    Depending on hydrate, name/id can be at top-level OR nested under `person`.
-    """
     if not pp_obj:
         return "PP: TBD"
 
-    person = pp_obj.get("person") or {}
-    name = (pp_obj.get("fullName") or person.get("fullName") or "").strip()
-    pid = pp_obj.get("id") or person.get("id")
-
+    name, pid = _pp_name_and_id(pp_obj)
     if not name:
         return "PP: TBD"
 
