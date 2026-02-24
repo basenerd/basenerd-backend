@@ -51,7 +51,9 @@
   #tab-gamecast .gc-center{
     min-width:0;
   }
-
+#tab-gamecast .gc-midgrid > .card{
+  height:100%;
+}
   #tab-gamecast .gc-lineup{
     padding:10px 10px 12px 10px;
     display:flex;
@@ -63,7 +65,32 @@
   width:140px;
   height:140px;
 }
+/* Zone + Bases layout */
+#tab-gamecast .gc-midgrid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
 
+/* THIS is the key line */
+#tab-gamecast .gc-midgrid .gc-pitchescard{
+  grid-column: 1 / -1;
+}
+#tab-gamecast #gc-pitch-table{
+  width:100%;
+  table-layout:auto;
+}
+
+#tab-gamecast #gc-pitch-table th,
+#tab-gamecast #gc-pitch-table td{
+  white-space:nowrap;
+}
+
+#tab-gamecast #gc-pitch-table th:last-child,
+#tab-gamecast #gc-pitch-table td:last-child{
+  white-space:normal;
+}
 #tab-gamecast .gc-base{
   position:absolute;
   width:24px;
