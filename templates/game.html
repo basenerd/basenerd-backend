@@ -576,12 +576,15 @@
     {%- if 'shortstop' in d -%}G6
     {%- elif 'second baseman' in d -%}G4
     {%- elif 'third baseman' in d -%}G5
+    {%- elif 'pitcher' in d and 'first baseman' in d -%}
+      {# If BOTH are in the sentence, check which one was typed first #}
+      {%- if d.find('first baseman') < d.find('pitcher') -%}G3{%- else -%}G1{%- endif -%}
     {%- elif 'pitcher' in d -%}G1
     {%- elif 'catcher' in d -%}G2
     {%- elif 'first baseman' in d -%}G3
     {%- else -%}GO{%- endif -%}
   {%- else -%}
-    {{ summary or '' }} {# Removed the [:8] entirely #}
+    {{ summary or '' }}
   {%- endif -%}
 {%- endmacro %}
 
