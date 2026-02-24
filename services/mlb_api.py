@@ -589,7 +589,41 @@ def normalize_gamecast(feed: dict) -> dict:
             "call": call.get("description") or call.get("code") or "",
             "desc": details.get("description") or "",
         })
+        # -------------------------
+    # BALL IN PLAY (BIP) takeover payload
+    # Pull batted-ball coordinates from the most recent in-play pitch event
+    # so the frontend can animate the spray-dot using the SAME mapping logic as PBP.
+    # -------------------------
+    bip = {"has": False, "x": None, "y": None, "event": "", "description": ""}
 
+    last_inplay_ev = None
+    for ev in reversed(play_events or []):
+        if not ev or not ev.get("isPitch"):
+            continue
+        det = ev.get("details") or {}
+        if det.get("isInPlay"):
+            last_inplay_ev = ev
+            break
+
+    if last_inplay_ev:
+        det = last_inplay_ev.get("details") or {}
+        hit = last_inplay_ev.get("hitData") or {}
+        hit_coords = (hit.get("coordinates") or {}) if isinstance(hit, dict) else {}
+
+        # StatsAPI hitData.coordinates commonly includes coordX/coordY for field plots
+        x = hit_coords.get("coordX")
+        y = hit_coords.get("coordY")
+
+        # Some feeds may not have coordX/coordY even though it's "in play"
+        # Still set has=True so UI can show the takeover card + outcome text,
+        # but the dot will only render when x/y are present.
+        bip = {
+            "has": True,
+            "x": x,
+            "y": y,
+            "event": (det.get("event") or "").strip(),
+            "description": (det.get("description") or "").strip(),
+        }
     # -------------------------
     # PA LOG: build from completed allPlays so lineup expansions work
     # -------------------------
@@ -668,7 +702,72 @@ def normalize_gamecast(feed: dict) -> dict:
             lineups[side] = out
     except Exception:
         pass
+        # -------------------------
+    # BETWEEN INNINGS + DUE UP (next 3 hitters)
+    # -------------------------
+    inning_state_raw = (linescore.get("inningState") or linescore.get("inningHalf") or "")
+    inning_state = str(inning_state_raw).strip().lower()
 
+    # "Middle" = between Top/Bottom (home due up)
+    # "End"    = between innings (away due up next inning)
+    between_innings = inning_state in ("middle", "end") or ("between" in inning_state)
+
+    due_up = {"show": False, "team": None, "players": []}
+
+    if between_innings:
+        # Decide who bats next
+        due_team = None
+        if inning_state.startswith("mid"):
+            due_team = "home"
+        elif inning_state.startswith("end"):
+            due_team = "away"
+        else:
+            # fallback: if we can't tell, pick opposite of current half
+            due_team = "home" if half == "Top" else "away"
+
+        # Build pid -> player object map from existing lineup payload
+        pid_to_player = {}
+        for side in ("away", "home"):
+            for p in (lineups.get(side) or []):
+                pid = p.get("id")
+                if pid:
+                    pid_to_player[int(pid)] = p
+
+        # Pull batting order + current spot from boxscore (best-effort)
+        try:
+            box = (live_data.get("boxscore") or {}).get("teams") or {}
+            team_box = box.get(due_team) or {}
+            order = team_box.get("battingOrder") or team_box.get("batters") or []
+            spot = team_box.get("battingOrderSpot")
+
+            # Some feeds use 0-based spot; some 1-based; normalize gently
+            try:
+                spot_i = int(spot) if spot is not None else 0
+            except Exception:
+                spot_i = 0
+            if spot_i < 0:
+                spot_i = 0
+            if spot_i >= len(order):
+                spot_i = 0
+
+            # Next 3, wrapping around
+            nxt = []
+            for j in range(3):
+                if not order:
+                    break
+                pid = order[(spot_i + j) % len(order)]
+                try:
+                    pid_int = int(pid)
+                except Exception:
+                    continue
+                pobj = pid_to_player.get(pid_int)
+                if pobj:
+                    nxt.append(pobj)
+
+            if nxt:
+                due_up = {"show": True, "team": due_team, "players": nxt}
+        except Exception:
+            pass
     score_away = (teams_ls.get("away") or {}).get("runs")
     score_home = (teams_ls.get("home") or {}).get("runs")
         # -------------------------
@@ -778,7 +877,7 @@ def normalize_gamecast(feed: dict) -> dict:
 
         "pitches": pitches_out,
         "lineups": lineups,
-        "inningState": inning_state,
+        "inningState": inning_state_raw,
         "betweenInnings": between_innings,
         "dueUp": due_up,
         "bip": bip,
