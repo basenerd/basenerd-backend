@@ -671,7 +671,92 @@ def normalize_gamecast(feed: dict) -> dict:
 
     score_away = (teams_ls.get("away") or {}).get("runs")
     score_home = (teams_ls.get("home") or {}).get("runs")
+        # -------------------------
+    # Inning state / Between innings / Due up
+    # -------------------------
+    inning_state = ((linescore or {}).get("inningState") or "").strip()
+    # MLB feed uses values like: "Top", "Middle", "Bottom", "End"
+    between_innings = inning_state.lower() in ("middle", "end", "between innings")
 
+    def _dueup_person(o: dict):
+        if not isinstance(o, dict):
+            return None
+        pid = o.get("id") or (o.get("person") or {}).get("id")
+        nm = o.get("fullName") or o.get("name") or (o.get("person") or {}).get("fullName")
+        nm = (nm or "").strip()
+        if not pid and not nm:
+            return None
+        try:
+            pid_int = int(pid) if pid else None
+        except Exception:
+            pid_int = None
+
+        return {
+            "id": pid_int,
+            "name": nm,
+            "shortName": _short_name(nm),
+            "headshot": _headshot(pid_int),
+        }
+
+    due_up = []
+    try:
+        # linescore.offense has batter/onDeck/inHole in many live games
+        off = (linescore or {}).get("offense") or {}
+        for k in ("batter", "onDeck", "inHole"):
+            p = _dueup_person(off.get(k))
+            if p:
+                due_up.append(p)
+    except Exception:
+        due_up = []
+
+    # Only send dueUp during between-innings (keeps frontend logic clean)
+    if not between_innings:
+        due_up = []
+
+    # -------------------------
+    # Ball-in-play (BIP) info for the takeover animation
+    # -------------------------
+    bip = None
+    try:
+        about = current_play.get("about") or {}
+        at_bat_index = about.get("atBatIndex")
+        play_events = current_play.get("playEvents") or []
+
+        hit_ev = None
+        pitch_n = 0
+        for ev in play_events:
+            if not ev or not ev.get("isPitch"):
+                continue
+            pitch_n += 1
+            hd = ev.get("hitData")
+            if isinstance(hd, dict) and hd:
+                hit_ev = ev
+                hit_pitch_n = pitch_n
+
+        if hit_ev is not None:
+            hd = hit_ev.get("hitData") or {}
+            coords = hd.get("coordinates") if isinstance(hd.get("coordinates"), dict) else {}
+            coord_x = _safe_float(coords.get("coordX"), default=None)
+            coord_y = _safe_float(coords.get("coordY"), default=None)
+
+            # Event label + description from play result
+            res = (current_play.get("result") or {})
+            ev_name = (res.get("event") or res.get("eventType") or "").strip()
+            desc = (res.get("description") or "").strip()
+
+            # A stable id so the browser only animates once per BIP
+            bip_id = f"{at_bat_index}:{hit_pitch_n}"
+
+            bip = {
+                "id": bip_id,
+                "has": True,
+                "x": coord_x,
+                "y": coord_y,
+                "event": ev_name or "In play",
+                "description": desc or "Ball in play",
+            }
+    except Exception:
+        bip = None
     # If not live yet, still return ok False so UI shows a friendly message
     if state != "live" and not inning:
         return {"ok": False, "reason": f"state={state or 'unknown'}"}
@@ -693,6 +778,10 @@ def normalize_gamecast(feed: dict) -> dict:
 
         "pitches": pitches_out,
         "lineups": lineups,
+        "inningState": inning_state,
+        "betweenInnings": between_innings,
+        "dueUp": due_up,
+        "bip": bip,
     }
     
 def extract_career_statline(player: dict) -> Tuple[Optional[str], Optional[dict]]:
