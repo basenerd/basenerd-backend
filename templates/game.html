@@ -187,7 +187,24 @@
     width:44px;
     flex:0 0 auto;
   }
-
+/* BIP trace animation */
+#tab-gamecast .gc-bip-trace{
+  fill: none;
+  stroke: rgba(59,130,246,.85);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+  animation: gcTraceDraw 900ms ease-out forwards;
+}
+#tab-gamecast .gc-bip-trace.ground{
+  stroke: rgba(245,158,11,.9);
+}
+@keyframes gcTraceDraw{
+  to { stroke-dashoffset: 0; }
+}
+   
   #tab-gamecast .gc-matchup{
     display:grid;
     grid-template-columns: 1fr 1fr;
@@ -1978,38 +1995,34 @@ async function __gc_show_bip_takeover(bip, endsInning){
    const distNum = Number(bip.dist);
    
    const hasAnyMetric = isFinite(evNum) || isFinite(laNum) || isFinite(distNum);
+   const kind = (bip.kind === "ground") ? "ground" : "air";
+   const kindLabel = (kind === "ground") ? "Ground ball" : "Ball in the air";
    
-   const ev   = isFinite(evNum) ? evNum.toFixed(1) : "—";
-   const la   = isFinite(laNum) ? Math.round(laNum) : "—";
-   const dist = isFinite(distNum) ? Math.round(distNum) : "—";
-   
-   const metricsHTML = hasAnyMetric ? `
-     <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-       <div class="mono" style="padding:6px 10px; border:1px solid rgba(226,232,240,.9); border-radius:10px; background:rgba(15,23,42,.03);">EV: ${ev}</div>
-       <div class="mono" style="padding:6px 10px; border:1px solid rgba(226,232,240,.9); border-radius:10px; background:rgba(15,23,42,.03);">LA: ${la}</div>
-       <div class="mono" style="padding:6px 10px; border:1px solid rgba(226,232,240,.9); border-radius:10px; background:rgba(15,23,42,.03);">Dist: ${dist}</div>
-     </div>
-   ` : ``;
   const body = `
-    <div class="gc-bip-wrap">
-      <div>
-        <svg id="gc-bip-svg" class="gc-bip-svg" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
-          <g class="sprayOverlay"></g>
-          <g class="sprayPoints"></g>
-        </svg>
-        <div class="gc-bip-pop">${(bip.description || "Ball in play")}</div>
-      </div>
-
-      <div style="min-width:220px; flex:1; padding-top:2px;">
-        <div class="mono" style="opacity:.75; font-size:12px;">RESULT</div>
-        <div style="font-weight:1000; font-size:16px; margin-top:4px;">${(bip.event || "In play")}</div>
-        ${metricsHTML}
-        <div class="mono" style="opacity:.7; margin-top:12px;">
-          ${endsInning ? "End of inning…" : "Waiting for next at-bat…"}
-        </div>
-      </div>
-    </div>
-  `;
+     <div class="gc-bip-wrap">
+       <div style="flex:0 0 auto;">
+         <svg id="gc-bip-svg" class="gc-bip-svg" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
+           <g class="sprayOverlay"></g>
+           <g class="sprayPoints"></g>
+         </svg>
+         <div class="gc-bip-pop">${(bip.description || "Ball in play")}</div>
+       </div>
+   
+       <div style="min-width:220px; flex:1; padding-top:2px;">
+         <div class="mono" style="opacity:.75; font-size:12px;">RESULT</div>
+         <div style="font-weight:1000; font-size:16px; margin-top:4px;">${(bip.event || "In play")}</div>
+   
+         <div class="mono" style="margin-top:10px; display:inline-flex; padding:6px 10px;
+              border:1px solid rgba(226,232,240,.9); border-radius:999px; background:rgba(15,23,42,.03);">
+           ${kindLabel}
+         </div>
+   
+         <div class="mono" style="opacity:.7; margin-top:12px;">
+           ${endsInning ? "End of inning…" : "Waiting for next at-bat…"}
+         </div>
+       </div>
+     </div>
+   `;
 
   // Track batter at time of contact so we can hide on first pitch of next PA
   __gc_bip_active_batter_id = (window.__gc_last_batter_id_at_fetch ?? null);
@@ -2053,7 +2066,28 @@ async function __gc_show_bip_takeover(bip, endsInning){
   const scaleX = __gc_spray_vb.w / __GC_BASE_W;
   const scaleY = __gc_spray_vb.h / __GC_BASE_H;
   const pt = __gc_map_point(sx, sy, scaleX, scaleY);
-
+  // Map home plate to the same stadium coords so the trace starts correctly
+   const scaleX = __gc_spray_vb.w / __GC_BASE_W;
+   const scaleY = __gc_spray_vb.h / __GC_BASE_H;
+   const platePt = __gc_map_point(__GC_PLATE.x, __GC_PLATE.y, scaleX, scaleY);
+   
+   // Trace: ground = straight line, air = arc
+   const kind = (bip.kind === "ground") ? "ground" : "air";
+   
+   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+   path.classList.add("gc-bip-trace");
+   path.classList.add(kind);
+   
+   // For arc, lift the control point upward (smaller y) so it visually arcs
+   if(kind === "air"){
+     const cx = (platePt.x + pt.x) / 2;
+     const cy = Math.min(platePt.y, pt.y) - 55; // arc height (tweak if you want)
+     path.setAttribute("d", `M ${platePt.x.toFixed(2)} ${platePt.y.toFixed(2)} Q ${cx.toFixed(2)} ${cy.toFixed(2)} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`);
+   } else {
+     path.setAttribute("d", `M ${platePt.x.toFixed(2)} ${platePt.y.toFixed(2)} L ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`);
+   }
+   
+   pointsG.appendChild(path);
   // --- Animated batted-ball: move from plate -> landing point ---
   const start = __gc_map_point(__GC_PLATE.x, __GC_PLATE.y, scaleX, scaleY);
 
