@@ -837,10 +837,11 @@
 
       {# -----------------------------
          FIXED: Proper nesting so home lineup stays on the RIGHT
+         UPDATED: Zone + Bases side-by-side, Pitches table FULL-WIDTH underneath
          ----------------------------- #}
       <div class="gc-grid-wrap">
         <div class="gc-grid" style="margin-top:14px;">
-
+      
           <!-- Away lineup -->
           <div class="card" style="margin:0;">
             <div class="card-header">
@@ -849,31 +850,59 @@
             </div>
             <div class="gc-lineup" id="gc-lineup-away"></div>
           </div>
-
+      
           <!-- Center -->
           <div class="gc-center">
             <div class="card" style="margin:0;">
               <div class="card-header">
                 <div class="card-title">Current Matchup</div>
               </div>
+      
               <div style="padding:14px;">
                 <div class="gc-matchup">
                   <div class="gc-person" id="gc-batter"></div>
                   <div class="gc-person" id="gc-pitcher"></div>
                 </div>
-
+      
+                <!-- MID: Zone + Bases row, then full-width Pitches table -->
                 <div class="gc-midgrid" style="margin-top:14px;">
+      
+                  <!-- Zone (LEFT) -->
                   <div class="card" style="margin:0;">
-                    <div class="card-header"><div class="card-title">Zone</div></div>
+                    <div class="card-header">
+                      <div class="card-title">Zone</div>
+                    </div>
                     <div style="padding:12px; display:flex; justify-content:center;">
                       <svg id="gc-zone" class="strike-zone" width="220" height="260"></svg>
                     </div>
                   </div>
-
+      
+                  <!-- Bases (RIGHT) -->
                   <div class="card" style="margin:0;">
-                    <div class="card-header"><div class="card-title">Pitches</div></div>
-                    <div style="padding:0 12px 12px 12px; overflow-x:auto;">
-                      <table class="tbl" id="gc-pitch-table" style="margin-top:10px;">
+                    <div class="card-header">
+                      <div class="card-title">Bases</div>
+                      <div class="card-subtitle mono" style="opacity:.75;">Live runners</div>
+                    </div>
+      
+                    <!-- Diamond visual -->
+                    <div style="padding:12px 12px 4px 12px; display:flex; justify-content:center;">
+                      <div id="gc-bases-diamond" class="gc-bases-diamond"></div>
+                    </div>
+      
+                    <!-- Runner list (existing functionality stays) -->
+                    <div style="padding:6px 12px 12px 12px;">
+                      <div id="gc-bases" class="gc-bases" aria-label="Base runners"></div>
+                    </div>
+                  </div>
+      
+                  <!-- Pitches (FULL WIDTH under both) -->
+                  <div class="card gc-pitchescard" style="margin:0;">
+                    <div class="card-header">
+                      <div class="card-title">Pitches</div>
+                      <div class="card-subtitle mono" style="opacity:.75;">This plate appearance</div>
+                    </div>
+                    <div style="padding:0 12px 12px 12px; overflow:hidden;">
+                      <table class="tbl" id="gc-pitch-table" style="margin-top:10px; width:100%; table-layout:auto;">
                         <thead>
                           <tr>
                             <th class="mono">#</th>
@@ -882,36 +911,19 @@
                             <th class="mono" style="text-align:right;">Spin</th>
                             <th class="mono" style="text-align:right;">VMov</th>
                             <th class="mono" style="text-align:right;">HMov</th>
+                            <th>Outcome</th>
                           </tr>
                         </thead>
                         <tbody></tbody>
                       </table>
                     </div>
                   </div>
-
-                  <div class="card" style="margin:0;">
-                     <div class="card-header">
-                       <div class="card-title">Bases</div>
-                       <div class="card-subtitle mono" style="opacity:.75;">Live runners</div>
-                     </div>
-                  
-                     <!-- Diamond visual -->
-                     <div style="padding:12px 12px 4px 12px; display:flex; justify-content:center;">
-                       <div id="gc-bases-diamond" class="gc-bases-diamond"></div>
-                     </div>
-                  
-                     <!-- Runner list (existing functionality stays) -->
-                     <div style="padding:6px 12px 12px 12px;">
-                       <div id="gc-bases" class="gc-bases" aria-label="Base runners"></div>
-                     </div>
-                  
-                  </div>
+      
                 </div>
-
               </div>
             </div>
           </div>
-
+      
           <!-- Home lineup (RIGHT column) -->
           <div class="card" style="margin:0;">
             <div class="card-header">
@@ -920,10 +932,9 @@
             </div>
             <div class="gc-lineup" id="gc-lineup-home"></div>
           </div>
-
+      
         </div>
       </div>
-
     </div>
   </div>
 
