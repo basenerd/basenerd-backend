@@ -339,6 +339,19 @@
     text-overflow:ellipsis;
   }
 
+  /* --- GameCast: pulse new pitch dots in the strike zone --- */
+  @keyframes gcPulse {
+    0%   { transform: scale(0.35); opacity: 0; }
+    35%  { transform: scale(1.15); opacity: 0.95; }
+    100% { transform: scale(1.00); opacity: 1; }
+  }
+  #tab-gamecast .gc-pulse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: gcPulse 650ms ease-out 1;
+  }
+
+
 
   @media (max-width: 650px){
     /* keep as scroll instead of stacking home lineup below */
@@ -447,6 +460,46 @@
     #tab-pbp .spray-mini-wrap{ justify-self:start; }
     #tab-pbp .bb-metrics-wrap{ justify-self:stretch; }
   }
+
+  /* --- GameCast: takeover overlay (Ball In Play / Due Up) --- */
+  #tab-gamecast .gc-midgrid{ position: relative; }
+  #tab-gamecast .gc-takeover{
+    position:absolute; inset:0; z-index:50;
+    display:flex; align-items:stretch;
+  }
+  #tab-gamecast .gc-takeover-card{
+    width:100%;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,.12);
+    animation: gcTakeoverIn .18s ease-out;
+  }
+  @keyframes gcTakeoverIn{
+    from{ transform: translateY(6px); opacity:0; }
+    to{ transform: translateY(0); opacity:1; }
+  }
+  #tab-gamecast svg.gc-bip-svg{
+    width:360px; height:360px; display:block;
+    border:1px solid rgba(226,232,240,.9);
+    border-radius:14px;
+    background:#fff;
+  }
+  @media(max-width: 900px){
+    #tab-gamecast svg.gc-bip-svg{ width:300px; height:300px; }
+  }
+  #tab-gamecast .gc-bip-wrap{
+    display:flex; gap:12px; align-items:flex-start; justify-content:space-between;
+    flex-wrap:wrap;
+  }
+  #tab-gamecast .gc-bip-pop{
+    margin-top:10px;
+    padding:10px 12px;
+    border:1px solid rgba(148,163,184,.35);
+    border-radius:12px;
+    background: rgba(15,23,42,.03);
+    font-weight:900;
+  }
+
 </style>
 
 {# Convert IP string like "7.2" into outs (23) for simple scoring #}
@@ -894,7 +947,18 @@
                 <!-- MID: Zone + Bases row, then full-width Pitches table -->
                 <div class="gc-midgrid" style="margin-top:14px;">
       
-                  <!-- Zone (LEFT) -->
+                  
+                  <!-- GameCast takeover overlay (Ball In Play / Due Up) -->
+                  <div id="gc-takeover" class="gc-takeover" style="display:none;">
+                    <div class="card gc-takeover-card" style="margin:0;">
+                      <div class="card-header">
+                        <div class="card-title" id="gc-takeover-title">—</div>
+                        <div class="card-subtitle mono" id="gc-takeover-subtitle" style="opacity:.75;"></div>
+                      </div>
+                      <div class="card-body" id="gc-takeover-body"></div>
+                    </div>
+                  </div>
+<!-- Zone (LEFT) -->
                   <div class="card" style="margin:0;">
                     <div class="card-header">
                       <div class="card-title">Zone</div>
@@ -1701,6 +1765,184 @@
   // -----------------------------
   const GAME_PK = {{ game_pk | tojson }};
   const GC_URL = GAME_PK ? (`/game/${GAME_PK}/gamecast.json`) : null;
+
+  // ---- GameCast Takeover (Ball In Play / Due Up) ----
+  let __gc_takeover_timer = null;
+  let __gc_last_bip_id = null;
+  let __gc_last_between = false;
+
+  const __GC_STADIUM_URL = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
+
+  // MUST mirror the play-by-play spray mapping constants
+  const __GC_BASE_W = 250;
+  const __GC_BASE_H = 250;
+  const __GC_PLATE = { x: 125, y: 199 };
+  const __GC_EXTRA_SPREAD = 1.045;
+  const __GC_NUDGE_X = 0;
+  const __GC_NUDGE_Y = -10;
+
+  let __gc_overlay_svg_el = null;
+  let __gc_spray_vb = { minX: 0, minY: 0, w: 250, h: 250 };
+  let __gc_overlay_loaded = false;
+
+  function __gc_parse_viewbox(vb){
+    const parts = (vb || "").split(/\s+/).map(Number).filter(n=>isFinite(n));
+    if(parts.length === 4) return { minX: parts[0], minY: parts[1], w: parts[2], h: parts[3] };
+    return { minX: 0, minY: 0, w: 250, h: 250 };
+  }
+
+  function __gc_map_point(sx, sy, scaleX, scaleY){
+    const dx = (sx - __GC_PLATE.x) * scaleX;
+    const dy = (sy - __GC_PLATE.y) * scaleY;
+    const x = __gc_spray_vb.minX + (__GC_PLATE.x * scaleX) + (dx * __GC_EXTRA_SPREAD) + __GC_NUDGE_X;
+    const y = __gc_spray_vb.minY + (__GC_PLATE.y * scaleY) + (dy * __GC_EXTRA_SPREAD) + __GC_NUDGE_Y;
+    return { x, y };
+  }
+
+  async function __gc_load_overlay_once(){
+    if(__gc_overlay_loaded) return;
+    __gc_overlay_loaded = true;
+    try{
+      const res = await fetch(__GC_STADIUM_URL, { cache: "force-cache" });
+      if(!res.ok) throw new Error("stadium overlay fetch failed");
+      const svgText = await res.text();
+      const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+      __gc_overlay_svg_el = doc.documentElement;
+      __gc_spray_vb = __gc_parse_viewbox(__gc_overlay_svg_el.getAttribute("viewBox"));
+    }catch(e){
+      console.error(e);
+      __gc_overlay_svg_el = null;
+    }
+  }
+
+  function __gc_inject_overlay(svg){
+    if(!svg || !__gc_overlay_svg_el) return;
+    const g = svg.querySelector("g.sprayOverlay");
+    if(!g) return;
+    if(g.childNodes && g.childNodes.length) return;
+
+    const vb = __gc_overlay_svg_el.getAttribute("viewBox");
+    if(vb) svg.setAttribute("viewBox", vb);
+
+    const frag = document.createDocumentFragment();
+    Array.from(__gc_overlay_svg_el.childNodes).forEach(n=>frag.appendChild(n.cloneNode(true)));
+    g.appendChild(frag);
+
+    // Flip ONLY the stadium overlay (NOT the dots)
+    const ty = (2 * __gc_spray_vb.minY) + __gc_spray_vb.h;
+    g.setAttribute("transform", `translate(0 ${ty}) scale(1 -1)`);
+  }
+
+  function __gc_show_takeover(title, subtitle, bodyHTML, ms){
+    const wrap = document.getElementById("gc-takeover");
+    const t = document.getElementById("gc-takeover-title");
+    const st = document.getElementById("gc-takeover-subtitle");
+    const b = document.getElementById("gc-takeover-body");
+    if(!wrap || !t || !st || !b) return;
+
+    t.textContent = title || "—";
+    st.textContent = subtitle || "";
+    b.innerHTML = bodyHTML || "";
+
+    wrap.style.display = "flex";
+
+    if(__gc_takeover_timer) clearTimeout(__gc_takeover_timer);
+    __gc_takeover_timer = setTimeout(()=>{
+      wrap.style.display = "none";
+    }, ms || 3600);
+  }
+
+  async function __gc_show_bip_takeover(bip){
+    // bip should be: { id, x, y, event, description }
+    if(!bip || !bip.id) return;
+    if(bip.id === __gc_last_bip_id) return;
+    __gc_last_bip_id = bip.id;
+
+    const body = `
+      <div class="gc-bip-wrap">
+        <div>
+          <svg id="gc-bip-svg" class="gc-bip-svg" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
+            <g class="sprayOverlay"></g>
+            <g class="sprayPoints"></g>
+          </svg>
+          <div class="gc-bip-pop">${(bip.description || "Ball in play")}</div>
+        </div>
+
+        <div style="min-width:220px; flex:1; padding-top:2px;">
+          <div class="mono" style="opacity:.75; font-size:12px;">RESULT</div>
+          <div style="font-weight:1000; font-size:16px; margin-top:4px;">${(bip.event || "In play")}</div>
+          <div class="mono" style="opacity:.7; margin-top:10px;">Returning to GameCast automatically…</div>
+        </div>
+      </div>
+    `;
+
+    __gc_show_takeover("Ball In Play", "Tracking batted-ball location", body, 3600);
+
+    await __gc_load_overlay_once();
+    const svg = document.getElementById("gc-bip-svg");
+    if(!svg) return;
+
+    __gc_inject_overlay(svg);
+
+    const pointsG = svg.querySelector("g.sprayPoints");
+    if(!pointsG) return;
+    pointsG.innerHTML = "";
+
+    const sx = Number(bip.x);
+    const sy = Number(bip.y);
+    if(!isFinite(sx) || !isFinite(sy)) return;
+
+    const scaleX = __gc_spray_vb.w / __GC_BASE_W;
+    const scaleY = __gc_spray_vb.h / __GC_BASE_H;
+    const pt = __gc_map_point(sx, sy, scaleX, scaleY);
+
+    const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    halo.setAttribute("cx", pt.x.toFixed(2));
+    halo.setAttribute("cy", pt.y.toFixed(2));
+    halo.setAttribute("r", "9.0");
+    halo.setAttribute("fill", "rgba(15,23,42,.14)");
+    pointsG.appendChild(halo);
+
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c.setAttribute("cx", pt.x.toFixed(2));
+    c.setAttribute("cy", pt.y.toFixed(2));
+    c.setAttribute("r", "6.4");
+    c.setAttribute("fill", "rgba(59,130,246,.92)");
+    c.setAttribute("stroke", "rgba(255,255,255,.85)");
+    c.setAttribute("stroke-width", "1.2");
+    pointsG.appendChild(c);
+  }
+
+  function __gc_show_due_up_takeover(dueUp, inning, half){
+    if(!Array.isArray(dueUp) || !dueUp.length) return;
+
+    const row = (p) => `
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 10px;
+                  border:1px solid rgba(226,232,240,.9); border-radius:12px; background:#fff; margin-top:8px;">
+        ${p.headshot ? `<img src="${p.headshot}" style="width:34px;height:34px;border-radius:999px;border:1px solid rgba(226,232,240,.9);object-fit:cover;">` : ``}
+        <div style="min-width:0;">
+          <div style="font-weight:1000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.shortName || p.name || "—"}</div>
+        </div>
+      </div>
+    `;
+
+    const nextHalf = (String(half||"").toLowerCase().startsWith("top")) ? `Bottom ${inning||""}` : `Top ${inning||""}`;
+
+    const body = `
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <div style="min-width:260px;">
+          ${dueUp.slice(0,3).map(row).join("")}
+        </div>
+        <div style="flex:1; min-width:220px;">
+          <div class="mono" style="opacity:.75; font-size:12px;">NEXT HALF-INNING</div>
+          <div style="font-weight:1000; font-size:16px; margin-top:4px;">${nextHalf}</div>
+          <div class="mono" style="opacity:.7; margin-top:10px;">Returning to GameCast automatically…</div>
+        </div>
+      </div>
+    `;
+
+    __gc_show_takeover("Due Up", "Between innings", body, 4200);
+  }
   const IS_LIVE = {{ is_live | tojson }};
   let gcTimer = null;
   let gcLastKey = "";
@@ -1970,6 +2212,18 @@ function renderPitchTable(tbody, pitches){
       if(key === gcLastKey) return;
       gcLastKey = key;
 
+
+      // ---- Takeover triggers ----
+      // 1) Between-innings Due Up takeover (trigger on transition into between-innings)
+      if(!!data.betweenInnings && !__gc_last_between){
+        __gc_show_due_up_takeover(data.dueUp || [], data.inning, data.half);
+      }
+      __gc_last_between = !!data.betweenInnings;
+
+      // 2) Ball-in-play takeover (only when we get a new bip.id)
+      if(data.bip && data.bip.id){
+        __gc_show_bip_takeover(data.bip);
+      }
       const innEl = document.getElementById("gc-inning");
       if(innEl) innEl.textContent = (data.half && data.inning) ? `${data.half} ${data.inning}` : "—";
 
@@ -2003,9 +2257,15 @@ function renderPitchTable(tbody, pitches){
 
       const pitches = data.pitches || [];
       const zone = document.getElementById("gc-zone");
-      if(zone) renderZone(zone, pitches);
-
-      const tbody = document.querySelector("#gc-pitch-table tbody");
+      {
+        // Only pulse when a NEW pitch arrives (prevents re-pulsing every poll)
+        const last = pitches.length ? (pitches[pitches.length - 1] || {}) : {};
+        const lastN = (last.n != null) ? last.n : pitches.length;
+        const prevN = window.__gc_lastPitchN;
+        const pulse = (lastN != null) && (prevN == null || lastN !== prevN);
+        window.__gc_lastPitchN = lastN;
+        renderZone(zone, pitches, { pulseLast: pulse });
+      }const tbody = document.querySelector("#gc-pitch-table tbody");
       renderPitchTable(tbody, pitches);
 
     }catch(e){
@@ -2033,7 +2293,7 @@ function renderPitchTable(tbody, pitches){
     gcTimer = null;
   }
 
-  function renderZone(svg, pitches){
+  function renderZone(svg, pitches, opts = {}){
     const w = parseFloat(svg.getAttribute("width") || 200);
     const h = parseFloat(svg.getAttribute("height") || 240);
 
@@ -2061,13 +2321,18 @@ function renderPitchTable(tbody, pitches){
     rect.setAttribute("stroke-width", "1");
     svg.appendChild(rect);
 
-    (pitches || []).forEach(p=>{
+    (pitches || []).forEach((p, idx)=>{
       if(p.px === null || p.px === undefined || p.pz === null || p.pz === undefined) return;
       const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
       c.setAttribute("cx", xScale(p.px));
       c.setAttribute("cy", yScale(p.pz));
       c.setAttribute("r", 8);
 
+
+      // Pulse the latest pitch dot in GameCast
+      if(opts && opts.pulseLast && idx === (pitches.length - 1)){
+        c.classList.add("gc-pulse");
+      }
       const t = document.createElementNS("http://www.w3.org/2000/svg","text");
       t.setAttribute("x", xScale(p.px));
       t.setAttribute("y", yScale(p.pz) + 3);
