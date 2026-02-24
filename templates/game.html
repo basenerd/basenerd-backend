@@ -1774,7 +1774,63 @@
   // -----------------------------
   const GAME_PK = {{ game_pk | tojson }};
   const GC_URL = GAME_PK ? (`/game/${GAME_PK}/gamecast.json`) : null;
+  let __gc_last_between_key = "";
 
+function __gc_render_inning_summary(sum){
+  if(!sum) return "";
+  const r = (sum.runs ?? "—");
+  const h = (sum.hits ?? "—");
+  const e = (sum.errors ?? "—");
+  const lob = (sum.lob ?? "—");
+  const label = `${sum.halfDone || ""} ${sum.inning || ""}`.trim();
+  return `
+    <div style="margin-top:10px;">
+      <div class="mono" style="font-weight:900; margin-bottom:6px;">Inning Summary${label ? " • " + label : ""}</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <div class="mono" style="padding:6px 10px; border:1px solid rgba(226,232,240,.9); border-radius:10px; background:rgba(15,23,42,.03);">R: ${r}</div>
+        <div class="mono" style="padding:6px 10px; border:1px solid rgba(226,232,240,.9); border-radius:10px; background:rgba(15,23,42,.03);">H: ${h}</div>
+        <div class="mono" style="padding:6px 10px; border:1px solid rgba(226,232,240,.9); border-radius:10px; background:rgba(15,23,42,.03);">E: ${e}</div>
+        <div class="mono" style="padding:6px 10px; border:1px solid rgba(226,232,240,.9); border-radius:10px; background:rgba(15,23,42,.03);">LOB: ${lob}</div>
+      </div>
+    </div>
+  `;
+}
+
+function __gc_handle_dueup_takeover(data){
+  const between = !!data?.betweenInnings;
+  const inn = data?.inning ?? "";
+  const state = (data?.inningState || "").toString();
+  const key = `${inn}|${state}|${between ? "1":"0"}`;
+
+  // When between innings starts: show sticky takeover
+  if(between){
+    if(key !== __gc_last_between_key){
+      __gc_last_between_key = key;
+
+      const due = (data?.dueUp || []);
+      const who = due.map(p => (p.shortName || fmtShortName(p.name))).filter(Boolean);
+      const dueHTML = who.length
+        ? `<div class="mono" style="font-size:13px;">${who.join(" • ")}</div>`
+        : `<div class="mono" style="opacity:.75;">—</div>`;
+
+      const sumHTML = __gc_render_inning_summary(data?.inningSummary);
+
+      __gc_show_takeover(
+        "Due Up",
+        "Next inning hitters",
+        `${dueHTML}${sumHTML}`,
+        null,          // null => sticky
+        "dueup"
+      );
+    }
+    return;
+  }
+
+  // When live play resumes: hide dueup takeover if it was sticky
+  if(!between && __gc_takeover_kind === "dueup"){
+    __gc_hide_takeover();
+  }
+}
   // ---- GameCast Takeover (Ball In Play / Due Up) ----
   let __gc_takeover_timer = null;
   let __gc_last_bip_id = null;
@@ -2238,6 +2294,7 @@ function renderPitchTable(tbody, pitches){
       const data = await res.json();
       console.log("[GameCast] payload:", data);
       updateHeroFromGamecast(data);
+      __gc_handle_dueup_takeover(data);
 
       if(!data || data.ok === false){
         const msg = data && data.reason ? data.reason : "No live data available";
