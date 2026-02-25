@@ -1901,13 +1901,13 @@ function __gc_handle_dueup_takeover(data){
     return { minX: 0, minY: 0, w: 250, h: 250 };
   }
 
-  function __gc_map_point(sx, sy, , scaleY){
-    const dx = (sx - __GC_PLATE.x) * scaleX;
-    const dy = (sy - __GC_PLATE.y) * scaleY;
-    const x = __gc_spray_vb.minX + (__GC_PLATE.x * scaleX) + (dx * __GC_EXTRA_SPREAD) + __GC_NUDGE_X;
-    const y = __gc_spray_vb.minY + (__GC_PLATE.y * scaleY) + (dy * __GC_EXTRA_SPREAD) + __GC_NUDGE_Y;
-    return { x, y };
-  }
+  function __gc_map_point(sx, sy, scaleX, scaleY){
+  const dx = (sx - __GC_PLATE.x) * scaleX;
+  const dy = (sy - __GC_PLATE.y) * scaleY;
+  const x = __gc_spray_vb.minX + (__GC_PLATE.x * scaleX) + (dx * __GC_EXTRA_SPREAD) + __GC_NUDGE_X;
+  const y = __gc_spray_vb.minY + (__GC_PLATE.y * scaleY) + (dy * __GC_EXTRA_SPREAD) + __GC_NUDGE_Y;
+  return { x, y };
+}
 
   async function __gc_load_overlay_once(){
     if(__gc_overlay_loaded) return;
@@ -2059,33 +2059,35 @@ async function __gc_show_bip_takeover(bip, endsInning){
   if(!pointsG) return;
   pointsG.innerHTML = "";
 
-  const sx = Number(bip.x);
+    const sx = Number(bip.x);
   const sy = Number(bip.y);
   if(!isFinite(sx) || !isFinite(sy)) return;
 
+  // Compute scale BEFORE calling __gc_map_point
+  const scaleX = __gc_spray_vb.w / __GC_BASE_W;
+  const scaleY = __gc_spray_vb.h / __GC_BASE_H;
+
   const pt = __gc_map_point(sx, sy, scaleX, scaleY);
-  // Map home plate to the same stadium coords so the trace starts correctly
-   const scaleX = __gc_spray_vb.w / __GC_BASE_W;
-   const scaleY = __gc_spray_vb.h / __GC_BASE_H;
-   const platePt = __gc_map_point(__GC_PLATE.x, __GC_PLATE.y, scaleX, scaleY);
-   
-   // Trace: ground = straight line, air = arc
-   const kind = (bip.kind === "ground") ? "ground" : "air";
-   
-   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-   path.classList.add("gc-bip-trace");
-   path.classList.add(kind);
-   
-   // For arc, lift the control point upward (smaller y) so it visually arcs
-   if(kind === "air"){
-     const cx = (platePt.x + pt.x) / 2;
-     const cy = Math.min(platePt.y, pt.y) - 55; // arc height (tweak if you want)
-     path.setAttribute("d", `M ${platePt.x.toFixed(2)} ${platePt.y.toFixed(2)} Q ${cx.toFixed(2)} ${cy.toFixed(2)} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`);
-   } else {
-     path.setAttribute("d", `M ${platePt.x.toFixed(2)} ${platePt.y.toFixed(2)} L ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`);
-   }
-   
-   pointsG.appendChild(path);
+  const platePt = __gc_map_point(__GC_PLATE.x, __GC_PLATE.y, scaleX, scaleY);
+
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.classList.add("gc-bip-trace", kind);
+
+  if(kind === "air"){
+    const cx = (platePt.x + pt.x) / 2;
+    const cy = Math.min(platePt.y, pt.y) - 55;
+    path.setAttribute(
+      "d",
+      `M ${platePt.x.toFixed(2)} ${platePt.y.toFixed(2)} Q ${cx.toFixed(2)} ${cy.toFixed(2)} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`
+    );
+  }else{
+    path.setAttribute(
+      "d",
+      `M ${platePt.x.toFixed(2)} ${platePt.y.toFixed(2)} L ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`
+    );
+  }
+
+  pointsG.appendChild(path);
   // --- Animated batted-ball: move from plate -> landing point ---
   const start = __gc_map_point(__GC_PLATE.x, __GC_PLATE.y, scaleX, scaleY);
 
