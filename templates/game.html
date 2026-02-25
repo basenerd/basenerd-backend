@@ -609,6 +609,8 @@
       {%- endif -%}
     {%- endfor -%}
     {{ prefix }}{{ p.val }}
+  {%- elif 'forceout' in s or 'forceout' in d -%}FORCE
+  {%- elif 'choice' in s or 'choice' in d -%}FC
   {%- else -%}
     {{ summary or '' }}
   {%- endif -%}
