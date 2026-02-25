@@ -2108,15 +2108,15 @@ async function __gc_show_bip_takeover(bip, endsInning){
 
   const d = `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} Q ${ctrlX.toFixed(2)} ${ctrlY.toFixed(2)} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`;
 
-  // Faint path (optional, helps readability for fly balls)
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", d);
-  path.setAttribute("fill", "none");
-  path.setAttribute("stroke", isFly ? "rgba(59,130,246,.28)" : "rgba(15,23,42,.16)");
-  path.setAttribute("stroke-width", isFly ? "2.2" : "1.6");
-  path.setAttribute("stroke-linecap", "round");
-  path.setAttribute("stroke-dasharray", isFly ? "5 6" : "3 6");
-  pointsG.appendChild(path);
+   // Faint path (optional, helps readability for fly balls)
+   const guidePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+   guidePath.setAttribute("d", d);
+   guidePath.setAttribute("fill", "none");
+   guidePath.setAttribute("stroke", isFly ? "rgba(59,130,246,.28)" : "rgba(15,23,42,.16)");
+   guidePath.setAttribute("stroke-width", isFly ? "2.2" : "1.6");
+   guidePath.setAttribute("stroke-linecap", "round");
+   guidePath.setAttribute("stroke-dasharray", isFly ? "5 6" : "3 6");
+   pointsG.appendChild(guidePath);
 
   // The moving ball
   const ball = document.createElementNS("http://www.w3.org/2000/svg", "circle");
