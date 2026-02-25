@@ -1495,7 +1495,8 @@ span.status-pill.status-other {
     min-width: 75px !important; 
     width: 75px !important;
     max-width: 75px !important;
-    overflow: visible !important;
-    text-overflow: clip !important;
-    display: table-cell !important;
+    white-space: nowrap !important; 
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    text-align: center;
 }
