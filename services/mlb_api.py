@@ -2795,12 +2795,14 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     status_pill = status or "Unknown"
     venue = _safe(game_data, "venue", "name", default=None)
     venue_id = _safe(game_data, "venue", "id", default=None)
+    day_night = _safe(game_data, "datetime", "dayNight", default="night").lower()
 
     game_obj = {
         "statusPill": status_pill,
         "when": _safe(game_data, "datetime", "dateTime", default=None),
         "venue": venue,
         "venue_id": venue_id,
+        "dayNight": day_night,
         "away": {
             "id": away_id,
             "name": away_team.get("name"),
