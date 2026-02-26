@@ -1002,7 +1002,13 @@
                       <div class="card-title">Zone</div>
                     </div>
                     <div style="padding:12px; display:flex; justify-content:center;">
-                      <svg id="gc-zone" class="strike-zone" width="220" height="260"></svg>
+                      <svg id="gc-zone" class="strike-zone" width="220" height="260" style="
+                          background-image: url('https://prod-gameday.mlbstatic.com/responsive-gameday-assets/1.3.0/images/stadiums/night/{{ game.venue_id | default(17) }}.jpg');
+                          background-size: cover;
+                          background-position: center;
+                          border-radius: 8px;
+                          border: 1px solid rgba(15,23,42,.2);
+                      "></svg>
                     </div>
                   </div>
       
