@@ -584,6 +584,16 @@
     {%- elif 'fly' in s or 'fli' in s or 'fly' in d or 'fli' in d -%}FDP
     {%- elif 'strikeout' in s or 'strikeout' in d -%}K-DP
     {%- else -%}GIDP{%- endif -%}
+   {%- elif 'error' in s or 'error' in d -%}
+    {%- set p = namespace(val='', idx=999) -%}
+    {%- set all_pos = {'pitcher': '1', 'catcher': '2', 'first baseman': '3', 'second baseman': '4', 'third baseman': '5', 'shortstop': '6', 'left fielder': '7', 'center fielder': '8', 'right fielder': '9'} -%}
+    {%- for name, num in all_pos.items() -%}
+      {%- set i = d.find(name) -%}
+      {%- if i != -1 and i < p.idx -%}
+        {%- set p.idx = i -%}{%- set p.val = num -%}
+      {%- endif -%}
+    {%- endfor -%}
+    E{{ p.val }}
   {%- elif 'flyout' in s or 'flyout' in d -%}
     {%- set p = namespace(val='O', idx=999) -%}
     {%- set outfields = {'left fielder': '7', 'center fielder': '8', 'right fielder': '9'} -%}
