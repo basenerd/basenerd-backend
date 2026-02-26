@@ -1008,21 +1008,38 @@
                        width: 220px; 
                        height: 260px;
                        background: 
-                           linear-gradient(to bottom, {{ sky_color }} 0%, {{ sky_color }} 25%, rgba(15,23,42,0) 65%),
-                           radial-gradient(ellipse 200px 75px at 50% 105%, #c29b74 40%, #96673d 65%, rgba(150,103,61,0) 70%),
-                           url('https://prod-gameday.mlbstatic.com/responsive-gameday-assets/1.3.0/images/stadiums/{{ game.dayNight | default("night") }}/17.jpg') center bottom / 650px no-repeat,
+                           linear-gradient(to bottom, {{ sky_color }} 0%, {{ sky_color }} 15%, rgba(15,23,42,0) 50%),
+                           url('https://prod-gameday.mlbstatic.com/responsive-gameday-assets/1.3.0/images/stadiums/{{ game.dayNight | default("night") }}/{{ game.venue_id | default(17) }}.jpg') center bottom / 650px no-repeat,
                            {{ sky_color }};
                        border-radius: 8px;
                        border: 1px solid rgba(15,23,42,.2);
                        overflow: hidden;
                    ">
                        <svg width="220" height="260" style="position: absolute; top: 0; left: 0; pointer-events: none;">
-                           <polygon points="75,234 145,234 145,240 110,248 70,240" 
+                           <defs>
+                               <radialGradient id="dirtGrad" cx="50%" cy="50%" r="50%">
+                               <stop offset="40%" stop-color="#b8865e"/>
+                               <stop offset="85%" stop-color="#936239"/>
+                               <stop offset="100%" stop-color="rgba(147,98,57,0)"/>
+                            </radialGradient>
+                           </defs>
+
+                           <ellipse cx="110" cy="245" rx="180" ry="60" fill="url(#dirtGrad)" opacity="0.95"/>
+
+                           <polygon points="45,205 75,205 60,250 10,250" 
+                              fill="none" 
+                              stroke="rgba(255,255,255,0.6)" 
+                              stroke-width="1.5"/>
+
+                           <polygon points="145,205 175,205 210,250 160,250" 
+                              fill="none" 
+                              stroke="rgba(255,255,255,0.6)" 
+                              stroke-width="1.5"/>
+
+                           <polygon points="85,220 135,220 135,225 110,235 85,225" 
                               fill="white" 
-                              stroke="rgba(15,23,42,0.8)" 
-                              stroke-width="1.5" 
-                              opacity="0.9">
-                           </polygon>
+                              stroke="rgba(0,0,0,0.3)" 
+                              stroke-width="1"/>
                        </svg>
 
                        <svg id="gc-zone" class="strike-zone" width="220" height="260" style="position: absolute; top: 0; left: 0;"></svg>
