@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import ssl
 import json
@@ -51,6 +52,8 @@ def build_engine():
 
     if db_url.startswith("postgresql://"):
         db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
+    elif db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+pg8000://", 1)
 
     ssl_context = ssl.create_default_context()
 
@@ -110,7 +113,6 @@ def main():
     total = 0
 
     with engine.begin() as conn:
-
         print("DB check:", conn.execute(text("SELECT 1")).scalar())
 
         while True:
