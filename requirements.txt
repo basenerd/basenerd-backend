@@ -5,3 +5,9 @@ Markdown
 PyYAML
 psycopg[binary]
 numpy
+joblib
+scikit-learn
+pandas
+numpy
+pg8000
+sqlalchemy
