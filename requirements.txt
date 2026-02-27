@@ -4,10 +4,9 @@ requests==2.32.3
 Markdown
 PyYAML
 psycopg[binary]
-numpy
+numpy==1.26.4
 joblib
-scikit-learn
+scikit-learn==1.3.2
 pandas
-numpy
 pg8000
 sqlalchemy
