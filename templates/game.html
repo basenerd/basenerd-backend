@@ -2728,11 +2728,11 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
       t.setAttribute("fill", "rgba(255,255,255,.95)");
       t.textContent = (p.n != null ? p.n : "");
 
-      let fill = "rgba(148,163,184,.75)";
-      if(p.isFoul) fill = "rgba(148,163,184,.75)";
-      else if(p.isInPlay) fill = "rgba(59,130,246,.75)";
-      else if(p.isBall) fill = "rgba(34,197,94,.75)";
-      else if(p.isStrike) fill = "rgba(239,68,68,.75)";
+      let fill = "rgba(148,163,184,1)";
+      if(p.isFoul) fill = "rgba(148,163,184,1)";
+      else if(p.isInPlay) fill = "rgba(59,130,246,1)";
+      else if(p.isBall) fill = "rgba(34,197,94,1)";
+      else if(p.isStrike) fill = "rgba(239,68,68,1)";
       c.setAttribute("fill", fill);
       c.setAttribute("stroke", "rgba(15,23,42,.25)");
       c.setAttribute("stroke-width", "0.5");
