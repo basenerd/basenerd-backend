@@ -49,23 +49,23 @@ def build_engine():
         raise RuntimeError("DATABASE_URL env var not set.")
 
     db_url = DATABASE_URL
-
     if db_url.startswith("postgresql://"):
         db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
     elif db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql+pg8000://", 1)
 
+    # ✅ SSL but do NOT verify cert (needed for Render/self-signed chains)
     ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
 
     engine = create_engine(
         db_url,
         connect_args={"ssl_context": ssl_context},
         pool_pre_ping=True,
     )
-
     print("DB driver:", engine.url.drivername)
     return engine
-
 
 def main():
     if not os.path.exists(MODEL_PATH):
