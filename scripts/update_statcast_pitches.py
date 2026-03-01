@@ -7,10 +7,11 @@ Nightly Statcast updater (Render cron friendly):
 - Generates pitch_id = md5(game_pk-at_bat_number-pitch_number)
 - Upserts into Postgres using ON CONFLICT (pitch_id) DO UPDATE
 - Auto-aligns DataFrame columns to the existing DB table columns
-- Coerces DataFrame values to match DB column types (fixes "12.0" into integer columns)
+- Coerces DataFrame values to match DB column types AND force-casts common Statcast integer columns
+  (fixes errors like: invalid input syntax for type integer: "12.0")
 
 Env vars:
-- DATABASE_URL (required)  e.g. Render Postgres URL
+- DATABASE_URL (required)
 - STATCAST_TABLE (optional, default "statcast_pitches")
 
 Usage:
@@ -23,13 +24,12 @@ Usage:
   Backfill:
     python -u scripts/update_statcast_pitches.py --mode backfill --start 2026-02-01 --end 2026-02-28
 
-Important:
-  Run the one-time DB migration first (pitch_id column + unique index):
-    ALTER TABLE statcast_pitches ADD COLUMN IF NOT EXISTS pitch_id text;
-    UPDATE statcast_pitches
-      SET pitch_id = md5(COALESCE(game_pk::text,'') || '-' || COALESCE(at_bat_number::text,'') || '-' || COALESCE(pitch_number::text,''))
-      WHERE pitch_id IS NULL;
-    CREATE UNIQUE INDEX IF NOT EXISTS statcast_pitches_pitch_id_uq ON statcast_pitches (pitch_id);
+DB migration (run once):
+  ALTER TABLE statcast_pitches ADD COLUMN IF NOT EXISTS pitch_id text;
+  UPDATE statcast_pitches
+    SET pitch_id = md5(COALESCE(game_pk::text,'') || '-' || COALESCE(at_bat_number::text,'') || '-' || COALESCE(pitch_number::text,''))
+    WHERE pitch_id IS NULL;
+  CREATE UNIQUE INDEX IF NOT EXISTS statcast_pitches_pitch_id_uq ON statcast_pitches (pitch_id);
 """
 
 import os
@@ -53,13 +53,53 @@ TZ = ZoneInfo("America/Phoenix")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 TABLE = os.environ.get("STATCAST_TABLE", "statcast_pitches")
 
+# Natural key columns needed to build pitch_id
 KEY_COLS = ["game_pk", "at_bat_number", "pitch_number"]
 
+# Regex: allow "-3", "12", "12.0", "12.00" as integer-ish
 _INTISH_RE = re.compile(r"^\s*-?\d+(\.0+)?\s*$")
 
-
-def phoenix_today() -> date:
-    return datetime.now(TZ).date()
+# These Statcast columns are *frequently* integers but arrive as floats due to NaNs in CSV.
+# Force-cast them to integers when present in your DB table, regardless of information_schema quirks.
+FORCE_INT_COLS = {
+    "zone",
+    "hit_location",
+    "balls",
+    "strikes",
+    "game_year",
+    "outs_when_up",
+    "inning",
+    "game_pk",
+    "at_bat_number",
+    "pitch_number",
+    "home_score",
+    "away_score",
+    "bat_score",
+    "fld_score",
+    "post_away_score",
+    "post_home_score",
+    "post_bat_score",
+    "post_fld_score",
+    "on_1b",
+    "on_2b",
+    "on_3b",
+    "launch_speed_angle",
+    "woba_denom",
+    "fielder_2",
+    "fielder_3",
+    "fielder_4",
+    "fielder_5",
+    "fielder_6",
+    "fielder_7",
+    "fielder_8",
+    "fielder_9",
+    "n_thruorder_pitcher",
+    "n_priorpa_thisgame_player_at_bat",
+    "pitcher_days_since_prev_game",
+    "batter_days_since_prev_game",
+    "pitcher_days_until_next_game",
+    "batter_days_until_next_game",
+}
 
 
 def phoenix_yesterday() -> date:
@@ -76,7 +116,6 @@ def build_engine():
     elif db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql+pg8000://", 1)
 
-    # Render Postgres SSL pattern
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
@@ -90,13 +129,12 @@ def build_engine():
 
 
 def make_pitch_id(game_pk, at_bat_number, pitch_number) -> str:
-    # stable deterministic ID
     s = f"{int(game_pk)}-{int(at_bat_number)}-{int(pitch_number)}"
     return hashlib.md5(s.encode("utf-8")).hexdigest()
 
 
 def safe_none(x):
-    """Convert pandas/numpy missing types to None; normalize numpy scalars."""
+    """Convert pandas/numpy missing values to None; normalize numpy scalars."""
     if x is None:
         return None
     try:
@@ -108,7 +146,6 @@ def safe_none(x):
     if isinstance(x, (np.integer,)):
         return int(x)
     if isinstance(x, (np.floating,)):
-        # floats are fine for float columns; int columns get coerced earlier
         return float(x)
     return x
 
@@ -141,37 +178,51 @@ def get_table_coltypes(conn, table_name: str) -> dict[str, str]:
     return {r[0]: r[1] for r in rows}
 
 
+def _coerce_series_to_int64_nullable(s: pd.Series) -> pd.Series:
+    """
+    Coerce a Series to pandas nullable Int64, accepting values like 12.0 / "12.0" / "12".
+    Non-integer-ish values become <NA>.
+    """
+    if s.dtype == "object":
+        s2 = s.where(~pd.isna(s), np.nan).astype(str)
+        s2 = s2.where(s2.str.match(_INTISH_RE), np.nan)
+        s = s2
+
+    s = pd.to_numeric(s, errors="coerce")
+    # Keep only whole numbers (avoid accidental truncation of true decimals)
+    # If value is 12.3 -> becomes NaN
+    whole_mask = s.isna() | (np.isclose(s, np.round(s), atol=1e-9))
+    s = s.where(whole_mask, np.nan)
+
+    return s.round(0).astype("Int64")
+
+
 def coerce_df_to_db_types(df: pd.DataFrame, coltypes: dict[str, str], cols: list[str]) -> pd.DataFrame:
     """
-    Coerce DataFrame columns to match DB types to avoid errors like:
-      invalid input syntax for type integer: "12.0"
+    Coerce DataFrame columns to match DB types + force-cast common Statcast integer columns.
     """
     df = df.copy()
 
-    int_cols = [c for c in cols if coltypes.get(c) in ("integer", "smallint", "bigint")]
+    # DB-driven integer cols
+    int_cols_db = [c for c in cols if coltypes.get(c) in ("integer", "smallint", "bigint")]
+
+    # Force integer cols if present in table
+    int_cols_forced = [c for c in cols if c in FORCE_INT_COLS]
+
+    int_cols = sorted(set(int_cols_db + int_cols_forced))
+
     float_cols = [c for c in cols if coltypes.get(c) in ("double precision", "real", "numeric", "decimal")]
     bool_cols = [c for c in cols if coltypes.get(c) == "boolean"]
 
-    # Integers: ensure values are true ints/NA
+    # Integers
     for c in int_cols:
         if c not in df.columns:
             continue
-        s = df[c]
+        df[c] = _coerce_series_to_int64_nullable(df[c])
 
-        # Clean object/string like "12.0"
-        if s.dtype == "object":
-            # keep NAs as NA
-            s2 = s.where(~pd.isna(s), np.nan).astype(str)
-            # allow "-3", "12", "12.0", "12.00"; else -> NaN
-            s2 = s2.where(s2.str.match(_INTISH_RE), np.nan)
-            s = s2
-
-        s = pd.to_numeric(s, errors="coerce")
-        df[c] = s.round(0).astype("Int64")  # nullable integer
-
-    # Floats/numerics
+    # Floats/numerics (avoid clobbering the forced int cols)
     for c in float_cols:
-        if c not in df.columns:
+        if c not in df.columns or c in int_cols:
             continue
         df[c] = pd.to_numeric(df[c], errors="coerce")
 
@@ -181,10 +232,13 @@ def coerce_df_to_db_types(df: pd.DataFrame, coltypes: dict[str, str], cols: list
             continue
 
         def _to_bool(v):
-            if v is None or (isinstance(v, float) and math.isnan(v)):
+            if v is None:
                 return None
-            if pd.isna(v):
-                return None
+            try:
+                if pd.isna(v):
+                    return None
+            except Exception:
+                pass
             s = str(v).strip().lower()
             if s in ("1", "true", "t", "yes", "y"):
                 return True
@@ -200,9 +254,9 @@ def coerce_df_to_db_types(df: pd.DataFrame, coltypes: dict[str, str], cols: list
 def fetch_statcast_details_csv(start_date: date, end_date: date, team: str | None = None) -> pd.DataFrame:
     """
     Fetch pitch-level Statcast from Baseball Savant "type=details" CSV.
-    Includes Spring Training by default via hfGT including S.
+    Includes Spring Training via hfGT including S.
 
-    Note: Savant query uses game_date_gt and game_date_lt (inclusive-ish). Using same date for both is fine.
+    Note: Savant uses game_date_gt/game_date_lt; using same date for both works for a single-day pull.
     """
     print(f"Fetching Savant (details CSV): {start_date} -> {end_date}", flush=True)
 
@@ -211,7 +265,7 @@ def fetch_statcast_details_csv(start_date: date, end_date: date, team: str | Non
         "/statcast_search/csv"
         "?all=true"
         "&hfPT=&hfAB=&hfBBT=&hfPR=&hfZ=&stadium=&hfBBL=&hfNewZones="
-        "&hfGT=R%7CPO%7CS%7C="  # Regular, Postseason, Spring Training (and others if present)
+        "&hfGT=R%7CPO%7CS%7C="
         "&hfSea=&hfSit="
         "&player_type=pitcher"
         "&hfOuts=&opponent=&pitcher_throws=&batter_stands=&hfSA="
@@ -230,7 +284,6 @@ def fetch_statcast_details_csv(start_date: date, end_date: date, team: str | Non
     r = requests.get(url, timeout=180)
     r.raise_for_status()
 
-    # If rate-limited or blocked, Savant sometimes returns HTML
     if r.text.lstrip().startswith("<"):
         raise RuntimeError("Savant returned HTML instead of CSV (rate limit / block). Try again later.")
 
@@ -238,14 +291,12 @@ def fetch_statcast_details_csv(start_date: date, end_date: date, team: str | Non
     if not isinstance(df, pd.DataFrame):
         return pd.DataFrame()
 
-    # Normalize column names a bit (sometimes odd whitespace)
     df.columns = [c.strip() for c in df.columns]
 
-    # Helpful debug
     print(f"Fetched rows: {len(df):,}", flush=True)
     if len(df) > 0:
-        sample_cols = list(df.columns)
-        print("Columns sample:", sample_cols[:25], ("..." if len(sample_cols) > 25 else ""), flush=True)
+        cols = list(df.columns)
+        print("Columns sample:", cols[:25], ("..." if len(cols) > 25 else ""), flush=True)
 
     return df
 
@@ -255,34 +306,40 @@ def upsert_df(conn, df: pd.DataFrame, table_name: str, chunk_size: int = 5000) -
         print("No rows fetched.", flush=True)
         return 0
 
-    # Required natural key columns
     missing = [c for c in KEY_COLS if c not in df.columns]
     if missing:
         print("DF columns were:", df.columns.tolist(), flush=True)
         raise RuntimeError(f"Statcast df missing required key columns: {missing}")
 
-    # Generate pitch_id
     df = df.copy()
     df["pitch_id"] = df.apply(
         lambda r: make_pitch_id(r["game_pk"], r["at_bat_number"], r["pitch_number"]),
         axis=1,
     )
 
-    # Intersect with DB table columns
     table_cols = get_table_columns(conn, table_name)
     keep_cols = [c for c in df.columns if c in table_cols]
 
     if "pitch_id" not in keep_cols:
         raise RuntimeError("pitch_id not found in DB table columns. Run the ALTER TABLE step first.")
 
-    # Pull DB column types + coerce
     coltypes = get_table_coltypes(conn, table_name)
+
     df2 = df[keep_cols].copy()
     df2 = coerce_df_to_db_types(df2, coltypes, keep_cols)
 
-    # Convert NaN/<NA> to None for SQL
+    # Convert NA -> None and normalize numpy scalars
     for c in df2.columns:
         df2[c] = df2[c].map(safe_none)
+
+    # Quick guard: if any forced int cols still look like floats with .0, print and fail fast
+    # (this catches the exact 'zone=12.0' case before Postgres throws)
+    for c in (set(FORCE_INT_COLS) & set(keep_cols)):
+        # if values are python float, they will stringify with "."
+        bad = df2[c].apply(lambda v: isinstance(v, float) and (not math.isnan(v)))
+        if bad.any():
+            ex = df2.loc[bad, c].head(5).tolist()
+            raise RuntimeError(f"Column '{c}' still has float values after coercion (examples: {ex}).")
 
     cols_sql = ", ".join([f'"{c}"' for c in keep_cols])
     vals_sql = ", ".join([f":{c}" for c in keep_cols])
@@ -297,15 +354,15 @@ def upsert_df(conn, df: pd.DataFrame, table_name: str, chunk_size: int = 5000) -
         DO UPDATE SET {set_sql}
     """)
 
-    total = 0
     records = df2.to_dict(orient="records")
+    total = 0
 
-    # Chunked executemany for speed and to keep memory reasonable
     for i in range(0, len(records), chunk_size):
         chunk = records[i : i + chunk_size]
         conn.execute(upsert_sql, chunk)
         total += len(chunk)
-        print(f"Upsert progress: {total:,}/{len(records):,}", flush=True)
+        if total % (chunk_size * 5) == 0 or total == len(records):
+            print(f"Upsert progress: {total:,}/{len(records):,}", flush=True)
 
     print(f"Upserted rows: {total:,}", flush=True)
     return total
@@ -330,7 +387,6 @@ def main():
     engine = build_engine()
 
     if args.mode == "daily":
-        # Rolling window ending yesterday (Phoenix time)
         end_d = phoenix_yesterday()
         start_d = end_d - timedelta(days=max(args.days, 1) - 1)
     else:
