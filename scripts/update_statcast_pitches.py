@@ -11,7 +11,8 @@ import requests
 from io import StringIO
 import pandas as pd
 from sqlalchemy import create_engine, text
-
+import requests
+from io import StringIO
 from pybaseball import statcast  # pip install pybaseball
 
 TZ = ZoneInfo("America/Phoenix")
@@ -75,81 +76,46 @@ def get_table_columns(conn, table_name: str) -> set[str]:
     return {r[0] for r in rows}
 
 
-def fetch_statcast(start_date: date, end_date: date, game_type: str | None = None) -> pd.DataFrame:
+def fetch_statcast(start_date: date, end_date: date, team: str | None = None) -> pd.DataFrame:
     """
-    Fetch pitch-level Statcast from Baseball Savant CSV.
-    This bypasses pybaseball's 'Skipping offseason dates' behavior. :contentReference[oaicite:3]{index=3}
-    game_type: 'S' for Spring Training, 'R' for Regular Season, etc. :contentReference[oaicite:4]{index=4}
+    Pull pitch-level Statcast from Savant using the same query template pybaseball uses
+    (includes type=details and returns game_pk/at_bat_number/pitch_number). :contentReference[oaicite:2]{index=2}
+    This bypasses pybaseball's date-range generator that can skip "offseason" dates.
     """
-    print(f"Fetching Savant CSV: {start_date} -> {end_date}" + (f" (game_type={game_type})" if game_type else ""))
+    print(f"Fetching Savant (details CSV): {start_date} -> {end_date}", flush=True)
 
-    url = "https://baseballsavant.mlb.com/statcast_search/csv"
-    params = {
-        "all": "true",
-        "hfPT": "",
-        "hfAB": "",
-        "hfBBT": "",
-        "hfPR": "",
-        "hfZ": "",
-        "stadium": "",
-        "hfBBL": "",
-        "hfNewZones": "",
-        "hfGT": game_type or "",          # <-- THIS is where game_type goes
-        "hfC": "",
-        "hfSea": "",
-        "hfSit": "",
-        "player_type": "pitcher",
-        "hfOuts": "",
-        "opponent": "",
-        "pitcher_throws": "",
-        "batter_stands": "",
-        "hfSA": "",
-        "game_date_gt": str(start_date),
-        "game_date_lt": str(end_date),
-        "hfInfield": "",
-        "team": "",
-        "position": "",
-        "hfOutfield": "",
-        "hfRO": "",
-        "home_road": "",
-        "hfFlag": "",
-        "metric_1": "",
-        "metric_1_gt": "",
-        "metric_1_lt": "",
-        "metric_2": "",
-        "metric_2_gt": "",
-        "metric_2_lt": "",
-        "group_by": "name",
-        "min_pitches": "0",
-        "min_results": "0",
-        "min_pas": "0",
-        "sort_col": "pitches",
-        "player_event_sort": "h_launch_speed",
-        "sort_order": "desc",
-        "chk_stats_abs": "on",
-        "chk_stats_bip": "on",
-        "chk_stats_csw": "on",
-        "chk_stats_launch_speed": "on",
-        "chk_stats_launch_angle": "on",
-        "chk_stats_hit_distance_sc": "on",
-        "chk_stats_ba": "on",
-        "chk_stats_slg": "on",
-        "chk_stats_woba": "on",
-        "chk_stats_xba": "on",
-        "chk_stats_xslg": "on",
-        "chk_stats_xwoba": "on",
-        "chk_stats_swing_miss": "on",
-        "chk_stats_exit_velocity": "on",
-    }
+    # This is essentially pybaseball's _SC_SMALL_REQUEST with the base URL added. :contentReference[oaicite:3]{index=3}
+    base = "https://baseballsavant.mlb.com"
+    path = (
+        "/statcast_search/csv"
+        "?all=true"
+        "&hfPT=&hfAB=&hfBBT=&hfPR=&hfZ=&stadium=&hfBBL=&hfNewZones="
+        "&hfGT=R%7CPO%7CS%7C="   # includes Spring Training (S) :contentReference[oaicite:4]{index=4}
+        "&hfSea=&hfSit="
+        "&player_type=pitcher"
+        "&hfOuts=&opponent=&pitcher_throws=&batter_stands=&hfSA="
+        f"&game_date_gt={start_date}"
+        f"&game_date_lt={end_date}"
+        f"&team={(team or '')}"
+        "&position=&hfRO=&home_road=&hfFlag=&metric_1=&hfInn="
+        "&min_pitches=0&min_results=0"
+        "&group_by=name"
+        "&sort_col=pitches&player_event_sort=h_launch_speed&sort_order=desc"
+        "&min_abs=0"
+        "&type=details&"
+    )
+    url = base + path
 
-    r = requests.get(url, params=params, timeout=120)
+    r = requests.get(url, timeout=120)
     r.raise_for_status()
 
-    # Savant sometimes returns an HTML page if rate-limited; quick guard:
+    # Guard: if Savant returns HTML (rare: rate limit), fail loudly
     if r.text.lstrip().startswith("<"):
-        raise RuntimeError("Savant returned HTML instead of CSV (rate limit / block). Try again later or add retry/backoff.")
+        raise RuntimeError("Savant returned HTML instead of CSV (rate limit / block). Re-run later.")
 
     df = pd.read_csv(StringIO(r.text))
+    print("Columns:", list(df.columns)[:25], "...", flush=True)
+
     return df if isinstance(df, pd.DataFrame) else pd.DataFrame()
 
 
