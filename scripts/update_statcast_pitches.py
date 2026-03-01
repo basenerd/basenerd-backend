@@ -53,14 +53,11 @@ TZ = ZoneInfo("America/Phoenix")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 TABLE = os.environ.get("STATCAST_TABLE", "statcast_pitches")
 
-# Natural key columns needed to build pitch_id
 KEY_COLS = ["game_pk", "at_bat_number", "pitch_number"]
 
-# Regex: allow "-3", "12", "12.0", "12.00" as integer-ish
 _INTISH_RE = re.compile(r"^\s*-?\d+(\.0+)?\s*$")
 
-# These Statcast columns are *frequently* integers but arrive as floats due to NaNs in CSV.
-# Force-cast them to integers when present in your DB table, regardless of information_schema quirks.
+# Common Statcast integer-ish columns that often arrive as floats due to NaNs in CSV
 FORCE_INT_COLS = {
     "zone",
     "hit_location",
@@ -189,8 +186,8 @@ def _coerce_series_to_int64_nullable(s: pd.Series) -> pd.Series:
         s = s2
 
     s = pd.to_numeric(s, errors="coerce")
-    # Keep only whole numbers (avoid accidental truncation of true decimals)
-    # If value is 12.3 -> becomes NaN
+
+    # Keep only whole numbers; decimals become NA
     whole_mask = s.isna() | (np.isclose(s, np.round(s), atol=1e-9))
     s = s.where(whole_mask, np.nan)
 
@@ -203,30 +200,21 @@ def coerce_df_to_db_types(df: pd.DataFrame, coltypes: dict[str, str], cols: list
     """
     df = df.copy()
 
-    # DB-driven integer cols
     int_cols_db = [c for c in cols if coltypes.get(c) in ("integer", "smallint", "bigint")]
-
-    # Force integer cols if present in table
     int_cols_forced = [c for c in cols if c in FORCE_INT_COLS]
-
     int_cols = sorted(set(int_cols_db + int_cols_forced))
 
     float_cols = [c for c in cols if coltypes.get(c) in ("double precision", "real", "numeric", "decimal")]
     bool_cols = [c for c in cols if coltypes.get(c) == "boolean"]
 
-    # Integers
     for c in int_cols:
-        if c not in df.columns:
-            continue
-        df[c] = _coerce_series_to_int64_nullable(df[c])
+        if c in df.columns:
+            df[c] = _coerce_series_to_int64_nullable(df[c])
 
-    # Floats/numerics (avoid clobbering the forced int cols)
     for c in float_cols:
-        if c not in df.columns or c in int_cols:
-            continue
-        df[c] = pd.to_numeric(df[c], errors="coerce")
+        if c in df.columns and c not in int_cols:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
 
-    # Booleans
     for c in bool_cols:
         if c not in df.columns:
             continue
@@ -255,8 +243,6 @@ def fetch_statcast_details_csv(start_date: date, end_date: date, team: str | Non
     """
     Fetch pitch-level Statcast from Baseball Savant "type=details" CSV.
     Includes Spring Training via hfGT including S.
-
-    Note: Savant uses game_date_gt/game_date_lt; using same date for both works for a single-day pull.
     """
     print(f"Fetching Savant (details CSV): {start_date} -> {end_date}", flush=True)
 
@@ -332,14 +318,38 @@ def upsert_df(conn, df: pd.DataFrame, table_name: str, chunk_size: int = 5000) -
     for c in df2.columns:
         df2[c] = df2[c].map(safe_none)
 
-    # Quick guard: if any forced int cols still look like floats with .0, print and fail fast
-    # (this catches the exact 'zone=12.0' case before Postgres throws)
+    # FINAL SAFETY: force-int columns should be Python int/None at bind time.
+    # This converts any remaining 2.0/3.0 floats into ints, while leaving NaN as None.
     for c in (set(FORCE_INT_COLS) & set(keep_cols)):
-        # if values are python float, they will stringify with "."
-        bad = df2[c].apply(lambda v: isinstance(v, float) and (not math.isnan(v)))
-        if bad.any():
-            ex = df2.loc[bad, c].head(5).tolist()
-            raise RuntimeError(f"Column '{c}' still has float values after coercion (examples: {ex}).")
+        def _fix_int(v):
+            if v is None:
+                return None
+            try:
+                if pd.isna(v):
+                    return None
+            except Exception:
+                pass
+            # If it's already int-like, cast
+            try:
+                # handles "12.0" strings too
+                if isinstance(v, str):
+                    vv = v.strip()
+                    if _INTISH_RE.match(vv):
+                        return int(float(vv))
+                    return None
+                if isinstance(v, float):
+                    if math.isnan(v):
+                        return None
+                    return int(round(v))
+                if isinstance(v, (np.floating,)):
+                    return int(round(float(v)))
+                if isinstance(v, (np.integer, int)):
+                    return int(v)
+            except Exception:
+                return None
+            return None
+
+        df2[c] = df2[c].map(_fix_int)
 
     cols_sql = ", ".join([f'"{c}"' for c in keep_cols])
     vals_sql = ", ".join([f":{c}" for c in keep_cols])
@@ -381,7 +391,6 @@ def parse_args():
 
 def main():
     args = parse_args()
-
     print("Python:", sys.version, flush=True)
 
     engine = build_engine()
