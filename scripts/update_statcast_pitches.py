@@ -7,8 +7,7 @@ Nightly Statcast updater (Render cron friendly):
 - Generates pitch_id = md5(game_pk-at_bat_number-pitch_number)
 - Upserts into Postgres using ON CONFLICT (pitch_id) DO UPDATE
 - Auto-aligns DataFrame columns to the existing DB table columns
-- Coerces DataFrame values to match DB column types AND force-casts common Statcast integer columns
-  (fixes errors like: invalid input syntax for type integer: "12.0")
+- Strong final coercion for integer-ish columns to ensure Postgres never receives "12.0" for INT columns.
 
 Env vars:
 - DATABASE_URL (required)
@@ -53,11 +52,13 @@ TZ = ZoneInfo("America/Phoenix")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 TABLE = os.environ.get("STATCAST_TABLE", "statcast_pitches")
 
+# Natural key columns needed to build pitch_id
 KEY_COLS = ["game_pk", "at_bat_number", "pitch_number"]
 
+# Regex: allow "-3", "12", "12.0", "12.00" as integer-ish
 _INTISH_RE = re.compile(r"^\s*-?\d+(\.0+)?\s*$")
 
-# Common Statcast integer-ish columns that often arrive as floats due to NaNs in CSV
+# Common Statcast integer-ish columns that often arrive as floats/strings due to NaNs in CSV
 FORCE_INT_COLS = {
     "zone",
     "hit_location",
@@ -318,38 +319,18 @@ def upsert_df(conn, df: pd.DataFrame, table_name: str, chunk_size: int = 5000) -
     for c in df2.columns:
         df2[c] = df2[c].map(safe_none)
 
-    # FINAL SAFETY: force-int columns should be Python int/None at bind time.
-    # This converts any remaining 2.0/3.0 floats into ints, while leaving NaN as None.
+    # FINAL SAFETY (strong): force-int columns must be Python int/None at bind time.
+    # This is what prevents Postgres from ever seeing "12.0" for INT columns like zone.
     for c in (set(FORCE_INT_COLS) & set(keep_cols)):
-        def _fix_int(v):
-            if v is None:
-                return None
-            try:
-                if pd.isna(v):
-                    return None
-            except Exception:
-                pass
-            # If it's already int-like, cast
-            try:
-                # handles "12.0" strings too
-                if isinstance(v, str):
-                    vv = v.strip()
-                    if _INTISH_RE.match(vv):
-                        return int(float(vv))
-                    return None
-                if isinstance(v, float):
-                    if math.isnan(v):
-                        return None
-                    return int(round(v))
-                if isinstance(v, (np.floating,)):
-                    return int(round(float(v)))
-                if isinstance(v, (np.integer, int)):
-                    return int(v)
-            except Exception:
-                return None
-            return None
+        # to_numeric handles strings like "12.0" and floats like 12.0; errors become NaN
+        s = pd.to_numeric(df2[c], errors="coerce")
+        df2[c] = s.map(lambda v: None if pd.isna(v) else int(v))
 
-        df2[c] = df2[c].map(_fix_int)
+    # Debug zone until first successful run (leave this in for now)
+    if "zone" in df2.columns:
+        zone_vals = df2["zone"].dropna().head(12).tolist()
+        zone_types = df2["zone"].dropna().map(type).head(5).tolist()
+        print("zone sample:", zone_vals, "types:", zone_types, flush=True)
 
     cols_sql = ", ".join([f'"{c}"' for c in keep_cols])
     vals_sql = ", ".join([f":{c}" for c in keep_cols])
