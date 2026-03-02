@@ -13,8 +13,6 @@
     <meta charset="utf-8" />
     <meta name="google-site-verification" content="WZZuhx-DdsAENHPsIaG2A4P-v1Hvl-zN8bhtRjciyww" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Basenerd: A modern, stats-first MLB hub featuring live scores, standings, player profiles, and deep baseball analytics.">
-    <meta name="keywords" content="baseball, MLB, stats, sabermetrics, standings, active players, MLB scores, basenerd">
     <title>{{ title or "Basenerd" }}</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,12 +20,8 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='basenerd-favicon.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='basenerd-favicon.png') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='basenerd-favicon.png') }}">
 
-    {# ============================================================
-       Global nav active state helper (optional)
-       ============================================================ #}
     <script>
       // Add "active" class to nav item matching current path
       document.addEventListener("DOMContentLoaded", () => {
@@ -48,73 +42,69 @@
 
       <!-- Sidebar -->
       <aside class="sidebar" id="sidebar">
-        <div class="brand">
-          <a class="brand-link" href="/">
-            <img class="brand-logo" src="{{ url_for('static', filename='basenerd-logo.png') }}" alt="Basenerd">
-          </a>
-        </div>
+        <div class="sidebar-inner">
+          <div class="brand">
+            <a class="brand-link" href="/">
+              <img class="brand-logo" src="{{ url_for('static', filename='basenerd-logo.png') }}" alt="Basenerd">
+            </a>
+          </div>
 
-        <nav class="nav">
-          <a href="/" class="{% if active_page == 'home' %}active{% endif %}">
-            <span class="nav-ico">🏠</span> Home
-          </a>
-          <a href="/games" class="{% if active_page == 'games' %}active{% endif %}">
-            <span class="nav-ico">📅</span> Games
-          </a>
-          <a href="/standings" class="{% if active_page == 'standings' %}active{% endif %}">
-            <span class="nav-ico">📊</span> Standings
-          </a>
-          <a href="/teams" class="{% if active_page == 'teams' %}active{% endif %}">
-            <span class="nav-ico">🧢</span> Teams
-          </a>
-          <a href="/players" class="{% if active_page == 'players' %}active{% endif %}">
-            <span class="nav-ico">👤</span> Players
-          </a>
-          <a href="/stats" class="{% if active_page == 'stats' %}active{% endif %}">
-            <span class="nav-ico">📈</span> Stats
-          </a>
-          <a href="/random-player" class="{% if active_page == 'random' %}active{% endif %}">
-            <span class="nav-ico">🎲</span> Random
-          </a>
-          <a href="/about" class="{% if active_page == 'about' %}active{% endif %}">
-            <span class="nav-ico">ℹ️</span> About
-          </a>
-        </nav>
+          <nav class="nav">
+            <a href="/" class="{% if request.path == '/' %}active{% endif %}">
+              Home
+            </a>
+            <a href="/games" class="{% if request.path.startswith('/games') %}active{% endif %}">
+              Games
+            </a>
+            <a href="/standings" class="{% if request.path.startswith('/standings') %}active{% endif %}">
+              Standings
+            </a>
+            <a href="/players" class="{% if request.path.startswith('/players') %}active{% endif %}">
+              Players
+            </a>
+            <a href="/teams" class="{% if request.path.startswith('/teams') %}active{% endif %}">
+              Teams
+            </a>
+            <a href="/stats" class="{% if request.path.startswith('/stats') %}active{% endif %}">
+              Stats
+            </a>
+            <a href="/random-player" class="{% if request.path.startswith('/random-player') %}active{% endif %}">
+              Random Player
+            </a>
+            <a href="/about" class="{% if request.path.startswith('/about') %}active{% endif %}">
+              About
+            </a>
+          </nav>
 
-        <div class="sidebar-foot">
-          <div class="muted mono" style="font-size:12px;">Basenerd</div>
-          <div class="muted" style="font-size:12px;">Stats-first MLB hub</div>
+          <div class="sidebar-footer">
+            <span class="muted">Basenerd • v0.1</span>
+          </div>
         </div>
       </aside>
 
       <!-- Main -->
       <main class="main">
-        <!-- Topbar -->
-        <header class="topbar">
-          <button class="icon-btn mobile-only" id="navToggle" aria-label="Toggle menu">☰</button>
-          <div class="topbar-title">
-            <div class="topbar-h1">{{ title or "Basenerd" }}</div>
-            {% if subtitle %}
-              <div class="topbar-sub">{{ subtitle }}</div>
-            {% endif %}
+        <div class="main-inner">
+          <!-- Global site banner -->
+          <div class="site-banner-wrap">
+            <img src="{{ url_for('static', filename='basenerd-banner (2).png') }}" 
+              alt="Basenerd Banner"
+             class="site-banner">
           </div>
 
-          <div class="topbar-right">
-            {% if countdown_title and countdown_time_iso %}
-              <div class="odc">
-                <div class="odc-title">{{ countdown_title }}</div>
-                <div class="odc-sub mono" id="odc-countdown" data-target="{{ countdown_time_iso }}">—</div>
+          <!-- Opening Day countdown (HOME ONLY) -->
+          {% if request.path == "/" %}
+            <div id="openingDayCountdown" class="opening-day-countdown">
+              <div class="odc-label">Countdown to Opening Day</div>
+              <div class="odc-time">
+                <span><b id="odcDays">--</b> days</span>
+                <span><b id="odcHours">--</b> hours</span>
+                <span><b id="odcMins">--</b> min</span>
+                <span><b id="odcSecs">--</b> sec</span>
               </div>
-            {% elif opening_day_label %}
-              <div class="odc">
-                <div class="odc-title">Opening Day</div>
-                <div class="odc-sub">First pitch: March 25, 8:05 PM ET</div>
-              </div>
-            {% endif %}
-          </div>
-        </header>
-
-        <div class="page">
+              <div class="odc-sub">First pitch: March 25, 8:05 PM ET</div>
+            </div>
+          {% endif %}
 
           <div class="container">
 
@@ -221,29 +211,32 @@
         });
       })();
 
-      // Opening day / countdown widget
-      (function () {
-        const el = document.getElementById("odc-countdown");
-        if (!el) return;
-        const target = el.getAttribute("data-target");
-        if (!target) return;
+      // Opening day countdown
+      (function(){
+        const wrap = document.getElementById("openingDayCountdown");
+        if(!wrap) return;
 
-        function fmt(ms) {
-          const s = Math.max(0, Math.floor(ms / 1000));
-          const d = Math.floor(s / 86400);
-          const h = Math.floor((s % 86400) / 3600);
-          const m = Math.floor((s % 3600) / 60);
-          const ss = s % 60;
-          if (d > 0) return `${d}d ${h}h ${m}m`;
-          if (h > 0) return `${h}h ${m}m ${ss}s`;
-          return `${m}m ${ss}s`;
-        }
+        // March 25, 8:05 PM ET -> convert to UTC-ish by using ISO with offset
+        const target = new Date("2026-03-25T20:05:00-04:00").getTime();
 
-        function tick() {
-          const t = new Date(target).getTime();
+        const dEl = document.getElementById("odcDays");
+        const hEl = document.getElementById("odcHours");
+        const mEl = document.getElementById("odcMins");
+        const sEl = document.getElementById("odcSecs");
+
+        function tick(){
           const now = Date.now();
-          const diff = t - now;
-          el.textContent = diff > 0 ? fmt(diff) : "Today";
+          let diff = Math.max(0, target - now);
+          const s = Math.floor(diff / 1000);
+          const days = Math.floor(s / 86400);
+          const hrs = Math.floor((s % 86400) / 3600);
+          const mins = Math.floor((s % 3600) / 60);
+          const secs = s % 60;
+
+          if(dEl) dEl.textContent = String(days);
+          if(hEl) hEl.textContent = String(hrs);
+          if(mEl) mEl.textContent = String(mins);
+          if(sEl) sEl.textContent = String(secs);
         }
 
         tick();
