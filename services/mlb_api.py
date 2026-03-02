@@ -10,9 +10,129 @@ from typing import Any, Dict, Optional, List, Tuple
 import unicodedata
 import difflib
 import requests
+import joblib
+import numpy as np
+import pandas as pd
 
 BASE = "https://statsapi.mlb.com/api/v1"
 MLB_API_BASE = BASE  # for older helpers that reference MLB_API_BASE
+
+# ----------------------------
+# xBA / xSLG models (contact)
+# ----------------------------
+_X_MODELS: Dict[str, Any] | None = None
+
+def _resolve_model_path(filename: str) -> Optional[str]:
+    """Find a model artifact in a few reasonable places."""
+    # 1) explicit env vars (optional)
+    env_key = {
+        "xba_model.joblib": "XBA_MODEL_PATH",
+        "xslg_model.joblib": "XSLG_MODEL_PATH",
+        "x_model_meta.json": "X_MODEL_META_PATH",
+    }.get(filename)
+    if env_key and os.environ.get(env_key):
+        p = os.environ.get(env_key)
+        return p if p and os.path.exists(p) else None
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.abspath(os.path.join(here, os.pardir))
+
+    candidates = [
+        os.path.join(repo_root, "models", filename),
+        os.path.join(repo_root, filename),
+        os.path.join(here, "models", filename),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return None
+
+def _load_x_models() -> Dict[str, Any] | None:
+    global _X_MODELS
+    if _X_MODELS is not None:
+        return _X_MODELS
+
+    try:
+        xba_path = _resolve_model_path("xba_model.joblib")
+        xslg_path = _resolve_model_path("xslg_model.joblib")
+        meta_path = _resolve_model_path("x_model_meta.json")
+
+        if not xba_path or not xslg_path:
+            _X_MODELS = None
+            return None
+
+        xba_model = joblib.load(xba_path)
+        xslg_model = joblib.load(xslg_path)
+
+        meta = None
+        if meta_path:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+
+        _X_MODELS = {"xba": xba_model, "xslg": xslg_model, "meta": meta}
+        return _X_MODELS
+    except Exception as e:
+        print(f"[x_models] load failed: {e}")
+        _X_MODELS = None
+        return None
+
+def predict_xba_xslg(
+    launch_speed: Optional[float],
+    launch_angle: Optional[float],
+    spray_angle: Optional[float],
+    stand: Optional[str],
+    p_throws: Optional[str],
+) -> tuple[Optional[float], Optional[float]]:
+    """Return (xBA, xSLG) for a single batted ball.
+
+    - xBA is clamped to [0, 1]
+    - xSLG is clamped to [0, 4]
+    """
+    models = _load_x_models()
+    if not models:
+        return None, None
+
+    if launch_speed is None or launch_angle is None or spray_angle is None:
+        return None, None
+    if not stand or not p_throws:
+        return None, None
+
+    stand = str(stand).upper().strip()
+    p_throws = str(p_throws).upper().strip()
+
+    try:
+        X = pd.DataFrame([{
+            "launch_speed": float(launch_speed),
+            "launch_angle": float(launch_angle),
+            "spray_angle": float(spray_angle),
+            "stand": stand,
+            "p_throws": p_throws,
+        }])
+
+        xba_model = models["xba"]
+        if hasattr(xba_model, "predict_proba"):
+            xba = float(xba_model.predict_proba(X)[:, 1][0])
+        else:
+            xba = float(xba_model.predict(X)[0])
+
+        xslg = float(models["xslg"].predict(X)[0])
+
+        # sanity clamps
+        if np.isfinite(xba):
+            xba = max(0.0, min(1.0, xba))
+        else:
+            xba = None
+
+        if np.isfinite(xslg):
+            xslg = max(0.0, min(4.0, xslg))
+        else:
+            xslg = None
+
+        return xba, xslg
+    except Exception as e:
+        print(f"[x_models] predict failed: {e}")
+        return None, None
+
 
 # ----------------------------
 # Simple in-memory cache
@@ -3278,6 +3398,15 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             if xba is None:
                 xba = _safe_float(hit.get("estimatedBattingAverage"), default=None)
 
+            # model inputs (best-effort from matchup)
+            matchup_p = p.get("matchup") or {}
+            stand = ((matchup_p.get("batSide") or {}).get("code") or (matchup_p.get("batSide") or {}).get("description") or None)
+            p_throws = ((matchup_p.get("pitchHand") or {}).get("code") or (matchup_p.get("pitchHand") or {}).get("description") or None)
+
+            model_xba, model_xslg = predict_xba_xslg(evv, la, spray, stand, p_throws)
+            if model_xba is not None:
+                xba = model_xba
+
             coords = hit.get("coordinates") if isinstance(hit.get("coordinates"), dict) else {}
             coord_x = _safe_float(coords.get("coordX"), default=None)
             coord_y = _safe_float(coords.get("coordY"), default=None)
@@ -3287,6 +3416,7 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                 "launchAngle": la,
                 "sprayAngle": spray,
                 "xBA": xba,
+                "xSLG": model_xslg,
                 "distance": _safe_float(hit.get("totalDistance"), default=None),
                 "evStyle": _grad_style(evv, 88.0, span=12.0),
                 "evFire": (evv is not None and evv >= 100.0),
