@@ -1,0 +1,11 @@
+{
+  "features": [
+    "launch_speed",
+    "launch_angle",
+    "spray_angle",
+    "stand",
+    "p_throws"
+  ],
+  "trained_on": "2021-2025",
+  "rows": 648787
+}
