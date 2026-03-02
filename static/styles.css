@@ -155,7 +155,19 @@ header.site-header .title{ margin:0; font-size:17px; letter-spacing:.2px; font-w
   flex-direction:column;
   gap:4px;
 }
-
+.badge-f{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:18px;
+  height:18px;
+  border-radius:6px;
+  font-weight:900;
+  font-size:11px;
+  border:1px solid rgba(15,23,42,.22);
+  background: rgba(15,23,42,.08);
+  color: rgba(15,23,42,.95);
+}
 .ticker-bot{
   display:flex;
   align-items:center;
