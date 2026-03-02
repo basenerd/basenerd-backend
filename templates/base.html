@@ -192,8 +192,62 @@
           {% endif %}
 
           <div class="container">
-            {% block content %}{% endblock %}
 
+            {# -----------------------------
+               Global ticker: today's games (ALL games: scheduled + live + final)
+               ----------------------------- #}
+            {% if ticker_games %}
+              <div class="card" style="margin-top:14px;">
+                <div class="card-header" style="align-items:center;">
+                  <div>
+                    <div class="card-title">Today's Games</div>
+                    <div class="card-subtitle">Tap a game to open the game page{% if ticker_date %} • {{ ticker_date }}{% endif %}</div>
+                  </div>
+                  <a class="btn" href="/games" style="height:32px; display:inline-flex; align-items:center;">All Games</a>
+                </div>
+          
+                <div class="card-body" style="padding:10px 12px;">
+                  <div class="ticker-row" aria-label="Today's games ticker">
+                    {% for g in ticker_games %}
+                      <a class="ticker-game" href="/game/{{ g.gamePk }}" title="{{ g.away.abbrev }} @ {{ g.home.abbrev }}">
+          
+                        <div class="ticker-top">
+                          <div class="mono" style="font-weight:900;">
+                            {{ g.away.abbrev }} {{ g.away.score if g.away.score is not none else "—" }}
+                          </div>
+                          <div class="mono" style="font-weight:900;">
+                            {{ g.home.abbrev }} {{ g.home.score if g.home.score is not none else "—" }}
+                          </div>
+                        </div>
+          
+                        <div class="ticker-bot">
+                          <div class="pill" style="padding:3px 8px; font-size:11px;">
+                            {{ g.statusPill if g.statusPill else (g.timeLocal if g.timeLocal else "—") }}
+                          </div>
+          
+                          <div class="mono muted" style="font-size:11px;">
+                            {% if g.isLive %}
+                              Outs: {{ g.outs if g.outs is not none else "—" }}
+                            {% else %}
+                              {{ g.timeLocal if g.timeLocal else "—" }}
+                            {% endif %}
+                          </div>
+          
+                          <div class="bases" title="Bases">
+                            <span class="base {% if g.bases and g.bases.on1 %}on{% endif %}"></span>
+                            <span class="base {% if g.bases and g.bases.on2 %}on{% endif %}"></span>
+                            <span class="base {% if g.bases and g.bases.on3 %}on{% endif %}"></span>
+                          </div>
+                        </div>
+          
+                      </a>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          
+            {% block content %}{% endblock %}
             <footer class="footer">
               <span class="muted">© 2026 Basenerd</span>
             </footer>
