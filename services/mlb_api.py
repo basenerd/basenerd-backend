@@ -388,6 +388,48 @@ def to_float(x) -> Optional[float]:
     except Exception:
         return None
 
+def _get_ivb_hb(pitch_data: dict) -> tuple[Optional[float], Optional[float]]:
+    """Return (IVB, HB) in inches.
+
+    Prefers Statcast-style fields when present:
+      - pitchData.breaks.inducedVerticalBreak  (inches)
+      - pitchData.breaks.horizontalBreak       (inches)
+
+    Falls back to pfxZ/pfxX (often in feet) if available on pitchData or pitchData.breaks.
+    If the magnitude looks like feet (|value| < ~5), we convert to inches.
+
+    Final fallback (to avoid blanks) uses breakVertical/breakHorizontal which are gravity-included movement
+    and can look large (40-60+). They are *not* true IVB/HB.
+    """
+    pitch_data = pitch_data or {}
+    breaks = pitch_data.get("breaks") or {}
+
+    ivb = breaks.get("inducedVerticalBreak")
+    hb = breaks.get("horizontalBreak")
+
+    def _maybe_inches(v: Optional[float]) -> Optional[float]:
+        v = to_float(v)
+        if v is None:
+            return None
+        return v * 12.0 if abs(v) < 5.0 else v
+
+    if ivb is None:
+        ivb = pitch_data.get("pfxZ") if pitch_data.get("pfxZ") is not None else breaks.get("pfxZ")
+    if hb is None:
+        hb = pitch_data.get("pfxX") if pitch_data.get("pfxX") is not None else breaks.get("pfxX")
+
+    ivb = _maybe_inches(ivb)
+    hb = _maybe_inches(hb)
+
+    if ivb is None:
+        ivb = to_float(breaks.get("breakVertical"))
+    if hb is None:
+        hb = to_float(breaks.get("breakHorizontal"))
+
+    return ivb, hb
+
+
+
 def pct_to_bg(p: float) -> str:
     """Matches the standings pct_badge feel: red good / blue bad around 0.5."""
     try:
@@ -716,6 +758,7 @@ def normalize_gamecast(feed: dict) -> dict:
         pitch_data = ev.get("pitchData") or {}
         coords = pitch_data.get("coordinates") or {}
         breaks = pitch_data.get("breaks") or {}
+        ivb, hb = _get_ivb_hb(pitch_data)
 
         call = details.get("call") or {}
         pitches_out.append({
@@ -728,8 +771,8 @@ def normalize_gamecast(feed: dict) -> dict:
             "pitchType": (details.get("type") or {}).get("description") or "",
             "mph": pitch_data.get("startSpeed"),
             "spinRate": breaks.get("spinRate"),
-            "vertMove": breaks.get("inducedVerticalBreak"),  # IVB (inches)
-            "horizMove": breaks.get("horizontalBreak"),     # HB (inches)
+            "vertMove": ivb,
+            "horizMove": hb,
 
             # Outcome flags (frontend colors dots)
             "isBall": details.get("isBall"),
@@ -3333,6 +3376,7 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             details = ev.get("details") or {}
             pitch_data = ev.get("pitchData") or {}
             breaks = pitch_data.get("breaks") or {}
+            ivb, hb = _get_ivb_hb(pitch_data)
 
             px = _safe_float(pitch_data.get("coordinates", {}).get("pX") if isinstance(pitch_data.get("coordinates"), dict) else None, default=None)
             pz = _safe_float(pitch_data.get("coordinates", {}).get("pZ") if isinstance(pitch_data.get("coordinates"), dict) else None, default=None)
@@ -3375,8 +3419,8 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                         pitch_data.get("spinRate") if pitch_data.get("spinRate") is not None else breaks.get("spinRate"),
                         default=None,
                     ),
-                    "vertMove": _safe_float(breaks.get("inducedVerticalBreak"), default=None),
-                    "horizMove": _safe_float(breaks.get("horizontalBreak"), default=None),
+                    "vertMove": ivb,
+                    "horizMove": hb,
                 }
             )
 
