@@ -2316,12 +2316,19 @@ def _build_series_line(game: dict, home_abbrev: str, away_abbrev: str) -> str:
     return f"{lead_abbrev} leads {max(home_w, away_w)}-{min(home_w, away_w)}"
 
 
-def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[dict]:
+def get_games_for_date(
+    date_ymd: str,
+    tz_name: str = "America/Phoenix",
+    include_live_context: bool = True,
+) -> List[dict]:
     """
-    Returns a list of normalized game cards for games.html.
+    Returns a list of normalized game cards for games.html + global ticker.
+
     Adds:
       - competitionLabel: "Spring Training" or "NLDS Game 4" etc.
       - subline: regular season records OR postseason series score line
+      - outs, bases (for live games; otherwise None/False)
+      - isLive (bool)
     """
     data = get_schedule_for_dates(date_ymd, date_ymd)
     out = []
@@ -2348,19 +2355,22 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
             away_score = away.get("score")
 
             # probables / decisions
-            probables = g.get("probablePitchers") or {}
             decisions = g.get("decisions") or {}
             season = _season_from_date(date_ymd)
+
             home_pp_obj = _get_pp_obj_from_game(g, "home")
             away_pp_obj = _get_pp_obj_from_game(g, "away")
             home_pp = _pp_text(home_pp_obj, season)
             away_pp = _pp_text(away_pp_obj, season)
+
             home_rec = _record_str(home)
             away_rec = _record_str(away)
+
             win_p = (decisions.get("winner") or {}).get("fullName")
             lose_p = (decisions.get("loser") or {}).get("fullName")
+
             venue = g.get("venue") or {}
-            venue_name = venue.get("name")        
+            venue_name = venue.get("name")
             venue_loc = ""
             city = venue.get("city")
             state = venue.get("state") or venue.get("stateAbbrev")
@@ -2369,7 +2379,6 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
             elif city:
                 venue_loc = city
 
-
             home_abbrev = (home_team.get("abbreviation") or "").upper()
             away_abbrev = (away_team.get("abbreviation") or "").upper()
 
@@ -2377,15 +2386,20 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
             game_type = (g.get("gameType") or "").upper()  # R/S/P etc.
             series_desc = (g.get("seriesDescription") or "").strip()
             series_game_num = g.get("seriesGameNumber")
+
             is_spring = (game_type == "S")
-            is_post = (game_type == "P") or ("series" in series_desc.lower()) or ("world series" in series_desc.lower()) or ("wild card" in series_desc.lower())
+            is_post = (
+                (game_type == "P")
+                or ("series" in series_desc.lower())
+                or ("world series" in series_desc.lower())
+                or ("wild card" in series_desc.lower())
+            )
 
             competition_label = ""
             subline = ""
 
             if is_spring:
                 competition_label = "Spring Training"
-                # spring training: show records if available (often 0-0 early)
                 hr = _record_str(home)
                 ar = _record_str(away)
                 if hr and ar:
@@ -2397,24 +2411,22 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
                     competition_label = f"{short} Game {series_game_num}"
                 else:
                     competition_label = short
-
-                # postseason: series score line
                 subline = _build_series_line(g, home_abbrev=home_abbrev, away_abbrev=away_abbrev)
 
             else:
-                # regular season
                 hr = _record_str(home)
                 ar = _record_str(away)
                 if hr and ar:
                     subline = f"{away_abbrev} {ar} • {home_abbrev} {hr}"
-                        # -----------------------------
-            # Decide what shows in the "pitcher line" slots on games.html
+
+            # -----------------------------
+            # Slots:
             # Scheduled: Probable Pitchers
-            # Live: current Hitter (away slot) + current Pitcher (home slot)
+            # Live: current Hitter (away slot) + current Pitcher (home slot) (optional)
             # Final: Winner pitcher on winning team slot, Loser pitcher on losing team slot
             # -----------------------------
             status = (g.get("status") or {})
-            abstract = (status.get("abstractGameState") or "").lower()  # "live", "final", "preview", etc.
+            abstract = (status.get("abstractGameState") or "").lower()  # live/final/preview
             detailed = (status.get("detailedState") or "").lower()
 
             def _short_name(full: str) -> str:
@@ -2429,31 +2441,36 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
             away_slot = away_pp
             home_slot = home_pp
 
-            # Live: show current batter/pitcher
-            if abstract == "live" or "in progress" in detailed:
-                try:
-                    feed = get_game_feed(int(g.get("gamePk")))
-                    gc = normalize_gamecast(feed) if feed else {}
-                    if gc.get("ok"):
-                        b = (gc.get("batter") or {})
-                        p = (gc.get("pitcher") or {})
-                        batter_nm = b.get("shortName") or _short_name(b.get("name") or "")
-                        pitcher_nm = p.get("shortName") or _short_name(p.get("name") or "")
-                        away_slot = f"H: {batter_nm}" if batter_nm else "H: —"
-                        home_slot = f"P: {pitcher_nm}" if pitcher_nm else "P: —"
-                    else:
+            is_live = (abstract == "live") or ("in progress" in detailed) or ("live" in detailed)
+
+            # Live: show current batter/pitcher (expensive; avoid for global ticker)
+            if is_live:
+                if include_live_context:
+                    try:
+                        feed = get_game_feed(int(g.get("gamePk")))
+                        gc = normalize_gamecast(feed) if feed else {}
+                        if gc.get("ok"):
+                            b = (gc.get("batter") or {})
+                            p = (gc.get("pitcher") or {})
+                            batter_nm = b.get("shortName") or _short_name(b.get("name") or "")
+                            pitcher_nm = p.get("shortName") or _short_name(p.get("name") or "")
+                            away_slot = f"H: {batter_nm}" if batter_nm else "H: —"
+                            home_slot = f"P: {pitcher_nm}" if pitcher_nm else "P: —"
+                        else:
+                            away_slot = "H: —"
+                            home_slot = "P: —"
+                    except Exception:
                         away_slot = "H: —"
                         home_slot = "P: —"
-                except Exception:
-                    away_slot = "H: —"
-                    home_slot = "P: —"
+                else:
+                    away_slot = "Live"
+                    home_slot = ""
 
             # Final: show W/L in the same slots (on the winning/losing team row)
             elif abstract == "final" or "final" in detailed:
                 winner_short = _short_name(win_p) if win_p else ""
                 loser_short = _short_name(lose_p) if lose_p else ""
 
-                # Determine which team won using score
                 try:
                     a = away_score if away_score is not None else -999
                     h = home_score if home_score is not None else -999
@@ -2470,15 +2487,21 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
                     away_slot = f"L: {loser_short}" if loser_short else "L: —"
                     home_slot = f"W: {winner_short}" if winner_short else "W: —"
                 else:
-                    # tie/unknown (shouldn't happen often)
                     away_slot = f"W: {winner_short}" if winner_short else "W: —"
                     home_slot = f"L: {loser_short}" if loser_short else "L: —"
 
-            # Scheduled/Preview: keep probables, but ONLY if game hasn't started
-            else:
-                away_slot = away_pp
-                home_slot = home_pp
-            out.append({
+            # ---- Live baserunners / outs (for ticker + quick glance UIs) ----
+            ls = g.get("linescore") or {}
+            offense = (ls.get("offense") or {})
+            outs_now = _safe_int(ls.get("outs"))
+            if outs_now is None:
+                outs_now = _safe_int(offense.get("outs"))
+
+            on1 = bool(offense.get("first"))
+            on2 = bool(offense.get("second"))
+            on3 = bool(offense.get("third"))
+
+            card = {
                 "gamePk": g.get("gamePk"),
                 "date": date_ymd,
                 "timeLocal": time_local,
@@ -2488,6 +2511,11 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
                 "subline": subline,
                 "isPostseason": is_post,
                 "isSpring": is_spring,
+
+                "isLive": is_live,
+                "outs": outs_now,
+                "bases": {"on1": on1, "on2": on2, "on3": on3},
+
                 "home": {
                     "id": home_id,
                     "name": home_team.get("name"),
@@ -2512,15 +2540,21 @@ def get_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> List[
                 },
                 "venue": venue_name,
                 "venueLocation": venue_loc,
-            })
+            }
 
-    # Sort by local time when possible
-    def _sort_key(x):
-        return x.get("timeLocal") or ""
-    out.sort(key=_sort_key)
+            # internal sort key (remove later)
+            card["_sort_dt"] = game_dt_local.isoformat() if game_dt_local else ""
+            out.append(card)
+
+    # Sort by local datetime string (same-day, good enough)
+    out.sort(key=lambda x: x.get("_sort_dt") or x.get("timeLocal") or "")
+
+    # remove internal sort key
+    for x in out:
+        if "_sort_dt" in x:
+            del x["_sort_dt"]
 
     return out
-
 
     # Sort by local time when possible; fallback to gamePk
     def _sort_key(x):
