@@ -119,6 +119,67 @@ header.site-header .title{ margin:0; font-size:17px; letter-spacing:.2px; font-w
   border-top:1px solid var(--border);
   background:#fff;
 }
+.ticker-row{
+  display:flex;
+  gap:10px;
+  overflow-x:auto;
+  padding-bottom:6px; /* space for scrollbar */
+  scroll-snap-type:x proximity;
+}
+.ticker-row::-webkit-scrollbar{ height:10px; }
+.ticker-row::-webkit-scrollbar-thumb{ background: rgba(15,23,42,.18); border-radius:999px; }
+
+.ticker-game{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:10px 10px 9px 10px;
+  min-width: 210px;
+  max-width: 240px;
+  flex: 0 0 auto;
+  text-decoration:none;
+  color:inherit;
+  scroll-snap-align:start;
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.ticker-game:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(0,0,0,.10);
+}
+
+.ticker-top{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.ticker-bot{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.bases{
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.bases .base{
+  width:8px;
+  height:8px;
+  border-radius:2px;
+  border:1px solid rgba(15,23,42,.22);
+  background: rgba(15,23,42,.05);
+  transform: rotate(45deg);
+}
+.bases .base.on{
+  background: rgba(15,23,42,.75);
+  border-color: rgba(15,23,42,.75);
+}
 
 .subcard-title{
   font-weight:700;
