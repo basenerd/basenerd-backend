@@ -728,8 +728,8 @@ def normalize_gamecast(feed: dict) -> dict:
             "pitchType": (details.get("type") or {}).get("description") or "",
             "mph": pitch_data.get("startSpeed"),
             "spinRate": breaks.get("spinRate"),
-            "vertMove": breaks.get("inducedVerticalBreak") if breaks.get("inducedVerticalBreak") is not None else breaks.get("breakVertical"),
-            "horizMove": breaks.get("horizontalBreak") if breaks.get("horizontalBreak") is not None else breaks.get("breakHorizontal"),
+            "vertMove": breaks.get("inducedVerticalBreak"),  # IVB (inches)
+            "horizMove": breaks.get("horizontalBreak"),     # HB (inches)
 
             # Outcome flags (frontend colors dots)
             "isBall": details.get("isBall"),
@@ -3375,8 +3375,8 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                         pitch_data.get("spinRate") if pitch_data.get("spinRate") is not None else breaks.get("spinRate"),
                         default=None,
                     ),
-                    "vertMove": _safe_float(breaks.get("breakVertical"), default=None),
-                    "horizMove": _safe_float(breaks.get("breakHorizontal"), default=None),
+                    "vertMove": _safe_float(breaks.get("inducedVerticalBreak"), default=None),
+                    "horizMove": _safe_float(breaks.get("horizontalBreak"), default=None),
                 }
             )
 
