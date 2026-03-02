@@ -92,8 +92,11 @@ def predict_xba_xslg(
     if not models:
         return None, None
 
-    if launch_speed is None or launch_angle is None or spray_angle is None:
+    if launch_speed is None or launch_angle is None:
         return None, None
+    # spray_angle is sometimes missing in the live game feed; fall back to 0 (CF) rather than blanking out
+    if spray_angle is None:
+        spray_angle = 0.0
     if not stand or not p_throws:
         return None, None
 
