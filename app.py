@@ -50,7 +50,8 @@ from services.pitching_report import (
 from services.articles import load_articles, get_article
 from services.articles import get_markdown_page
 from services.postseason import get_postseason_series, build_playoff_bracket
-
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import random
 # Load the active players list once when the app starts
 try:
@@ -63,6 +64,27 @@ except Exception as e:
 
 app = Flask(__name__)
 
+@app.context_processor
+def inject_global_games_ticker():
+    """
+    Global top-of-page ticker: ALL games on today's schedule
+    (scheduled + live + final).
+    """
+    try:
+        user_tz = "America/Phoenix"
+        today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
+
+        # IMPORTANT: this returns the full day's slate; do NOT filter by status
+        ticker_games = get_games_for_date(today_ymd, tz_name=user_tz, include_live_context=False)
+    except Exception:
+        ticker_games = []
+        today_ymd = None
+
+    return {
+        "ticker_games": ticker_games,
+        "ticker_date": today_ymd,
+    }
+    
 @app.template_global()
 def sr_color(pct):
     if pct is None:
