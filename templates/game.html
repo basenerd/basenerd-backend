@@ -906,6 +906,7 @@
   <button class="tab-btn" data-tab="box">Box</button>
   <button class="tab-btn" data-tab="scoring">Scoring</button>
   <button class="tab-btn" data-tab="pbp">Play-by-Play</button>
+  <button class="tab-btn" data-tab="analytics">Analytics</button>
 </div>
 
 <!-- GAMECAST -->
@@ -1121,6 +1122,7 @@
         "la": bb.launchAngle,
         "dist": bb.distance,
         "xba": bb.xBA,
+        "xslg": (bb.xSLG if bb.xSLG is defined else none),
         "summary": (pa.summaryEvent if pa.summaryEvent is defined else ''),
         "desc": (pa.description if pa.description is defined else ''),
         "evStyle": (bb.evStyle if bb.evStyle is defined else ''),
@@ -1327,6 +1329,7 @@
                 <th class="mono">LA</th>
                 <th class="mono">Dist</th>
                 <th class="mono">xBA</th>
+                <th class="mono">xSLG</th>
                 <th class="mono">Res</th>
               </tr>
             </thead>
@@ -1360,6 +1363,7 @@
                   <td class="mono">{% if r.la is not none %}{{ '%.0f'|format(r.la) }}°{% else %}-{% endif %}</td>
                   <td class="mono">{% if r.dist is not none %}{{ '%.0f'|format(r.dist) }} ft{% else %}-{% endif %}</td>
                   <td class="mono">{% if r.xba is not none %}{{ '%.3f'|format(r.xba) }}{% else %}-{% endif %}</td>
+                  <td class="mono">{% if r.xslg is not none %}{{ '%.3f'|format(r.xslg) }}{% else %}-{% endif %}</td>
                   <td class="mono">{{ outcome_short(r.summary, r.desc) }}</td>
                 </tr>
               {% endfor %}
@@ -1769,6 +1773,13 @@
                                     {% if pa.battedBall.xBA is not none %}{{ '%.3f'|format(pa.battedBall.xBA) }}{% else %}-{% endif %}
                                   </div>
                                 </div>
+
+                                <div class="bb-item">
+                                  <div class="bb-k">xSLG</div>
+                                  <div class="bb-v">
+                                    {% if pa.battedBall.xSLG is not none %}{{ '%.3f'|format(pa.battedBall.xSLG) }}{% else %}-{% endif %}
+                                  </div>
+                                </div>
                               </div>
 
                             </div>
@@ -1789,6 +1800,21 @@
       </div>
     </div>
   {% endif %}
+</div>
+
+<!-- ANALYTICS -->
+<div class="tab-panel" id="tab-analytics">
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Analytics</div>
+        <div class="card-subtitle">Coming soon</div>
+      </div>
+    </div>
+    <div style="padding:14px;">
+      <div class="muted">—</div>
+    </div>
+  </div>
 </div>
 
 <script>
