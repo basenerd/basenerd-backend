@@ -30,7 +30,11 @@
 {% else %}
   <div class="games-grid" style="margin-top:14px;">
     {% for g in games %}
-      <a class="game-card" href="/game/{{ g.gamePk }}">
+      {% set status_lc = (g.statusPill|string)|lower %}
+      {% set is_final = ('final' in status_lc) or ('game over' in status_lc) or ('completed' in status_lc) %}
+      {% set is_live = (not is_final) and (('in progress' in status_lc) or ('live' in status_lc) or ('warmup' in status_lc) or ('game delayed' in status_lc)) %}
+    
+      <a class="game-card {% if is_live %}is-live{% endif %}" href="/game/{{ g.gamePk }}">
 
         <div class="game-card-top">
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
