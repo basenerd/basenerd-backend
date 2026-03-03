@@ -3692,19 +3692,16 @@ def get_player_stats(player_id: int, season: Optional[int] = None) -> List[dict]
     return stats
 
 # ----------------------------
-# Pitch Type Profile
+# Hitter Pitch Profile
 # ----------------------------
-def get_pitch_type_results(player_id: int, year: int) -> list:
+def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
     """
-    Fetches raw pitches for a pitcher from the Postgres statcast_pitches table 
-    and calculates Usage%, Zone%, and Whiff%.
+    Fetches raw pitches seen by a HITTER and groups them by Type and Category.
     """
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
-        print("DATABASE_URL not found. Cannot fetch pitch data.")
-        return []
+        return {"by_type": [], "by_category": [], "total": None}
         
-    # Render's Postgres URLs often need this quick fix for SQLAlchemy
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
         
@@ -3712,62 +3709,82 @@ def get_pitch_type_results(player_id: int, year: int) -> list:
         engine = create_engine(db_url)
         table_name = os.environ.get("STATCAST_TABLE", "statcast_pitches")
         
-        # In Savant data, the pitcher's MLB ID is in the 'pitcher' column
+        # WE ARE LOOKING AT THE BATTER COLUMN
         query = text(f"""
             SELECT pitch_type, description, zone
             FROM {table_name}
-            WHERE pitcher = :player_id AND game_year = :year
+            WHERE batter = :player_id AND game_year = :year
         """)
         
         with engine.connect() as conn:
             df = pd.read_sql_query(query, conn, params={"player_id": player_id, "year": year})
 
         if df.empty:
-            return []
+            return {"by_type": [], "by_category": [], "total": None}
 
         total_pitches = len(df)
-        results = []
+        
+        # Mappings
+        category_map = {
+            "FF": "Fastball", "SI": "Fastball", "FC": "Fastball",
+            "SL": "Breaking", "CU": "Breaking", "KC": "Breaking", "SV": "Breaking", "ST": "Breaking", "CS": "Breaking",
+            "CH": "Offspeed", "FS": "Offspeed", "FO": "Offspeed", "EP": "Offspeed"
+        }
+        pitch_names = {
+            "FF": "4-Seam Fastball", "SI": "Sinker", "FC": "Cutter",
+            "SL": "Slider", "CU": "Curveball", "CH": "Changeup",
+            "FS": "Splitter", "ST": "Sweeper", "KC": "Knuckle Curve", "SV": "Slurve"
+        }
+        
+        df['pitch_name'] = df['pitch_type'].map(lambda x: pitch_names.get(x, x))
+        df['category'] = df['pitch_type'].map(lambda x: category_map.get(x, "Other"))
 
-        # Group all the pitches by their pitch type (e.g., all Sliders together)
-        for pitch_type, group in df.groupby('pitch_type'):
-            if not pitch_type or pd.isna(pitch_type):
-                continue
-
-            count = len(group)
+        # Helper function to do the math
+        def calc_stats(group_df):
+            count = len(group_df)
             usage_pct = (count / total_pitches) * 100
 
-            # Zone%: Statcast zones 1-9 are inside the strike zone
-            zone_pitches = group['zone'].dropna().astype(float)
+            zone_pitches = group_df['zone'].dropna().astype(float)
             in_zone = len(zone_pitches[(zone_pitches >= 1) & (zone_pitches <= 9)])
             zone_pct = (in_zone / count) * 100 if count > 0 else 0
 
-            # Whiff%: (Swings and misses) / (Total swings)
             swing_types = ['swinging_strike', 'swinging_strike_blocked', 'foul', 'foul_tip', 'hit_into_play', 'foul_bunt', 'missed_bunt']
             miss_types = ['swinging_strike', 'swinging_strike_blocked', 'missed_bunt']
             
-            swings = group['description'].isin(swing_types).sum()
-            whiffs = group['description'].isin(miss_types).sum()
+            swings = group_df['description'].isin(swing_types).sum()
+            whiffs = group_df['description'].isin(miss_types).sum()
             whiff_pct = (whiffs / swings) * 100 if swings > 0 else 0
-
-            # Make the pitch names look pretty for the website
-            pitch_names = {
-                "FF": "4-Seam Fastball", "SI": "Sinker", "FC": "Cutter",
-                "SL": "Slider", "CU": "Curveball", "CH": "Changeup",
-                "FS": "Splitter", "ST": "Sweeper", "KC": "Knuckle Curve", "SV": "Slurve"
-            }
             
-            results.append({
-                'pitch_name': pitch_names.get(pitch_type, pitch_type),
-                'count': count,
-                'usage_pct': usage_pct,
-                'zone_pct': zone_pct,
-                'whiff_pct': whiff_pct
-            })
+            return count, usage_pct, zone_pct, whiff_pct
 
-        # Sort the table so their most-used pitch is at the top
-        results.sort(key=lambda x: x['usage_pct'], reverse=True)
-        return results
+        # 1. Group by Pitch Type
+        by_type = []
+        for p_type, group in df.groupby('pitch_type'):
+            if not p_type or pd.isna(p_type): continue
+            c, u, z, w = calc_stats(group)
+            by_type.append({'name': pitch_names.get(p_type, p_type), 'count': c, 'usage_pct': u, 'zone_pct': z, 'whiff_pct': w})
+
+        # 2. Group by Category
+        by_category = []
+        for cat, group in df.groupby('category'):
+            if cat == "Other" and len(group) == 0: continue
+            c, u, z, w = calc_stats(group)
+            by_category.append({'name': cat, 'count': c, 'usage_pct': u, 'zone_pct': z, 'whiff_pct': w})
+
+        # 3. Calculate Totals
+        c, u, z, w = calc_stats(df)
+        total_row = {'name': 'Total', 'count': c, 'usage_pct': 100.0, 'zone_pct': z, 'whiff_pct': w}
+
+        # Sort from highest usage to lowest
+        by_type.sort(key=lambda x: x['usage_pct'], reverse=True)
+        by_category.sort(key=lambda x: x['usage_pct'], reverse=True)
+
+        return {
+            "by_type": by_type,
+            "by_category": by_category,
+            "total": total_row
+        }
 
     except Exception as e:
-        print(f"Error calculating pitch results: {e}")
-        return []
+        print(f"Error calculating hitter pitch profile: {e}")
+        return {"by_type": [], "by_category": [], "total": None}
