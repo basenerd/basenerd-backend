@@ -3786,5 +3786,11 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
         }
 
     except Exception as e:
-        print(f"Error calculating hitter pitch profile: {e}")
-        return {"by_type": [], "by_category": [], "total": None}
+        error_msg = f"ERROR: {str(e)}"
+        print(error_msg)
+        # This will force the exact error message to display in the "Pitch" column on your website
+        return {
+            "by_type": [{"name": error_msg, "count": 0, "usage_pct": 0, "zone_pct": 0, "whiff_pct": 0}],
+            "by_category": [],
+            "total": None
+        }
