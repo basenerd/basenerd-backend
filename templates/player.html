@@ -1016,7 +1016,43 @@
           </div>
 
         </div>
-      </div>
+      </div> <div class="pitch-profile-container" style="margin-top: 3rem;">
+                    <div class="card-title" style="margin-bottom: 1rem; border-bottom: 1px dashed var(--border); padding-bottom: 0.75rem; font-size: 16px;">
+                        Results by Pitch Type
+                    </div>
+                    
+                    <div style="overflow-x: auto;">
+                        <table class="pitch-stats-table">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left;">Pitch</th>
+                                    <th>#</th>
+                                    <th>Usage%</th>
+                                    <th>Zone%</th>
+                                    <th>Whiff%</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pitch in pitch_results %}
+                                <tr>
+                                    <td style="text-align: left; font-weight: 600;">{{ pitch.pitch_name }}</td>
+                                    <td>{{ pitch.count }}</td>
+                                    <td>{{ "%.1f"|format(pitch.usage_pct) }}%</td>
+                                    <td>{{ "%.1f"|format(pitch.zone_pct) }}%</td>
+                                    <td>{{ "%.1f"|format(pitch.whiff_pct) }}%</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" style="text-align: center; color: #9ca3af; padding: 1rem;">
+                                        No pitch tracking data available for this season.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                </div> <div id="srPitchingView" style="{% if (has_hitting and not has_pitching) %}display:none;{% elif has_pitching %}display:block;{% else %}display:none;{% endif %}">
 
       <!-- ============================
            PITCHING VIEW (NEW)
