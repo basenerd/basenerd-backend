@@ -3713,7 +3713,7 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
         
         # WE ARE LOOKING AT THE BATTER COLUMN
         query = text(f"""
-            SELECT pitch_type, description, zone
+            SELECT pitch_type, description, zone, events, launch_speed
             FROM {table_name}
             WHERE batter = :player_id AND game_year = :year
         """)
@@ -3735,7 +3735,8 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
         pitch_names = {
             "FF": "4-Seam Fastball", "SI": "Sinker", "FC": "Cutter",
             "SL": "Slider", "CU": "Curveball", "CH": "Changeup",
-            "FS": "Splitter", "ST": "Sweeper", "KC": "Knuckle Curve", "SV": "Slurve"
+            "FS": "Splitter", "ST": "Sweeper", "KC": "Knuckle Curve", "SV": "Slurve",
+            "FO": "Forkball", "EP": "Eephus", "PO": "Pitchout"
         }
         
         df['pitch_name'] = df['pitch_type'].map(lambda x: pitch_names.get(x, x))
@@ -3744,38 +3745,51 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
         # Helper function to do the math
         def calc_stats(group_df):
             count = len(group_df)
-            usage_pct = (count / total_pitches) * 100
+            usage_pct = (count / total_pitches) * 100 if total_pitches > 0 else 0
 
+            # Zone%
             zone_pitches = group_df['zone'].dropna().astype(float)
             in_zone = len(zone_pitches[(zone_pitches >= 1) & (zone_pitches <= 9)])
             zone_pct = (in_zone / count) * 100 if count > 0 else 0
 
+            # Whiff%
             swing_types = ['swinging_strike', 'swinging_strike_blocked', 'foul', 'foul_tip', 'hit_into_play', 'foul_bunt', 'missed_bunt']
             miss_types = ['swinging_strike', 'swinging_strike_blocked', 'missed_bunt']
-            
             swings = group_df['description'].isin(swing_types).sum()
             whiffs = group_df['description'].isin(miss_types).sum()
             whiff_pct = (whiffs / swings) * 100 if swings > 0 else 0
+
+            # Batting Average (Hits / At Bats)
+            hit_events = ['single', 'double', 'triple', 'home_run']
+            ab_events = hit_events + ['field_out', 'strikeout', 'strikeout_double_play', 'grounded_into_double_play', 'force_out', 'fielders_choice', 'fielders_choice_out', 'field_error', 'double_play', 'other_out']
+            hits = group_df['events'].isin(hit_events).sum()
+            abs_count = group_df['events'].isin(ab_events).sum()
+            avg = (hits / abs_count) if abs_count > 0 else 0.000
+
+            # HardHit% (Batted balls >= 95mph)
+            batted_balls = group_df[group_df['description'] == 'hit_into_play']
+            launch_speeds = batted_balls['launch_speed'].dropna().astype(float)
+            hard_hits = (launch_speeds >= 95.0).sum()
+            hard_hit_pct = (hard_hits / len(launch_speeds)) * 100 if len(launch_speeds) > 0 else 0.0
             
-            return count, usage_pct, zone_pct, whiff_pct
+            return count, usage_pct, zone_pct, whiff_pct, avg, hard_hit_pct
 
         # 1. Group by Pitch Type
         by_type = []
         for p_type, group in df.groupby('pitch_type'):
             if not p_type or pd.isna(p_type): continue
-            c, u, z, w = calc_stats(group)
-            by_type.append({'name': pitch_names.get(p_type, p_type), 'count': c, 'usage_pct': u, 'zone_pct': z, 'whiff_pct': w})
-
+            c, u, z, w, avg, hh = calc_stats(group)
+            by_type.append({'name': pitch_names.get(p_type, p_type), 'count': c, 'usage_pct': u, 'zone_pct': z, 'whiff_pct': w, 'avg': avg, 'hard_hit_pct': hh})
         # 2. Group by Category
         by_category = []
         for cat, group in df.groupby('category'):
             if cat == "Other" and len(group) == 0: continue
-            c, u, z, w = calc_stats(group)
-            by_category.append({'name': cat, 'count': c, 'usage_pct': u, 'zone_pct': z, 'whiff_pct': w})
+            c, u, z, w, avg, hh = calc_stats(group)
+            by_category.append({'name': cat, 'count': c, 'usage_pct': u, 'zone_pct': z, 'whiff_pct': w, 'avg': avg, 'hard_hit_pct': hh})
 
         # 3. Calculate Totals
-        c, u, z, w = calc_stats(df)
-        total_row = {'name': 'Total', 'count': c, 'usage_pct': 100.0, 'zone_pct': z, 'whiff_pct': w}
+        c, u, z, w, avg, hh = calc_stats(df)
+        total_row = {'name': 'Total', 'count': c, 'usage_pct': 100.0, 'zone_pct': z, 'whiff_pct': w, 'avg': avg, 'hard_hit_pct': hh}
 
         # Sort from highest usage to lowest
         by_type.sort(key=lambda x: x['usage_pct'], reverse=True)
@@ -3788,11 +3802,9 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
         }
 
     except Exception as e:
-        error_msg = f"ERROR: {str(e)}"
-        print(error_msg)
-        # This gives fake data to the Total row so your HTML stops crashing!
+        print(f"Error calculating hitter pitch profile: {e}")
         return {
-            "by_type": [{"name": error_msg, "count": 0, "usage_pct": 0, "zone_pct": 0, "whiff_pct": 0}],
+            "by_type": [{"name": f"ERROR: {str(e)}", "count": 0, "usage_pct": 0, "zone_pct": 0, "whiff_pct": 0, "avg": 0, "hard_hit_pct": 0}],
             "by_category": [],
-            "total": {"name": "Error", "count": 0, "usage_pct": 0, "zone_pct": 0, "whiff_pct": 0}
+            "total": {"name": "Error", "count": 0, "usage_pct": 0, "zone_pct": 0, "whiff_pct": 0, "avg": 0, "hard_hit_pct": 0}
         }
