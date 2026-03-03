@@ -3703,7 +3703,9 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
         return {"by_type": [], "by_category": [], "total": None}
         
     if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
+        db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
+    elif db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
         
     try:
         engine = create_engine(db_url)
