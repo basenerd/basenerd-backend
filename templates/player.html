@@ -1017,42 +1017,78 @@
 
         </div>
       </div> <div class="pitch-profile-container" style="margin-top: 3rem;">
-                    <div class="card-title" style="margin-bottom: 1rem; border-bottom: 1px dashed var(--border); padding-bottom: 0.75rem; font-size: 16px;">
-                        Results by Pitch Type
-                    </div>
-                    
-                    <div style="overflow-x: auto;">
-                        <table class="pitch-stats-table">
-                            <thead>
-                                <tr>
-                                    <th style="text-align: left;">Pitch</th>
-                                    <th>#</th>
-                                    <th>Usage%</th>
-                                    <th>Zone%</th>
-                                    <th>Whiff%</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for pitch in pitch_results %}
-                                <tr>
-                                    <td style="text-align: left; font-weight: 600;">{{ pitch.pitch_name }}</td>
-                                    <td>{{ pitch.count }}</td>
-                                    <td>{{ "%.1f"|format(pitch.usage_pct) }}%</td>
-                                    <td>{{ "%.1f"|format(pitch.zone_pct) }}%</td>
-                                    <td>{{ "%.1f"|format(pitch.whiff_pct) }}%</td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="5" style="text-align: center; color: #9ca3af; padding: 1rem;">
-                                        No pitch tracking data available for this season.
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                </div> <div id="srPitchingView" style="{% if (has_hitting and not has_pitching) %}display:none;{% elif has_pitching %}display:block;{% else %}display:none;{% endif %}">
+    
+    <div class="card-title" style="margin-bottom: 1rem; border-bottom: 1px dashed var(--border); padding-bottom: 0.75rem; font-size: 16px;">
+        Results by Pitch Type
+    </div>
+    <div style="overflow-x: auto; margin-bottom: 2.5rem;">
+        <table class="pitch-stats-table">
+            <thead>
+                <tr>
+                    <th style="text-align: left;">Pitch</th>
+                    <th>#</th>
+                    <th>Usage%</th>
+                    <th>Zone%</th>
+                    <th>Whiff%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if hitter_pitch_profile.by_type %}
+                    {% for pitch in hitter_pitch_profile.by_type %}
+                    <tr>
+                        <td style="text-align: left; font-weight: 600; color: #f0b90b;">{{ pitch.name }}</td>
+                        <td>{{ pitch.count }}</td>
+                        <td>{{ "%.1f"|format(pitch.usage_pct) }}%</td>
+                        <td>{{ "%.1f"|format(pitch.zone_pct) }}%</td>
+                        <td>{{ "%.1f"|format(pitch.whiff_pct) }}%</td>
+                    </tr>
+                    {% endfor %}
+                    <tr style="background: rgba(255,255,255,0.03); font-weight: 800; border-top: 2px solid #374151;">
+                        <td style="text-align: left; color: #fff;">{{ hitter_pitch_profile.total.name }}</td>
+                        <td style="color: #fff;">{{ hitter_pitch_profile.total.count }}</td>
+                        <td style="color: #fff;">100.0%</td>
+                        <td style="color: #fff;">{{ "%.1f"|format(hitter_pitch_profile.total.zone_pct) }}%</td>
+                        <td style="color: #fff;">{{ "%.1f"|format(hitter_pitch_profile.total.whiff_pct) }}%</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" style="text-align: center; color: #9ca3af; padding: 1rem;">No pitch tracking data available.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card-title" style="margin-bottom: 1rem; border-bottom: 1px dashed var(--border); padding-bottom: 0.75rem; font-size: 16px;">
+        Results by Pitch Category
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="pitch-stats-table">
+            <thead>
+                <tr>
+                    <th style="text-align: left;">Category</th>
+                    <th>#</th>
+                    <th>Usage%</th>
+                    <th>Zone%</th>
+                    <th>Whiff%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if hitter_pitch_profile.by_category %}
+                    {% for cat in hitter_pitch_profile.by_category %}
+                    <tr>
+                        <td style="text-align: left; font-weight: 600; color: #60a5fa;">{{ cat.name }}</td>
+                        <td>{{ cat.count }}</td>
+                        <td>{{ "%.1f"|format(cat.usage_pct) }}%</td>
+                        <td>{{ "%.1f"|format(cat.zone_pct) }}%</td>
+                        <td>{{ "%.1f"|format(cat.whiff_pct) }}%</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="5" style="text-align: center; color: #9ca3af; padding: 1rem;">No pitch category data available.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
       <!-- ============================
            PITCHING VIEW (NEW)
