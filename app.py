@@ -1798,7 +1798,7 @@ from services.mlb_api import (
     get_player_awards,
     build_accolade_pills,
     build_award_year_map,
-    get_pitch_type_results,
+    get_hitter_pitch_profile,
 )
 
 @app.get("/player/<int:player_id>")
@@ -2118,7 +2118,7 @@ def player(player_id: int):
     savant_profile = get_player_savant_profile(player_id, season_for_scouting, min_pa=1)
     
     print("DEBUG: savant_profile available =", savant_profile.get("available"), "groups =", len(savant_profile.get("groups", [])))
-    pitch_results = get_pitch_type_results(player_id, season_for_scouting)
+    hitter_pitch_profile = get_hitter_pitch_profile(player_id, season_for_scouting)
     
     return render_template(
         "player.html",
@@ -2158,7 +2158,7 @@ def player(player_id: int):
         # savant profile
         savant_profile=savant_profile,
         stadium_svg=stadium_svg,
-        pitch_results=pitch_results
+        hitter_pitch_profile=hitter_pitch_profile
     )
     
 @app.get("/articles")
