@@ -1583,3 +1583,31 @@ span.status-pill.status-other {
     border-color: rgba(239, 68, 68, 0.8);
     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
 }
+
+/* ===== PITCH STATS TABLE ===== */
+.pitch-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    text-align: right; /* Numbers align right for easy reading */
+}
+
+.pitch-stats-table th {
+    padding: 10px 8px;
+    border-bottom: 2px solid #374151;
+    color: #9ca3af;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.pitch-stats-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #1f2937;
+    color: #e5e7eb;
+}
+
+.pitch-stats-table tr:hover td {
+    background-color: #1f2937; /* Slight highlight on row hover */
+}
