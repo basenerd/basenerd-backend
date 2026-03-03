@@ -1573,3 +1573,13 @@ span.status-pill.status-other {
     text-overflow: ellipsis !important;
     text-align: center;
 }
+
+/* ===== LIVE GAME HIGHLIGHT ===== */
+.game-card.is-live {
+    border-color: #ef4444; 
+    box-shadow: 0 0 0 1px #ef4444; 
+}
+
+.game-card.is-live:hover {
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.15), 0 0 0 1px #ef4444;
+}
