@@ -1576,10 +1576,10 @@ span.status-pill.status-other {
 
 /* ===== LIVE GAME HIGHLIGHT ===== */
 .game-card.is-live {
-    border-color: #ef4444; 
-    box-shadow: 0 0 0 1px #ef4444; 
+    border-color: rgba(239, 68, 68, 0.5); 
 }
 
 .game-card.is-live:hover {
-    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.15), 0 0 0 1px #ef4444;
+    border-color: rgba(239, 68, 68, 0.8);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
 }
