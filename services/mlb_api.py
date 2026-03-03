@@ -13,6 +13,7 @@ import requests
 import joblib
 import numpy as np
 import pandas as pd
+from sqlalchemy import create_engine, text
 
 BASE = "https://statsapi.mlb.com/api/v1"
 MLB_API_BASE = BASE  # for older helpers that reference MLB_API_BASE
@@ -3689,3 +3690,84 @@ def get_player_stats(player_id: int, season: Optional[int] = None) -> List[dict]
 
     _set_cached(cache_key, stats)
     return stats
+
+# ----------------------------
+# Pitch Type Profile
+# ----------------------------
+def get_pitch_type_results(player_id: int, year: int) -> list:
+    """
+    Fetches raw pitches for a pitcher from the Postgres statcast_pitches table 
+    and calculates Usage%, Zone%, and Whiff%.
+    """
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        print("DATABASE_URL not found. Cannot fetch pitch data.")
+        return []
+        
+    # Render's Postgres URLs often need this quick fix for SQLAlchemy
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+        
+    try:
+        engine = create_engine(db_url)
+        table_name = os.environ.get("STATCAST_TABLE", "statcast_pitches")
+        
+        # In Savant data, the pitcher's MLB ID is in the 'pitcher' column
+        query = text(f"""
+            SELECT pitch_type, description, zone
+            FROM {table_name}
+            WHERE pitcher = :player_id AND game_year = :year
+        """)
+        
+        with engine.connect() as conn:
+            df = pd.read_sql_query(query, conn, params={"player_id": player_id, "year": year})
+
+        if df.empty:
+            return []
+
+        total_pitches = len(df)
+        results = []
+
+        # Group all the pitches by their pitch type (e.g., all Sliders together)
+        for pitch_type, group in df.groupby('pitch_type'):
+            if not pitch_type or pd.isna(pitch_type):
+                continue
+
+            count = len(group)
+            usage_pct = (count / total_pitches) * 100
+
+            # Zone%: Statcast zones 1-9 are inside the strike zone
+            zone_pitches = group['zone'].dropna().astype(float)
+            in_zone = len(zone_pitches[(zone_pitches >= 1) & (zone_pitches <= 9)])
+            zone_pct = (in_zone / count) * 100 if count > 0 else 0
+
+            # Whiff%: (Swings and misses) / (Total swings)
+            swing_types = ['swinging_strike', 'swinging_strike_blocked', 'foul', 'foul_tip', 'hit_into_play', 'foul_bunt', 'missed_bunt']
+            miss_types = ['swinging_strike', 'swinging_strike_blocked', 'missed_bunt']
+            
+            swings = group['description'].isin(swing_types).sum()
+            whiffs = group['description'].isin(miss_types).sum()
+            whiff_pct = (whiffs / swings) * 100 if swings > 0 else 0
+
+            # Make the pitch names look pretty for the website
+            pitch_names = {
+                "FF": "4-Seam Fastball", "SI": "Sinker", "FC": "Cutter",
+                "SL": "Slider", "CU": "Curveball", "CH": "Changeup",
+                "FS": "Splitter", "ST": "Sweeper", "KC": "Knuckle Curve", "SV": "Slurve"
+            }
+            
+            results.append({
+                'pitch_name': pitch_names.get(pitch_type, pitch_type),
+                'count': count,
+                'usage_pct': usage_pct,
+                'zone_pct': zone_pct,
+                'whiff_pct': whiff_pct
+            })
+
+        # Sort the table so their most-used pitch is at the top
+        results.sort(key=lambda x: x['usage_pct'], reverse=True)
+        return results
+
+    except Exception as e:
+        print(f"Error calculating pitch results: {e}")
+        return []
