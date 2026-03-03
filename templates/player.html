@@ -1043,15 +1043,15 @@
                         <td>{{ "%.1f"|format(pitch.whiff_pct) }}%</td>
                     </tr>
                     {% endfor %}
-                    <tr style="background: rgba(255,255,255,0.03); font-weight: 800; border-top: 2px solid #374151;">
-                        <td style="text-align: left; color: #fff;">{{ hitter_pitch_profile.total.name }}</td>
-                        <td style="color: #fff;">{{ hitter_pitch_profile.total.count }}</td>
-                        <td style="color: #fff;">100.0%</td>
-                        <td style="color: #fff;">{{ "%.1f"|format(hitter_pitch_profile.total.zone_pct) }}%</td>
-                        <td style="color: #fff;">{{ "%.1f"|format(hitter_pitch_profile.total.whiff_pct) }}%</td>
+                    <tr style="background: rgba(0,0,0,0.03); font-weight: 800; border-top: 2px solid #d1d5db;">
+                        <td style="color: #111827;">{{ hitter_pitch_profile.total.name }}</td>
+                        <td style="color: #111827;">{{ hitter_pitch_profile.total.count }}</td>
+                        <td style="color: #111827;">100.0%</td>
+                        <td style="color: #111827;">{{ "%.1f"|format(hitter_pitch_profile.total.zone_pct) }}%</td>
+                        <td style="color: #111827;">{{ "%.1f"|format(hitter_pitch_profile.total.whiff_pct) }}%</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="5" style="text-align: center; color: #9ca3af; padding: 1rem;">No pitch tracking data available.</td></tr>
+                    <tr><td colspan="5" style="text-align: center; color: #4b5563; padding: 1rem;">No pitch tracking data available.</td></tr>
                 {% endif %}
             </tbody>
         </table>
@@ -1075,7 +1075,7 @@
                 {% if hitter_pitch_profile.by_category %}
                     {% for cat in hitter_pitch_profile.by_category %}
                     <tr>
-                        <td style="text-align: left; font-weight: 600; color: #60a5fa;">{{ cat.name }}</td>
+                        <td style="text-align: left; font-weight: 600; color: #2563eb;">{{ cat.name }}</td>
                         <td>{{ cat.count }}</td>
                         <td>{{ "%.1f"|format(cat.usage_pct) }}%</td>
                         <td>{{ "%.1f"|format(cat.zone_pct) }}%</td>
@@ -1083,7 +1083,7 @@
                     </tr>
                     {% endfor %}
                 {% else %}
-                    <tr><td colspan="5" style="text-align: center; color: #9ca3af; padding: 1rem;">No pitch category data available.</td></tr>
+                    <tr><td colspan="5" style="text-align: center; color: #4b5563; padding: 1rem;">No pitch category data available.</td></tr>
                 {% endif %}
             </tbody>
         </table>
