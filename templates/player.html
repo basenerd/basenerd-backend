@@ -1037,8 +1037,11 @@
             <tbody>
                 {% if hitter_pitch_profile.by_type %}
                     {% for pitch in hitter_pitch_profile.by_type %}
+                    
+                    {% set p_color = '#dc2626' if pitch.category == 'Fastball' else ('#2563eb' if pitch.category == 'Breaking' else '#16a34a') %}
+                    
                     <tr>
-                        <td style="font-weight: 600; color: #d97706;">{{ pitch.name }}</td>
+                        <td style="font-weight: 600; color: {{ p_color }};">{{ pitch.name }}</td>
                         <td>{{ pitch.count }}</td>
                         <td>{{ "%.1f"|format(pitch.usage_pct) }}%</td>
                         <td>{{ "%.1f"|format(pitch.zone_pct) }}%</td>
@@ -1082,8 +1085,11 @@
             <tbody>
                 {% if hitter_pitch_profile.by_category %}
                     {% for cat in hitter_pitch_profile.by_category %}
+                    
+                    {% set c_color = '#dc2626' if cat.name == 'Fastball' else ('#2563eb' if cat.name == 'Breaking' else '#16a34a') %}
+                    
                     <tr>
-                        <td style="text-align: left; font-weight: 600; color: #2563eb;">{{ cat.name }}</td>
+                        <td style="font-weight: 600; color: {{ c_color }};">{{ cat.name }}</td>
                         <td>{{ cat.count }}</td>
                         <td>{{ "%.1f"|format(cat.usage_pct) }}%</td>
                         <td>{{ "%.1f"|format(cat.zone_pct) }}%</td>
@@ -1092,7 +1098,7 @@
                         <td>{{ "%.1f"|format(cat.hard_hit_pct) }}%</td>
                     </tr>
                     {% endfor %}
-                     <tr style="background: rgba(0,0,0,0.03); font-weight: 800; border-top: 2px solid #d1d5db;">
+                    <tr style="background: rgba(0,0,0,0.03); font-weight: 800; border-top: 2px solid #d1d5db;">
                         <td style="color: #111827;">{{ hitter_pitch_profile.total.name }}</td>
                         <td style="color: #111827;">{{ hitter_pitch_profile.total.count }}</td>
                         <td style="color: #111827;">100.0%</td>
