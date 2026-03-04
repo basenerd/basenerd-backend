@@ -1827,19 +1827,25 @@ def player(player_id: int):
     # So we use team["teamName"] from the team endpoint.
     # -------------------------
     stadium_svg = "generic.svg"
-
     try:
         team_id = (bio.get("currentTeam") or {}).get("id")
         if team_id:
             tdata = get_team(team_id) or {}
             teams = tdata.get("teams") or []
             t0 = teams[0] if teams else {}
-            team_name = t0.get("teamName")  # nickname only (Angels, Marlins, Blue Jays, etc)
-    
-            if team_name:
-                candidate = teamname_to_svg(team_name)
-                if os.path.exists(os.path.join("static", "stadium_svgs", candidate)):
-                    stadium_svg = candidate
+            
+            # Try to get the actual stadium name first
+            venue_name = _norm_venue_name(t0.get("venue", {}).get("name", ""))
+            candidate = _VENUE_TO_SVG.get(venue_name)
+            
+            # Fallback to nickname if venue isn't in our mapping
+            if not candidate:
+                team_nickname = t0.get("teamName")
+                if team_nickname:
+                    candidate = teamname_to_svg(team_nickname)
+
+            if candidate and os.path.exists(os.path.join("static", "stadium_svgs", candidate)):
+                stadium_svg = candidate
     except Exception as e:
         print("stadium svg lookup failed:", e)
     # debut year (stop searching after debut year)
