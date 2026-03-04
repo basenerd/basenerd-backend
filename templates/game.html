@@ -1795,14 +1795,22 @@
                                   <div class="bb-v">
                                     {% if pa.battedBall.xSLG is not none %}{{ '%.3f'|format(pa.battedBall.xSLG) }}{% else %}-{% endif %}
                                   </div>
-                          
+                                </div>
+                              </div>
 
-              {% endif %}
+                            </div>
+                          {% else %}
+                            <div></div>
+                          {% endif %}
+
+                        </div>
+                      </div>
+                    </details>
+                  {% endfor %}
+                {% endif %}
               {% endfor %}
             </div>
           </details>
-        {% endif %}
-        {% endfor %}
         {% endfor %}
 
       </div>
