@@ -4374,3 +4374,22 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
             "by_category": [],
             "total": {"name": "Error", "count": 0, "usage_pct": 0, "zone_pct": 0, "whiff_pct": 0, "avg": 0, "hard_hit_pct": 0}
         }
+        
+def get_game_analytics(game_pk):
+
+    game = get_game(game_pk)
+
+    from services.run_expectancy import (
+        simulate_game,
+        expected_linescore
+    )
+
+    sim = simulate_game(game, sims=2000)
+
+    linescore = expected_linescore()
+
+    return {
+        "simulation": sim,
+        "expected_linescore": linescore,
+        "batted_balls": game.get("batted_balls", [])
+    }
