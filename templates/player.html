@@ -979,6 +979,10 @@
             <div class="card" style="margin:0;">
               <div class="card-header">
                 <div class="card-title">Spray Chart</div>
+                 <div style="background: yellow; color: black; padding: 10px; margin-top: 10px; font-family: monospace; font-size: 10px; max-height: 150px; overflow: auto;">
+                   DEBUG DATA: {{ (spray_data if spray_data is defined else []) | tojson | safe }}
+                  </div>
+                 
                 <div class="card-subtitle">Hits only • Stadium overlay</div>
               </div>
 
