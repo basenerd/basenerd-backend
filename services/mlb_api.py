@@ -1660,42 +1660,42 @@ def normalize_gamecast(feed: dict) -> dict:
         return {"ok": False, "reason": f"state={state or 'unknown'}"}
 
     
-# -------------------------
-# Expected runs (rest of half-inning)
-# -------------------------
-expected_runs = None
-if callable(get_expected_runs):
-    try:
-        outs_i = int(outs) if outs is not None else None
-        if outs_i is not None and 0 <= outs_i <= 2:
-            base_state = (1 if offense.get("first") else 0) | (2 if offense.get("second") else 0) | (4 if offense.get("third") else 0)
-            expected_runs = float(get_expected_runs(base_state, outs_i))
-    except Exception:
-        expected_runs = None
+    # -------------------------
+    # Expected runs (rest of half-inning)
+    # -------------------------
+    expected_runs = None
+    if callable(get_expected_runs):
+        try:
+            outs_i = int(outs) if outs is not None else None
+            if outs_i is not None and 0 <= outs_i <= 2:
+                base_state = (1 if offense.get("first") else 0) | (2 if offense.get("second") else 0) | (4 if offense.get("third") else 0)
+                expected_runs = float(get_expected_runs(base_state, outs_i))
+        except Exception:
+            expected_runs = None
 
-return {
-        "ok": True,
-        "state": state,
-        "inning": inning,
-        "half": half,
-        "balls": balls,
-        "strikes": strikes,
-        "outs": outs,
-        "expectedRuns": expected_runs,
-        "score": {"away": score_away, "home": score_home},
-        "lastPlay": last_play,
+    return {
+            "ok": True,
+            "state": state,
+            "inning": inning,
+            "half": half,
+            "balls": balls,
+            "strikes": strikes,
+            "outs": outs,
+            "expectedRuns": expected_runs,
+            "score": {"away": score_away, "home": score_home},
+            "lastPlay": last_play,
 
-        "batter": batter,
-        "pitcher": pitcher,
-        "runners": runners,
-        "inningSummary": inning_summary,
-        "pitches": pitches_out,
-        "lineups": lineups,
-        "inningState": inning_state_raw,
-        "betweenInnings": between_innings,
-        "dueUp": due_up,
-        "bip": bip,
-    }
+            "batter": batter,
+            "pitcher": pitcher,
+            "runners": runners,
+            "inningSummary": inning_summary,
+            "pitches": pitches_out,
+            "lineups": lineups,
+            "inningState": inning_state_raw,
+            "betweenInnings": between_innings,
+            "dueUp": due_up,
+            "bip": bip,
+        }
     
 def extract_career_statline(player: dict) -> Tuple[Optional[str], Optional[dict]]:
     """
@@ -3489,23 +3489,23 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     live_data = (feed or {}).get("liveData") or {}
     linescore = (live_data.get("linescore") or {})
 
-# ---- Current baserunners/outs for run expectancy ----
-offense = (linescore.get("offense") or {})
-outs_now = _safe_int(linescore.get("outs"))
-if outs_now is None:
-    outs_now = _safe_int(offense.get("outs"))
-on1 = bool(offense.get("first"))
-on2 = bool(offense.get("second"))
-on3 = bool(offense.get("third"))
-base_state_now = (1 if on1 else 0) | (2 if on2 else 0) | (4 if on3 else 0)
+    # ---- Current baserunners/outs for run expectancy ----
+    offense = (linescore.get("offense") or {})
+    outs_now = _safe_int(linescore.get("outs"))
+    if outs_now is None:
+        outs_now = _safe_int(offense.get("outs"))
+    on1 = bool(offense.get("first"))
+    on2 = bool(offense.get("second"))
+    on3 = bool(offense.get("third"))
+    base_state_now = (1 if on1 else 0) | (2 if on2 else 0) | (4 if on3 else 0)
 
-expected_runs_now = None
-if callable(get_expected_runs):
-    try:
-        if outs_now is not None and 0 <= int(outs_now) <= 2:
-            expected_runs_now = float(get_expected_runs(int(base_state_now), int(outs_now)))
-    except Exception:
-        expected_runs_now = None
+    expected_runs_now = None
+    if callable(get_expected_runs):
+        try:
+            if outs_now is not None and 0 <= int(outs_now) <= 2:
+                expected_runs_now = float(get_expected_runs(int(base_state_now), int(outs_now)))
+        except Exception:
+            expected_runs_now = None
 
     boxscore = (live_data.get("boxscore") or {})
     plays = (live_data.get("plays") or {})
