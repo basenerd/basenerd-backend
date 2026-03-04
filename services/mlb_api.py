@@ -27,6 +27,7 @@ def _resolve_model_path(filename: str) -> Optional[str]:
     """Find a model artifact in a few reasonable places."""
     # 1) explicit env vars (optional)
     env_key = {
+        "xba_xslg_model.joblib": "XBA_XSLG_MODEL_PATH",
         "xba_model.joblib": "XBA_MODEL_PATH",
         "xslg_model.joblib": "XSLG_MODEL_PATH",
         "x_model_meta.json": "X_MODEL_META_PATH",
@@ -54,9 +55,23 @@ def _load_x_models() -> Dict[str, Any] | None:
         return _X_MODELS
 
     try:
+        # meta is optional (used for feature order / compatibility)
+        meta_path = _resolve_model_path("x_model_meta.json")
+        meta = None
+        if meta_path:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+
+        # 1) Prefer the combined model (single classifier that outputs bases probs: 0,1,2,3,4)
+        combined_path = _resolve_model_path("xba_xslg_model.joblib")
+        if combined_path:
+            bundle = joblib.load(combined_path)
+            _X_MODELS = {"bundle": bundle, "meta": meta, "mode": "combined"}
+            return _X_MODELS
+
+        # 2) Fallback to legacy separate models
         xba_path = _resolve_model_path("xba_model.joblib")
         xslg_path = _resolve_model_path("xslg_model.joblib")
-        meta_path = _resolve_model_path("x_model_meta.json")
 
         if not xba_path or not xslg_path:
             _X_MODELS = None
@@ -65,13 +80,9 @@ def _load_x_models() -> Dict[str, Any] | None:
         xba_model = joblib.load(xba_path)
         xslg_model = joblib.load(xslg_path)
 
-        meta = None
-        if meta_path:
-            with open(meta_path, "r", encoding="utf-8") as f:
-                meta = json.load(f)
-
-        _X_MODELS = {"xba": xba_model, "xslg": xslg_model, "meta": meta}
+        _X_MODELS = {"xba": xba_model, "xslg": xslg_model, "meta": meta, "mode": "legacy"}
         return _X_MODELS
+
     except Exception as e:
         print(f"[x_models] load failed: {e}")
         _X_MODELS = None
@@ -86,8 +97,14 @@ def predict_xba_xslg(
 ) -> tuple[Optional[float], Optional[float]]:
     """Return (xBA, xSLG) for a single batted ball.
 
-    - xBA is clamped to [0, 1]
-    - xSLG is clamped to [0, 4]
+    Combined model (preferred):
+      - multiclass classifier over classes {0,1,2,3,4} representing bases on contact
+      - xBA  = P(bases > 0) = 1 - P(0)
+      - xSLG = E[bases]     = 1*P(1) + 2*P(2) + 3*P(3) + 4*P(4)
+
+    Legacy fallback:
+      - binary xBA model (prob of hit)
+      - regression xSLG model (expected bases)
     """
     models = _load_x_models()
     if not models:
@@ -105,6 +122,72 @@ def predict_xba_xslg(
     p_throws = str(p_throws).upper().strip()
 
     try:
+        # -------------------------
+        # Preferred: combined model
+        # -------------------------
+        if models.get("mode") == "combined":
+            bundle = models.get("bundle")
+
+            # bundle can be either:
+            #   - a raw sklearn model, or
+            #   - a dict like {"model": ..., "features": [...]}
+            if isinstance(bundle, dict) and "model" in bundle:
+                m = bundle["model"]
+                feats = bundle.get("features") or ["launch_speed", "launch_angle", "spray_angle", "stand", "p_throws"]
+            else:
+                m = bundle
+                feats = ["launch_speed", "launch_angle", "spray_angle", "stand", "p_throws"]
+
+            # NOTE: encode stand/p_throws as 0/1 to match training (recommended)
+            # Provide values for either feature set:
+            # - older combined training scripts used bb_type (0-3) + stand (0/1)
+            # - some pipelines use p_throws (0/1) + stand (0/1)
+            row = {
+                "launch_speed": float(launch_speed),
+                "launch_angle": float(launch_angle),
+                "spray_angle": float(spray_angle),
+                "stand": 0 if stand == "R" else 1,
+                # If model expects bb_type but we don't have it live, default to fly_ball=2
+                "bb_type": 2,
+                "p_throws": 0 if p_throws == "R" else 1,
+            }
+
+            X = pd.DataFrame([[row.get(c) for c in feats]], columns=feats)
+
+            if not hasattr(m, "predict_proba"):
+                return None, None
+
+            proba = m.predict_proba(X)[0]
+            classes = getattr(m, "classes_", None)
+            if classes is None or len(classes) != len(proba):
+                return None, None
+
+            p = {int(c): float(pp) for c, pp in zip(classes, proba)}
+
+            xba = 1.0 - p.get(0, 0.0)
+            xslg = (
+                1.0 * p.get(1, 0.0)
+                + 2.0 * p.get(2, 0.0)
+                + 3.0 * p.get(3, 0.0)
+                + 4.0 * p.get(4, 0.0)
+            )
+
+            # sanity clamps
+            if np.isfinite(xba):
+                xba = max(0.0, min(1.0, xba))
+            else:
+                xba = None
+
+            if np.isfinite(xslg):
+                xslg = max(0.0, min(4.0, xslg))
+            else:
+                xslg = None
+
+            return xba, xslg
+
+        # ----------------------
+        # Legacy: separate models
+        # ----------------------
         X = pd.DataFrame([{
             "launch_speed": float(launch_speed),
             "launch_angle": float(launch_angle),
@@ -133,6 +216,7 @@ def predict_xba_xslg(
             xslg = None
 
         return xba, xslg
+
     except Exception as e:
         print(f"[x_models] predict failed: {e}")
         return None, None
