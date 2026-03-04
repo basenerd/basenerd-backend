@@ -1340,7 +1340,7 @@
     return "#f59e0b";
   }
 
-   const sprayDots = document.getElementById("sprayDots");
+   // 👉 I REMOVED THE DUPLICATE sprayDots FROM RIGHT HERE!
    function renderSpray(points){
          if(!sprayDots) return;
          sprayDots.innerHTML = "";
@@ -1361,14 +1361,15 @@
 
         // Tell JavaScript to use `spray_data` instead of `spray_points`
         try{
-            const points = {{ (spray_data if spray_data is defined else [])|tojson }};
+            // 👉 ADDED | safe RIGHT HERE!
+            const points = {{ (spray_data if spray_data is defined else [])|tojson|safe }};
             renderSpray(points);
-        }catch(e){ /* ignore */ }
+        }catch(e){ console.error(e); }
 
         [sprSingle, sprDouble, sprTriple, sprHR, sprOther].forEach(el => {
             if(el) el.addEventListener("change", () => {
                 try{
-                    const points = {{ (spray_data if spray_data is defined else [])|tojson | safe }};
+                    const points = {{ (spray_data if spray_data is defined else [])|tojson|safe }};
                     renderSpray(points);
                 }catch(e){}
             });
