@@ -2159,7 +2159,7 @@ def player(player_id: int):
         # savant profile
         savant_profile=savant_profile,
         stadium_svg=stadium_svg,
-        hitter_pitch_profile=hitter_pitch_profile
+        hitter_pitch_profile=hitter_pitch_profile,
         spray_data=spray_data
     )
     
