@@ -108,6 +108,16 @@ def sr_color(pct):
         b = round(235 + (68  - 235) * t)
 
     return f"rgb({r},{g},{b})"
+
+    
+@app.route("/game/<int:game_pk>/analytics.json")
+def game_analytics(game_pk):
+
+    from services.mlb_api import get_game_analytics
+
+    data = get_game_analytics(game_pk)
+
+    return jsonify(data)
     
 @app.get("/about")
 def about():
