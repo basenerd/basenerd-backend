@@ -130,7 +130,7 @@ from services.mlb_api import get_random_player_id, get_player_full
 
 def teamname_to_svg(team_name: str) -> str:
     s = (team_name or "").lower().strip()
-    if "diamondbacks" in s:
+    if "dback" in s or "diamondback" in s or "d-back" in s:
         return "dbacks.svg"
     s = s.replace(" ", "_")
     s = re.sub(r"[^a-z0-9_]", "", s)
