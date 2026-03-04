@@ -14,15 +14,420 @@ import joblib
 import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine, text
-from run_expectancy import simulate_game, expected_linescore
 
 # ----------------------------
 # Monte Carlo run expectancy
 # ----------------------------
 try:
+    # get_expected_runs is used for live 'expectedRuns' (rest of half-inning)
     from services.run_expectancy import get_expected_runs  # type: ignore
+    # Optional: full Monte Carlo game sim components (used in game.html Analytics)
+    from services.run_expectancy import ADV_LOOKUP, force_walk  # type: ignore
 except Exception:
     get_expected_runs = None  # type: ignore
+    ADV_LOOKUP = None  # type: ignore
+    force_walk = None  # type: ignore
+
+
+# ----------------------------
+# Monte Carlo full-game sim (Analytics)
+# ----------------------------
+def _mc_clamp(x: float, lo: float, hi: float) -> float:
+    try:
+        x = float(x)
+    except Exception:
+        return lo
+    return lo if x < lo else (hi if x > hi else x)
+
+def _mc_spray_bucket(spray_angle: Optional[float]) -> int:
+    """
+    0=pull, 1=center, 2=oppo.
+    Uses a simple spray-angle bucket; works even when handedness is unknown.
+    """
+    a = to_float(spray_angle)
+    if a is None:
+        return 1
+    if a < -15:
+        return 0
+    if a > 15:
+        return 2
+    return 1
+
+def _mc_probs_from_x(xba: Optional[float], xslg: Optional[float]) -> Dict[str, float]:
+    """
+    Convert (xBA, xSLG) into a coarse outcome distribution for balls in play:
+      P(OUT), P(1B), P(2B), P(3B), P(HR)
+
+    We only need something stable/monotone for now; it does *not* attempt to be a perfect
+    Statcast outcome model.
+    """
+    p_hit = _mc_clamp(to_float(xba) if xba is not None else 0.0, 0.0, 1.0)
+    eslg = _mc_clamp(to_float(xslg) if xslg is not None else 0.0, 0.0, 4.0)
+
+    if p_hit <= 1e-9:
+        return {"OUT": 1.0, "1B": 0.0, "2B": 0.0, "3B": 0.0, "HR": 0.0}
+
+    # expected bases conditional on hit
+    cond = _mc_clamp(eslg / max(p_hit, 1e-9), 1.0, 4.0)
+    extra = _mc_clamp(cond - 1.0, 0.0, 3.0)
+
+    # among extra-base hits, use a simple fixed mix
+    r2, r3, r4 = 0.70, 0.05, 0.25
+    denom = (r2 * 1.0) + (r3 * 2.0) + (r4 * 3.0)
+    t = 0.0 if denom <= 1e-9 else (extra / denom)
+
+    p2 = _mc_clamp(t * r2, 0.0, 1.0)
+    p3 = _mc_clamp(t * r3, 0.0, 1.0)
+    p4 = _mc_clamp(t * r4, 0.0, 1.0)
+    p1 = 1.0 - (p2 + p3 + p4)
+    if p1 < 0:
+        # if extra is huge, force no singles and renormalize extras
+        p1 = 0.0
+        s = (p2 + p3 + p4)
+        if s > 1e-9:
+            p2, p3, p4 = p2 / s, p3 / s, p4 / s
+
+    # scale by p_hit, keep OUT as residual
+    return {
+        "OUT": 1.0 - p_hit,
+        "1B": p_hit * p1,
+        "2B": p_hit * p2,
+        "3B": p_hit * p3,
+        "HR": p_hit * p4,
+    }
+
+def _mc_choice(d: Dict[str, float], rng: np.random.Generator) -> str:
+    items = list(d.items())
+    keys = [k for k, _ in items]
+    ps = np.array([max(0.0, float(p)) for _, p in items], dtype=float)
+    s = float(ps.sum())
+    if s <= 1e-12:
+        return keys[0]
+    ps = ps / s
+    return str(rng.choice(keys, p=ps))
+
+def _mc_apply_event(event_key: str, base_state: int, outs: int, spray_bucket: int, rng: np.random.Generator) -> Tuple[int, int, int, bool]:
+    """
+    Apply an outcome to (base_state, outs), returning:
+      (new_base_state, new_outs, runs_scored, is_hit)
+    """
+    # Walk/HBP handled outside.
+    if event_key in ("K", "OUT"):
+        return base_state, outs + 1, 0, False
+
+    # HR deterministic (if lookup missing)
+    if event_key == "HR":
+        runs = ((base_state & 1) > 0) + ((base_state & 2) > 0) + ((base_state & 4) > 0) + 1
+        return 0, outs, int(runs), True
+
+    # Use advancement matrix when possible
+    if ADV_LOOKUP and isinstance(ADV_LOOKUP, dict):
+        key = (event_key, int(base_state), int(outs), int(spray_bucket))
+        row = ADV_LOOKUP.get(key)
+        if row is not None:
+            next_states, run_vals, outs_vals, probs = row
+            probs = np.array(probs, dtype=float)
+            s = float(probs.sum())
+            if s > 1e-12:
+                probs = probs / s
+                idx = int(rng.choice(len(probs), p=probs))
+                nb = int(next_states[idx])
+                rr = int(run_vals[idx])
+                oo = int(outs_vals[idx])
+                is_hit = event_key in ("1B", "2B", "3B", "HR")
+                return nb, outs + oo, rr, is_hit
+
+    # Fallbacks if matrix doesn't have the key
+    if event_key.endswith("_out"):
+        return base_state, outs + 1, 0, False
+    if event_key in ("1B", "2B", "3B"):
+        # naive base advancement (no extra bases)
+        runs = 0
+        on1 = 1 if (base_state & 1) else 0
+        on2 = 1 if (base_state & 2) else 0
+        on3 = 1 if (base_state & 4) else 0
+
+        if event_key == "1B":
+            runs += on3
+            nb = 1 | (2 if on1 else 0) | (4 if on2 else 0)
+            return nb, outs, runs, True
+        if event_key == "2B":
+            runs += on3 + on2
+            nb = 2 | (4 if on1 else 0)
+            return nb, outs, runs, True
+        if event_key == "3B":
+            runs += on3 + on2 + on1
+            nb = 4
+            return nb, outs, runs, True
+
+    return base_state, outs, 0, False
+
+def monte_carlo_game_from_pas(pas: List[dict], sims: int = 5000, seed: int = 42) -> Optional[dict]:
+    """
+    Run a simple Monte Carlo on *balls in play* using each PA's xBA/xSLG.
+
+    Returns:
+      {
+        "sims": int,
+        "homeWinPct": float,
+        "awayWinPct": float,
+        "expectedScore": {"away": float, "home": float},
+        "expectedLinescore": {"away": [float], "home": [float], "awayHits": float, "homeHits": float},
+        "expectedBox": {"away": [rows], "home": [rows]}
+      }
+    """
+    if not pas or not callable(force_walk):
+        return None
+
+    # Determine inning span
+    max_inn = 0
+    for pa in pas:
+        try:
+            max_inn = max(max_inn, int(pa.get("inning") or 0))
+        except Exception:
+            continue
+    if max_inn <= 0:
+        max_inn = 9
+
+    rng = np.random.default_rng(seed)
+
+    away_runs_by_inn = np.zeros(max_inn, dtype=float)
+    home_runs_by_inn = np.zeros(max_inn, dtype=float)
+    away_hits_sum = 0.0
+    home_hits_sum = 0.0
+    away_wins = 0
+    home_wins = 0
+    away_score_sum = 0.0
+    home_score_sum = 0.0
+
+    # batter aggregates
+    bat_agg: Dict[str, Dict[int, Dict[str, float]]] = {"away": {}, "home": {}}
+
+    for _ in range(int(sims)):
+        bs = 0
+        outs = 0
+        cur_inn = 1
+        cur_half = "Top"
+        a_runs = 0
+        h_runs = 0
+        a_hits = 0
+        h_hits = 0
+
+        for pa in pas:
+            inn = pa.get("inning")
+            half = pa.get("half") or ""
+            try:
+                inn = int(inn)
+            except Exception:
+                inn = cur_inn
+
+            # inning/half transition: reset bases/outs
+            half_norm = "Top" if str(half).lower().startswith("top") else ("Bottom" if str(half).lower().startswith("bot") else cur_half)
+            if inn != cur_inn or half_norm != cur_half:
+                cur_inn = inn
+                cur_half = half_norm
+                bs = 0
+                outs = 0
+
+            if outs >= 3:
+                continue
+
+            team = "away" if cur_half == "Top" else "home"
+            batter_id = pa.get("batterId")
+            pitcher_id = pa.get("pitcherId")
+
+            # Basic event
+            event = (pa.get("summaryEvent") or pa.get("event") or "").strip().lower()
+            bb = pa.get("battedBall") or {}
+            has_bb = bool(bb.get("has")) or bool(bb.get("coordX") is not None and bb.get("coordY") is not None)
+
+            # Treat HR as deterministic
+            if "home run" in event or event == "home_run" or event == "hr":
+                runs = ((bs & 1) > 0) + ((bs & 2) > 0) + ((bs & 4) > 0) + 1
+                bs = 0
+                if team == "away":
+                    a_runs += runs
+                    if 1 <= cur_inn <= max_inn:
+                        away_runs_by_inn[cur_inn - 1] += runs
+                    a_hits += 1
+                else:
+                    h_runs += runs
+                    if 1 <= cur_inn <= max_inn:
+                        home_runs_by_inn[cur_inn - 1] += runs
+                    h_hits += 1
+                # batter agg
+                try:
+                    bid = int(batter_id) if batter_id is not None else None
+                except Exception:
+                    bid = None
+                if bid:
+                    r = bat_agg[team].setdefault(bid, {"PA": 0, "AB": 0, "H": 0, "TB": 0, "HR": 0, "BB": 0, "HBP": 0, "K": 0})
+                    r["PA"] += 1; r["AB"] += 1; r["H"] += 1; r["TB"] += 4; r["HR"] += 1
+                continue
+
+            # Walk / HBP deterministic
+            if "walk" in event and "intent" not in event:
+                bs, r = force_walk(int(bs))
+                if team == "away":
+                    a_runs += r
+                    if 1 <= cur_inn <= max_inn:
+                        away_runs_by_inn[cur_inn - 1] += r
+                else:
+                    h_runs += r
+                    if 1 <= cur_inn <= max_inn:
+                        home_runs_by_inn[cur_inn - 1] += r
+                try:
+                    bid = int(batter_id) if batter_id is not None else None
+                except Exception:
+                    bid = None
+                if bid:
+                    rr = bat_agg[team].setdefault(bid, {"PA": 0, "AB": 0, "H": 0, "TB": 0, "HR": 0, "BB": 0, "HBP": 0, "K": 0})
+                    rr["PA"] += 1; rr["BB"] += 1
+                continue
+            if "hit by pitch" in event or event == "hbp":
+                bs, r = force_walk(int(bs))
+                if team == "away":
+                    a_runs += r
+                    if 1 <= cur_inn <= max_inn:
+                        away_runs_by_inn[cur_inn - 1] += r
+                else:
+                    h_runs += r
+                    if 1 <= cur_inn <= max_inn:
+                        home_runs_by_inn[cur_inn - 1] += r
+                try:
+                    bid = int(batter_id) if batter_id is not None else None
+                except Exception:
+                    bid = None
+                if bid:
+                    rr = bat_agg[team].setdefault(bid, {"PA": 0, "AB": 0, "H": 0, "TB": 0, "HR": 0, "BB": 0, "HBP": 0, "K": 0})
+                    rr["PA"] += 1; rr["HBP"] += 1
+                continue
+
+            # Strikeout deterministic
+            if "strikeout" in event or event == "strike out" in event or event == "k":
+                outs += 1
+                try:
+                    bid = int(batter_id) if batter_id is not None else None
+                except Exception:
+                    bid = None
+                if bid:
+                    rr = bat_agg[team].setdefault(bid, {"PA": 0, "AB": 0, "H": 0, "TB": 0, "HR": 0, "BB": 0, "HBP": 0, "K": 0})
+                    rr["PA"] += 1; rr["AB"] += 1; rr["K"] += 1
+                continue
+
+            # Ball in play: stochastic using xBA/xSLG when available
+            if has_bb:
+                spray_bucket = _mc_spray_bucket(bb.get("sprayAngle"))
+                probs = _mc_probs_from_x(bb.get("xBA"), bb.get("xSLG"))
+                out = _mc_choice(probs, rng)
+
+                # map OUT to a batted-ball out type (uses bb_type when available)
+                if out == "OUT":
+                    bb_type = (bb.get("bbType") or bb.get("type") or "").lower()
+                    if "ground" in bb_type:
+                        key = "GB_out"
+                    elif "line" in bb_type:
+                        key = "LD_out"
+                    elif "popup" in bb_type or "pop" in bb_type:
+                        key = "PU_out"
+                    else:
+                        key = "FB_out"
+                    bs, outs, r, is_hit = _mc_apply_event(key, int(bs), int(outs), int(spray_bucket), rng)
+                else:
+                    bs, outs, r, is_hit = _mc_apply_event(out, int(bs), int(outs), int(spray_bucket), rng)
+
+                if team == "away":
+                    a_runs += r
+                    if 1 <= cur_inn <= max_inn:
+                        away_runs_by_inn[cur_inn - 1] += r
+                    if is_hit:
+                        a_hits += 1
+                else:
+                    h_runs += r
+                    if 1 <= cur_inn <= max_inn:
+                        home_runs_by_inn[cur_inn - 1] += r
+                    if is_hit:
+                        h_hits += 1
+
+                # batter agg
+                try:
+                    bid = int(batter_id) if batter_id is not None else None
+                except Exception:
+                    bid = None
+                if bid:
+                    rr = bat_agg[team].setdefault(bid, {"PA": 0, "AB": 0, "H": 0, "TB": 0, "HR": 0, "BB": 0, "HBP": 0, "K": 0})
+                    rr["PA"] += 1
+                    rr["AB"] += 1
+                    if out != "OUT":
+                        rr["H"] += 1
+                        rr["TB"] += {"1B": 1, "2B": 2, "3B": 3, "HR": 4}.get(out, 0)
+                continue
+
+            # Fallback: treat everything else as an out (keeps game moving)
+            outs += 1
+            try:
+                bid = int(batter_id) if batter_id is not None else None
+            except Exception:
+                bid = None
+            if bid:
+                rr = bat_agg[team].setdefault(bid, {"PA": 0, "AB": 0, "H": 0, "TB": 0, "HR": 0, "BB": 0, "HBP": 0, "K": 0})
+                rr["PA"] += 1; rr["AB"] += 1
+
+        away_score_sum += a_runs
+        home_score_sum += h_runs
+        away_hits_sum += a_hits
+        home_hits_sum += h_hits
+
+        if a_runs > h_runs:
+            away_wins += 1
+        elif h_runs > a_runs:
+            home_wins += 1
+        else:
+            # treat ties as half-win each (rare; extra innings not modeled here)
+            away_wins += 0.5
+            home_wins += 0.5
+
+    sims_f = float(max(1, int(sims)))
+    away_win_pct = float(away_wins) / sims_f
+    home_win_pct = float(home_wins) / sims_f
+
+    # build expected box rows
+    def _rows(team: str) -> List[dict]:
+        out = []
+        for pid, s in bat_agg[team].items():
+            pa = s.get("PA", 0.0)
+            ab = s.get("AB", 0.0)
+            h = s.get("H", 0.0)
+            tb = s.get("TB", 0.0)
+            out.append({
+                "playerId": int(pid),
+                "PA": pa / sims_f,
+                "AB": ab / sims_f,
+                "H": h / sims_f,
+                "TB": tb / sims_f,
+                "BB": s.get("BB", 0.0) / sims_f,
+                "HBP": s.get("HBP", 0.0) / sims_f,
+                "K": s.get("K", 0.0) / sims_f,
+                "HR": s.get("HR", 0.0) / sims_f,
+                "xAVG": (h / ab) if ab > 0 else None,
+                "xSLG": (tb / ab) if ab > 0 else None,
+            })
+        out.sort(key=lambda r: (r.get("xSLG") or 0.0), reverse=True)
+        return out
+
+    return {
+        "sims": int(sims),
+        "awayWinPct": away_win_pct,
+        "homeWinPct": home_win_pct,
+        "expectedScore": {"away": away_score_sum / sims_f, "home": home_score_sum / sims_f},
+        "expectedLinescore": {
+            "away": (away_runs_by_inn / sims_f).tolist(),
+            "home": (home_runs_by_inn / sims_f).tolist(),
+            "awayHits": away_hits_sum / sims_f,
+            "homeHits": home_hits_sum / sims_f,
+        },
+        "expectedBox": {"away": _rows("away"), "home": _rows("home")},
+    }
 
 BASE = "https://statsapi.mlb.com/api/v1"
 MLB_API_BASE = BASE  # for older helpers that reference MLB_API_BASE
@@ -3664,6 +4069,32 @@ if callable(get_expected_runs):
 
 
     game_obj["pas"] = pas_out
+
+    # -------------------------
+    # Monte Carlo (completed games only)
+    # -------------------------
+    try:
+        status_lc = (status_pill or "").lower()
+        is_final = ("final" in status_lc) or ("game over" in status_lc) or ("completed" in status_lc)
+    except Exception:
+        is_final = False
+
+    game_obj["sim"] = None
+    if is_final:
+        # Default to 5000 sims for completed games (matches UI copy); keep it bounded for safety
+        sims = 5000
+        try:
+            sims = int(os.environ.get("MC_SIMS", sims))
+        except Exception:
+            sims = 5000
+        sims = max(500, min(20000, sims))
+
+        try:
+            game_obj["sim"] = monte_carlo_game_from_pas(pas_out, sims=sims)  # type: ignore
+        except Exception as e:
+            print("[mc] sim failed:", e)
+            game_obj["sim"] = None
+
 
     # Keep legacy pbp as empty (template is using pas now)
     game_obj["pbp"] = []
