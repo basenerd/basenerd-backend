@@ -1796,6 +1796,20 @@
                                     {% if pa.battedBall.xSLG is not none %}{{ '%.3f'|format(pa.battedBall.xSLG) }}{% else %}-{% endif %}
                                   </div>
                           
+
+              {% endif %}
+              {% endfor %}
+            </div>
+          </details>
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+
+      </div>
+    </div>
+  {% endif %}
+</div>
+
 <!-- ANALYTICS -->
 <div class="tab-panel" id="tab-analytics">
   <div class="card" style="margin-top:14px;">
@@ -1875,32 +1889,6 @@
     </div>
   </div>
 </div>
-              {% endif %}
-              {% endfor %}
-            </div>
-          </details>
-        {% endfor %}
-
-      </div>
-    </div>
-  {% endif %}
-</div>
-
-<!-- ANALYTICS -->
-<div class="tab-panel" id="tab-analytics">
-  <div class="card" style="margin-top:14px;">
-    <div class="card-header">
-      <div>
-        <div class="card-title">Analytics</div>
-        <div class="card-subtitle">Coming soon</div>
-      </div>
-    </div>
-    <div style="padding:14px;">
-      <div class="muted">—</div>
-    </div>
-  </div>
-</div>
-
 <script>
 (function(){
   const tabs = document.querySelectorAll(".tab-btn");
