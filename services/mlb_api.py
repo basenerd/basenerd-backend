@@ -28,6 +28,10 @@ def get_expected_runs_safe(*args, **kwargs):
     except Exception:
         return None
 
+
+# Alias for legacy call sites
+get_expected_runs = get_expected_runs_safe  # lazy wrapper
+
 # Used by the Monte Carlo sim; populated lazily inside monte_carlo_game_from_pas()
 ADV_LOOKUP = None  # type: ignore
 force_walk = None  # type: ignore
