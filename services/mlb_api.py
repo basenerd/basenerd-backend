@@ -4517,7 +4517,7 @@ def get_game_analytics(game_pk, sims: int = 600) -> dict:
         "away": game_obj.get("away"),
         "home": game_obj.get("home"),
         "sim": sim,
-        "battedBalls": game_obj.get("battedBalls") if "battedBalls" in game_obj else (game_obj.get("batted_balls") if "batted_balls" in game_obj else None),
+        "battedBalls": bb,
     }
 
     _analytics_cache_set(cache_key, payload)
