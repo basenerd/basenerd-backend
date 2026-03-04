@@ -517,66 +517,6 @@
     font-weight:900;
   }
 
-
-
-  /* ==========================================================
-     ANALYTICS (scoped to game.html)
-     ========================================================== */
-  .ana-grid{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap:12px;
-    align-items:start;
-  }
-  @media (max-width: 980px){
-    .ana-grid{ grid-template-columns: 1fr; }
-  }
-
-  .mc-gauge{
-    position:relative;
-    height:14px;
-    border-radius:999px;
-    overflow:hidden;
-    border:1px solid rgba(148,163,184,.28);
-    background: rgba(255,255,255,.6);
-  }
-  .mc-gauge-track{
-    position:absolute; inset:0;
-    background: linear-gradient(90deg, rgba(59,130,246,.95) 0%, rgba(255,255,255,.95) 50%, rgba(239,68,68,.95) 100%);
-  }
-  .mc-gauge-pin{
-    position:absolute;
-    top:-4px;
-    width:2px;
-    height:22px;
-    background: rgba(2,6,23,.92);
-    box-shadow: 0 0 0 2px rgba(255,255,255,.85);
-    transform: translateX(-1px);
-  }
-
-  .ana-tip{
-    position:absolute;
-    z-index:50;
-    max-width: 260px;
-    pointer-events:none;
-    padding:8px 10px;
-    border-radius:12px;
-    background: rgba(2,6,23,.92);
-    color: rgba(255,255,255,.96);
-    border:1px solid rgba(148,163,184,.22);
-    box-shadow: 0 10px 24px rgba(2,6,23,.22);
-    font-size:12px;
-    line-height:1.25;
-  }
-  .ana-tip .mono{ font-family: IBM Plex Mono, ui-monospace, Menlo, monospace; }
-
-  .ana-dot{
-    cursor: default;
-    stroke: rgba(255,255,255,.9);
-    stroke-width: 1.2;
-    opacity: .92;
-  }
-
 </style>
 
 {# Convert IP string like "7.2" into outs (23) for simple scoring #}
@@ -952,74 +892,7 @@
         </tbody>
       </table>
     </div>
-  
-{% set sim = (game.sim if game.sim is defined else none) %}
-{% if sim and sim.expectedLinescore is defined %}
-  <div class="card" style="margin-top:14px;">
-    <div class="card-header">
-      <div class="card-title">Expected Linescore</div>
-      <div class="card-subtitle">Monte Carlo ({{ sim.sims if sim.sims is defined else '' }} sims)</div>
-    </div>
-
-    <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
-      <table class="tbl">
-        <thead>
-          <tr>
-            <th></th>
-            {% for inn in innings %}
-              <th class="mono" style="text-align:center;">{{ inn.num }}</th>
-            {% endfor %}
-            <th class="mono" style="text-align:center;">xR</th>
-            <th class="mono" style="text-align:center;">xH</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="mono">
-              {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
-              {{ away.abbrev }}
-            </td>
-            {% for inn in innings %}
-              {% set i = loop.index0 %}
-              {% set v = (sim.expectedLinescore.away[i] if sim.expectedLinescore.away is defined and sim.expectedLinescore.away|length > i else none) %}
-              <td class="mono" style="text-align:center;">{{ (("%.2f"|format(v)) if v is not none else '-') }}</td>
-            {% endfor %}
-            <td class="mono" style="text-align:center;">
-              {% set xr = (sim.expectedScore.away if sim.expectedScore is defined else none) %}
-              {{ (("%.2f"|format(xr)) if xr is not none else '-') }}
-            </td>
-            <td class="mono" style="text-align:center;">
-              {% set xh = (sim.expectedLinescore.awayHits if sim.expectedLinescore is defined else none) %}
-              {{ (("%.2f"|format(xh)) if xh is not none else '-') }}
-            </td>
-          </tr>
-
-          <tr>
-            <td class="mono">
-              {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
-              {{ home.abbrev }}
-            </td>
-            {% for inn in innings %}
-              {% set i = loop.index0 %}
-              {% set v = (sim.expectedLinescore.home[i] if sim.expectedLinescore.home is defined and sim.expectedLinescore.home|length > i else none) %}
-              <td class="mono" style="text-align:center;">{{ (("%.2f"|format(v)) if v is not none else '-') }}</td>
-            {% endfor %}
-            <td class="mono" style="text-align:center;">
-              {% set xr = (sim.expectedScore.home if sim.expectedScore is defined else none) %}
-              {{ (("%.2f"|format(xr)) if xr is not none else '-') }}
-            </td>
-            <td class="mono" style="text-align:center;">
-              {% set xh = (sim.expectedLinescore.homeHits if sim.expectedLinescore is defined else none) %}
-              {{ (("%.2f"|format(xh)) if xh is not none else '-') }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
   </div>
-{% endif %}
-
-</div>
 {% endif %}
 
 <!-- Tabs -->
@@ -1081,7 +954,23 @@
         —
       </div>
 
-      {# -----------------------------
+      
+{# -----------------------------
+   Expected Linescore (Monte Carlo)
+   ----------------------------- #}
+<div class="card" id="exp-linescore-card" style="margin-top:14px; display:none;">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Expected Linescore</div>
+      <div class="card-subtitle">Monte Carlo expected runs per inning (and totals)</div>
+    </div>
+  </div>
+  <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
+    <div id="exp-linescore-wrap" class="muted">Loading…</div>
+  </div>
+</div>
+
+{# -----------------------------
          FIXED: Proper nesting so home lineup stays on the RIGHT
          UPDATED: Zone + Bases side-by-side, Pitches table FULL-WIDTH underneath
          ----------------------------- #}
@@ -1906,19 +1795,87 @@
                                   <div class="bb-v">
                                     {% if pa.battedBall.xSLG is not none %}{{ '%.3f'|format(pa.battedBall.xSLG) }}{% else %}-{% endif %}
                                   </div>
-                                </div>
-                              </div>
+                          
+<!-- ANALYTICS -->
+<div class="tab-panel" id="tab-analytics">
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Analytics</div>
+        <div class="card-subtitle">Monte Carlo • Expected batted-ball results</div>
+      </div>
+    </div>
 
-                            </div>
-                          {% else %}
-                            <div></div>
-                          {% endif %}
+    <div style="padding:14px;">
+      <!-- Win odds -->
+      <div class="card" style="margin:0 0 14px 0;">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Win Odds</div>
+            <div class="card-subtitle" id="mc-winodds-sub" style="opacity:.8;">—</div>
+          </div>
+        </div>
+        <div style="padding:14px;">
+          <div id="mc-winodds-gauge" style="height:14px; border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,.10); background:linear-gradient(90deg, rgba(59,130,246,.95), rgba(255,255,255,.85), rgba(239,68,68,.95)); position:relative;">
+            <div id="mc-winodds-marker" style="position:absolute; top:-4px; width:2px; height:22px; background:rgba(15,23,42,.95); left:50%; transform:translateX(-1px); box-shadow:0 0 0 1px rgba(255,255,255,.35);"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:10px;">
+            <div class="mono" id="mc-away-pct">—</div>
+            <div class="mono" id="mc-home-pct">—</div>
+          </div>
+        </div>
+      </div>
 
-                        </div>
-                      </div>
-                    </details>
-                  {% endfor %}
-                {% endif %}
+      <!-- Batted ball maps -->
+      <div class="gc-grid" style="grid-template-columns: 1fr 1fr; gap:14px;">
+        <div class="card" style="margin:0;">
+          <div class="card-header">
+            <div class="card-title" id="bbmap-away-title">Away Batted Balls</div>
+          </div>
+          <div style="padding:14px;">
+            <div style="position:relative;">
+              <svg id="bbmap-away" viewBox="0 0 250 250" preserveAspectRatio="xMidYMid meet" style="width:100%; max-width:520px; display:block; margin:0 auto;">
+                <g class="sprayOverlay"></g>
+                <g class="sprayPoints"></g>
+              </svg>
+              <div id="bbmap-tip" class="card" style="display:none; position:absolute; left:0; top:0; padding:10px; pointer-events:none; max-width:260px;">
+                <div class="mono" id="bbmap-tip-title" style="font-weight:700; margin-bottom:6px;">—</div>
+                <div class="mono" id="bbmap-tip-body" style="font-size:12px; line-height:1.35; opacity:.9;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin:0;">
+          <div class="card-header">
+            <div class="card-title" id="bbmap-home-title">Home Batted Balls</div>
+          </div>
+          <div style="padding:14px;">
+            <svg id="bbmap-home" viewBox="0 0 250 250" preserveAspectRatio="xMidYMid meet" style="width:100%; max-width:520px; display:block; margin:0 auto;">
+              <g class="sprayOverlay"></g>
+              <g class="sprayPoints"></g>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Expected box -->
+      <div class="card" style="margin-top:14px;">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Expected Box Scores</div>
+            <div class="card-subtitle">Expected hits/total bases from xBA/xSLG (balls in play)</div>
+          </div>
+        </div>
+        <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
+          <div id="exp-box-wrap" class="muted" style="padding-top:14px;">Loading…</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+              {% endif %}
               {% endfor %}
             </div>
           </details>
@@ -1929,253 +1886,19 @@
   {% endif %}
 </div>
 
-
 <!-- ANALYTICS -->
 <div class="tab-panel" id="tab-analytics">
-
-  {% set sim = (game.sim if game.sim is defined else none) %}
-
-  <!-- Monte Carlo summary -->
   <div class="card" style="margin-top:14px;">
     <div class="card-header">
       <div>
-        <div class="card-title">Monte Carlo</div>
-        <div class="card-subtitle">Expected outcome + expected scoring</div>
+        <div class="card-title">Analytics</div>
+        <div class="card-subtitle">Coming soon</div>
       </div>
     </div>
-
     <div style="padding:14px;">
-      {% if sim %}
-        {% set home_wp = (sim.homeWinPct if sim.homeWinPct is defined else none) %}
-        {% set away_wp = (sim.awayWinPct if sim.awayWinPct is defined else none) %}
-        {% set sims_n = (sim.sims if sim.sims is defined else '') %}
-        {% set home_pct = (home_wp * 100) if home_wp is not none else none %}
-        {% set away_pct = (away_wp * 100) if away_wp is not none else none %}
-
-        <div style="display:grid; grid-template-columns: 1fr; gap:12px;">
-
-          <div class="card" style="margin:0; padding:12px;">
-            <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:10px;">
-              <div>
-                <div class="mono muted" style="font-size:12px;">Win odds ({{ sims_n }} sims)</div>
-                <div style="font-weight:900; font-size:18px; line-height:1.15;">
-                  {% if home_pct is not none and away_pct is not none %}
-                    {% if home_pct >= away_pct %}
-                      {{ home.abbrev }} wins {{ "%.1f"|format(home_pct) }}%
-                    {% else %}
-                      {{ away.abbrev }} wins {{ "%.1f"|format(away_pct) }}%
-                    {% endif %}
-                  {% else %}
-                    —
-                  {% endif %}
-                </div>
-              </div>
-
-              <div class="mono" style="font-size:12px; opacity:.85; text-align:right;">
-                <div>{{ away.abbrev }}: {{ ("%.1f"|format(away_pct)) if away_pct is not none else "-" }}%</div>
-                <div>{{ home.abbrev }}: {{ ("%.1f"|format(home_pct)) if home_pct is not none else "-" }}%</div>
-              </div>
-            </div>
-
-            <div style="margin-top:10px;">
-              <div class="mc-gauge">
-                <div class="mc-gauge-track"></div>
-                {% if home_pct is not none %}
-                  <div class="mc-gauge-pin" style="left: {{ home_pct }}%;"></div>
-                {% endif %}
-              </div>
-              <div class="mono muted" style="display:flex; justify-content:space-between; margin-top:6px; font-size:11px;">
-                <span>{{ away.abbrev }} favored</span>
-                <span>50/50</span>
-                <span>{{ home.abbrev }} favored</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="card" style="margin:0; padding:12px;">
-            <div class="mono muted" style="font-size:12px;">Expected score</div>
-            <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:6px;">
-              <div class="pill mono" style="background: rgba(2,6,23,.04); border:1px solid rgba(148,163,184,.25);">
-                {{ away.abbrev }} xR: {{ ("%.2f"|format(sim.expectedScore.away)) if sim.expectedScore is defined and sim.expectedScore.away is defined else "-" }}
-              </div>
-              <div class="pill mono" style="background: rgba(2,6,23,.04); border:1px solid rgba(148,163,184,.25);">
-                {{ home.abbrev }} xR: {{ ("%.2f"|format(sim.expectedScore.home)) if sim.expectedScore is defined and sim.expectedScore.home is defined else "-" }}
-              </div>
-            </div>
-          </div>
-
-        </div>
-      {% else %}
-        <div class="muted">Monte Carlo summary is available after the game is completed.</div>
-      {% endif %}
+      <div class="muted">—</div>
     </div>
   </div>
-
-  <!-- Batted ball maps -->
-  <div class="card" style="margin-top:14px;">
-    <div class="card-header">
-      <div>
-        <div class="card-title">Batted Balls</div>
-        <div class="card-subtitle">Hover a dot for details</div>
-      </div>
-    </div>
-
-    <div style="padding:14px; position:relative;">
-      {% set away_bips = [] %}
-      {% set home_bips = [] %}
-      {% for pa in (game.pas if game.pas is defined else []) %}
-        {% set bb = (pa.battedBall if pa.battedBall is defined else none) %}
-        {% if bb and (bb.has if bb.has is defined else 0) %}
-          {% set is_away_off = (pa.half|string)|lower.startswith('top') %}
-          {% set arr = away_bips if is_away_off else home_bips %}
-          {% set _ = arr.append({
-            "inning": pa.inning,
-            "half": pa.half,
-            "batter": (pa.batterName if pa.batterName is defined else ''),
-            "pitcher": (pa.pitcherName if pa.pitcherName is defined else ''),
-            "ev": bb.exitVelo,
-            "la": bb.launchAngle,
-            "dist": bb.distance,
-            "xba": bb.xBA,
-            "xslg": (bb.xSLG if bb.xSLG is defined else none),
-            "result": (pa.summaryEvent if pa.summaryEvent is defined else ''),
-            "x": (bb.coordX if bb.coordX is defined else none),
-            "y": (bb.coordY if bb.coordY is defined else none)
-          }) %}
-        {% endif %}
-      {% endfor %}
-
-      <div class="ana-grid">
-        <div>
-          <div class="mono muted" style="font-size:12px; margin-bottom:6px;">{{ away.abbrev }}</div>
-          <div class="spray-mini-card">
-            <svg class="ana-spray-svg"
-                 viewBox="0 0 250 250"
-                 preserveAspectRatio="xMidYMid meet"
-                 data-points='{{ {"team": away.abbrev, "points": away_bips} | tojson }}'>
-              <g class="sprayOverlay"></g>
-              <g class="sprayPoints"></g>
-            </svg>
-          </div>
-        </div>
-
-        <div>
-          <div class="mono muted" style="font-size:12px; margin-bottom:6px;">{{ home.abbrev }}</div>
-          <div class="spray-mini-card">
-            <svg class="ana-spray-svg"
-                 viewBox="0 0 250 250"
-                 preserveAspectRatio="xMidYMid meet"
-                 data-points='{{ {"team": home.abbrev, "points": home_bips} | tojson }}'>
-              <g class="sprayOverlay"></g>
-              <g class="sprayPoints"></g>
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <div id="ana-bip-tip" class="ana-tip" style="display:none;"></div>
-    </div>
-  </div>
-
-  <!-- Expected box score -->
-  <div class="card" style="margin-top:14px;">
-    <div class="card-header">
-      <div>
-        <div class="card-title">Expected Box Score</div>
-        <div class="card-subtitle">Per-player expected batting line (xAVG / xSLG)</div>
-      </div>
-    </div>
-
-    <div style="padding:14px; overflow-x:auto;">
-      {% if sim and sim.expectedBox is defined %}
-        {# build name maps from the real boxscore batting tables #}
-        {% set away_name = {} %}
-        {% set home_name = {} %}
-        {% if game.box and game.box.away and game.box.away.batting is defined %}
-          {% for r in game.box.away.batting %}
-            {% if r.playerId is defined %}
-              {% set _ = away_name.update({ (r.playerId|string): (r.name if r.name is defined else '') }) %}
-            {% endif %}
-          {% endfor %}
-        {% endif %}
-        {% if game.box and game.box.home and game.box.home.batting is defined %}
-          {% for r in game.box.home.batting %}
-            {% if r.playerId is defined %}
-              {% set _ = home_name.update({ (r.playerId|string): (r.name if r.name is defined else '') }) %}
-            {% endif %}
-          {% endfor %}
-        {% endif %}
-
-        <div class="ana-grid">
-          <div>
-            <div class="mono muted" style="font-size:12px; margin-bottom:6px;">{{ away.abbrev }}</div>
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th>Player</th>
-                  <th class="mono" style="text-align:right;">xAB</th>
-                  <th class="mono" style="text-align:right;">xH</th>
-                  <th class="mono" style="text-align:right;">xTB</th>
-                  <th class="mono" style="text-align:right;">xAVG</th>
-                  <th class="mono" style="text-align:right;">xSLG</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for r in (sim.expectedBox.away if sim.expectedBox.away is defined else []) %}
-                  {% set pid = (r.playerId|string) %}
-                  <tr>
-                    <td class="mono" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                      {{ away_name.get(pid) if away_name.get(pid) else pid }}
-                    </td>
-                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.AB) if r.AB is defined else "-" }}</td>
-                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.H) if r.H is defined else "-" }}</td>
-                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.TB) if r.TB is defined else "-" }}</td>
-                    <td class="mono" style="text-align:right;">{{ "%.3f"|format(r.xAVG) if r.xAVG is defined and r.xAVG is not none else "-" }}</td>
-                    <td class="mono" style="text-align:right;">{{ "%.3f"|format(r.xSLG) if r.xSLG is defined and r.xSLG is not none else "-" }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-
-          <div>
-            <div class="mono muted" style="font-size:12px; margin-bottom:6px;">{{ home.abbrev }}</div>
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th>Player</th>
-                  <th class="mono" style="text-align:right;">xAB</th>
-                  <th class="mono" style="text-align:right;">xH</th>
-                  <th class="mono" style="text-align:right;">xTB</th>
-                  <th class="mono" style="text-align:right;">xAVG</th>
-                  <th class="mono" style="text-align:right;">xSLG</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for r in (sim.expectedBox.home if sim.expectedBox.home is defined else []) %}
-                  {% set pid = (r.playerId|string) %}
-                  <tr>
-                    <td class="mono" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                      {{ home_name.get(pid) if home_name.get(pid) else pid }}
-                    </td>
-                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.AB) if r.AB is defined else "-" }}</td>
-                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.H) if r.H is defined else "-" }}</td>
-                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.TB) if r.TB is defined else "-" }}</td>
-                    <td class="mono" style="text-align:right;">{{ "%.3f"|format(r.xAVG) if r.xAVG is defined and r.xAVG is not none else "-" }}</td>
-                    <td class="mono" style="text-align:right;">{{ "%.3f"|format(r.xSLG) if r.xSLG is defined and r.xSLG is not none else "-" }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      {% else %}
-        <div class="muted">Expected box score will populate once Monte Carlo is available.</div>
-      {% endif %}
-    </div>
-  </div>
-
-</div>
 </div>
 
 <script>
@@ -2220,6 +1943,9 @@
   // -----------------------------
   const GAME_PK = {{ game_pk | tojson }};
   const GC_URL = GAME_PK ? (`/game/${GAME_PK}/gamecast.json`) : null;
+
+  const ANALYTICS_URL = GAME_PK ? (`/game/${GAME_PK}/analytics.json`) : null;
+  let __analytics_loaded = false;
   let __gc_last_between_key = "";
 
 function __gc_render_inning_summary(sum){
@@ -3290,110 +3016,302 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
     });
   }
 
-  
-
-  function _ana_showTip(tipEl, containerEl, html, clientX, clientY){
-    if(!tipEl || !containerEl) return;
-    tipEl.innerHTML = html || "";
-    tipEl.style.display = "block";
-
-    const rect = containerEl.getBoundingClientRect();
-    const pad = 10;
-
-    // position relative to container
-    let x = (clientX - rect.left) + 12;
-    let y = (clientY - rect.top) + 12;
-
-    // keep inside bounds
-    const w = tipEl.offsetWidth || 240;
-    const h = tipEl.offsetHeight || 80;
-
-    if(x + w + pad > rect.width) x = rect.width - w - pad;
-    if(y + h + pad > rect.height) y = rect.height - h - pad;
-    if(x < pad) x = pad;
-    if(y < pad) y = pad;
-
-    tipEl.style.left = `${x}px`;
-    tipEl.style.top  = `${y}px`;
-  }
-
-  function initAnalyticsSprays(){
-    const tipEl = document.getElementById("ana-bip-tip");
-    const panel = document.getElementById("tab-analytics");
-    if(!panel) return;
-
-    const svgs = panel.querySelectorAll("svg.ana-spray-svg");
-    if(!svgs || !svgs.length) return;
-
-    // overlay (stadium) reuse
-    svgs.forEach(svg=>{
-      try{ injectOverlayInto(svg); }catch(e){}
-      const payload = svg.getAttribute("data-points");
-      if(!payload) return;
-
-      let data = null;
-      try{ data = JSON.parse(payload); }catch(e){ data = null; }
-      const points = (data && Array.isArray(data.points)) ? data.points : [];
-
-      const pointsG = svg.querySelector("g.sprayPoints");
-      if(!pointsG) return;
-      pointsG.innerHTML = "";
-
-      points.forEach(p=>{
-        const x = (p && (p.x ?? null));
-        const y = (p && (p.y ?? null));
-        if(x === null || x === undefined || y === null || y === undefined) return;
-
-        const mapped = mapPointToStadium(svg, Number(x), Number(y));
-        if(!mapped) return;
-
-        const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
-        c.setAttribute("cx", String(mapped.x));
-        c.setAttribute("cy", String(mapped.y));
-        c.setAttribute("r", "3.4");
-        c.setAttribute("class","ana-dot");
-        c.setAttribute("fill", sprayColorForEvent((p.result || "").toLowerCase()));
-
-        const tipHTML = `
-          <div style="font-weight:800; margin-bottom:4px;">${(data.team||"")}</div>
-          <div class="mono" style="opacity:.95;">${(p.half||"")} ${p.inning || ""}</div>
-          <div style="margin-top:6px;">
-            <div><span class="mono" style="opacity:.75;">B:</span> ${p.batter || "—"}</div>
-            <div><span class="mono" style="opacity:.75;">P:</span> ${p.pitcher || "—"}</div>
-          </div>
-          <div style="margin-top:6px; display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-            <div><span class="mono" style="opacity:.75;">EV</span> ${p.ev ?? "—"}</div>
-            <div><span class="mono" style="opacity:.75;">LA</span> ${p.la ?? "—"}</div>
-            <div><span class="mono" style="opacity:.75;">Dist</span> ${p.dist ?? "—"}</div>
-            <div><span class="mono" style="opacity:.75;">Res</span> ${p.result || "—"}</div>
-            <div><span class="mono" style="opacity:.75;">xBA</span> ${(p.xba ?? "—")}</div>
-            <div><span class="mono" style="opacity:.75;">xSLG</span> ${(p.xslg ?? "—")}</div>
-          </div>
-        `;
-
-        c.addEventListener("mouseenter",(ev)=>{
-          _ana_showTip(tipEl, panel, tipHTML, ev.clientX, ev.clientY);
-        });
-        c.addEventListener("mousemove",(ev)=>{
-          _ana_showTip(tipEl, panel, tipHTML, ev.clientX, ev.clientY);
-        });
-        c.addEventListener("mouseleave",()=>{
-          if(tipEl) tipEl.style.display = "none";
-        });
-
-        pointsG.appendChild(c);
-      });
-    });
-
-    // hide tooltip when leaving analytics tab area
-    panel.addEventListener("mouseleave", ()=>{
-      if(tipEl) tipEl.style.display = "none";
-    });
-  }
-
-initMiniSprays();
+  initMiniSprays();
 
 })();
+
+
+// -----------------------------
+// Analytics (Monte Carlo + expected linescore/box)
+// -----------------------------
+function __fmt3(x){
+  if(x === null || x === undefined || x === "") return "—";
+  const n = Number(x);
+  if(!isFinite(n)) return "—";
+  return n.toFixed(3);
+}
+function __fmt1(x){
+  if(x === null || x === undefined || x === "") return "—";
+  const n = Number(x);
+  if(!isFinite(n)) return "—";
+  return n.toFixed(1);
+}
+
+function __render_expected_linescore(sim){
+  const card = document.getElementById("exp-linescore-card");
+  const wrap = document.getElementById("exp-linescore-wrap");
+  if(!card || !wrap) return;
+  if(!sim || !sim.expectedLinescore) return;
+
+  const innA = (sim.expectedLinescore.away || []);
+  const innH = (sim.expectedLinescore.home || []);
+  const aHits = sim.expectedLinescore.awayHits;
+  const hHits = sim.expectedLinescore.homeHits;
+
+  // Build header length = max innings in sim
+  const n = Math.max(innA.length, innH.length, 9);
+
+  let thInns = "";
+  for(let i=1;i<=n;i++){
+    thInns += `<th class="mono" style="text-align:center;">${i}</th>`;
+  }
+
+  const rowCells = (arr)=> {
+    let s = "";
+    for(let i=0;i<n;i++){
+      const v = (i < arr.length) ? arr[i] : null;
+      s += `<td class="mono" style="text-align:center;">${(v===null||v===undefined)?"—":Number(v).toFixed(2)}</td>`;
+    }
+    return s;
+  };
+
+  const aTot = (sim.expectedScore && sim.expectedScore.away != null) ? Number(sim.expectedScore.away).toFixed(2) : "—";
+  const hTot = (sim.expectedScore && sim.expectedScore.home != null) ? Number(sim.expectedScore.home).toFixed(2) : "—";
+
+  wrap.innerHTML = `
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th></th>
+          ${thInns}
+          <th class="mono" style="text-align:center;">R</th>
+          <th class="mono" style="text-align:center;">H</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="mono">${(window.__away_abbrev||"AWAY")}</td>
+          ${rowCells(innA)}
+          <td class="mono" style="text-align:center;">${aTot}</td>
+          <td class="mono" style="text-align:center;">${(aHits==null)?"—":Number(aHits).toFixed(1)}</td>
+        </tr>
+        <tr>
+          <td class="mono">${(window.__home_abbrev||"HOME")}</td>
+          ${rowCells(innH)}
+          <td class="mono" style="text-align:center;">${hTot}</td>
+          <td class="mono" style="text-align:center;">${(hHits==null)?"—":Number(hHits).toFixed(1)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+  card.style.display = "block";
+}
+
+function __render_winodds(sim, awayAbbrev, homeAbbrev){
+  const sub = document.getElementById("mc-winodds-sub");
+  const marker = document.getElementById("mc-winodds-marker");
+  const awayPctEl = document.getElementById("mc-away-pct");
+  const homePctEl = document.getElementById("mc-home-pct");
+  if(!sub || !marker || !awayPctEl || !homePctEl) return;
+
+  if(!sim){
+    sub.textContent = "—";
+    awayPctEl.textContent = "—";
+    homePctEl.textContent = "—";
+    marker.style.left = "50%";
+    return;
+  }
+
+  const aw = Number(sim.awayWinPct || 0);
+  const hm = Number(sim.homeWinPct || 0);
+
+  sub.textContent = `After ${sim.sims || "—"} sims`;
+  awayPctEl.textContent = `${awayAbbrev} ${(aw*100).toFixed(1)}%`;
+  homePctEl.textContent = `${homeAbbrev} ${(hm*100).toFixed(1)}%`;
+
+  // Marker tracks HOME win pct across the bar (0..100)
+  const leftPct = Math.max(0, Math.min(100, hm*100));
+  marker.style.left = `${leftPct}%`;
+}
+
+function __overlay_field(svg){
+  if(!svg) return;
+  const g = svg.querySelector(".sprayOverlay");
+  if(!g) return;
+
+  // very lightweight "field" overlay (same 250x250 viewbox as mini charts)
+  g.innerHTML = `
+    <path d="M125 232 L30 140 Q125 35 220 140 Z" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)" stroke-width="2"/>
+    <path d="M125 232 L125 60" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
+    <path d="M125 232 L55 160" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
+    <path d="M125 232 L195 160" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
+  `;
+}
+
+function __plot_batted_balls(svg, balls, tip){
+  if(!svg) return;
+  __overlay_field(svg);
+  const g = svg.querySelector(".sprayPoints");
+  if(!g) return;
+  g.innerHTML = "";
+
+  const showTip = (bb, evt)=>{
+    if(!tip) return;
+    const title = document.getElementById("bbmap-tip-title");
+    const body = document.getElementById("bbmap-tip-body");
+    if(!title || !body) return;
+
+    title.textContent = `${bb.inningLabel || ("Inning " + bb.inning)} • ${bb.result || ""}`;
+    body.innerHTML = `
+      <div><span class="muted">Batter:</span> ${bb.batter || "—"}</div>
+      <div><span class="muted">Pitcher:</span> ${bb.pitcher || "—"}</div>
+      <div style="margin-top:6px;">
+        <span class="muted">EV:</span> ${__fmt1(bb.ev)} •
+        <span class="muted">LA:</span> ${__fmt1(bb.la)}° •
+        <span class="muted">Dist:</span> ${__fmt1(bb.dist)} ft
+      </div>
+      <div>
+        <span class="muted">xBA:</span> ${__fmt3(bb.xBA)} •
+        <span class="muted">xSLG:</span> ${__fmt3(bb.xSLG)}
+      </div>
+    `;
+    tip.style.display = "block";
+    const rect = svg.getBoundingClientRect();
+    const x = (evt.clientX - rect.left);
+    const y = (evt.clientY - rect.top);
+    tip.style.left = Math.max(0, Math.min(rect.width - 260, x + 12)) + "px";
+    tip.style.top = Math.max(0, Math.min(rect.height - 120, y + 12)) + "px";
+  };
+
+  const hideTip = ()=>{
+    if(tip) tip.style.display = "none";
+  };
+
+  (balls || []).forEach(bb=>{
+    const x = Number(bb.x);
+    const y = Number(bb.y);
+    if(!isFinite(x) || !isFinite(y)) return;
+
+    const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx", String(x));
+    c.setAttribute("cy", String(y));
+    c.setAttribute("r", "4");
+    c.setAttribute("fill", "rgba(59,130,246,.95)");
+    c.setAttribute("stroke", "rgba(255,255,255,.65)");
+    c.setAttribute("stroke-width", "1");
+    c.style.cursor = "pointer";
+
+    c.addEventListener("mouseenter", (e)=> showTip(bb, e));
+    c.addEventListener("mousemove", (e)=> showTip(bb, e));
+    c.addEventListener("mouseleave", hideTip);
+
+    g.appendChild(c);
+  });
+}
+
+function __render_expected_box(sim, awayAbbrev, homeAbbrev){
+  const wrap = document.getElementById("exp-box-wrap");
+  if(!wrap) return;
+  if(!sim || !sim.expectedBox){
+    wrap.textContent = "—";
+    return;
+  }
+
+  function tableFor(sideKey, label){
+    const rows = (sim.expectedBox[sideKey] || []);
+    if(!rows.length) return `<div class="muted">No data.</div>`;
+
+    let trs = "";
+    rows.forEach(r=>{
+      trs += `
+        <tr>
+          <td class="mono">${r.name || "—"}</td>
+          <td class="mono" style="text-align:right;">${r.ab ?? "—"}</td>
+          <td class="mono" style="text-align:right;">${(r.xH!=null)?Number(r.xH).toFixed(2):"—"}</td>
+          <td class="mono" style="text-align:right;">${(r.xTB!=null)?Number(r.xTB).toFixed(2):"—"}</td>
+          <td class="mono" style="text-align:right;">${(r.xAVG!=null)?Number(r.xAVG).toFixed(3):"—"}</td>
+          <td class="mono" style="text-align:right;">${(r.xSLG!=null)?Number(r.xSLG).toFixed(3):"—"}</td>
+        </tr>
+      `;
+    });
+
+    return `
+      <div class="card" style="margin:14px 0 0 0;">
+        <div class="card-header"><div class="card-title">${label}</div></div>
+        <div style="padding:0 14px 14px 14px; overflow-x:auto;">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th class="mono" style="text-align:right;">AB</th>
+                <th class="mono" style="text-align:right;">xH</th>
+                <th class="mono" style="text-align:right;">xTB</th>
+                <th class="mono" style="text-align:right;">xAVG</th>
+                <th class="mono" style="text-align:right;">xSLG</th>
+              </tr>
+            </thead>
+            <tbody>${trs}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  wrap.innerHTML = tableFor("away", `${awayAbbrev} Expected`) + tableFor("home", `${homeAbbrev} Expected`);
+}
+
+async function loadAnalyticsIfNeeded(){
+  if(__analytics_loaded) return;
+  if(!ANALYTICS_URL) return;
+
+  try{
+    const res = await fetch(ANALYTICS_URL, { cache: "no-store" });
+    if(!res.ok) throw new Error(`analytics.json HTTP ${res.status}`);
+    const data = await res.json();
+
+    window.__away_abbrev = (data?.away?.abbrev || window.__away_abbrev || "AWAY");
+    window.__home_abbrev = (data?.home?.abbrev || window.__home_abbrev || "HOME");
+
+    const awayAbbrev = window.__away_abbrev;
+    const homeAbbrev = window.__home_abbrev;
+
+    // win odds + expected linescore/box only if sim exists
+    __render_winodds(data.sim, awayAbbrev, homeAbbrev);
+    __render_expected_linescore(data.sim);
+    __render_expected_box(data.sim, awayAbbrev, homeAbbrev);
+
+    // batted balls
+    const awayBalls = data?.battedBalls?.away || [];
+    const homeBalls = data?.battedBalls?.home || [];
+
+    const tip = document.getElementById("bbmap-tip");
+    __plot_batted_balls(document.getElementById("bbmap-away"), awayBalls, tip);
+    __plot_batted_balls(document.getElementById("bbmap-home"), homeBalls, null);
+
+    // titles
+    const tA = document.getElementById("bbmap-away-title");
+    const tH = document.getElementById("bbmap-home-title");
+    if(tA) tA.textContent = `${awayAbbrev} Batted Balls`;
+    if(tH) tH.textContent = `${homeAbbrev} Batted Balls`;
+
+    __analytics_loaded = true;
+  }catch(e){
+    console.error("[analytics] load failed", e);
+    const wrap = document.getElementById("exp-box-wrap");
+    if(wrap) wrap.textContent = "Analytics unavailable.";
+  }
+}
+
+// Load analytics once on first open of Analytics tab
+document.addEventListener("click", (e)=>{
+  const a = e.target && (e.target.closest ? e.target.closest('[data-tab="analytics"]') : null);
+  if(a){
+    loadAnalyticsIfNeeded();
+  }
+});
+
+// Also kick off expected linescore on page load (non-blocking)
+document.addEventListener("DOMContentLoaded", ()=>{
+  // infer abbreviations already present in the page template if possible
+  try{
+    window.__away_abbrev = {{ away.abbrev | tojson }};
+    window.__home_abbrev = {{ home.abbrev | tojson }};
+  }catch(e){}
+
+  // safe: only fetch analytics in background; won't block render
+  loadAnalyticsIfNeeded();
+});
+
 </script>
 
 {% endblock %}
