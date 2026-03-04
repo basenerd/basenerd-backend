@@ -979,10 +979,6 @@
             <div class="card" style="margin:0;">
               <div class="card-header">
                 <div class="card-title">Spray Chart</div>
-                 <div style="background: yellow; color: black; padding: 10px; margin-top: 10px; font-family: monospace; font-size: 10px; max-height: 150px; overflow: auto;">
-                   DEBUG DATA: {{ (spray_data if spray_data is defined else []) | tojson | safe }}
-                  </div>
-                 
                 <div class="card-subtitle">Hits only • Stadium overlay</div>
               </div>
 
@@ -1350,13 +1346,13 @@
          sprayDots.innerHTML = "";
          const allow = allowedTypes();
          for(const p of (points || [])){
-               if(!allow.has(p.type)) continue;
+               if(!allow.has(p.event)) continue;
                const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
                 
                c.setAttribute("cx", p.hc_x);
                c.setAttribute("cy", p.hc_y); 
                c.setAttribute("r", 3);
-               c.setAttribute("fill", p.color || hitColor(p.type));
+               c.setAttribute("fill", p.color || hitColor(p.event));
                c.setAttribute("stroke", "#fff");
                c.setAttribute("stroke-width", "0.5");
                sprayDots.appendChild(c);
@@ -1365,7 +1361,6 @@
 
         // Tell JavaScript to use `spray_data` instead of `spray_points`
         try{
-            // 👉 ADDED | safe RIGHT HERE!
             const points = {{ (spray_data if spray_data is defined else [])|tojson|safe }};
             renderSpray(points);
         }catch(e){ console.error(e); }
