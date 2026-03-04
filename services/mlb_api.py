@@ -3738,6 +3738,10 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
             "FS": "Splitter", "ST": "Sweeper", "KC": "Knuckle Curve", "SV": "Slurve",
             "FO": "Forkball", "EP": "Eephus", "PO": "Pitchout"
         }
+
+        valid_pitch_codes = list(pitch_names.keys())
+        df = df[df['pitch_type'].isin(valid_pitch_codes)]
+        total_pitches = len(df)
         
         df['pitch_name'] = df['pitch_type'].map(lambda x: pitch_names.get(x, x))
         df['category'] = df['pitch_type'].map(lambda x: category_map.get(x, "Other"))
@@ -3779,7 +3783,8 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
         for p_type, group in df.groupby('pitch_type'):
             if not p_type or pd.isna(p_type): continue
             c, u, z, w, avg, hh = calc_stats(group)
-            by_type.append({'name': pitch_names.get(p_type, p_type), 'count': c, 'usage_pct': u, 'zone_pct': z, 'whiff_pct': w, 'avg': avg, 'hard_hit_pct': hh})
+            cat_name = category_map.get(p_type, "Other") 
+            by_type.append({'name': pitch_names.get(p_type, p_type), 'category': cat_name, 'count': c, 'usage_pct': u, 'zone_pct': z, 'whiff_pct': w, 'avg': avg, 'hard_hit_pct': hh})
         # 2. Group by Category
         by_category = []
         for cat, group in df.groupby('category'):
