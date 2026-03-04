@@ -16,17 +16,21 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 
 # ----------------------------
-# Monte Carlo run expectancy
+# Monte Carlo run expectancy (LAZY)
 # ----------------------------
-try:
-    # get_expected_runs is used for live 'expectedRuns' (rest of half-inning)
-    from services.run_expectancy import get_expected_runs  # type: ignore
-    # Optional: full Monte Carlo game sim components (used in game.html Analytics)
-    from services.run_expectancy import ADV_LOOKUP, force_walk  # type: ignore
-except Exception:
-    get_expected_runs = None  # type: ignore
-    ADV_LOOKUP = None  # type: ignore
-    force_walk = None  # type: ignore
+def get_expected_runs_safe(*args, **kwargs):
+    """Best-effort wrapper around services.run_expectancy.get_expected_runs.
+    Keeps game page fast: the run_expectancy module can be heavy, so we import on demand.
+    """
+    try:
+        from services.run_expectancy import get_expected_runs as _ger  # type: ignore
+        return _ger(*args, **kwargs)
+    except Exception:
+        return None
+
+# Used by the Monte Carlo sim; populated lazily inside monte_carlo_game_from_pas()
+ADV_LOOKUP = None  # type: ignore
+force_walk = None  # type: ignore
 
 
 # ----------------------------
@@ -176,10 +180,20 @@ def monte_carlo_game_from_pas(pas: List[dict], sims: int = 5000, seed: int = 42)
         "expectedBox": {"away": [rows], "home": [rows]}
       }
     """
-    if not pas or not callable(force_walk):
+    if not pas:
         return None
 
-    # Determine inning span
+    # Lazy-load heavy run_expectancy objects only when Analytics is requested
+    global ADV_LOOKUP, force_walk
+    if ADV_LOOKUP is None or (force_walk is None) or (not callable(force_walk)):
+        try:
+            from services.run_expectancy import ADV_LOOKUP as _ADV_LOOKUP, force_walk as _force_walk  # type: ignore
+            ADV_LOOKUP = _ADV_LOOKUP
+            force_walk = _force_walk
+        except Exception:
+            return None
+
+# Determine inning span
     max_inn = 0
     for pa in pas:
         try:
@@ -1669,7 +1683,7 @@ def normalize_gamecast(feed: dict) -> dict:
             outs_i = int(outs) if outs is not None else None
             if outs_i is not None and 0 <= outs_i <= 2:
                 base_state = (1 if offense.get("first") else 0) | (2 if offense.get("second") else 0) | (4 if offense.get("third") else 0)
-                expected_runs = float(get_expected_runs(base_state, outs_i))
+                expected_runs = float(get_expected_runs_safe(base_state, outs_i))
         except Exception:
             expected_runs = None
 
@@ -3503,7 +3517,7 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     if callable(get_expected_runs):
         try:
             if outs_now is not None and 0 <= int(outs_now) <= 2:
-                expected_runs_now = float(get_expected_runs(int(base_state_now), int(outs_now)))
+                expected_runs_now = float(get_expected_runs_safe(int(base_state_now), int(outs_now)))
         except Exception:
             expected_runs_now = None
 
@@ -3729,23 +3743,35 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     def _clamp(x, lo, hi):
         return max(lo, min(hi, x))
 
-    def _grad_style(val, avg, span, alpha=0.22):
-        """Blue->Red based on (val-avg)/span."""
-        if val is None:
-            return ""
-        try:
-            v = float(val)
-        except Exception:
-            return ""
-        # blue (slow) -> red (fast)
-        blue = (59, 130, 246)
-        red = (239, 68, 68)
-        t = _clamp((v - avg) / float(span), -1.0, 1.0)
-        t = (t + 1.0) / 2.0
-        r = _lerp(blue[0], red[0], t)
-        g = _lerp(blue[1], red[1], t)
-        b = _lerp(blue[2], red[2], t)
-        return f"background: linear-gradient(180deg, rgba({r},{g},{b},{alpha}), rgba({r},{g},{b},{alpha*0.55})); border:1px solid rgba({r},{g},{b},0.25); color:#0f172a;"
+        def _grad_style(val, avg, span, alpha=0.22):
+            """Blue -> White -> Red based on (val-avg)/span."""
+            if val is None:
+                return ""
+            try:
+                v = float(val)
+            except Exception:
+                return ""
+
+            blue = (59, 130, 246)
+            white = (255, 255, 255)
+            red = (239, 68, 68)
+
+            t = _clamp((v - avg) / float(span), -1.0, 1.0)
+            t = (t + 1.0) / 2.0  # 0..1
+
+            # 0..0.5 => blue->white, 0.5..1 => white->red
+            if t <= 0.5:
+                u = t / 0.5
+                r = _lerp(blue[0], white[0], u)
+                g = _lerp(blue[1], white[1], u)
+                b = _lerp(blue[2], white[2], u)
+            else:
+                u = (t - 0.5) / 0.5
+                r = _lerp(white[0], red[0], u)
+                g = _lerp(white[1], red[1], u)
+                b = _lerp(white[2], red[2], u)
+
+            return f"background: linear-gradient(180deg, rgba({r},{g},{b},{alpha}), rgba({r},{g},{b},{alpha*0.55})); border:1px solid rgba({r},{g},{b},0.25); color:#0f172a;"
 
     # Rough MLB velo baselines by pitch type code (mph). Used only for UI gradients.
     PITCH_AVG = {
@@ -4057,6 +4083,23 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                 "description": _safe(p, "result", "description", default="") or "",
                 "pitches": pitches_out,
                 "battedBall": batted_ball,
+"battingTeam": ("away" if str(half).lower().startswith("top") else "home"),
+# Flat tooltip payload for Analytics spray charts (only if coords exist)
+"battedBallTooltip": (None if (not batted_ball or batted_ball.get("coordX") is None or batted_ball.get("coordY") is None) else {
+    "inning": inning,
+    "half": half,
+    "batter": (batter_obj.get("fullName") or "").strip(),
+    "pitcher": (pitcher_obj.get("fullName") or "").strip(),
+    "ev": batted_ball.get("exitVelo"),
+    "la": batted_ball.get("launchAngle"),
+    "dist": batted_ball.get("distance"),
+    "xBA": batted_ball.get("xBA"),
+    "xSLG": batted_ball.get("xSLG"),
+    "result": summary_event,
+    "x": batted_ball.get("coordX"),
+    "y": batted_ball.get("coordY"),
+}),
+
 
                 # ✅ add these for Overview tables/headshots
                 "batterId": batter_obj.get("id"),
@@ -4073,30 +4116,11 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     # -------------------------
     # Monte Carlo (completed games only)
     # -------------------------
-    try:
-        status_lc = (status_pill or "").lower()
-        is_final = ("final" in status_lc) or ("game over" in status_lc) or ("completed" in status_lc)
-    except Exception:
-        is_final = False
-
+    # IMPORTANT: do NOT run the full-game Monte Carlo sim during the HTML render.
+    # It is intentionally deferred to /game/<game_pk>/analytics.json so the page never times out.
     game_obj["sim"] = None
-    if is_final:
-        # Default to 5000 sims for completed games (matches UI copy); keep it bounded for safety
-        sims = 5000
-        try:
-            sims = int(os.environ.get("MC_SIMS", sims))
-        except Exception:
-            sims = 5000
-        sims = max(500, min(20000, sims))
 
-        try:
-            game_obj["sim"] = monte_carlo_game_from_pas(pas_out, sims=sims)  # type: ignore
-        except Exception as e:
-            print("[mc] sim failed:", e)
-            game_obj["sim"] = None
-
-
-    # Keep legacy pbp as empty (template is using pas now)
+# Keep legacy pbp as empty (template is using pas now)
     game_obj["pbp"] = []
 
     return game_obj
@@ -4374,22 +4398,58 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
             "by_category": [],
             "total": {"name": "Error", "count": 0, "usage_pct": 0, "zone_pct": 0, "whiff_pct": 0, "avg": 0, "hard_hit_pct": 0}
         }
-        
-def get_game_analytics(game_pk):
 
-    game = get_game(game_pk)
+# ----------------------------
+# Analytics JSON builder (deferred expensive work)
+# ----------------------------
+def get_game_analytics(game_pk: int, tz_name: str = "America/Phoenix", sims: int = 5000) -> dict:
+    """
+    Heavy analytics payload for game.html Analytics tab.
+    DO NOT call this during HTML render; use a dedicated JSON route.
+    """
+    feed = get_game_feed(int(game_pk))
+    game_obj = normalize_game_detail(feed, tz_name=tz_name)
 
-    from services.run_expectancy import (
-        simulate_game,
-        expected_linescore
-    )
+    # Decide if we should simulate
+    try:
+        status_lc = ((game_obj.get("statusPill") or "") + " " + (game_obj.get("statusDetail") or "")).lower()
+        is_final = ("final" in status_lc) or ("game over" in status_lc) or ("completed" in status_lc)
+    except Exception:
+        is_final = False
 
-    sim = simulate_game(game, sims=2000)
+    sims_in = sims
+    try:
+        sims_in = int(sims_in or 5000)
+    except Exception:
+        sims_in = 5000
+    sims_in = max(500, min(20000, sims_in))
 
-    linescore = expected_linescore()
+    sim = None
+    if is_final:
+        try:
+            sim = monte_carlo_game_from_pas((game_obj.get("pas") or []), sims=sims_in)
+        except Exception as e:
+            print("[analytics] monte carlo failed:", e)
+            sim = None
+
+    # batted ball tooltip list (coords + metrics)
+    away_bip = []
+    home_bip = []
+    for pa in (game_obj.get("pas") or []):
+        bb = pa.get("battedBallTooltip")
+        if not bb:
+            continue
+        if pa.get("battingTeam") == "home":
+            home_bip.append(bb)
+        else:
+            away_bip.append(bb)
 
     return {
-        "simulation": sim,
-        "expected_linescore": linescore,
-        "batted_balls": game.get("batted_balls", [])
+        "ok": True,
+        "gamePk": int(game_pk),
+        "isFinal": bool(is_final),
+        "away": game_obj.get("away") or {},
+        "home": game_obj.get("home") or {},
+        "sim": sim,
+        "battedBalls": {"away": away_bip, "home": home_bip},
     }
