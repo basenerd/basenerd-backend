@@ -15,6 +15,14 @@ import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine, text
 
+# ----------------------------
+# Monte Carlo run expectancy
+# ----------------------------
+try:
+    from services.run_expectancy import get_expected_runs  # type: ignore
+except Exception:
+    get_expected_runs = None  # type: ignore
+
 BASE = "https://statsapi.mlb.com/api/v1"
 MLB_API_BASE = BASE  # for older helpers that reference MLB_API_BASE
 
@@ -1245,7 +1253,21 @@ def normalize_gamecast(feed: dict) -> dict:
     if state != "live" and not inning:
         return {"ok": False, "reason": f"state={state or 'unknown'}"}
 
-    return {
+    
+# -------------------------
+# Expected runs (rest of half-inning)
+# -------------------------
+expected_runs = None
+if callable(get_expected_runs):
+    try:
+        outs_i = int(outs) if outs is not None else None
+        if outs_i is not None and 0 <= outs_i <= 2:
+            base_state = (1 if offense.get("first") else 0) | (2 if offense.get("second") else 0) | (4 if offense.get("third") else 0)
+            expected_runs = float(get_expected_runs(base_state, outs_i))
+    except Exception:
+        expected_runs = None
+
+return {
         "ok": True,
         "state": state,
         "inning": inning,
@@ -1253,6 +1275,7 @@ def normalize_gamecast(feed: dict) -> dict:
         "balls": balls,
         "strikes": strikes,
         "outs": outs,
+        "expectedRuns": expected_runs,
         "score": {"away": score_away, "home": score_home},
         "lastPlay": last_play,
 
@@ -3059,6 +3082,25 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     game_data = (feed or {}).get("gameData") or {}
     live_data = (feed or {}).get("liveData") or {}
     linescore = (live_data.get("linescore") or {})
+
+# ---- Current baserunners/outs for run expectancy ----
+offense = (linescore.get("offense") or {})
+outs_now = _safe_int(linescore.get("outs"))
+if outs_now is None:
+    outs_now = _safe_int(offense.get("outs"))
+on1 = bool(offense.get("first"))
+on2 = bool(offense.get("second"))
+on3 = bool(offense.get("third"))
+base_state_now = (1 if on1 else 0) | (2 if on2 else 0) | (4 if on3 else 0)
+
+expected_runs_now = None
+if callable(get_expected_runs):
+    try:
+        if outs_now is not None and 0 <= int(outs_now) <= 2:
+            expected_runs_now = float(get_expected_runs(int(base_state_now), int(outs_now)))
+    except Exception:
+        expected_runs_now = None
+
     boxscore = (live_data.get("boxscore") or {})
     plays = (live_data.get("plays") or {})
     all_plays = plays.get("allPlays") or []
@@ -3084,6 +3126,9 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
 
     game_obj = {
         "statusPill": status_pill,
+        "outs": outs_now,
+        "bases": {"on1": on1, "on2": on2, "on3": on3},
+        "expectedRuns": expected_runs_now,
         "when": _safe(game_data, "datetime", "dateTime", default=None),
         "venue": venue,
         "venue_id": venue_id,
