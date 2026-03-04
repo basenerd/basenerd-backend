@@ -201,3 +201,39 @@ def simulate_half_inning(base_state, outs, sims=500):
 def get_expected_runs(base_state, outs):
 
     return simulate_half_inning(base_state, outs, sims=500)
+
+# ============================================
+# FULL GAME MONTE CARLO SIMULATION
+# ============================================
+
+def simulate_game(game, sims=5000):
+
+    away_runs = []
+    home_runs = []
+
+    for _ in range(sims):
+
+        ar = 0
+        hr = 0
+
+        for inning in range(1, 10):
+
+            ar += simulate_half_inning(0, 0, sims=1)
+            hr += simulate_half_inning(0, 0, sims=1)
+
+        away_runs.append(ar)
+        home_runs.append(hr)
+
+    away_runs = np.array(away_runs)
+    home_runs = np.array(home_runs)
+
+    away_wins = np.sum(away_runs > home_runs)
+    home_wins = np.sum(home_runs > away_runs)
+
+    return {
+        "sims": sims,
+        "away_win_pct": away_wins / sims,
+        "home_win_pct": home_wins / sims,
+        "away_runs_avg": away_runs.mean(),
+        "home_runs_avg": home_runs.mean()
+    }
