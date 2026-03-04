@@ -3739,7 +3739,7 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
             "FO": "Forkball", "EP": "Eephus", "PO": "Pitchout"
         }
 
-        valid_pitch_codes = list(pitch_names.keys())
+        valid_pitch_codes = ['FF', 'SI', 'FC', 'SL', 'CU', 'CH', 'FS', 'ST', 'KC', 'SV', 'EP', 'FO']
         df = df[df['pitch_type'].isin(valid_pitch_codes)]
         total_pitches = len(df)
         
