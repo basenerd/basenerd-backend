@@ -2119,6 +2119,7 @@ def player(player_id: int):
     
     print("DEBUG: savant_profile available =", savant_profile.get("available"), "groups =", len(savant_profile.get("groups", [])))
     hitter_pitch_profile = get_hitter_pitch_profile(player_id, season_for_scouting)
+    spray_data = fetch_player_spray(player_id, season_for_scouting, limit=1000)
     
     return render_template(
         "player.html",
@@ -2159,6 +2160,7 @@ def player(player_id: int):
         savant_profile=savant_profile,
         stadium_svg=stadium_svg,
         hitter_pitch_profile=hitter_pitch_profile
+        spray_data=spray_data
     )
     
 @app.get("/articles")
