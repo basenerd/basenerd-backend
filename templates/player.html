@@ -995,23 +995,8 @@
                 <div class="spray-wrap">
                   <svg id="spraySvg" class="spray-svg" viewBox="0 0 250 230" preserveAspectRatio="xMidYMid meet">
                     <image href="/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}" x="0" y="0" width="250" height="230" opacity="1"></image>
-                    <g id="sprayDots">
-                        {% if spray_data %}
-                         {% for hit in spray_data %}
-                          {% set adjusted_y = 230 - hit.hc_y %}
-                          <circle 
-                           cx="{{ hit.hc_x }}" 
-                           cy="{{ adjusted_y }}" 
-                           r="3" 
-                           fill="{{ hit.color }}" 
-                           stroke="#fff" 
-                           stroke-width="0.5"
-                           class="hit-dot {{ hit.type }}"
-                           data-type="{{ hit.type }}">
-                          </circle>
-                         {% endfor %}
-                        {% endif %}
-                    </g>
+                    
+                    <g id="sprayDots"></g>
                   </svg>
                 </div>
 
@@ -1356,39 +1341,37 @@
   }
 
   function renderSpray(points){
-    if(!sprayDots) return;
-    sprayDots.innerHTML = "";
-    const allow = allowedTypes();
+            if(!sprayDots) return;
+            sprayDots.innerHTML = "";
+            const allow = allowedTypes();
+            for(const p of (points || [])){
+                if(!allow.has(p.type)) continue;
+                const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+                
+                c.setAttribute("cx", p.hc_x);
+                c.setAttribute("cy", p.hc_y); 
+                c.setAttribute("r", 3);
+                c.setAttribute("fill", p.color || hitColor(p.type));
+                c.setAttribute("stroke", "#fff");
+                c.setAttribute("stroke-width", "0.5");
+                sprayDots.appendChild(c);
+            }
+        }
 
-    for(const p of (points || [])){
-      if(!allow.has(p.type)) continue;
-      const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
-      c.setAttribute("cx", p.x);
-      c.setAttribute("cy", p.y);
-      c.setAttribute("r", 4);
-      c.setAttribute("fill", hitColor(p.type));
-      c.setAttribute("opacity", "0.92");
-      c.setAttribute("stroke", "rgba(0,0,0,.18)");
-      c.setAttribute("stroke-width", "1");
-      sprayDots.appendChild(c);
-    }
-  }
+        // Tell JavaScript to use `spray_data` instead of `spray_points`
+        try{
+            const points = {{ (spray_data if spray_data is defined else [])|tojson }};
+            renderSpray(points);
+        }catch(e){ /* ignore */ }
 
-  // You already populate spray_points in app.py, so keep existing behavior.
-  // This template expects `spray_points` variable (list of scaled points).
-  try{
-    const points = {{ (spray_points if spray_points is defined else [])|tojson }};
-    renderSpray(points);
-  }catch(e){ /* ignore */ }
-
-  [sprSingle, sprDouble, sprTriple, sprHR, sprOther].forEach(el => {
-    if(el) el.addEventListener("change", () => {
-      try{
-        const points = {{ (spray_points if spray_points is defined else [])|tojson }};
-        renderSpray(points);
-      }catch(e){}
-    });
-  });
+        [sprSingle, sprDouble, sprTriple, sprHR, sprOther].forEach(el => {
+            if(el) el.addEventListener("change", () => {
+                try{
+                    const points = {{ (spray_data if spray_data is defined else [])|tojson }};
+                    renderSpray(points);
+                }catch(e){}
+            });
+        });
 
   // ============================
   // Pitching report client
