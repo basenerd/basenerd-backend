@@ -1,5 +1,38 @@
 # services/mlb_api.py
 
+
+# ----------------------------
+# Gradient helper (module-level)
+# ----------------------------
+def _grad_style(value, baseline, span=8.0):
+    """Blue → White → Red gradient style based on delta from baseline."""
+    try:
+        if value is None:
+            return ""
+        v = float(value)
+        b = float(baseline)
+        s = float(span) if span else 8.0
+        if s <= 0:
+            s = 8.0
+        t = (v - b) / s
+        if t < -1: t = -1
+        if t > 1: t = 1
+
+        if t <= 0:
+            u = t + 1.0  # 0..1
+            r = int(255 * u)
+            g = int(255 * u)
+            bb = 255
+        else:
+            u = t  # 0..1
+            r = 255
+            g = int(255 * (1.0 - u))
+            bb = int(255 * (1.0 - u))
+
+        return f"background: rgba({r},{g},{bb},0.22); border: 1px solid rgba({r},{g},{bb},0.35);"
+    except Exception:
+        return ""
+
 import time
 import json
 import os
