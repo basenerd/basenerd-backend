@@ -1030,17 +1030,21 @@
                     <th>Usage%</th>
                     <th>Zone%</th>
                     <th>Whiff%</th>
+                    <th>AVG</th>
+                    <th>HardHit%</th>
                 </tr>
             </thead>
             <tbody>
                 {% if hitter_pitch_profile.by_type %}
                     {% for pitch in hitter_pitch_profile.by_type %}
                     <tr>
-                        <td style="text-align: left; font-weight: 600; color: #f0b90b;">{{ pitch.name }}</td>
+                        <td style="font-weight: 600; color: #d97706;">{{ pitch.name }}</td>
                         <td>{{ pitch.count }}</td>
                         <td>{{ "%.1f"|format(pitch.usage_pct) }}%</td>
                         <td>{{ "%.1f"|format(pitch.zone_pct) }}%</td>
                         <td>{{ "%.1f"|format(pitch.whiff_pct) }}%</td>
+                        <td>{{ ("%.3f"|format(pitch.avg)).lstrip('0') if pitch.avg < 1 else "1.000" }}</td>
+                        <td>{{ "%.1f"|format(pitch.hard_hit_pct) }}%</td>
                     </tr>
                     {% endfor %}
                     <tr style="background: rgba(0,0,0,0.03); font-weight: 800; border-top: 2px solid #d1d5db;">
@@ -1049,9 +1053,11 @@
                         <td style="color: #111827;">100.0%</td>
                         <td style="color: #111827;">{{ "%.1f"|format(hitter_pitch_profile.total.zone_pct) }}%</td>
                         <td style="color: #111827;">{{ "%.1f"|format(hitter_pitch_profile.total.whiff_pct) }}%</td>
+                        <td style="color: #111827;">{{ ("%.3f"|format(hitter_pitch_profile.total.avg)).lstrip('0') if hitter_pitch_profile.total.avg < 1 else "1.000" }}</td>
+                        <td style="color: #111827;">{{ "%.1f"|format(hitter_pitch_profile.total.hard_hit_pct) }}%</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="5" style="text-align: center; color: #4b5563; padding: 1rem;">No pitch tracking data available.</td></tr>
+                    <tr><td colspan="7" style="text-align: center; color: #4b5563; padding: 1rem;">No pitch tracking data available.</td></tr>
                 {% endif %}
             </tbody>
         </table>
@@ -1064,11 +1070,13 @@
         <table class="pitch-stats-table">
             <thead>
                 <tr>
-                    <th style="text-align: left;">Category</th>
+                    <th>Category</th>
                     <th>#</th>
                     <th>Usage%</th>
                     <th>Zone%</th>
                     <th>Whiff%</th>
+                    <th>AVG</th>
+                    <th>HardHit%</th>
                 </tr>
             </thead>
             <tbody>
@@ -1080,10 +1088,21 @@
                         <td>{{ "%.1f"|format(cat.usage_pct) }}%</td>
                         <td>{{ "%.1f"|format(cat.zone_pct) }}%</td>
                         <td>{{ "%.1f"|format(cat.whiff_pct) }}%</td>
+                        <td>{{ ("%.3f"|format(cat.avg)).lstrip('0') if cat.avg < 1 else "1.000" }}</td>
+                        <td>{{ "%.1f"|format(cat.hard_hit_pct) }}%</td>
                     </tr>
                     {% endfor %}
+                     <tr style="background: rgba(0,0,0,0.03); font-weight: 800; border-top: 2px solid #d1d5db;">
+                        <td style="color: #111827;">{{ hitter_pitch_profile.total.name }}</td>
+                        <td style="color: #111827;">{{ hitter_pitch_profile.total.count }}</td>
+                        <td style="color: #111827;">100.0%</td>
+                        <td style="color: #111827;">{{ "%.1f"|format(hitter_pitch_profile.total.zone_pct) }}%</td>
+                        <td style="color: #111827;">{{ "%.1f"|format(hitter_pitch_profile.total.whiff_pct) }}%</td>
+                        <td style="color: #111827;">{{ ("%.3f"|format(hitter_pitch_profile.total.avg)).lstrip('0') if hitter_pitch_profile.total.avg < 1 else "1.000" }}</td>
+                        <td style="color: #111827;">{{ "%.1f"|format(hitter_pitch_profile.total.hard_hit_pct) }}%</td>
+                    </tr>
                 {% else %}
-                    <tr><td colspan="5" style="text-align: center; color: #4b5563; padding: 1rem;">No pitch category data available.</td></tr>
+                    <tr><td colspan="7" style="text-align: center; color: #4b5563; padding: 1rem;">No pitch category data available.</td></tr>
                 {% endif %}
             </tbody>
         </table>
