@@ -1340,23 +1340,24 @@
     return "#f59e0b";
   }
 
-  function renderSpray(points){
-            if(!sprayDots) return;
-            sprayDots.innerHTML = "";
-            const allow = allowedTypes();
-            for(const p of (points || [])){
-                if(!allow.has(p.type)) continue;
-                const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+   const sprayDots = document.getElementById("sprayDots");
+   function renderSpray(points){
+         if(!sprayDots) return;
+         sprayDots.innerHTML = "";
+         const allow = allowedTypes();
+         for(const p of (points || [])){
+               if(!allow.has(p.type)) continue;
+               const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
                 
-                c.setAttribute("cx", p.hc_x);
-                c.setAttribute("cy", p.hc_y); 
-                c.setAttribute("r", 3);
-                c.setAttribute("fill", p.color || hitColor(p.type));
-                c.setAttribute("stroke", "#fff");
-                c.setAttribute("stroke-width", "0.5");
-                sprayDots.appendChild(c);
-            }
-        }
+               c.setAttribute("cx", p.hc_x);
+               c.setAttribute("cy", p.hc_y); 
+               c.setAttribute("r", 3);
+               c.setAttribute("fill", p.color || hitColor(p.type));
+               c.setAttribute("stroke", "#fff");
+               c.setAttribute("stroke-width", "0.5");
+               sprayDots.appendChild(c);
+         }
+   }
 
         // Tell JavaScript to use `spray_data` instead of `spray_points`
         try{
@@ -1367,7 +1368,7 @@
         [sprSingle, sprDouble, sprTriple, sprHR, sprOther].forEach(el => {
             if(el) el.addEventListener("change", () => {
                 try{
-                    const points = {{ (spray_data if spray_data is defined else [])|tojson }};
+                    const points = {{ (spray_data if spray_data is defined else [])|tojson | safe }};
                     renderSpray(points);
                 }catch(e){}
             });
