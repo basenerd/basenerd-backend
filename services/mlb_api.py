@@ -17,6 +17,53 @@ from sqlalchemy import create_engine, text
 
 # ----------------------------
 # Monte Carlo run expectancy (LAZY)
+
+# ----------------------------
+# UI helpers (colors/gradients)
+# ----------------------------
+def _clamp(x, lo, hi):
+    return max(lo, min(hi, x))
+
+def _lerp(a, b, t):
+    return int(a + (b - a) * t)
+
+def _grad_style(val, avg, span, alpha=0.22):
+    """Blue -> White -> Red based on (val-avg)/span.
+    Returns an inline CSS background style string, or "".
+    """
+    if val is None:
+        return ""
+    try:
+        v = float(val)
+    except Exception:
+        return ""
+
+    try:
+        avg_f = float(avg)
+        span_f = float(span) if float(span) != 0 else 1.0
+    except Exception:
+        avg_f, span_f = 0.0, 1.0
+
+    blue = (59, 130, 246)   # blue-500
+    white = (255, 255, 255)
+    red = (239, 68, 68)     # red-500
+
+    t = _clamp((v - avg_f) / span_f, -1.0, 1.0)
+    t = (t + 1.0) / 2.0  # 0..1
+
+    if t <= 0.5:
+        u = t / 0.5
+        r = _lerp(blue[0], white[0], u)
+        g = _lerp(blue[1], white[1], u)
+        b = _lerp(blue[2], white[2], u)
+    else:
+        u = (t - 0.5) / 0.5
+        r = _lerp(white[0], red[0], u)
+        g = _lerp(white[1], red[1], u)
+        b = _lerp(white[2], red[2], u)
+
+    return f"background: rgba({r},{g},{b},{alpha});"
+
 # ----------------------------
 def get_expected_runs_safe(*args, **kwargs):
     """Best-effort wrapper around services.run_expectancy.get_expected_runs.
