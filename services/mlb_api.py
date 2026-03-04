@@ -3715,7 +3715,7 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
         query = text(f"""
             SELECT pitch_type, description, zone, events, launch_speed
             FROM {table_name}
-            WHERE batter = :player_id AND game_year = :year
+            WHERE batter = :player_id AND game_year = :year AND game_type = 'R'
         """)
         
         with engine.connect() as conn:
