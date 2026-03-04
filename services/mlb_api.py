@@ -17,53 +17,6 @@ from sqlalchemy import create_engine, text
 
 # ----------------------------
 # Monte Carlo run expectancy (LAZY)
-
-# ----------------------------
-# UI helpers (colors/gradients)
-# ----------------------------
-def _clamp(x, lo, hi):
-    return max(lo, min(hi, x))
-
-def _lerp(a, b, t):
-    return int(a + (b - a) * t)
-
-def _grad_style(val, avg, span, alpha=0.22):
-    """Blue -> White -> Red based on (val-avg)/span.
-    Returns an inline CSS background style string, or "".
-    """
-    if val is None:
-        return ""
-    try:
-        v = float(val)
-    except Exception:
-        return ""
-
-    try:
-        avg_f = float(avg)
-        span_f = float(span) if float(span) != 0 else 1.0
-    except Exception:
-        avg_f, span_f = 0.0, 1.0
-
-    blue = (59, 130, 246)   # blue-500
-    white = (255, 255, 255)
-    red = (239, 68, 68)     # red-500
-
-    t = _clamp((v - avg_f) / span_f, -1.0, 1.0)
-    t = (t + 1.0) / 2.0  # 0..1
-
-    if t <= 0.5:
-        u = t / 0.5
-        r = _lerp(blue[0], white[0], u)
-        g = _lerp(blue[1], white[1], u)
-        b = _lerp(blue[2], white[2], u)
-    else:
-        u = (t - 0.5) / 0.5
-        r = _lerp(white[0], red[0], u)
-        g = _lerp(white[1], red[1], u)
-        b = _lerp(white[2], red[2], u)
-
-    return f"background: rgba({r},{g},{b},{alpha});"
-
 # ----------------------------
 def get_expected_runs_safe(*args, **kwargs):
     """Best-effort wrapper around services.run_expectancy.get_expected_runs.
@@ -495,6 +448,29 @@ def monte_carlo_game_from_pas(pas: List[dict], sims: int = 5000, seed: int = 42)
     }
 
 BASE = "https://statsapi.mlb.com/api/v1"
+
+# ----------------------------
+# Analytics cache (in-memory, per worker)
+# ----------------------------
+_ANALYTICS_CACHE = {}
+
+def _analytics_cache_get(key, ttl_s: int):
+    try:
+        item = _ANALYTICS_CACHE.get(key)
+        if not item:
+            return None
+        if (time.time() - float(item.get("ts", 0))) > ttl_s:
+            return None
+        return item.get("payload")
+    except Exception:
+        return None
+
+def _analytics_cache_set(key, payload: dict):
+    try:
+        _ANALYTICS_CACHE[key] = {"ts": time.time(), "payload": payload}
+    except Exception:
+        pass
+
 MLB_API_BASE = BASE  # for older helpers that reference MLB_API_BASE
 
 # ----------------------------
@@ -4453,13 +4429,66 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
 # ----------------------------
 # Analytics JSON builder (deferred expensive work)
 # ----------------------------
-def get_game_analytics(game_pk: int, tz_name: str = "America/Phoenix", sims: int = 5000) -> dict:
+def get_game_analytics(game_pk, sims: int = 600) -> dict:
+    """Heavy analytics for Analytics tab.
+
+    Runs Monte Carlo off game_obj['pas'] with strict caps + caching to avoid Gunicorn timeouts.
     """
-    Heavy analytics payload for game.html Analytics tab.
-    DO NOT call this during HTML render; use a dedicated JSON route.
-    """
-    feed = get_game_feed(int(game_pk))
-    game_obj = normalize_game_detail(feed, tz_name=tz_name)
+    try:
+        game_pk_int = int(game_pk)
+    except Exception:
+        return {"ok": False, "reason": "bad game_pk"}
+
+    feed = get_game_feed(game_pk_int)
+    game_obj = normalize_game_detail(feed)
+
+    sig = "|".join([
+        str(game_obj.get("statusPill") or ""),
+        str(((game_obj.get("score") or {}).get("away"))),
+        str(((game_obj.get("score") or {}).get("home"))),
+        str(game_obj.get("inning") or ""),
+        str(game_obj.get("half") or ""),
+        str(game_obj.get("outs") if game_obj.get("outs") is not None else ""),
+        str(game_obj.get("lastPlay") or ""),
+        str(len(game_obj.get("pas") or [])),
+    ])
+
+    status_lc = str(game_obj.get("statusPill") or "").lower()
+    is_final = ("final" in status_lc) or ("game over" in status_lc) or ("completed" in status_lc)
+
+    ttl_s = 20 if not is_final else 3600
+    cache_key = (game_pk_int, sig)
+    cached = _analytics_cache_get(cache_key, ttl_s=ttl_s)
+    if cached is not None:
+        return cached
+
+    try:
+        sims_in = int(sims)
+    except Exception:
+        sims_in = 600
+
+    sims_cap = 900 if not is_final else 1500
+    sims_floor = 300
+    sims_in = max(sims_floor, min(sims_in, sims_cap))
+
+    sim = None
+    try:
+        sim = monte_carlo_game_from_pas((game_obj.get("pas") or []), sims=sims_in)
+    except Exception as e:
+        sim = {"ok": False, "reason": "sim_failed:" + type(e).__name__}
+
+    payload = {
+        "ok": True,
+        "gamePk": game_pk_int,
+        "statusPill": game_obj.get("statusPill"),
+        "away": game_obj.get("away"),
+        "home": game_obj.get("home"),
+        "sim": sim,
+        "battedBalls": game_obj.get("battedBalls") if "battedBalls" in game_obj else (game_obj.get("batted_balls") if "batted_balls" in game_obj else None),
+    }
+
+    _analytics_cache_set(cache_key, payload)
+    return payload
 
     # Decide if we should simulate
     try:
