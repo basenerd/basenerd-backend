@@ -1059,6 +1059,7 @@
                         <td style="color: #111827;">{{ ("%.3f"|format(hitter_pitch_profile.total.avg)).lstrip('0') if hitter_pitch_profile.total.avg < 1 else "1.000" }}</td>
                         <td style="color: #111827;">{{ "%.1f"|format(hitter_pitch_profile.total.hard_hit_pct) }}%</td>
                     </tr>
+               
                 {% else %}
                     <tr><td colspan="7" style="text-align: center; color: #4b5563; padding: 1rem;">No pitch tracking data available.</td></tr>
                 {% endif %}
@@ -1106,6 +1107,15 @@
                         <td style="color: #111827;">{{ "%.1f"|format(hitter_pitch_profile.total.whiff_pct) }}%</td>
                         <td style="color: #111827;">{{ ("%.3f"|format(hitter_pitch_profile.total.avg)).lstrip('0') if hitter_pitch_profile.total.avg < 1 else "1.000" }}</td>
                         <td style="color: #111827;">{{ "%.1f"|format(hitter_pitch_profile.total.hard_hit_pct) }}%</td>
+                    </tr>
+               <tr style="background: rgba(0,0,0,0.01); font-weight: 700; border-top: 1px solid #d1d5db;">
+                        <td style="color: #4b5563;">MLB Avg</td>
+                        <td style="color: #4b5563;">-</td>
+                        <td style="color: #4b5563;">-</td>
+                        <td style="color: #4b5563;">50.6%</td>
+                        <td style="color: #4b5563;">25.3%</td>
+                        <td style="color: #4b5563;">.245</td>
+                        <td style="color: #4b5563;">41.0%</td>
                     </tr>
                 {% else %}
                     <tr><td colspan="7" style="text-align: center; color: #4b5563; padding: 1rem;">No pitch category data available.</td></tr>
