@@ -237,3 +237,20 @@ def simulate_game(game, sims=5000):
         "away_runs_avg": away_runs.mean(),
         "home_runs_avg": home_runs.mean()
     }
+    
+def expected_linescore():
+
+    away = []
+    home = []
+
+    for inning in range(9):
+
+        away.append(simulate_half_inning(0,0,200))
+        home.append(simulate_half_inning(0,0,200))
+
+    return {
+        "away": away,
+        "home": home,
+        "away_total": sum(away),
+        "home_total": sum(home)
+    }
