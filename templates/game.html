@@ -517,6 +517,66 @@
     font-weight:900;
   }
 
+
+
+  /* ==========================================================
+     ANALYTICS (scoped to game.html)
+     ========================================================== */
+  .ana-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:12px;
+    align-items:start;
+  }
+  @media (max-width: 980px){
+    .ana-grid{ grid-template-columns: 1fr; }
+  }
+
+  .mc-gauge{
+    position:relative;
+    height:14px;
+    border-radius:999px;
+    overflow:hidden;
+    border:1px solid rgba(148,163,184,.28);
+    background: rgba(255,255,255,.6);
+  }
+  .mc-gauge-track{
+    position:absolute; inset:0;
+    background: linear-gradient(90deg, rgba(59,130,246,.95) 0%, rgba(255,255,255,.95) 50%, rgba(239,68,68,.95) 100%);
+  }
+  .mc-gauge-pin{
+    position:absolute;
+    top:-4px;
+    width:2px;
+    height:22px;
+    background: rgba(2,6,23,.92);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.85);
+    transform: translateX(-1px);
+  }
+
+  .ana-tip{
+    position:absolute;
+    z-index:50;
+    max-width: 260px;
+    pointer-events:none;
+    padding:8px 10px;
+    border-radius:12px;
+    background: rgba(2,6,23,.92);
+    color: rgba(255,255,255,.96);
+    border:1px solid rgba(148,163,184,.22);
+    box-shadow: 0 10px 24px rgba(2,6,23,.22);
+    font-size:12px;
+    line-height:1.25;
+  }
+  .ana-tip .mono{ font-family: IBM Plex Mono, ui-monospace, Menlo, monospace; }
+
+  .ana-dot{
+    cursor: default;
+    stroke: rgba(255,255,255,.9);
+    stroke-width: 1.2;
+    opacity: .92;
+  }
+
 </style>
 
 {# Convert IP string like "7.2" into outs (23) for simple scoring #}
@@ -892,7 +952,74 @@
         </tbody>
       </table>
     </div>
+  
+{% set sim = (game.sim if game.sim is defined else none) %}
+{% if sim and sim.expectedLinescore is defined %}
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="card-title">Expected Linescore</div>
+      <div class="card-subtitle">Monte Carlo ({{ sim.sims if sim.sims is defined else '' }} sims)</div>
+    </div>
+
+    <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th></th>
+            {% for inn in innings %}
+              <th class="mono" style="text-align:center;">{{ inn.num }}</th>
+            {% endfor %}
+            <th class="mono" style="text-align:center;">xR</th>
+            <th class="mono" style="text-align:center;">xH</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">
+              {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
+              {{ away.abbrev }}
+            </td>
+            {% for inn in innings %}
+              {% set i = loop.index0 %}
+              {% set v = (sim.expectedLinescore.away[i] if sim.expectedLinescore.away is defined and sim.expectedLinescore.away|length > i else none) %}
+              <td class="mono" style="text-align:center;">{{ (("%.2f"|format(v)) if v is not none else '-') }}</td>
+            {% endfor %}
+            <td class="mono" style="text-align:center;">
+              {% set xr = (sim.expectedScore.away if sim.expectedScore is defined else none) %}
+              {{ (("%.2f"|format(xr)) if xr is not none else '-') }}
+            </td>
+            <td class="mono" style="text-align:center;">
+              {% set xh = (sim.expectedLinescore.awayHits if sim.expectedLinescore is defined else none) %}
+              {{ (("%.2f"|format(xh)) if xh is not none else '-') }}
+            </td>
+          </tr>
+
+          <tr>
+            <td class="mono">
+              {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
+              {{ home.abbrev }}
+            </td>
+            {% for inn in innings %}
+              {% set i = loop.index0 %}
+              {% set v = (sim.expectedLinescore.home[i] if sim.expectedLinescore.home is defined and sim.expectedLinescore.home|length > i else none) %}
+              <td class="mono" style="text-align:center;">{{ (("%.2f"|format(v)) if v is not none else '-') }}</td>
+            {% endfor %}
+            <td class="mono" style="text-align:center;">
+              {% set xr = (sim.expectedScore.home if sim.expectedScore is defined else none) %}
+              {{ (("%.2f"|format(xr)) if xr is not none else '-') }}
+            </td>
+            <td class="mono" style="text-align:center;">
+              {% set xh = (sim.expectedLinescore.homeHits if sim.expectedLinescore is defined else none) %}
+              {{ (("%.2f"|format(xh)) if xh is not none else '-') }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
+{% endif %}
+
+</div>
 {% endif %}
 
 <!-- Tabs -->
@@ -1802,19 +1929,253 @@
   {% endif %}
 </div>
 
+
 <!-- ANALYTICS -->
 <div class="tab-panel" id="tab-analytics">
+
+  {% set sim = (game.sim if game.sim is defined else none) %}
+
+  <!-- Monte Carlo summary -->
   <div class="card" style="margin-top:14px;">
     <div class="card-header">
       <div>
-        <div class="card-title">Analytics</div>
-        <div class="card-subtitle">Coming soon</div>
+        <div class="card-title">Monte Carlo</div>
+        <div class="card-subtitle">Expected outcome + expected scoring</div>
       </div>
     </div>
+
     <div style="padding:14px;">
-      <div class="muted">—</div>
+      {% if sim %}
+        {% set home_wp = (sim.homeWinPct if sim.homeWinPct is defined else none) %}
+        {% set away_wp = (sim.awayWinPct if sim.awayWinPct is defined else none) %}
+        {% set sims_n = (sim.sims if sim.sims is defined else '') %}
+        {% set home_pct = (home_wp * 100) if home_wp is not none else none %}
+        {% set away_pct = (away_wp * 100) if away_wp is not none else none %}
+
+        <div style="display:grid; grid-template-columns: 1fr; gap:12px;">
+
+          <div class="card" style="margin:0; padding:12px;">
+            <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:10px;">
+              <div>
+                <div class="mono muted" style="font-size:12px;">Win odds ({{ sims_n }} sims)</div>
+                <div style="font-weight:900; font-size:18px; line-height:1.15;">
+                  {% if home_pct is not none and away_pct is not none %}
+                    {% if home_pct >= away_pct %}
+                      {{ home.abbrev }} wins {{ "%.1f"|format(home_pct) }}%
+                    {% else %}
+                      {{ away.abbrev }} wins {{ "%.1f"|format(away_pct) }}%
+                    {% endif %}
+                  {% else %}
+                    —
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="mono" style="font-size:12px; opacity:.85; text-align:right;">
+                <div>{{ away.abbrev }}: {{ ("%.1f"|format(away_pct)) if away_pct is not none else "-" }}%</div>
+                <div>{{ home.abbrev }}: {{ ("%.1f"|format(home_pct)) if home_pct is not none else "-" }}%</div>
+              </div>
+            </div>
+
+            <div style="margin-top:10px;">
+              <div class="mc-gauge">
+                <div class="mc-gauge-track"></div>
+                {% if home_pct is not none %}
+                  <div class="mc-gauge-pin" style="left: {{ home_pct }}%;"></div>
+                {% endif %}
+              </div>
+              <div class="mono muted" style="display:flex; justify-content:space-between; margin-top:6px; font-size:11px;">
+                <span>{{ away.abbrev }} favored</span>
+                <span>50/50</span>
+                <span>{{ home.abbrev }} favored</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin:0; padding:12px;">
+            <div class="mono muted" style="font-size:12px;">Expected score</div>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:6px;">
+              <div class="pill mono" style="background: rgba(2,6,23,.04); border:1px solid rgba(148,163,184,.25);">
+                {{ away.abbrev }} xR: {{ ("%.2f"|format(sim.expectedScore.away)) if sim.expectedScore is defined and sim.expectedScore.away is defined else "-" }}
+              </div>
+              <div class="pill mono" style="background: rgba(2,6,23,.04); border:1px solid rgba(148,163,184,.25);">
+                {{ home.abbrev }} xR: {{ ("%.2f"|format(sim.expectedScore.home)) if sim.expectedScore is defined and sim.expectedScore.home is defined else "-" }}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      {% else %}
+        <div class="muted">Monte Carlo summary is available after the game is completed.</div>
+      {% endif %}
     </div>
   </div>
+
+  <!-- Batted ball maps -->
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Batted Balls</div>
+        <div class="card-subtitle">Hover a dot for details</div>
+      </div>
+    </div>
+
+    <div style="padding:14px; position:relative;">
+      {% set away_bips = [] %}
+      {% set home_bips = [] %}
+      {% for pa in (game.pas if game.pas is defined else []) %}
+        {% set bb = (pa.battedBall if pa.battedBall is defined else none) %}
+        {% if bb and (bb.has if bb.has is defined else 0) %}
+          {% set is_away_off = (pa.half|string)|lower.startswith('top') %}
+          {% set arr = away_bips if is_away_off else home_bips %}
+          {% set _ = arr.append({
+            "inning": pa.inning,
+            "half": pa.half,
+            "batter": (pa.batterName if pa.batterName is defined else ''),
+            "pitcher": (pa.pitcherName if pa.pitcherName is defined else ''),
+            "ev": bb.exitVelo,
+            "la": bb.launchAngle,
+            "dist": bb.distance,
+            "xba": bb.xBA,
+            "xslg": (bb.xSLG if bb.xSLG is defined else none),
+            "result": (pa.summaryEvent if pa.summaryEvent is defined else ''),
+            "x": (bb.coordX if bb.coordX is defined else none),
+            "y": (bb.coordY if bb.coordY is defined else none)
+          }) %}
+        {% endif %}
+      {% endfor %}
+
+      <div class="ana-grid">
+        <div>
+          <div class="mono muted" style="font-size:12px; margin-bottom:6px;">{{ away.abbrev }}</div>
+          <div class="spray-mini-card">
+            <svg class="ana-spray-svg"
+                 viewBox="0 0 250 250"
+                 preserveAspectRatio="xMidYMid meet"
+                 data-points='{{ {"team": away.abbrev, "points": away_bips} | tojson }}'>
+              <g class="sprayOverlay"></g>
+              <g class="sprayPoints"></g>
+            </svg>
+          </div>
+        </div>
+
+        <div>
+          <div class="mono muted" style="font-size:12px; margin-bottom:6px;">{{ home.abbrev }}</div>
+          <div class="spray-mini-card">
+            <svg class="ana-spray-svg"
+                 viewBox="0 0 250 250"
+                 preserveAspectRatio="xMidYMid meet"
+                 data-points='{{ {"team": home.abbrev, "points": home_bips} | tojson }}'>
+              <g class="sprayOverlay"></g>
+              <g class="sprayPoints"></g>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div id="ana-bip-tip" class="ana-tip" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Expected box score -->
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Expected Box Score</div>
+        <div class="card-subtitle">Per-player expected batting line (xAVG / xSLG)</div>
+      </div>
+    </div>
+
+    <div style="padding:14px; overflow-x:auto;">
+      {% if sim and sim.expectedBox is defined %}
+        {# build name maps from the real boxscore batting tables #}
+        {% set away_name = {} %}
+        {% set home_name = {} %}
+        {% if game.box and game.box.away and game.box.away.batting is defined %}
+          {% for r in game.box.away.batting %}
+            {% if r.playerId is defined %}
+              {% set _ = away_name.update({ (r.playerId|string): (r.name if r.name is defined else '') }) %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {% if game.box and game.box.home and game.box.home.batting is defined %}
+          {% for r in game.box.home.batting %}
+            {% if r.playerId is defined %}
+              {% set _ = home_name.update({ (r.playerId|string): (r.name if r.name is defined else '') }) %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+
+        <div class="ana-grid">
+          <div>
+            <div class="mono muted" style="font-size:12px; margin-bottom:6px;">{{ away.abbrev }}</div>
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th class="mono" style="text-align:right;">xAB</th>
+                  <th class="mono" style="text-align:right;">xH</th>
+                  <th class="mono" style="text-align:right;">xTB</th>
+                  <th class="mono" style="text-align:right;">xAVG</th>
+                  <th class="mono" style="text-align:right;">xSLG</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in (sim.expectedBox.away if sim.expectedBox.away is defined else []) %}
+                  {% set pid = (r.playerId|string) %}
+                  <tr>
+                    <td class="mono" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                      {{ away_name.get(pid) if away_name.get(pid) else pid }}
+                    </td>
+                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.AB) if r.AB is defined else "-" }}</td>
+                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.H) if r.H is defined else "-" }}</td>
+                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.TB) if r.TB is defined else "-" }}</td>
+                    <td class="mono" style="text-align:right;">{{ "%.3f"|format(r.xAVG) if r.xAVG is defined and r.xAVG is not none else "-" }}</td>
+                    <td class="mono" style="text-align:right;">{{ "%.3f"|format(r.xSLG) if r.xSLG is defined and r.xSLG is not none else "-" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div>
+            <div class="mono muted" style="font-size:12px; margin-bottom:6px;">{{ home.abbrev }}</div>
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th class="mono" style="text-align:right;">xAB</th>
+                  <th class="mono" style="text-align:right;">xH</th>
+                  <th class="mono" style="text-align:right;">xTB</th>
+                  <th class="mono" style="text-align:right;">xAVG</th>
+                  <th class="mono" style="text-align:right;">xSLG</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in (sim.expectedBox.home if sim.expectedBox.home is defined else []) %}
+                  {% set pid = (r.playerId|string) %}
+                  <tr>
+                    <td class="mono" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                      {{ home_name.get(pid) if home_name.get(pid) else pid }}
+                    </td>
+                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.AB) if r.AB is defined else "-" }}</td>
+                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.H) if r.H is defined else "-" }}</td>
+                    <td class="mono" style="text-align:right;">{{ "%.2f"|format(r.TB) if r.TB is defined else "-" }}</td>
+                    <td class="mono" style="text-align:right;">{{ "%.3f"|format(r.xAVG) if r.xAVG is defined and r.xAVG is not none else "-" }}</td>
+                    <td class="mono" style="text-align:right;">{{ "%.3f"|format(r.xSLG) if r.xSLG is defined and r.xSLG is not none else "-" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="muted">Expected box score will populate once Monte Carlo is available.</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
 </div>
 
 <script>
@@ -2929,7 +3290,108 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
     });
   }
 
-  initMiniSprays();
+  
+
+  function _ana_showTip(tipEl, containerEl, html, clientX, clientY){
+    if(!tipEl || !containerEl) return;
+    tipEl.innerHTML = html || "";
+    tipEl.style.display = "block";
+
+    const rect = containerEl.getBoundingClientRect();
+    const pad = 10;
+
+    // position relative to container
+    let x = (clientX - rect.left) + 12;
+    let y = (clientY - rect.top) + 12;
+
+    // keep inside bounds
+    const w = tipEl.offsetWidth || 240;
+    const h = tipEl.offsetHeight || 80;
+
+    if(x + w + pad > rect.width) x = rect.width - w - pad;
+    if(y + h + pad > rect.height) y = rect.height - h - pad;
+    if(x < pad) x = pad;
+    if(y < pad) y = pad;
+
+    tipEl.style.left = `${x}px`;
+    tipEl.style.top  = `${y}px`;
+  }
+
+  function initAnalyticsSprays(){
+    const tipEl = document.getElementById("ana-bip-tip");
+    const panel = document.getElementById("tab-analytics");
+    if(!panel) return;
+
+    const svgs = panel.querySelectorAll("svg.ana-spray-svg");
+    if(!svgs || !svgs.length) return;
+
+    // overlay (stadium) reuse
+    svgs.forEach(svg=>{
+      try{ injectOverlayInto(svg); }catch(e){}
+      const payload = svg.getAttribute("data-points");
+      if(!payload) return;
+
+      let data = null;
+      try{ data = JSON.parse(payload); }catch(e){ data = null; }
+      const points = (data && Array.isArray(data.points)) ? data.points : [];
+
+      const pointsG = svg.querySelector("g.sprayPoints");
+      if(!pointsG) return;
+      pointsG.innerHTML = "";
+
+      points.forEach(p=>{
+        const x = (p && (p.x ?? null));
+        const y = (p && (p.y ?? null));
+        if(x === null || x === undefined || y === null || y === undefined) return;
+
+        const mapped = mapPointToStadium(svg, Number(x), Number(y));
+        if(!mapped) return;
+
+        const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+        c.setAttribute("cx", String(mapped.x));
+        c.setAttribute("cy", String(mapped.y));
+        c.setAttribute("r", "3.4");
+        c.setAttribute("class","ana-dot");
+        c.setAttribute("fill", sprayColorForEvent((p.result || "").toLowerCase()));
+
+        const tipHTML = `
+          <div style="font-weight:800; margin-bottom:4px;">${(data.team||"")}</div>
+          <div class="mono" style="opacity:.95;">${(p.half||"")} ${p.inning || ""}</div>
+          <div style="margin-top:6px;">
+            <div><span class="mono" style="opacity:.75;">B:</span> ${p.batter || "—"}</div>
+            <div><span class="mono" style="opacity:.75;">P:</span> ${p.pitcher || "—"}</div>
+          </div>
+          <div style="margin-top:6px; display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+            <div><span class="mono" style="opacity:.75;">EV</span> ${p.ev ?? "—"}</div>
+            <div><span class="mono" style="opacity:.75;">LA</span> ${p.la ?? "—"}</div>
+            <div><span class="mono" style="opacity:.75;">Dist</span> ${p.dist ?? "—"}</div>
+            <div><span class="mono" style="opacity:.75;">Res</span> ${p.result || "—"}</div>
+            <div><span class="mono" style="opacity:.75;">xBA</span> ${(p.xba ?? "—")}</div>
+            <div><span class="mono" style="opacity:.75;">xSLG</span> ${(p.xslg ?? "—")}</div>
+          </div>
+        `;
+
+        c.addEventListener("mouseenter",(ev)=>{
+          _ana_showTip(tipEl, panel, tipHTML, ev.clientX, ev.clientY);
+        });
+        c.addEventListener("mousemove",(ev)=>{
+          _ana_showTip(tipEl, panel, tipHTML, ev.clientX, ev.clientY);
+        });
+        c.addEventListener("mouseleave",()=>{
+          if(tipEl) tipEl.style.display = "none";
+        });
+
+        pointsG.appendChild(c);
+      });
+    });
+
+    // hide tooltip when leaving analytics tab area
+    panel.addEventListener("mouseleave", ()=>{
+      if(tipEl) tipEl.style.display = "none";
+    });
+  }
+
+initMiniSprays();
 
 })();
 </script>
