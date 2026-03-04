@@ -14,6 +14,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine, text
+from run_expectancy import simulate_game, expected_linescore
 
 # ----------------------------
 # Monte Carlo run expectancy
