@@ -242,6 +242,17 @@ def monte_carlo_game_from_pas(pas: List[dict], sims: int = 5000, seed: int = 42)
 
     rng = np.random.default_rng(seed)
 
+    # build batter name lookup from pas
+    batter_name_map: Dict[int, str] = {}
+    for pa in pas:
+        try:
+            bid = int(pa.get("batterId")) if pa.get("batterId") is not None else None
+            name = (pa.get("batterName") or "").strip()
+            if bid and name and bid not in batter_name_map:
+                batter_name_map[bid] = name
+        except Exception:
+            pass
+
     away_runs_by_inn = np.zeros(max_inn, dtype=float)
     home_runs_by_inn = np.zeros(max_inn, dtype=float)
     away_hits_sum = 0.0
@@ -446,22 +457,26 @@ def monte_carlo_game_from_pas(pas: List[dict], sims: int = 5000, seed: int = 42)
     def _rows(team: str) -> List[dict]:
         out = []
         for pid, s in bat_agg[team].items():
-            pa = s.get("PA", 0.0)
-            ab = s.get("AB", 0.0)
-            h = s.get("H", 0.0)
-            tb = s.get("TB", 0.0)
+            pa_val = s.get("PA", 0.0)
+            ab_val = s.get("AB", 0.0)
+            h_val = s.get("H", 0.0)
+            tb_val = s.get("TB", 0.0)
+            ab_avg = ab_val / sims_f
+            h_avg = h_val / sims_f
+            tb_avg = tb_val / sims_f
             out.append({
                 "playerId": int(pid),
-                "PA": pa / sims_f,
-                "AB": ab / sims_f,
-                "H": h / sims_f,
-                "TB": tb / sims_f,
+                "name": batter_name_map.get(int(pid), str(pid)),
+                "PA": pa_val / sims_f,
+                "ab": ab_avg,
+                "xH": h_avg,
+                "xTB": tb_avg,
                 "BB": s.get("BB", 0.0) / sims_f,
                 "HBP": s.get("HBP", 0.0) / sims_f,
                 "K": s.get("K", 0.0) / sims_f,
                 "HR": s.get("HR", 0.0) / sims_f,
-                "xAVG": (h / ab) if ab > 0 else None,
-                "xSLG": (tb / ab) if ab > 0 else None,
+                "xAVG": (h_val / ab_val) if ab_val > 0 else None,
+                "xSLG": (tb_val / ab_val) if ab_val > 0 else None,
             })
         out.sort(key=lambda r: (r.get("xSLG") or 0.0), reverse=True)
         return out
@@ -4510,6 +4525,18 @@ def get_game_analytics(game_pk, sims: int = 600) -> dict:
     except Exception as e:
         sim = {"ok": False, "reason": "sim_failed:" + type(e).__name__}
 
+    # batted ball tooltip list (coords + metrics)
+    away_bip = []
+    home_bip = []
+    for pa in (game_obj.get("pas") or []):
+        bbt = pa.get("battedBallTooltip")
+        if not bbt:
+            continue
+        if pa.get("battingTeam") == "home":
+            home_bip.append(bbt)
+        else:
+            away_bip.append(bbt)
+
     payload = {
         "ok": True,
         "gamePk": game_pk_int,
@@ -4517,52 +4544,8 @@ def get_game_analytics(game_pk, sims: int = 600) -> dict:
         "away": game_obj.get("away"),
         "home": game_obj.get("home"),
         "sim": sim,
-        "battedBalls": bb,
+        "battedBalls": {"away": away_bip, "home": home_bip},
     }
 
     _analytics_cache_set(cache_key, payload)
     return payload
-
-    # Decide if we should simulate
-    try:
-        status_lc = ((game_obj.get("statusPill") or "") + " " + (game_obj.get("statusDetail") or "")).lower()
-        is_final = ("final" in status_lc) or ("game over" in status_lc) or ("completed" in status_lc)
-    except Exception:
-        is_final = False
-
-    sims_in = sims
-    try:
-        sims_in = int(sims_in or 5000)
-    except Exception:
-        sims_in = 5000
-    sims_in = max(500, min(20000, sims_in))
-
-    sim = None
-    if is_final:
-        try:
-            sim = monte_carlo_game_from_pas((game_obj.get("pas") or []), sims=sims_in)
-        except Exception as e:
-            print("[analytics] monte carlo failed:", e)
-            sim = None
-
-    # batted ball tooltip list (coords + metrics)
-    away_bip = []
-    home_bip = []
-    for pa in (game_obj.get("pas") or []):
-        bb = pa.get("battedBallTooltip")
-        if not bb:
-            continue
-        if pa.get("battingTeam") == "home":
-            home_bip.append(bb)
-        else:
-            away_bip.append(bb)
-
-    return {
-        "ok": True,
-        "gamePk": int(game_pk),
-        "isFinal": bool(is_final),
-        "away": game_obj.get("away") or {},
-        "home": game_obj.get("home") or {},
-        "sim": sim,
-        "battedBalls": {"away": away_bip, "home": home_bip},
-    }

@@ -3212,7 +3212,7 @@ function __render_expected_box(sim, awayAbbrev, homeAbbrev){
       trs += `
         <tr>
           <td class="mono">${r.name || "—"}</td>
-          <td class="mono" style="text-align:right;">${r.ab ?? "—"}</td>
+          <td class="mono" style="text-align:right;">${(r.ab!=null)?Number(r.ab).toFixed(1):"—"}</td>
           <td class="mono" style="text-align:right;">${(r.xH!=null)?Number(r.xH).toFixed(2):"—"}</td>
           <td class="mono" style="text-align:right;">${(r.xTB!=null)?Number(r.xTB).toFixed(2):"—"}</td>
           <td class="mono" style="text-align:right;">${(r.xAVG!=null)?Number(r.xAVG).toFixed(3):"—"}</td>
