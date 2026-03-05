@@ -4462,7 +4462,7 @@ def get_wbc_teams(year: int) -> dict:
         return cached
 
     try:
-        params = {"sportId": WBC_SPORT_ID, "season": year, "hydrate": "league"}
+        params = {"sportId": WBC_SPORT_ID, "season": year, "hydrate": "league,division"}
         r = requests.get(f"{BASE}/teams", params=params, timeout=10)
         r.raise_for_status()
         data = r.json()
@@ -4474,7 +4474,24 @@ def get_wbc_teams(year: int) -> dict:
 
 
 def get_wbc_standings(year: int) -> list:
-    """Returns [{name, teams:[{team_id,name,abbrev,w,l,pct,gb,logo_url}]}] grouped by WBC pool."""
+    """Returns [{name, teams:[{team_id,abbrev,w,l,rs,ra,run_diff,logo_url}]}] grouped by WBC pool."""
+    import re as _re
+
+    _WBC_VENUES = {
+        "A": "San Juan, Puerto Rico",
+        "B": "Houston, Texas",
+        "C": "Tokyo, Japan",
+        "D": "Miami, Florida",
+    }
+
+    def _extract_pool_display(raw_name: str) -> str:
+        m = _re.search(r'\bPool\s+([A-Z])\b', raw_name or "", _re.IGNORECASE)
+        if m:
+            letter = m.group(1).upper()
+            venue = _WBC_VENUES.get(letter, "")
+            return f"Pool {letter}" + (f" — {venue}" if venue else "")
+        return raw_name or "Group"
+
     cache_key = f"wbc_standings:{year}"
     cached = _get_cached(cache_key)
     if cached:
@@ -4516,7 +4533,8 @@ def get_wbc_standings(year: int) -> list:
     groups = []
     for record in (standings_data.get("records") or []):
         league_info = record.get("league") or {}
-        group_name = league_info.get("name") or "Group"
+        raw_name = league_info.get("name") or "Group"
+        group_name = _extract_pool_display(raw_name)
 
         team_records = []
         for tr in (record.get("teamRecords") or []):
@@ -4524,17 +4542,18 @@ def get_wbc_standings(year: int) -> list:
             team_id = team.get("id")
             wins = tr.get("wins", 0) or 0
             losses = tr.get("losses", 0) or 0
-            total = wins + losses
-            pct = (wins / total) if total > 0 else 0.0
+            rs = tr.get("runsScored") or tr.get("runs") or 0
+            ra = tr.get("runsAllowed") or 0
+            run_diff = tr.get("runDifferential") or (rs - ra)
 
             team_records.append({
                 "team_id": team_id,
-                "name": team.get("name") or team.get("teamName") or "",
                 "abbrev": (team.get("abbreviation") or "").upper(),
                 "w": wins,
                 "l": losses,
-                "pct": pct,
-                "gb": tr.get("gamesBack") or "—",
+                "rs": rs,
+                "ra": ra,
+                "run_diff": run_diff,
                 "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None,
             })
 

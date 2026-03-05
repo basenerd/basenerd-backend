@@ -2455,7 +2455,8 @@ def wbc():
         )
 
     else:  # teams
-        # Venue city for each pool — keyed by the pool letter
+        import re as _re
+
         WBC_2026_VENUES = {
             "A": "San Juan, Puerto Rico",
             "B": "Houston, Texas",
@@ -2463,24 +2464,26 @@ def wbc():
             "D": "Miami, Florida",
         }
 
-        def _pool_letter(league_name: str) -> str:
-            """Extract pool letter from API league name, e.g. 'Pool A' -> 'A'."""
-            import re
-            m = re.search(r'\bPool\s+([A-Z])\b', league_name or "", re.IGNORECASE)
-            return m.group(1).upper() if m else ""
+        def _pool_display(t: dict) -> str:
+            """Return 'Pool X — City' by checking league.name then division.name."""
+            for source in (
+                (t.get("league") or {}).get("name") or "",
+                (t.get("division") or {}).get("name") or "",
+            ):
+                m = _re.search(r'\bPool\s+([A-Z])\b', source, _re.IGNORECASE)
+                if m:
+                    letter = m.group(1).upper()
+                    venue = WBC_2026_VENUES.get(letter, "")
+                    return f"Pool {letter}" + (f" — {venue}" if venue else "")
+            # Fall back to league name so teams are never silently dropped
+            return (t.get("league") or {}).get("name") or "World Baseball Classic"
 
         try:
             data = get_wbc_teams(year)
             teams_raw = data.get("teams") or []
             team_groups = {}
             for t in teams_raw:
-                league_name = (t.get("league") or {}).get("name") or ""
-                letter = _pool_letter(league_name)
-                # Skip teams that don't belong to a recognized WBC pool
-                if not letter:
-                    continue
-                venue = WBC_2026_VENUES.get(letter, "")
-                display_name = f"Pool {letter}" + (f" — {venue}" if venue else "")
+                display_name = _pool_display(t)
                 team_id = t.get("id")
                 team_obj = {
                     "team_id": team_id,
@@ -2491,7 +2494,6 @@ def wbc():
                 team_groups.setdefault(display_name, []).append(team_obj)
             for g in team_groups:
                 team_groups[g].sort(key=lambda x: (x.get("name") or ""))
-            # Sort groups by pool letter
             team_groups = dict(sorted(team_groups.items()))
         except Exception as e:
             team_groups = {}

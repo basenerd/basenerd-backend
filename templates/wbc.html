@@ -21,38 +21,8 @@
     border-bottom-color: var(--text);
   }
 
-  /* Pct badge */
-  .pctcell {
-    border-radius: 8px;
-    padding: 4px 8px;
-    display: inline-block;
-    min-width: 56px;
-    text-align: right;
-  }
-  td.pctcol::after, td.pctcol::before,
-  th.pctcol::after, th.pctcol::before { content: none !important; }
 </style>
 
-{% macro pct_badge(pct_value) %}
-  {% if pct_value is none %}
-    <span class="pctcell" style="background: rgba(0,0,0,0.06);">—</span>
-  {% else %}
-    {% set p = pct_value %}
-    {% if p < 0 %}{% set p = 0 %}{% endif %}
-    {% if p > 1 %}{% set p = 1 %}{% endif %}
-    {% if p >= 0.5 %}
-      {% set a = (p - 0.5) / 0.5 %}
-      {% if a > 1 %}{% set a = 1 %}{% endif %}
-      {% set bg = "rgba(24, 165, 88, " ~ (0.10 + 0.35 * a) ~ ")" %}
-    {% else %}
-      {% set a = (0.5 - p) / 0.5 %}
-      {% if a > 1 %}{% set a = 1 %}{% endif %}
-      {% set bg = "rgba(200, 50, 50, " ~ (0.10 + 0.35 * a) ~ ")" %}
-    {% endif %}
-    {% set s = "%.3f"|format(p) %}
-    <span class="pctcell" style="background: {{ bg }};">{{ s[1:] }}</span>
-  {% endif %}
-{% endmacro %}
 
 <!-- Page header card -->
 <div class="card">
@@ -231,24 +201,34 @@ document.addEventListener('DOMContentLoaded', function() {
                   <th>Team</th>
                   <th class="num">W</th>
                   <th class="num">L</th>
-                  <th class="num pctcol">Pct</th>
-                  <th class="num">GB</th>
+                  <th class="num">RS</th>
+                  <th class="num">RA</th>
+                  <th class="num">Diff</th>
                 </tr>
               </thead>
               <tbody>
                 {% for t in group.teams %}
+                  {% set diff = t.run_diff|int(0) %}
                   <tr>
                     <td class="teamcell">
                       {% if t.logo_url %}
                         <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
                       {% endif %}
                       <span style="font-weight:700;">{{ t.abbrev }}</span>
-                      <span class="muted" style="font-size:11px; margin-left:4px;">{{ t.name }}</span>
                     </td>
                     <td class="num">{{ t.w }}</td>
                     <td class="num">{{ t.l }}</td>
-                    <td class="num pctcol">{{ pct_badge(t.pct) }}</td>
-                    <td class="num">{{ t.gb }}</td>
+                    <td class="num">{{ t.rs }}</td>
+                    <td class="num">{{ t.ra }}</td>
+                    <td class="num">
+                      {% if diff > 0 %}
+                        <span style="color:#18a558; font-weight:800;">+{{ diff }}</span>
+                      {% elif diff < 0 %}
+                        <span style="color:#e03a3a; font-weight:800;">{{ diff }}</span>
+                      {% else %}
+                        <span>0</span>
+                      {% endif %}
+                    </td>
                   </tr>
                 {% endfor %}
               </tbody>
