@@ -1021,7 +1021,13 @@ def _get_ivb_hb(pitch_data: dict) -> tuple[Optional[float], Optional[float]]:
     hb = _maybe_inches(hb)
 
     if ivb is None:
-        ivb = to_float(breaks.get("breakVertical"))
+        vb_raw = to_float(breaks.get("breakVertical"))
+        if vb_raw is not None:
+            speed = to_float(pitch_data.get("startSpeed"))
+            if speed and speed > 0:
+                # IVB = VB - (523/speed)^2  (removes gravity component)
+                ivb = vb_raw - (523.0 / speed) ** 2
+            # if no speed available, skip this fallback (value would be misleading)
     if hb is None:
         hb = to_float(breaks.get("breakHorizontal"))
 
