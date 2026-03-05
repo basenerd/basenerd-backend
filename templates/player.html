@@ -1246,10 +1246,13 @@
                       <th class="num">Spin</th>
                       <th class="num">xwOBA</th>
                       <th class="num">Whiff%</th>
+                      <th class="num">Zone%</th>
+                      <th class="num">Chase%</th>
+                      <th class="num">Stuff+</th>
                     </tr>
                   </thead>
                   <tbody id="arsenalBody">
-                    <tr><td colspan="9" class="muted">Loading…</td></tr>
+                    <tr><td colspan="12" class="muted">Loading…</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1331,6 +1334,35 @@
               <div class="mono" style="font-size:11px; opacity:.75;">
                 Zone: left {{ -0.83 }} / right {{ 0.83 }} • bot {{ 1.5946|round(3) }} / top {{ 3.3943|round(3) }} • Domain: X [-2,2], Z [0,5]
               </div>
+            </div>
+          </div>
+
+          <!-- Statcast Game Log -->
+          <div id="statcastGamelogCard" style="border:1px solid rgba(226,232,240,.9); border-radius:12px; background:#fff; overflow:hidden;">
+            <div style="padding:10px 12px; border-bottom:1px solid rgba(226,232,240,.9); display:flex; align-items:center; justify-content:space-between;">
+              <div style="font-weight:900;">Statcast Game Log</div>
+              <div class="mono" style="font-size:11px; opacity:.75;">Per-game pitch metrics from Statcast</div>
+            </div>
+            <div style="padding:10px 12px; overflow:auto;">
+              <table class="table" style="min-width:640px;">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th class="num">Pitches</th>
+                    <th class="num">Velo</th>
+                    <th class="num">Stuff+</th>
+                    <th class="num">Whiff%</th>
+                    <th class="num">Zone%</th>
+                    <th class="num">Chase%</th>
+                    <th class="num">K%</th>
+                    <th class="num">BB%</th>
+                    <th class="num">xwOBA</th>
+                  </tr>
+                </thead>
+                <tbody id="statcastGamelogBody">
+                  <tr><td colspan="10" class="muted">Loading…</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -1533,6 +1565,7 @@
         <div class="sr-pill">K%: ${b.k_pct != null ? fmt1(b.k_pct) + "%" : "—"}</div>
         <div class="sr-pill">BB%: ${b.bb_pct != null ? fmt1(b.bb_pct) + "%" : "—"}</div>
         <div class="sr-pill">Whiff%: ${b.whiff_pct != null ? fmt1(b.whiff_pct) + "%" : "—"}</div>
+        <div class="sr-pill">Zone%: ${b.zone_pct != null ? fmt1(b.zone_pct) + "%" : "—"}</div>
         <div class="sr-pill">Chase%: ${b.chase_pct != null ? fmt1(b.chase_pct) + "%" : "—"}</div>
         <div class="sr-pill">xwOBA: ${b.xwoba != null ? fmt3(b.xwoba) : "—"}</div>
       </div>
@@ -1545,7 +1578,7 @@
     const total = mix.reduce((a,r)=>a+(r.n||0),0) || 0;
 
     if(!mix.length){
-      arsenalBody.innerHTML = `<tr><td colspan="9" class="muted">No pitches found for this selection.</td></tr>`;
+      arsenalBody.innerHTML = `<tr><td colspan="12" class="muted">No pitches found for this selection.</td></tr>`;
       if(pitchNotes) pitchNotes.textContent = "—";
       return;
     }
@@ -1553,8 +1586,6 @@
     arsenalBody.innerHTML = mix.map(r => {
       const pt = (r.pitch_type || "UNK");
       const usage = (total ? ((r.n||0)/total*100) : (r.usage||0));
-      const hb_in = (r.hb==null) ? null : Number(r.hb) * 12.0;
-      const vb_in = (r.vb==null) ? null : Number(r.vb) * 12.0;
 
       return `
         <tr>
@@ -1562,11 +1593,14 @@
           <td class="num mono">${fmt0(r.n)}</td>
           <td class="num mono">${fmt1(usage)}</td>
           <td class="num mono">${fmt1(r.velo)}</td>
-          <td class="num mono">${fmt1(hb_in)}</td>
-          <td class="num mono">${fmt1(vb_in)}</td>
+          <td class="num mono">${fmt1(r.hb)}</td>
+          <td class="num mono">${fmt1(r.ivb)}</td>
           <td class="num mono">${fmt0(r.spin)}</td>
           <td class="num mono">${fmt3(r.xwoba)}</td>
-          <td class="num mono">${fmt1(r.whiff_pct)}</td>
+          <td class="num mono">${fmt1(r.whiff)}</td>
+          <td class="num mono">${fmt1(r.zone_pct)}</td>
+          <td class="num mono">${fmt1(r.chase_pct)}</td>
+          <td class="num mono">${r.stuff_plus != null ? fmt1(r.stuff_plus) : "—"}</td>
         </tr>
       `;
     }).join("");
@@ -1580,12 +1614,10 @@
     const top = pts[0];
     const topRow = mix.find(x => (x.pitch_type||"UNK") === (top ? top.pt : ""));
     if(topRow && pitchNotes){
-      const hb = (topRow.hb==null) ? null : topRow.hb*12.0;
-      const vb = (topRow.vb==null) ? null : topRow.vb*12.0;
       pitchNotes.innerHTML = `
         <div><b>Primary:</b> ${topRow.pitch_name || topRow.pitch_type} (${fmt1(topRow.usage)}% usage)</div>
-        <div><b>Shape:</b> HB ${fmt1(hb)} in • IVB ${fmt1(vb)} in • Velo ${fmt1(topRow.velo)} mph</div>
-        <div><b>Result:</b> xwOBA ${fmt3(topRow.xwoba)} • Whiff% ${fmt1(topRow.whiff_pct)}</div>
+        <div><b>Shape:</b> HB ${fmt1(topRow.hb)} in • IVB ${fmt1(topRow.ivb)} in • Velo ${fmt1(topRow.velo)} mph</div>
+        <div><b>Result:</b> xwOBA ${fmt3(topRow.xwoba)} • Whiff% ${fmt1(topRow.whiff)}</div>
       `;
     }else if(pitchNotes){
       pitchNotes.textContent = "—";
@@ -1863,6 +1895,41 @@
     ctx.strokeRect(x0,y0,x1-x0,y1-y0);
   }
 
+  function renderGameLog(games){
+    const tbody = document.getElementById("statcastGamelogBody");
+    if(!tbody) return;
+    if(!games || !games.length){
+      tbody.innerHTML = `<tr><td colspan="10" class="muted">No game data found.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = games.map(g => `
+      <tr>
+        <td class="mono">${g.game_date || "—"}</td>
+        <td class="num mono">${fmt0(g.pitches)}</td>
+        <td class="num mono">${fmt1(g.avg_velo)}</td>
+        <td class="num mono">${g.avg_stuff_plus != null ? fmt1(g.avg_stuff_plus) : "—"}</td>
+        <td class="num mono">${fmt1(g.whiff_pct)}</td>
+        <td class="num mono">${fmt1(g.zone_pct)}</td>
+        <td class="num mono">${fmt1(g.chase_pct)}</td>
+        <td class="num mono">${fmt1(g.k_pct)}</td>
+        <td class="num mono">${fmt1(g.bb_pct)}</td>
+        <td class="num mono">${fmt3(g.xwoba)}</td>
+      </tr>
+    `).join("");
+  }
+
+  async function loadGameLog(season){
+    const tbody = document.getElementById("statcastGamelogBody");
+    if(!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="10" class="muted">Loading…</td></tr>`;
+    try{
+      const data = await getJSON(`/player/${playerId}/pitching_gamelog.json?season=${encodeURIComponent(season)}`);
+      renderGameLog(data && data.ok ? data.games : []);
+    }catch(e){
+      tbody.innerHTML = `<tr><td colspan="10" class="muted">Error loading game log.</td></tr>`;
+    }
+  }
+
   async function loadHeatmaps(){
     const pt = heatPitchTypeSel ? heatPitchTypeSel.value : "";
     const metric = heatMetricSel ? heatMetricSel.value : "density";
@@ -1905,6 +1972,7 @@
     renderArsenal(report);
     renderUsageSplit(report);
     renderBreakChart(report);
+    if(!gamePk) loadGameLog(season);
 
     if(heatPitchTypeSel && heatPitchTypeSel.options.length){
       heatPitchTypeSel.value = heatPitchTypeSel.options[0].value;
@@ -1926,7 +1994,7 @@
       const bestSeason = await findMostRecentPitchSeason();
       if(!bestSeason){
         setStatus("No pitching seasons found.");
-        if(arsenalBody) arsenalBody.innerHTML = `<tr><td colspan="9" class="muted">No pitches found for this player.</td></tr>`;
+        if(arsenalBody) arsenalBody.innerHTML = `<tr><td colspan="12" class="muted">No pitches found for this player.</td></tr>`;
         if(pitchNotes) pitchNotes.textContent = "—";
         renderBasic({});
         renderHeatmap(heatL, null, "density");

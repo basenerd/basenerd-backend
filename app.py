@@ -46,6 +46,7 @@ from services.pitching_report import (
     list_pitching_games,
     pitching_report_summary,
     pitching_heatmap,
+    pitching_gamelog,
 )
 from services.articles import load_articles, get_article
 from services.articles import get_markdown_page
@@ -247,7 +248,16 @@ def player_pitching_heatmap_json(player_id: int):
         metric=metric.lower(),
         game_pk=game_pk,
     )
-    return jsonify(data)    
+    return jsonify(data)
+
+@app.get("/player/<int:player_id>/pitching_gamelog.json")
+def player_pitching_gamelog_json(player_id: int):
+    season = request.args.get("season", type=int)
+    if not season:
+        season = datetime.utcnow().year
+    data = pitching_gamelog(player_id, season)
+    return jsonify({"ok": True, "player_id": player_id, "season": season, "games": data})
+
 @app.get("/random-player")
 def random_player_landing():
     # Just render the page with no player yet

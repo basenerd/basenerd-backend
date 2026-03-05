@@ -40,6 +40,14 @@ SWING = {
 # Statcast descriptions that count as "whiff" (swing + miss)
 WHIFF = {"swinging_strike", "swinging_strike_blocked"}
 
+# Statcast zone numbers: 1-9 = in strike zone, 11-14 = out of zone
+IN_ZONE: set = set(range(1, 10))
+OUT_OF_ZONE: set = {11, 12, 13, 14}
+
+# Statcast events that end a plate appearance as strikeout or walk
+K_EVENTS = {"strikeout", "strikeout_double_play"}
+BB_EVENTS = {"walk", "intent_walk"}
+
 
 def _db_url() -> str:
     url = os.environ.get("DATABASE_URL") or os.environ.get("DATABASE_URL_PG") or ""
@@ -188,11 +196,56 @@ def _fetch_pitches(
 ) -> List[Dict[str, Any]]:
     """
     Pull pitch-level Statcast rows for a pitcher.
-    IMPORTANT: These column names must exist in statcast_pitches.
+    Tries a LEFT JOIN with statcast_pitches_live to get stuff_plus;
+    falls back to statcast_pitches-only if the join table is missing.
     """
-    sql = """
+    base_filter = "WHERE sp.pitcher = %s AND sp.game_year = %s"
+    params: List[Any] = [int(pitcher_id), int(season)]
+    if game_pk:
+        base_filter += " AND sp.game_pk = %s"
+        params.append(int(game_pk))
+
+    sql_with_stuff = f"""
+    SELECT
+      sp.game_pk,
+      sp.game_date,
+      sp.at_bat_number,
+      sp.pitch_number,
+      sp.pitch_type,
+      sp.pitch_name,
+      sp.release_speed,
+      sp.release_spin_rate,
+      sp.pfx_x,
+      sp.pfx_z,
+      sp.stand,
+      sp.p_throws,
+      sp.plate_x,
+      sp.plate_z,
+      sp.description,
+      sp.estimated_woba_using_speedangle,
+      sp.zone,
+      sp.events,
+      spl.stuff_plus
+    FROM statcast_pitches sp
+    LEFT JOIN statcast_pitches_live spl
+      ON sp.game_pk = spl.game_pk
+     AND sp.at_bat_number = spl.at_bat_number
+     AND sp.pitch_number = spl.pitch_number
+    {base_filter}
+    """
+
+    # Fallback: no JOIN, no stuff_plus
+    fb_filter = base_filter.replace("sp.", "")
+    fb_params: List[Any] = [int(pitcher_id), int(season)]
+    if game_pk:
+        fb_params.append(int(game_pk))
+
+    sql_fallback = f"""
     SELECT
       game_pk,
+      game_date,
+      at_bat_number,
+      pitch_number,
       pitch_type,
       pitch_name,
       release_speed,
@@ -204,19 +257,20 @@ def _fetch_pitches(
       plate_x,
       plate_z,
       description,
-      estimated_woba_using_speedangle
+      estimated_woba_using_speedangle,
+      zone,
+      events
     FROM statcast_pitches
-    WHERE pitcher = %s
-      AND game_year = %s
+    {fb_filter}
     """
-    params: List[Any] = [int(pitcher_id), int(season)]
-    if game_pk:
-        sql += " AND game_pk = %s"
-        params.append(int(game_pk))
 
     with psycopg.connect(_db_url()) as conn:
         with conn.cursor() as cur:
-            cur.execute(sql, params)
+            try:
+                cur.execute(sql_with_stuff, params)
+            except Exception:
+                conn.rollback()
+                cur.execute(sql_fallback, fb_params)
             rows = cur.fetchall()
             cols = [d.name for d in cur.description]
             return [dict(zip(cols, r)) for r in rows]
@@ -227,17 +281,28 @@ def _fetch_pitches(
 # ----------------------------
 def list_pitching_games(pitcher_id: int, season: int) -> List[Dict[str, Any]]:
     sql = """
-    SELECT DISTINCT game_pk
+    SELECT DISTINCT game_pk, MIN(game_date) as game_date
     FROM statcast_pitches
     WHERE pitcher = %s
       AND game_year = %s
-    ORDER BY game_pk DESC
+    GROUP BY game_pk
+    ORDER BY game_date DESC, game_pk DESC
     """
     with psycopg.connect(_db_url()) as conn:
         with conn.cursor() as cur:
             cur.execute(sql, (int(pitcher_id), int(season)))
             rows = cur.fetchall()
-            return [{"game_pk": int(r[0]), "label": str(r[0])} for r in rows if r and r[0] is not None]
+            result = []
+            for r in rows:
+                if not r or r[0] is None:
+                    continue
+                gd = str(r[1])[:10] if r[1] else ""
+                result.append({
+                    "game_pk": int(r[0]),
+                    "date": gd,
+                    "label": gd or str(r[0]),
+                })
+            return result
 
 
 def pitching_report_summary(
@@ -271,6 +336,15 @@ def pitching_report_summary(
     shapes: List[Dict[str, Any]] = []
     pitches: List[Dict[str, Any]] = []
 
+    # Aggregate counters for the top-level basic line
+    agg_swings = 0
+    agg_whiffs = 0
+    agg_in_zone = 0
+    agg_ooz = 0
+    agg_ooz_swings = 0
+    agg_xw: List[float] = []
+    agg_events: List[str] = []
+
     for pt, rows in by_pt.items():
         n = len(rows)
         pitch_name = (rows[0].get("pitch_name") or pt) if rows else pt
@@ -281,21 +355,54 @@ def pitching_report_summary(
         spin = [_safe_float(x.get("release_spin_rate")) for x in rows]
         hb = [_safe_float(x.get("pfx_x")) for x in rows]  # feet
         vb = [_safe_float(x.get("pfx_z")) for x in rows]  # feet
+        sp_vals = [_safe_float(x.get("stuff_plus")) for x in rows]
 
         swings = 0
         whiffs = 0
+        in_zone = 0
+        ooz = 0
+        ooz_swings = 0
         xw_list: List[Optional[float]] = []
 
         for x in rows:
             desc = (x.get("description") or "").lower().strip()
+            zone_num = x.get("zone")
+            ev = (x.get("events") or "").lower().strip()
+
             if desc in SWING:
                 swings += 1
             if desc in WHIFF:
                 whiffs += 1
 
+            if zone_num is not None:
+                try:
+                    zn = int(zone_num)
+                    if zn in IN_ZONE:
+                        in_zone += 1
+                    elif zn in OUT_OF_ZONE:
+                        ooz += 1
+                        if desc in SWING:
+                            ooz_swings += 1
+                except (ValueError, TypeError):
+                    pass
+
             xw = _safe_float(x.get("estimated_woba_using_speedangle"))
             if xw is not None:
                 xw_list.append(xw)
+
+            if ev:
+                agg_events.append(ev)
+
+        # Aggregate into overall totals
+        agg_swings += swings
+        agg_whiffs += whiffs
+        agg_in_zone += in_zone
+        agg_ooz += ooz
+        agg_ooz_swings += ooz_swings
+        agg_xw.extend(xw_list)
+
+        # Only include stuff_plus mean if we have data
+        sp_mean = _mean([v for v in sp_vals if v is not None])
 
         mix.append(
             {
@@ -309,6 +416,9 @@ def pitching_report_summary(
                 "ivb": (_mean(vb) * 12.0) if _mean(vb) is not None else None,  # inches
                 "xwoba": _mean(xw_list),
                 "whiff": (100.0 * whiffs / swings) if swings else None,
+                "zone_pct": (100.0 * in_zone / n) if n else None,
+                "chase_pct": (100.0 * ooz_swings / ooz) if ooz else None,
+                "stuff_plus": sp_mean,
             }
         )
 
@@ -322,6 +432,19 @@ def pitching_report_summary(
                 "pfx_z": _mean(vb),  # feet
             }
         )
+
+    # Build aggregate basic line
+    agg_pa = len(agg_events)
+    agg_k = sum(1 for e in agg_events if e in K_EVENTS)
+    agg_bb = sum(1 for e in agg_events if e in BB_EVENTS)
+    basic = {
+        "whiff_pct": (100.0 * agg_whiffs / agg_swings) if agg_swings else None,
+        "zone_pct": (100.0 * agg_in_zone / total) if total else None,
+        "chase_pct": (100.0 * agg_ooz_swings / agg_ooz) if agg_ooz else None,
+        "xwoba": _mean(agg_xw) if agg_xw else None,
+        "k_pct": (100.0 * agg_k / agg_pa) if agg_pa else None,
+        "bb_pct": (100.0 * agg_bb / agg_pa) if agg_pa else None,
+    }
 
     pitches.sort(key=lambda x: x["n"], reverse=True)
     mix.sort(key=lambda x: x["n"], reverse=True)
@@ -353,6 +476,7 @@ def pitching_report_summary(
         "season": int(season),
         "game_pk": int(game_pk) if game_pk else None,
         "total": total,
+        "basic": basic,
         "pitches": pitches,  # used by your front-end dropdown builder
         "mix": mix,
         "shapes": shapes,
@@ -438,3 +562,91 @@ def pitching_heatmap(
     out = _grid_payload(avg_blur)
     out.update({"ok": True, "metric": "xwoba", "pitch_type": pt, "stand_lr": side})
     return out
+
+
+def pitching_gamelog(pitcher_id: int, season: int) -> List[Dict[str, Any]]:
+    """Return game-by-game pitching stats for the given pitcher/season."""
+    arr = _fetch_pitches(pitcher_id, season)
+    if not arr:
+        return []
+
+    # Group pitches by game_pk
+    games: Dict[int, List[Dict[str, Any]]] = {}
+    for r in arr:
+        gp = r.get("game_pk")
+        if gp is not None:
+            games.setdefault(int(gp), []).append(r)
+
+    rows: List[Dict[str, Any]] = []
+    for gp, pitches in sorted(games.items(), reverse=True):
+        n = len(pitches)
+
+        # Game date (take first non-null)
+        game_date: Optional[str] = None
+        for p in pitches:
+            gd = p.get("game_date")
+            if gd:
+                game_date = str(gd)[:10]
+                break
+
+        # Velo
+        velos = [_safe_float(p.get("release_speed")) for p in pitches]
+        avg_velo = _mean(velos)
+
+        # Stuff+
+        sp_vals = [_safe_float(p.get("stuff_plus")) for p in pitches]
+        avg_stuff = _mean([v for v in sp_vals if v is not None])
+
+        # Whiff / Chase / Zone
+        swings = 0
+        whiffs = 0
+        in_zone = 0
+        ooz = 0
+        ooz_swings = 0
+
+        for p in pitches:
+            desc = (p.get("description") or "").lower().strip()
+            zone_num = p.get("zone")
+
+            if desc in SWING:
+                swings += 1
+            if desc in WHIFF:
+                whiffs += 1
+
+            if zone_num is not None:
+                try:
+                    zn = int(zone_num)
+                    if zn in IN_ZONE:
+                        in_zone += 1
+                    elif zn in OUT_OF_ZONE:
+                        ooz += 1
+                        if desc in SWING:
+                            ooz_swings += 1
+                except (ValueError, TypeError):
+                    pass
+
+        # PA-level stats from events
+        events = [str(p.get("events") or "").lower().strip() for p in pitches if p.get("events")]
+        pa = len(events)
+        k = sum(1 for e in events if e in K_EVENTS)
+        bb = sum(1 for e in events if e in BB_EVENTS)
+
+        # xwOBA
+        xw_vals = [_safe_float(p.get("estimated_woba_using_speedangle")) for p in pitches]
+        xwoba = _mean([v for v in xw_vals if v is not None])
+
+        rows.append({
+            "game_pk": gp,
+            "game_date": game_date,
+            "pitches": n,
+            "avg_velo": avg_velo,
+            "avg_stuff_plus": avg_stuff,
+            "whiff_pct": (100.0 * whiffs / swings) if swings else None,
+            "zone_pct": (100.0 * in_zone / n) if n else None,
+            "chase_pct": (100.0 * ooz_swings / ooz) if ooz else None,
+            "k_pct": (100.0 * k / pa) if pa else None,
+            "bb_pct": (100.0 * bb / pa) if pa else None,
+            "xwoba": xwoba,
+        })
+
+    return rows
