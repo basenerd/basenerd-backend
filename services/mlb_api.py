@@ -4520,7 +4520,7 @@ def get_wbc_standings(year: int) -> list:
                 "leagueId": ",".join(league_ids),
                 "season": year,
                 "standingsTypes": "regularSeason",
-                "hydrate": "team,league",
+                "hydrate": "team(league,division),league,division",
             },
             timeout=15,
         )
@@ -4530,10 +4530,23 @@ def get_wbc_standings(year: int) -> list:
         print(f"[get_wbc_standings] failed: {e}")
         return []
 
+    def _has_pool(s: str) -> bool:
+        return bool(_re.search(r'\bPool\s+[A-Z]\b', s or "", _re.IGNORECASE))
+
     groups = []
     for record in (standings_data.get("records") or []):
-        league_info = record.get("league") or {}
-        raw_name = league_info.get("name") or "Group"
+        # Try record-level fields first, then fall through to individual team fields
+        candidates = [
+            (record.get("division") or {}).get("name") or "",
+            (record.get("league") or {}).get("name") or "",
+        ]
+        # Also check the first team's division/league as a fallback
+        first_team = ((record.get("teamRecords") or [{}])[0]).get("team") or {}
+        candidates += [
+            (first_team.get("division") or {}).get("name") or "",
+            (first_team.get("league") or {}).get("name") or "",
+        ]
+        raw_name = next((c for c in candidates if _has_pool(c)), candidates[0] or "Group")
         group_name = _extract_pool_display(raw_name)
 
         team_records = []

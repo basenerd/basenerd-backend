@@ -2464,8 +2464,8 @@ def wbc():
             "D": "Miami, Florida",
         }
 
-        def _pool_display(t: dict) -> str:
-            """Return 'Pool X — City' by checking league.name then division.name."""
+        def _pool_display(t: dict):
+            """Return ('Pool X — City', letter) or (None, None) if no pool found."""
             for source in (
                 (t.get("league") or {}).get("name") or "",
                 (t.get("division") or {}).get("name") or "",
@@ -2474,16 +2474,18 @@ def wbc():
                 if m:
                     letter = m.group(1).upper()
                     venue = WBC_2026_VENUES.get(letter, "")
-                    return f"Pool {letter}" + (f" — {venue}" if venue else "")
-            # Fall back to league name so teams are never silently dropped
-            return (t.get("league") or {}).get("name") or "World Baseball Classic"
+                    return f"Pool {letter}" + (f" — {venue}" if venue else ""), letter
+            return None, None
 
         try:
             data = get_wbc_teams(year)
             teams_raw = data.get("teams") or []
             team_groups = {}
             for t in teams_raw:
-                display_name = _pool_display(t)
+                display_name, letter = _pool_display(t)
+                # Skip teams that don't belong to a recognized WBC pool
+                if not letter:
+                    continue
                 team_id = t.get("id")
                 team_obj = {
                     "team_id": team_id,
