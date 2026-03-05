@@ -1940,8 +1940,8 @@
   const GAME_PK = {{ game_pk | tojson }};
   const GC_URL = GAME_PK ? (`/game/${GAME_PK}/gamecast.json`) : null;
 
-  const ANALYTICS_URL = GAME_PK ? (`/game/${GAME_PK}/analytics.json`) : null;
-  let __analytics_loaded = false;
+  window.ANALYTICS_URL = GAME_PK ? (`/game/${GAME_PK}/analytics.json`) : null;
+  window.__analytics_loaded = false;
   let __gc_last_between_key = "";
 
 function __gc_render_inning_summary(sum){
@@ -3247,11 +3247,11 @@ function __render_expected_box(sim, awayAbbrev, homeAbbrev){
 }
 
 async function loadAnalyticsIfNeeded(){
-  if(__analytics_loaded) return;
-  if(!ANALYTICS_URL) return;
+  if(window.__analytics_loaded) return;
+  if(!window.ANALYTICS_URL) return;
 
   try{
-    const res = await fetch(ANALYTICS_URL, { cache: "no-store" });
+    const res = await fetch(window.ANALYTICS_URL, { cache: "no-store" });
     if(!res.ok) throw new Error(`analytics.json HTTP ${res.status}`);
     const data = await res.json();
     console.log("[analytics] response:", JSON.stringify({ok:data.ok, status:data.statusPill, debug:data.debug, simKeys:data.sim?Object.keys(data.sim):null}));
@@ -3281,9 +3281,9 @@ async function loadAnalyticsIfNeeded(){
     if(tA) tA.textContent = `${awayAbbrev} Batted Balls`;
     if(tH) tH.textContent = `${homeAbbrev} Batted Balls`;
 
-    __analytics_loaded = true;
+    window.__analytics_loaded = true;
   }catch(e){
-    console.error("[analytics] load failed", e, "url:", ANALYTICS_URL);
+    console.error("[analytics] load failed", e, "url:", window.ANALYTICS_URL);
     const wrap = document.getElementById("exp-box-wrap");
     if(wrap) wrap.textContent = `Analytics unavailable (${e?.message || e})`;
   }
