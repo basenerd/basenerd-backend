@@ -1856,21 +1856,23 @@
         </div>
       </div>
 
+      <!-- Shared tooltip (fixed position, works for both charts) -->
+      <div id="bbmap-tip" class="card" style="display:none; position:fixed; padding:10px; pointer-events:none; max-width:240px; z-index:200;">
+        <div class="mono" id="bbmap-tip-title" style="font-weight:700; margin-bottom:6px;">—</div>
+        <div class="mono" id="bbmap-tip-body" style="font-size:11px; line-height:1.4; opacity:.9;"></div>
+      </div>
+
       <!-- Batted ball maps side-by-side -->
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:0 0 14px 0;">
         <div class="card" style="margin:0;">
           <div class="card-header">
             <div class="card-title" id="bbmap-away-title">Away Batted Balls</div>
           </div>
-          <div style="padding:14px; position:relative;">
-            <svg id="bbmap-away" viewBox="0 0 250 250" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block; background:rgba(15,23,42,.5); border-radius:6px;">
+          <div style="padding:14px;">
+            <svg id="bbmap-away" viewBox="0 0 250 250" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
               <g class="sprayOverlay"></g>
               <g class="sprayPoints"></g>
             </svg>
-            <div id="bbmap-tip" class="card" style="display:none; position:absolute; left:14px; top:14px; padding:10px; pointer-events:none; max-width:240px; z-index:10;">
-              <div class="mono" id="bbmap-tip-title" style="font-weight:700; margin-bottom:6px;">—</div>
-              <div class="mono" id="bbmap-tip-body" style="font-size:11px; line-height:1.4; opacity:.9;"></div>
-            </div>
           </div>
         </div>
 
@@ -1879,7 +1881,7 @@
             <div class="card-title" id="bbmap-home-title">Home Batted Balls</div>
           </div>
           <div style="padding:14px;">
-            <svg id="bbmap-home" viewBox="0 0 250 250" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block; background:rgba(15,23,42,.5); border-radius:6px;">
+            <svg id="bbmap-home" viewBox="0 0 250 250" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
               <g class="sprayOverlay"></g>
               <g class="sprayPoints"></g>
             </svg>
@@ -3046,6 +3048,15 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
 
   initMiniSprays();
 
+  // Expose spray utilities to analytics functions outside this IIFE
+  window.__spray_loadOverlay   = loadOverlayOnce;
+  window.__spray_injectOverlay = injectOverlayInto;
+  window.__spray_mapPoint      = mapPointToStadium;
+  window.__spray_getVB         = () => sprayVB;
+  window.__spray_BASE_W        = BASE_W;
+  window.__spray_BASE_H        = BASE_H;
+  window.__spray_color         = sprayColorForEvent;
+
 })();
 
 
@@ -3158,29 +3169,9 @@ function __render_winodds(sim, awayAbbrev, homeAbbrev){
 }
 
 function __overlay_field(svg){
-  if(!svg) return;
-  const g = svg.querySelector(".sprayOverlay");
-  if(!g) return;
-
-  // Baseball field overlay — 250×250 viewbox, home plate ≈ (125,204)
-  g.innerHTML = `
-    <!-- Outfield grass -->
-    <path d="M125 204 L18 130 Q125 15 232 130 Z" fill="rgba(34,197,94,.07)" stroke="rgba(34,197,94,.25)" stroke-width="1.5"/>
-    <!-- Infield dirt diamond -->
-    <path d="M125 204 L59 142 L125 80 L191 142 Z" fill="rgba(194,154,108,.08)" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
-    <!-- Foul lines (dashed) -->
-    <line x1="125" y1="204" x2="18" y2="97" stroke="rgba(255,255,255,.20)" stroke-width="1" stroke-dasharray="5 4"/>
-    <line x1="125" y1="204" x2="232" y2="97" stroke="rgba(255,255,255,.20)" stroke-width="1" stroke-dasharray="5 4"/>
-    <!-- Center field line -->
-    <line x1="125" y1="204" x2="125" y2="15" stroke="rgba(255,255,255,.08)" stroke-width="1" stroke-dasharray="3 5"/>
-    <!-- Pitcher's mound -->
-    <circle cx="125" cy="155" r="5" fill="rgba(255,255,255,.18)" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
-    <!-- Bases -->
-    <rect x="118" y="197" width="14" height="14" fill="rgba(255,255,255,.55)" rx="2" transform="rotate(45 125 204)"/>
-    <rect x="53" y="137" width="11" height="11" fill="rgba(255,255,255,.35)" rx="1" transform="rotate(45 59 143)"/>
-    <rect x="119" y="74" width="11" height="11" fill="rgba(255,255,255,.35)" rx="1" transform="rotate(45 125 80)"/>
-    <rect x="185" y="137" width="11" height="11" fill="rgba(255,255,255,.35)" rx="1" transform="rotate(45 191 143)"/>
-  `;
+  // Use the same stadium SVG as the gamecast/PBP spray charts
+  if(!svg || !window.__spray_injectOverlay) return;
+  window.__spray_injectOverlay(svg);
 }
 
 function __plot_batted_balls(svg, balls, tip){
@@ -3211,33 +3202,51 @@ function __plot_batted_balls(svg, balls, tip){
       </div>
     `;
     tip.style.display = "block";
-    const rect = svg.getBoundingClientRect();
-    const x = (evt.clientX - rect.left);
-    const y = (evt.clientY - rect.top);
-    tip.style.left = Math.max(0, Math.min(rect.width - 260, x + 12)) + "px";
-    tip.style.top = Math.max(0, Math.min(rect.height - 120, y + 12)) + "px";
+    const tw = 250, th = 130;
+    tip.style.left = Math.min(evt.clientX + 14, window.innerWidth - tw - 8) + "px";
+    tip.style.top  = Math.min(evt.clientY + 14, window.innerHeight - th - 8) + "px";
   };
 
-  const hideTip = ()=>{
-    if(tip) tip.style.display = "none";
-  };
+  const hideTip = ()=>{ if(tip) tip.style.display = "none"; };
+
+  // Coordinate mapping — mirror the PBP spray system exactly
+  const vb = window.__spray_getVB ? window.__spray_getVB() : {minX:0,minY:0,w:250,h:250};
+  const bw = window.__spray_BASE_W || 250;
+  const bh = window.__spray_BASE_H || 250;
+  const scaleX = vb.w / bw;
+  const scaleY = vb.h / bh;
 
   (balls || []).forEach(bb=>{
-    const x = Number(bb.x);
-    const y = Number(bb.y);
-    if(!isFinite(x) || !isFinite(y)) return;
+    const sx = Number(bb.x);
+    const sy = Number(bb.y);
+    if(!isFinite(sx) || !isFinite(sy)) return;
+
+    const pt = window.__spray_mapPoint
+      ? window.__spray_mapPoint(sx, sy, scaleX, scaleY)
+      : {x: sx, y: sy};
+    const color = window.__spray_color
+      ? window.__spray_color(bb.result || "")
+      : "rgba(59,130,246,.95)";
+
+    const halo = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    halo.setAttribute("cx", pt.x.toFixed(2));
+    halo.setAttribute("cy", pt.y.toFixed(2));
+    halo.setAttribute("r", "7");
+    halo.setAttribute("fill", "rgba(15,23,42,.22)");
+    g.appendChild(halo);
 
     const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
-    c.setAttribute("cx", String(x));
-    c.setAttribute("cy", String(y));
-    c.setAttribute("r", "4");
-    c.setAttribute("fill", "rgba(59,130,246,.95)");
-    c.setAttribute("stroke", "rgba(255,255,255,.65)");
-    c.setAttribute("stroke-width", "1");
+    c.setAttribute("cx", pt.x.toFixed(2));
+    c.setAttribute("cy", pt.y.toFixed(2));
+    c.setAttribute("r", "5");
+    c.setAttribute("fill", color);
+    c.setAttribute("fill-opacity", "0.95");
+    c.setAttribute("stroke", "rgba(255,255,255,.85)");
+    c.setAttribute("stroke-width", "1.2");
     c.style.cursor = "pointer";
 
     c.addEventListener("mouseenter", (e)=> showTip(bb, e));
-    c.addEventListener("mousemove", (e)=> showTip(bb, e));
+    c.addEventListener("mousemove",  (e)=> showTip(bb, e));
     c.addEventListener("mouseleave", hideTip);
 
     g.appendChild(c);
@@ -3249,23 +3258,49 @@ function __render_expected_box(sim, awayAbbrev, homeAbbrev){
   if(!wrap) return;
   if(!sim || !sim.expectedBox){ wrap.textContent = "—"; return; }
 
-  function tableFor(sideKey, label){
-    const rows = (sim.expectedBox[sideKey] || []);
+  // Build lookup of expected stats by playerId
+  const buildLookup = rows => {
+    const m = {};
+    (rows||[]).forEach(r=>{ if(r.playerId) m[r.playerId] = r; });
+    return m;
+  };
+  const awayX = buildLookup(sim.expectedBox.away);
+  const homeX = buildLookup(sim.expectedBox.home);
+
+  // Find the totals row from expected data
+  const totalsRow = rows => (rows||[]).find(r=>r.isTotals);
+  const awayTot = totalsRow(sim.expectedBox.away);
+  const homeTot = totalsRow(sim.expectedBox.home);
+
+  function tableFor(battingRows, xLookup, xTotals, label){
+    // Use box batting lineup structure if available; otherwise fall back to expected-only order
+    const rows = (battingRows && battingRows.length) ? battingRows : (xLookup ? Object.values(xLookup) : []);
     if(!rows.length) return `<div class="muted small" style="padding:8px 0;">No data.</div>`;
+
+    const thead = `<tr>
+      <th>Player</th>
+      <th class="mono" style="text-align:right;">AB</th>
+      <th class="mono" style="text-align:right;">xH</th>
+      <th class="mono" style="text-align:right;">xTB</th>
+      <th class="mono" style="text-align:right;">xAVG</th>
+      <th class="mono" style="text-align:right;">xSLG</th>
+    </tr>`;
 
     let trs = "";
     rows.forEach(r=>{
       const tot = r.isTotals;
+      // For totals row, use aggregated expected totals
+      const xr = tot ? xTotals : (r.playerId ? xLookup[r.playerId] : null);
       const nameCell = (r.playerId && !tot)
         ? `<a href="/player/${r.playerId}">${r.name||"—"}</a>`
         : (r.name||"—");
       trs += `<tr class="${tot?"tr-totals":""}">
-        <td><span>${nameCell}</span></td>
-        <td class="mono" style="text-align:right;">${(r.ab!=null)?Number(r.ab).toFixed(0):"—"}</td>
-        <td class="mono" style="text-align:right;">${(r.xH!=null)?Number(r.xH).toFixed(2):"—"}</td>
-        <td class="mono" style="text-align:right;">${(r.xTB!=null)?Number(r.xTB).toFixed(2):"—"}</td>
-        <td class="mono" style="text-align:right;">${(r.xAVG!=null)?Number(r.xAVG).toFixed(3):"—"}</td>
-        <td class="mono" style="text-align:right;">${(r.xSLG!=null)?Number(r.xSLG).toFixed(3):"—"}</td>
+        <td><span class="${r.indent?"box-indent":""}">${nameCell}${(r.pos&&!tot)?`<span class="muted small"> ${r.pos}</span>`:""}</span></td>
+        <td class="mono" style="text-align:right;">${xr?.ab!=null?Number(xr.ab).toFixed(0):"—"}</td>
+        <td class="mono" style="text-align:right;">${xr?.xH!=null?Number(xr.xH).toFixed(2):"—"}</td>
+        <td class="mono" style="text-align:right;">${xr?.xTB!=null?Number(xr.xTB).toFixed(2):"—"}</td>
+        <td class="mono" style="text-align:right;">${xr?.xAVG!=null?Number(xr.xAVG).toFixed(3):"—"}</td>
+        <td class="mono" style="text-align:right;">${xr?.xSLG!=null?Number(xr.xSLG).toFixed(3):"—"}</td>
       </tr>`;
     });
 
@@ -3273,21 +3308,21 @@ function __render_expected_box(sim, awayAbbrev, homeAbbrev){
       <div class="mono muted small" style="margin:8px 0 6px 0;">${label}</div>
       <div style="overflow-x:auto;">
         <table class="tbl">
-          <thead><tr>
-            <th>Player</th>
-            <th class="mono" style="text-align:right;">AB</th>
-            <th class="mono" style="text-align:right;">xH</th>
-            <th class="mono" style="text-align:right;">xTB</th>
-            <th class="mono" style="text-align:right;">xAVG</th>
-            <th class="mono" style="text-align:right;">xSLG</th>
-          </tr></thead>
+          <thead>${thead}</thead>
           <tbody>${trs}</tbody>
         </table>
       </div>
     </div>`;
   }
 
-  wrap.innerHTML = `<div class="grid2">${tableFor("away",`${awayAbbrev} Expected`)}${tableFor("home",`${homeAbbrev} Expected`)}</div>`;
+  // Use box batting lineup if the page embedded it (set in DOMContentLoaded)
+  const awayBatting = window.__box_batting_away || [];
+  const homeBatting = window.__box_batting_home || [];
+
+  wrap.innerHTML = `<div class="grid2">
+    ${tableFor(awayBatting, awayX, awayTot, `${awayAbbrev} Expected`)}
+    ${tableFor(homeBatting, homeX, homeTot, `${homeAbbrev} Expected`)}
+  </div>`;
 }
 
 function __render_analytics_linescore(sim, linescore){
@@ -3350,22 +3385,22 @@ function __render_analytics_linescore(sim, linescore){
           <td class="mono">${window.__away_abbrev||"AWAY"}</td>
           ${actCells("away")}
           <td class="mono" style="text-align:center;">${aActR==null?"—":aActR}</td>
-          <td class="mono" style="text-align:center;opacity:.7;font-size:11px;">${aTot}</td>
-          <td class="mono" style="text-align:center;opacity:.7;font-size:11px;">${aHits==null?"—":Number(aHits).toFixed(1)}</td>
+          <td class="mono" style="text-align:center;opacity:.85;font-size:11px;">${aTot}</td>
+          <td class="mono" style="text-align:center;opacity:.85;font-size:11px;">${aHits==null?"—":Number(aHits).toFixed(1)}</td>
         </tr>
         <tr>
           <td class="mono">${window.__home_abbrev||"HOME"}</td>
           ${actCells("home")}
           <td class="mono" style="text-align:center;">${hActR==null?"—":hActR}</td>
-          <td class="mono" style="text-align:center;opacity:.7;font-size:11px;">${hTot}</td>
-          <td class="mono" style="text-align:center;opacity:.7;font-size:11px;">${hHits==null?"—":Number(hHits).toFixed(1)}</td>
+          <td class="mono" style="text-align:center;opacity:.85;font-size:11px;">${hTot}</td>
+          <td class="mono" style="text-align:center;opacity:.85;font-size:11px;">${hHits==null?"—":Number(hHits).toFixed(1)}</td>
         </tr>
-        <tr style="opacity:.5;font-size:11px;">
+        <tr style="opacity:.75;font-size:11px;">
           <td class="muted small">xR/inn</td>
           ${xCells(innA)}
           <td></td><td></td><td></td>
         </tr>
-        <tr style="opacity:.5;font-size:11px;">
+        <tr style="opacity:.75;font-size:11px;">
           <td class="muted small">xR/inn</td>
           ${xCells(innH)}
           <td></td><td></td><td></td>
@@ -3386,45 +3421,72 @@ function __render_expected_runs_chart(sim, awayAbbrev, homeAbbrev){
   const innH = sim.expectedLinescore.home || [];
   const n = Math.max(innA.length, innH.length, 9);
 
-  const W=600, H=200, ml=44, mr=20, mt=20, mb=38;
+  // Make cumulative
+  const cumulate = arr => {
+    let t=0;
+    return arr.slice(0,n).map(v=>{ t+=(v||0); return t; });
+  };
+  const cumA = cumulate(innA);
+  const cumH = cumulate(innH);
+
+  const W=600, H=220, ml=44, mr=24, mt=36, mb=38;
   const pw = W-ml-mr, ph = H-mt-mb;
 
-  const allV = [...innA, ...innH].filter(v=>v!=null);
-  const yMax = allV.length ? Math.max(1, Math.ceil(Math.max(...allV)*1.15)) : 2;
+  const allV = [...cumA, ...cumH].filter(v=>v!=null);
+  const yMax = allV.length ? Math.max(1, Math.ceil(Math.max(...allV)*1.12)) : 4;
 
   const xp = i => ml + (n<=1 ? pw/2 : (i/(n-1))*pw);
   const yp = v => mt + ph - (v/yMax)*ph;
 
   let grid="", yLbl="", xLbl="";
-  const ticks=4;
+  const ticks = Math.min(yMax, 5);
   for(let j=0;j<=ticks;j++){
     const v=(yMax/ticks)*j, y=yp(v).toFixed(1);
-    grid += `<line x1="${ml}" y1="${y}" x2="${W-mr}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
-    yLbl += `<text x="${ml-6}" y="${y}" dy="4" font-size="10" fill="rgba(255,255,255,.4)" text-anchor="end" font-family="monospace">${v.toFixed(1)}</text>`;
+    grid += `<line x1="${ml}" y1="${y}" x2="${W-mr}" y2="${y}" stroke="rgba(255,255,255,.07)" stroke-width="1"/>`;
+    yLbl += `<text x="${ml-6}" y="${y}" dy="4" font-size="10" fill="rgba(255,255,255,.55)" text-anchor="end" font-family="monospace">${Number(v).toFixed(1)}</text>`;
   }
   for(let i=0;i<n;i++){
     const x=xp(i).toFixed(1);
-    xLbl += `<text x="${x}" y="${H-mb+14}" font-size="10" fill="rgba(255,255,255,.4)" text-anchor="middle" font-family="monospace">${i+1}</text>`;
+    xLbl += `<text x="${x}" y="${H-mb+14}" font-size="10" fill="rgba(255,255,255,.55)" text-anchor="middle" font-family="monospace">${i+1}</text>`;
   }
 
-  const pts = arr => arr.slice(0,n).map((v,i)=>`${xp(i).toFixed(1)},${yp(v).toFixed(1)}`).join(" ");
-
-  const dots = (arr, color) => arr.slice(0,n).map((v,i)=>
-    `<circle cx="${xp(i).toFixed(1)}" cy="${yp(v).toFixed(1)}" r="3" fill="${color}"/>`
+  const pts = arr => arr.map((v,i)=>`${xp(i).toFixed(1)},${yp(v).toFixed(1)}`).join(" ");
+  const dots = (arr, color) => arr.map((v,i)=>
+    `<circle cx="${xp(i).toFixed(1)}" cy="${yp(v).toFixed(1)}" r="3.2" fill="${color}"/>`
   ).join("");
 
+  // Logo images if available
+  const awayLogo = window.__away_logo || "";
+  const homeLogo = window.__home_logo || "";
+  const logoSize = 18;
+  // Place labels near the end of each line
+  const lastAx = xp(cumA.length-1), lastAy = yp(cumA[cumA.length-1]||0);
+  const lastHx = xp(cumH.length-1), lastHy = yp(cumH[cumH.length-1]||0);
+
+  const awayLabel = awayLogo
+    ? `<image href="${awayLogo}" x="${lastAx+6}" y="${lastAy - logoSize/2}" width="${logoSize}" height="${logoSize}"/>`
+    : `<text x="${lastAx+6}" y="${lastAy+4}" font-size="11" fill="rgba(59,130,246,.9)" font-family="monospace">${awayAbbrev||"Away"}</text>`;
+  const homeLabel = homeLogo
+    ? `<image href="${homeLogo}" x="${lastHx+6}" y="${lastHy - logoSize/2}" width="${logoSize}" height="${logoSize}"/>`
+    : `<text x="${lastHx+6}" y="${lastHy+4}" font-size="11" fill="rgba(239,68,68,.9)" font-family="monospace">${homeAbbrev||"Home"}</text>`;
+
+  // Legend at top
+  const legendAway = awayLogo
+    ? `<image href="${awayLogo}" x="${ml+6}" y="${8}" width="16" height="16"/><text x="${ml+26}" y="${19}" font-size="11" fill="rgba(255,255,255,.8)" font-family="monospace">${awayAbbrev||"Away"} (xR cumulative)</text>`
+    : `<rect x="${ml+6}" y="${12}" width="14" height="3" fill="rgba(59,130,246,.85)" rx="1"/><text x="${ml+24}" y="${19}" font-size="11" fill="rgba(255,255,255,.8)" font-family="monospace">${awayAbbrev||"Away"} (xR cumulative)</text>`;
+  const legendHome = homeLogo
+    ? `<image href="${homeLogo}" x="${ml+160}" y="${8}" width="16" height="16"/><text x="${ml+180}" y="${19}" font-size="11" fill="rgba(255,255,255,.8)" font-family="monospace">${homeAbbrev||"Home"} (xR cumulative)</text>`
+    : `<rect x="${ml+160}" y="${12}" width="14" height="3" fill="rgba(239,68,68,.85)" rx="1"/><text x="${ml+178}" y="${19}" font-size="11" fill="rgba(255,255,255,.8)" font-family="monospace">${homeAbbrev||"Home"} (xR cumulative)</text>`;
+
   svg.innerHTML = `
+    ${legendAway}${legendHome}
     ${grid}${yLbl}${xLbl}
-    <line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ph}" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
-    <line x1="${ml}" y1="${mt+ph}" x2="${W-mr}" y2="${mt+ph}" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
-    <polyline points="${pts(innA)}" fill="none" stroke="rgba(59,130,246,.85)" stroke-width="2" stroke-linejoin="round"/>
-    ${dots(innA,"rgba(59,130,246,.9)")}
-    <polyline points="${pts(innH)}" fill="none" stroke="rgba(239,68,68,.85)" stroke-width="2" stroke-linejoin="round"/>
-    ${dots(innH,"rgba(239,68,68,.9)")}
-    <rect x="${ml+10}" y="${mt+2}" width="12" height="3" fill="rgba(59,130,246,.85)" rx="1"/>
-    <text x="${ml+26}" y="${mt+6}" font-size="10" fill="rgba(255,255,255,.7)" font-family="monospace">${awayAbbrev||"Away"}</text>
-    <rect x="${ml+72}" y="${mt+2}" width="12" height="3" fill="rgba(239,68,68,.85)" rx="1"/>
-    <text x="${ml+88}" y="${mt+6}" font-size="10" fill="rgba(255,255,255,.7)" font-family="monospace">${homeAbbrev||"Home"}</text>
+    <line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ph}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+    <line x1="${ml}" y1="${mt+ph}" x2="${W-mr}" y2="${mt+ph}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+    <polyline points="${pts(cumA)}" fill="none" stroke="rgba(59,130,246,.85)" stroke-width="2.2" stroke-linejoin="round"/>
+    ${dots(cumA,"rgba(59,130,246,.95)")}
+    <polyline points="${pts(cumH)}" fill="none" stroke="rgba(239,68,68,.85)" stroke-width="2.2" stroke-linejoin="round"/>
+    ${dots(cumH,"rgba(239,68,68,.95)")}
   `;
   card.style.display = "block";
 }
@@ -3452,13 +3514,14 @@ async function loadAnalyticsIfNeeded(){
     __render_analytics_linescore(data.sim, data.linescore);
     __render_expected_runs_chart(data.sim, awayAbbrev, homeAbbrev);
 
-    // batted balls
+    // batted balls — load stadium overlay first (same SVG used by PBP/gamecast)
+    if(window.__spray_loadOverlay) await window.__spray_loadOverlay();
     const awayBalls = data?.battedBalls?.away || [];
     const homeBalls = data?.battedBalls?.home || [];
 
     const tip = document.getElementById("bbmap-tip");
     __plot_batted_balls(document.getElementById("bbmap-away"), awayBalls, tip);
-    __plot_batted_balls(document.getElementById("bbmap-home"), homeBalls, null);
+    __plot_batted_balls(document.getElementById("bbmap-home"), homeBalls, tip);
 
     // titles
     const tA = document.getElementById("bbmap-away-title");
@@ -3484,10 +3547,14 @@ document.addEventListener("click", (e)=>{
 
 // Also kick off expected linescore on page load (non-blocking)
 document.addEventListener("DOMContentLoaded", ()=>{
-  // infer abbreviations already present in the page template if possible
   try{
     window.__away_abbrev = {{ away.abbrev | tojson }};
     window.__home_abbrev = {{ home.abbrev | tojson }};
+    window.__away_logo   = {{ away.logo_url | tojson }};
+    window.__home_logo   = {{ home.logo_url | tojson }};
+    // Box batting lineups for expected box lineup order/indentation/positions
+    window.__box_batting_away = {{ (game.box.away.batting | tojson) if (game.box and game.box.away) else "[]" }};
+    window.__box_batting_home = {{ (game.box.home.batting | tojson) if (game.box and game.box.home) else "[]" }};
   }catch(e){}
 
   // safe: only fetch analytics in background; won't block render
