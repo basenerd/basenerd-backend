@@ -11,10 +11,15 @@
       </div>
     </div>
 
-    <form method="get" action="/games" style="display:flex; gap:10px; align-items:center;">
+    <form method="get" action="/games" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <button type="button" class="date-arrow" id="prev-date">&lsaquo;</button>
       <input class="input" type="date" name="date" value="{{ date }}" aria-label="Pick date" />
       <button type="button" class="date-arrow" id="next-date">&rsaquo;</button>
+      <label style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;">
+        <input type="checkbox" name="show_wbc" value="1" {% if show_wbc %}checked{% endif %}
+               onchange="this.form.submit()" style="width:14px; height:14px; cursor:pointer;">
+        WBC
+      </label>
       <button class="btn" type="submit">Go</button>
     </form>
   </div>

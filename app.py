@@ -1075,11 +1075,14 @@ def games():
     Shows games for a chosen date.
     - Default: today
     - If no games today: auto-advance to next future date with games
+    - show_wbc=1: also include WBC games for the same date
     """
-    # later: make this per-user; for now default to Phoenix (your requirement)
+    from services.mlb_api import get_wbc_games_for_date as _get_wbc_games
+
     user_tz = "America/Phoenix"
 
     picked = (request.args.get("date") or "").strip()  # YYYY-MM-DD
+    show_wbc = request.args.get("show_wbc", "0") == "1"
     today_ymd = datetime.utcnow().date().strftime("%Y-%m-%d")
 
     target = picked or today_ymd
@@ -1091,12 +1094,19 @@ def games():
             nxt = find_next_date_with_games(today_ymd, max_days_ahead=120)
         except Exception:
             nxt = None
-        
+
         if nxt:
             target = nxt
             games_list = get_games_for_date(target, tz_name=user_tz)
             auto_advanced = True
-            
+
+    if show_wbc:
+        try:
+            wbc_games = _get_wbc_games(target, tz_name=user_tz)
+            games_list = games_list + wbc_games
+        except Exception:
+            pass
+
     return render_template(
         "games.html",
         title="Games",
@@ -1104,6 +1114,7 @@ def games():
         games=games_list,
         auto_advanced=auto_advanced,
         user_tz=user_tz,
+        show_wbc=show_wbc,
     )
 @app.get("/game/<int:game_pk>")
 def game_detail(game_pk: int):
@@ -2444,22 +2455,44 @@ def wbc():
         )
 
     else:  # teams
+        # Venue city for each pool — keyed by the pool letter
+        WBC_2026_VENUES = {
+            "A": "San Juan, Puerto Rico",
+            "B": "Tokyo, Japan",
+            "C": "Phoenix, Arizona",
+            "D": "Taichung, Taiwan",
+        }
+
+        def _pool_letter(league_name: str) -> str:
+            """Extract pool letter from API league name, e.g. 'Pool A' -> 'A'."""
+            import re
+            m = re.search(r'\bPool\s+([A-Z])\b', league_name or "", re.IGNORECASE)
+            return m.group(1).upper() if m else ""
+
         try:
             data = get_wbc_teams(year)
             teams_raw = data.get("teams") or []
             team_groups = {}
             for t in teams_raw:
+                league_name = (t.get("league") or {}).get("name") or ""
+                letter = _pool_letter(league_name)
+                # Skip teams that don't belong to a recognized WBC pool
+                if not letter:
+                    continue
+                venue = WBC_2026_VENUES.get(letter, "")
+                display_name = f"Pool {letter}" + (f" — {venue}" if venue else "")
                 team_id = t.get("id")
-                group_name = (t.get("league") or {}).get("name") or "Other"
                 team_obj = {
                     "team_id": team_id,
                     "name": t.get("name"),
                     "abbrev": (t.get("abbreviation") or "").upper(),
                     "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None,
                 }
-                team_groups.setdefault(group_name, []).append(team_obj)
+                team_groups.setdefault(display_name, []).append(team_obj)
             for g in team_groups:
                 team_groups[g].sort(key=lambda x: (x.get("name") or ""))
+            # Sort groups by pool letter
+            team_groups = dict(sorted(team_groups.items()))
         except Exception as e:
             team_groups = {}
             error = str(e)

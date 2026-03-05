@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 {% if t.logo_url %}
                   <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.name }} logo">
                 {% endif %}
-                <span class="teamlink">{{ t.name }}</span>
+                <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.name }}</a>
               </li>
             {% endfor %}
           </ul>
