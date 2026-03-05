@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* WBC page tabs */
+  .wbc-tabs {
+    display: flex;
+    gap: 22px;
+    padding: 10px 12px 0;
+  }
+  .wbc-tab {
+    text-decoration: none;
+    font-weight: 800;
+    opacity: 0.6;
+    padding-bottom: 6px;
+    border-bottom: 2px solid transparent;
+    color: var(--text);
+  }
+  .wbc-tab.active {
+    opacity: 1;
+    border-bottom-color: var(--text);
+  }
+
+  /* Pct badge */
+  .pctcell {
+    border-radius: 8px;
+    padding: 4px 8px;
+    display: inline-block;
+    min-width: 56px;
+    text-align: right;
+  }
+  td.pctcol::after, td.pctcol::before,
+  th.pctcol::after, th.pctcol::before { content: none !important; }
+</style>
+
+{% macro pct_badge(pct_value) %}
+  {% if pct_value is none %}
+    <span class="pctcell" style="background: rgba(0,0,0,0.06);">—</span>
+  {% else %}
+    {% set p = pct_value %}
+    {% if p < 0 %}{% set p = 0 %}{% endif %}
+    {% if p > 1 %}{% set p = 1 %}{% endif %}
+    {% if p >= 0.5 %}
+      {% set a = (p - 0.5) / 0.5 %}
+      {% if a > 1 %}{% set a = 1 %}{% endif %}
+      {% set bg = "rgba(24, 165, 88, " ~ (0.10 + 0.35 * a) ~ ")" %}
+    {% else %}
+      {% set a = (0.5 - p) / 0.5 %}
+      {% if a > 1 %}{% set a = 1 %}{% endif %}
+      {% set bg = "rgba(200, 50, 50, " ~ (0.10 + 0.35 * a) ~ ")" %}
+    {% endif %}
+    {% set s = "%.3f"|format(p) %}
+    <span class="pctcell" style="background: {{ bg }};">{{ s[1:] }}</span>
+  {% endif %}
+{% endmacro %}
+
+<!-- Page header card -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">World Baseball Classic</div>
+      <div class="card-subtitle">2026 Tournament</div>
+    </div>
+  </div>
+
+  <div class="wbc-tabs">
+    <a class="wbc-tab {% if tab == 'games' %}active{% endif %}"
+       href="/wbc?tab=games">Games</a>
+    <a class="wbc-tab {% if tab == 'standings' %}active{% endif %}"
+       href="/wbc?tab=standings">Standings</a>
+    <a class="wbc-tab {% if tab == 'teams' %}active{% endif %}"
+       href="/wbc?tab=teams">Teams</a>
+  </div>
+
+  {% if error %}
+    <div class="card-body">
+      <div class="error-banner" style="color:#c00; padding:8px; font-size:12px;">{{ error }}</div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ============================================================ -->
+<!-- GAMES TAB                                                     -->
+<!-- ============================================================ -->
+{% if tab == 'games' %}
+
+<div class="card" style="margin-top:14px;">
+  <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <div>
+      <div class="card-subtitle">{{ date }} • Times in {{ user_tz }}</div>
+    </div>
+    <form method="get" action="/wbc" style="display:flex; gap:10px; align-items:center;">
+      <input type="hidden" name="tab" value="games">
+      <button type="button" class="date-arrow" id="prev-date">&lsaquo;</button>
+      <input class="input" type="date" name="date" value="{{ date }}" aria-label="Pick date" />
+      <button type="button" class="date-arrow" id="next-date">&rsaquo;</button>
+      <button class="btn" type="submit">Go</button>
+    </form>
+  </div>
+</div>
+
+{% if not games %}
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="card-title">No games found</div>
+      <div class="card-subtitle">Try another date within the 2026 WBC schedule.</div>
+    </div>
+  </div>
+{% else %}
+  <div class="games-grid" style="margin-top:14px;">
+    {% for g in games %}
+      {% set status_lc = (g.detailedState|string)|lower %}
+      {% set is_final = ('final' in status_lc) or ('game over' in status_lc) or ('completed' in status_lc) %}
+      {% set is_live = (not is_final) and (('in progress' in status_lc) or ('live' in status_lc) or ('warmup' in status_lc) or ('game delayed' in status_lc)) %}
+
+      <a class="game-card {% if is_live %}is-live{% endif %}" href="/game/{{ g.gamePk }}">
+
+        <div class="game-card-top">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            {% if g.competitionLabel %}
+              <div class="tag">{{ g.competitionLabel }}</div>
+            {% endif %}
+            <div class="pill">{{ g.statusPill }}</div>
+          </div>
+          <div class="muted mono game-time">{{ g.timeLocal }}</div>
+        </div>
+
+        <div class="matchup">
+
+          <!-- AWAY -->
+          <div class="team-row">
+            <div class="team-left">
+              {% if g.away.logo %}
+                <img class="team-logo" src="{{ g.away.logo }}" alt="{{ g.away.abbrev }} logo">
+              {% endif %}
+              <div class="team-line">
+                <div class="team-line-top">
+                  <span class="team-abbrev">{{ g.away.abbrev }}</span>
+                  {% if g.away.record %}
+                    <span class="muted mono" style="font-size:12px;">{{ g.away.record }}</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            <div class="team-score mono">{{ g.away.score if g.away.score is not none else "—" }}</div>
+          </div>
+
+          <!-- HOME -->
+          <div class="team-row">
+            <div class="team-left">
+              {% if g.home.logo %}
+                <img class="team-logo" src="{{ g.home.logo }}" alt="{{ g.home.abbrev }} logo">
+              {% endif %}
+              <div class="team-line">
+                <div class="team-line-top">
+                  <span class="team-abbrev">{{ g.home.abbrev }}</span>
+                  {% if g.home.record %}
+                    <span class="muted mono" style="font-size:12px;">{{ g.home.record }}</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            <div class="team-score mono">{{ g.home.score if g.home.score is not none else "—" }}</div>
+          </div>
+
+        </div>
+
+        <div class="game-meta">
+          {% if g.venue %}
+            <div class="muted">
+              {{ g.venue }}
+              {% if g.venueLocation %} • {{ g.venueLocation }}{% endif %}
+            </div>
+          {% endif %}
+          <div class="small muted">{{ g.detailedState }}</div>
+        </div>
+
+      </a>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const prevBtn = document.getElementById('prev-date');
+  const nextBtn = document.getElementById('next-date');
+  const dateInput = document.querySelector('input[type="date"]');
+
+  function adjustDate(days) {
+    if (!dateInput || !dateInput.value) return;
+    const d = new Date(dateInput.value + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    dateInput.value = `${yyyy}-${mm}-${dd}`;
+    if (dateInput.form) dateInput.form.submit();
+  }
+
+  if (prevBtn) prevBtn.addEventListener('click', () => adjustDate(-1));
+  if (nextBtn) nextBtn.addEventListener('click', () => adjustDate(1));
+});
+</script>
+
+{% endif %}
+
+<!-- ============================================================ -->
+<!-- STANDINGS TAB                                                 -->
+<!-- ============================================================ -->
+{% if tab == 'standings' %}
+
+{% if not groups %}
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="card-title">No standings available</div>
+      <div class="card-subtitle">Standings data for the {{ year }} WBC could not be loaded.</div>
+    </div>
+  </div>
+{% else %}
+  <div class="grid-2" style="margin-top:14px;">
+    {% for group in groups %}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">{{ group.name }}</div>
+        </div>
+        <div class="subcard">
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Team</th>
+                  <th class="num">W</th>
+                  <th class="num">L</th>
+                  <th class="num pctcol">Pct</th>
+                  <th class="num">GB</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for t in group.teams %}
+                  <tr>
+                    <td class="teamcell">
+                      {% if t.logo_url %}
+                        <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
+                      {% endif %}
+                      <span style="font-weight:700;">{{ t.abbrev }}</span>
+                      <span class="muted" style="font-size:11px; margin-left:4px;">{{ t.name }}</span>
+                    </td>
+                    <td class="num">{{ t.w }}</td>
+                    <td class="num">{{ t.l }}</td>
+                    <td class="num pctcol">{{ pct_badge(t.pct) }}</td>
+                    <td class="num">{{ t.gb }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% endif %}
+
+<!-- ============================================================ -->
+<!-- TEAMS TAB                                                     -->
+<!-- ============================================================ -->
+{% if tab == 'teams' %}
+
+{% if not team_groups %}
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="card-title">No teams available</div>
+      <div class="card-subtitle">Team data for the {{ year }} WBC could not be loaded.</div>
+    </div>
+  </div>
+{% else %}
+  <div class="grid-2" style="margin-top:14px;">
+    {% for group_name, teams in team_groups.items() %}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">{{ group_name }}</div>
+        </div>
+        <div class="subcard">
+          <ul class="team-list">
+            {% for t in teams %}
+              <li class="team-row">
+                {% if t.logo_url %}
+                  <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.name }} logo">
+                {% endif %}
+                <span class="teamlink">{{ t.name }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% endif %}
+
+{% endblock %}

@@ -4349,6 +4349,202 @@ def _pp_text(pp_obj: dict, season: int) -> str:
 
     return f"PP: {name} ({w}-{l} • {era})"
     
+# ==========================================
+# WBC (World Baseball Classic) helpers
+# ==========================================
+
+WBC_SPORT_ID = 51
+
+def get_wbc_schedule_for_dates(start_date_ymd: str, end_date_ymd: str) -> dict:
+    cache_key = f"wbc_schedule:{start_date_ymd}:{end_date_ymd}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{BASE}/schedule"
+    params = {
+        "sportId": WBC_SPORT_ID,
+        "startDate": start_date_ymd,
+        "endDate": end_date_ymd,
+        "hydrate": "team,linescore,decisions,venue",
+    }
+    try:
+        r = requests.get(url, params=params, timeout=30)
+        r.raise_for_status()
+        data = r.json() or {}
+    except Exception:
+        data = {}
+
+    _set_cached(cache_key, data)
+    return data
+
+
+def get_wbc_games_for_date(date_ymd: str, tz_name: str = "America/Phoenix") -> list:
+    data = get_wbc_schedule_for_dates(date_ymd, date_ymd)
+    out = []
+
+    for d in (data.get("dates") or []):
+        for g in (d.get("games") or []):
+            teams = g.get("teams") or {}
+            home = teams.get("home") or {}
+            away = teams.get("away") or {}
+            home_team = home.get("team") or {}
+            away_team = away.get("team") or {}
+
+            home_id = home_team.get("id")
+            away_id = away_team.get("id")
+
+            game_dt_local = _to_user_tz(g.get("gameDate") or "", tz_name)
+            time_local = game_dt_local.strftime("%-I:%M %p") if game_dt_local else ""
+
+            pill = _status_pill_text(g)
+
+            home_score = home.get("score")
+            away_score = away.get("score")
+
+            venue = g.get("venue") or {}
+            venue_name = venue.get("name")
+            venue_loc = ""
+            city = venue.get("city")
+            state = venue.get("state") or venue.get("stateAbbrev")
+            if city and state:
+                venue_loc = f"{city}, {state}"
+            elif city:
+                venue_loc = city
+
+            home_abbrev = (home_team.get("abbreviation") or "").upper()
+            away_abbrev = (away_team.get("abbreviation") or "").upper()
+
+            status = g.get("status") or {}
+            detailed_state = status.get("detailedState", "")
+
+            status_lc = detailed_state.lower()
+            is_final = "final" in status_lc or "game over" in status_lc or "completed" in status_lc
+            is_live = (not is_final) and (
+                "in progress" in status_lc or "live" in status_lc
+                or "warmup" in status_lc or "game delayed" in status_lc
+            )
+
+            out.append({
+                "gamePk": g.get("gamePk"),
+                "timeLocal": time_local,
+                "statusPill": pill,
+                "detailedState": detailed_state,
+                "competitionLabel": "World Baseball Classic",
+                "venue": venue_name,
+                "venueLocation": venue_loc,
+                "isLive": is_live,
+                "away": {
+                    "team_id": away_id,
+                    "abbrev": away_abbrev,
+                    "score": away_score,
+                    "logo": f"https://www.mlbstatic.com/team-logos/{away_id}.svg" if away_id else None,
+                    "record": _record_str(away),
+                    "slot": None,
+                },
+                "home": {
+                    "team_id": home_id,
+                    "abbrev": home_abbrev,
+                    "score": home_score,
+                    "logo": f"https://www.mlbstatic.com/team-logos/{home_id}.svg" if home_id else None,
+                    "record": _record_str(home),
+                    "slot": None,
+                },
+            })
+
+    return out
+
+
+def get_wbc_teams(year: int) -> dict:
+    cache_key = f"wbc_teams:{year}"
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached
+
+    try:
+        params = {"sportId": WBC_SPORT_ID, "season": year, "hydrate": "league"}
+        r = requests.get(f"{BASE}/teams", params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+    except Exception:
+        data = {}
+
+    _set_cached(cache_key, data)
+    return data
+
+
+def get_wbc_standings(year: int) -> list:
+    """Returns [{name, teams:[{team_id,name,abbrev,w,l,pct,gb,logo_url}]}] grouped by WBC pool."""
+    cache_key = f"wbc_standings:{year}"
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached
+
+    # Fetch WBC leagues (groups/pools) for this year
+    try:
+        lr = requests.get(
+            f"{BASE}/leagues",
+            params={"sportId": WBC_SPORT_ID, "season": year},
+            timeout=10,
+        )
+        lr.raise_for_status()
+        leagues = lr.json().get("leagues") or []
+        league_ids = [str(lg["id"]) for lg in leagues if lg.get("id")]
+    except Exception:
+        return []
+
+    if not league_ids:
+        return []
+
+    try:
+        sr = requests.get(
+            f"{BASE}/standings",
+            params={
+                "leagueId": ",".join(league_ids),
+                "season": year,
+                "standingsTypes": "regularSeason",
+                "hydrate": "team,league",
+            },
+            timeout=15,
+        )
+        sr.raise_for_status()
+        standings_data = sr.json()
+    except Exception as e:
+        print(f"[get_wbc_standings] failed: {e}")
+        return []
+
+    groups = []
+    for record in (standings_data.get("records") or []):
+        league_info = record.get("league") or {}
+        group_name = league_info.get("name") or "Group"
+
+        team_records = []
+        for tr in (record.get("teamRecords") or []):
+            team = tr.get("team") or {}
+            team_id = team.get("id")
+            wins = tr.get("wins", 0) or 0
+            losses = tr.get("losses", 0) or 0
+            total = wins + losses
+            pct = (wins / total) if total > 0 else 0.0
+
+            team_records.append({
+                "team_id": team_id,
+                "name": team.get("name") or team.get("teamName") or "",
+                "abbrev": (team.get("abbreviation") or "").upper(),
+                "w": wins,
+                "l": losses,
+                "pct": pct,
+                "gb": tr.get("gamesBack") or "—",
+                "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None,
+            })
+
+        team_records.sort(key=lambda x: (-x["w"], x["l"]))
+        groups.append({"name": group_name, "teams": team_records})
+
+    _set_cached(cache_key, groups)
+    return groups
+
+
 def get_player_stats(player_id: int, season: Optional[int] = None) -> List[dict]:
     season = season or datetime.now().year
     cache_key = f"player_stats:{player_id}:{season}"

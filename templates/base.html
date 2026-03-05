@@ -155,6 +155,9 @@
             <a href="/articles" class="{% if request.path.startswith('/articles') or request.path.startswith('/article/') %}active{% endif %}">
               Articles
             </a>
+            <a href="/wbc" class="{% if request.path.startswith('/wbc') %}active{% endif %}">
+              WBC
+            </a>
             <a class="dropdown-item" href="/random-player">Random Player Generator</a>
             <a href="/about" class="{% if request.path.startswith('/about') %}active{% endif %}">
               About

@@ -2392,5 +2392,87 @@ def standings():
     )
 
 
+@app.get("/wbc")
+def wbc():
+    from services.mlb_api import get_wbc_games_for_date, get_wbc_teams, get_wbc_standings
+
+    user_tz = "America/Phoenix"
+    year = 2026
+
+    tab = (request.args.get("tab") or "games").strip().lower()
+    if tab not in ("games", "standings", "teams"):
+        tab = "games"
+
+    error = None
+
+    if tab == "games":
+        picked = (request.args.get("date") or "").strip()
+        today_ymd = datetime.utcnow().date().strftime("%Y-%m-%d")
+        target = picked or today_ymd
+
+        try:
+            games_list = get_wbc_games_for_date(target, tz_name=user_tz)
+        except Exception as e:
+            games_list = []
+            error = str(e)
+
+        return render_template(
+            "wbc.html",
+            title="WBC 2026 • Basenerd",
+            tab=tab,
+            year=year,
+            date=target,
+            games=games_list,
+            user_tz=user_tz,
+            error=error,
+        )
+
+    elif tab == "standings":
+        try:
+            groups = get_wbc_standings(year)
+        except Exception as e:
+            groups = []
+            error = str(e)
+
+        return render_template(
+            "wbc.html",
+            title="WBC 2026 • Basenerd",
+            tab=tab,
+            year=year,
+            groups=groups,
+            error=error,
+        )
+
+    else:  # teams
+        try:
+            data = get_wbc_teams(year)
+            teams_raw = data.get("teams") or []
+            team_groups = {}
+            for t in teams_raw:
+                team_id = t.get("id")
+                group_name = (t.get("league") or {}).get("name") or "Other"
+                team_obj = {
+                    "team_id": team_id,
+                    "name": t.get("name"),
+                    "abbrev": (t.get("abbreviation") or "").upper(),
+                    "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None,
+                }
+                team_groups.setdefault(group_name, []).append(team_obj)
+            for g in team_groups:
+                team_groups[g].sort(key=lambda x: (x.get("name") or ""))
+        except Exception as e:
+            team_groups = {}
+            error = str(e)
+
+        return render_template(
+            "wbc.html",
+            title="WBC 2026 • Basenerd",
+            tab=tab,
+            year=year,
+            team_groups=team_groups,
+            error=error,
+        )
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
