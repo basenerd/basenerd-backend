@@ -369,6 +369,68 @@
     background:#ffffff;
   }
   .spray-note{ margin-top:10px; font-size:11px; color: var(--muted); }
+
+  /* ---- Mobile: player page ---- */
+  @media (max-width: 640px) {
+    /* Stack headshot above bio on small phones */
+    .player-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .player-headshot {
+      width: 100%;
+      max-width: none;
+      height: 200px;
+      min-height: 0;
+      border-radius: 12px 12px 0 0;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .player-meta {
+      padding: 12px 12px 4px 12px;
+    }
+
+    /* Headline stat grid: 3 cols */
+    .headline-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    /* Scouting report row: tighter columns */
+    .sr-row {
+      grid-template-columns: 100px 1fr 54px;
+      gap: 8px;
+    }
+
+    /* Two-col layout: already collapses at 980px, ensure on mobile */
+    .sr-two-col {
+      grid-template-columns: 1fr;
+    }
+
+    /* Transaction rows: stack */
+    .tx-row {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+
+    /* Prevent tab buttons from being too small */
+    .tab-btn {
+      padding: 9px 12px;
+      font-size: 13px;
+      min-height: 44px;
+    }
+  }
+
+  @media (max-width: 400px) {
+    /* 2-col headline grid on very small phones */
+    .headline-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    /* Scouting report row: minimal columns */
+    .sr-row {
+      grid-template-columns: 90px 1fr 48px;
+    }
+  }
 </style>
 
 <!-- =======================

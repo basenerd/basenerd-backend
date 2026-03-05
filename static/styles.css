@@ -1615,5 +1615,157 @@ span.status-pill.status-other {
 }
 
 .pitch-stats-table tr:hover td {
-    background-color: #f9fafb; 
+    background-color: #f9fafb;
+}
+
+/* =============================================
+   MOBILE IMPROVEMENTS
+   ============================================= */
+
+/* Slightly larger base text on mobile for readability */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+
+  /* Prevent iOS auto-zoom on form inputs (must be ≥ 16px) */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Touch-friendly tap targets (44px min) */
+  .btn,
+  .tab-btn,
+  .date-arrow {
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .select {
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 16px !important;
+  }
+
+  /* Side nav links: larger tap area */
+  .side-nav a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+  }
+
+  /* Card header: allow wrapping on narrow screens */
+  .card-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* Headline stat grids: max 3 cols on mobile */
+  .headline-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  /* Transaction rows: stack date above description */
+  .tx-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  /* Scoring / play-by-play rows: stack */
+  .scoring-row,
+  .pbp-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  /* Home hero headline: slightly smaller so it doesn't overflow */
+  .home-headline {
+    font-size: 22px;
+  }
+
+  /* Stats controls: tighter gap */
+  .stats-controls {
+    gap: 8px;
+  }
+
+  .stats-controls .select,
+  .stats-controls .btn {
+    height: auto;
+    min-height: 44px;
+  }
+
+  /* Games date picker form: allow full-width wrap */
+  .card-header form {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  /* Ensure table wrappers always scroll horizontally */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Seg toggle: wrap on small screens */
+  .seg-toggle {
+    flex-wrap: wrap;
+  }
+
+  /* Pager: wrap on small screens */
+  .pager {
+    flex-wrap: wrap;
+  }
+
+  /* Game hero score: full width on mobile */
+  .game-hero-score {
+    min-width: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* Team runs number: slightly smaller on mobile */
+  .team-runs {
+    font-size: 30px;
+  }
+
+  /* PR (pitching report) controls: wrap */
+  .pr-controls {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Container/page padding: a bit more breathing room */
+  .container,
+  .page,
+  .wrap {
+    padding: 0 14px;
+  }
+}
+
+/* =============================================
+   VERY SMALL PHONES (≤ 400px)
+   ============================================= */
+@media (max-width: 400px) {
+  /* 2-column headline grid on very small phones */
+  .headline-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Home nav tiles: single column */
+  .home-nav-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-headline {
+    font-size: 20px;
+  }
+
+  /* Team runs: smaller on tiny phones */
+  .team-runs {
+    font-size: 26px;
+  }
 }
