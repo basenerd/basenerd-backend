@@ -228,7 +228,18 @@ def monte_carlo_game_from_pas(pas: List[dict], sims: int = 5000, seed: int = 42)
             ADV_LOOKUP = _ADV_LOOKUP
             force_walk = _force_walk
         except Exception:
-            return None
+            # DB unavailable – use empty lookup (simple fallbacks in _mc_apply_event) + inline force_walk
+            ADV_LOOKUP = {}
+            def force_walk(base_state: int):  # type: ignore[misc]
+                runs = 0
+                if (base_state & 1) and (base_state & 2) and (base_state & 4):
+                    runs += 1
+                    return 7, runs
+                if (base_state & 1) and (base_state & 2):
+                    return 7, runs
+                if base_state & 1:
+                    return 3, runs
+                return base_state | 1, runs
 
 # Determine inning span
     max_inn = 0
@@ -301,7 +312,7 @@ def monte_carlo_game_from_pas(pas: List[dict], sims: int = 5000, seed: int = 42)
             # Basic event
             event = (pa.get("summaryEvent") or pa.get("event") or "").strip().lower()
             bb = pa.get("battedBall") or {}
-            has_bb = bool(bb.get("has")) or bool(bb.get("coordX") is not None and bb.get("coordY") is not None)
+            has_bb = bool(bb) and (bb.get("exitVelo") is not None or bb.get("xBA") is not None)
 
             # Treat HR as deterministic
             if "home run" in event or event == "home_run" or event == "hr":
