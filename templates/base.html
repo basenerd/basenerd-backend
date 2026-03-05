@@ -138,9 +138,8 @@
               Home
             </a>
             <a href="/wbc" class="wbc-nav-link {% if request.path.startswith('/wbc') %}active{% endif %}">
-              <img src="https://www.mlbstatic.com/wbc/2026/logos/wbc-logo.svg"
-                   alt="WBC" class="wbc-nav-icon"
-                   onerror="this.style.display='none'">
+              <img src="{{ url_for('static', filename='WBC-Symbol.png') }}"
+                   alt="WBC" class="wbc-nav-icon">
               World Baseball Classic
             </a>
             <a href="/standings" class="{% if request.path.startswith('/standings') %}active{% endif %}">
