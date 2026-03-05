@@ -137,6 +137,12 @@
             <a href="/" class="{% if request.path == '/' %}active{% endif %}">
               Home
             </a>
+            <a href="/wbc" class="wbc-nav-link {% if request.path.startswith('/wbc') %}active{% endif %}">
+              <img src="https://www.mlbstatic.com/wbc/2026/logos/wbc-logo.svg"
+                   alt="WBC" class="wbc-nav-icon"
+                   onerror="this.style.display='none'">
+              World Baseball Classic
+            </a>
             <a href="/standings" class="{% if request.path.startswith('/standings') %}active{% endif %}">
               Standings
             </a>
@@ -155,14 +161,16 @@
             <a href="/articles" class="{% if request.path.startswith('/articles') or request.path.startswith('/article/') %}active{% endif %}">
               Articles
             </a>
-            <a href="/wbc" class="{% if request.path.startswith('/wbc') %}active{% endif %}">
-              WBC
-            </a>
             <a class="dropdown-item" href="/random-player">Random Player Generator</a>
             <a href="/about" class="{% if request.path.startswith('/about') %}active{% endif %}">
               About
             </a>
           </nav>
+
+          <style>
+            .wbc-nav-link { display: flex; align-items: center; gap: 7px; }
+            .wbc-nav-icon { height: 16px; width: auto; flex: 0 0 auto; }
+          </style>
 
           <div class="sidebar-footer">
             <span class="muted">Basenerd • v0.1</span>

@@ -2458,9 +2458,9 @@ def wbc():
         # Venue city for each pool — keyed by the pool letter
         WBC_2026_VENUES = {
             "A": "San Juan, Puerto Rico",
-            "B": "Tokyo, Japan",
-            "C": "Phoenix, Arizona",
-            "D": "Taichung, Taiwan",
+            "B": "Houston, Texas",
+            "C": "Tokyo, Japan",
+            "D": "Miami, Florida",
         }
 
         def _pool_letter(league_name: str) -> str:
