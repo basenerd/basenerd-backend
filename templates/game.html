@@ -1829,7 +1829,7 @@
     </div>
 
     <div style="padding:14px;">
-      <!-- Win odds -->
+      <!-- Win odds semicircle gauge -->
       <div class="card" style="margin:0 0 14px 0;">
         <div class="card-header">
           <div>
@@ -1837,33 +1837,39 @@
             <div class="card-subtitle" id="mc-winodds-sub" style="opacity:.8;">—</div>
           </div>
         </div>
-        <div style="padding:14px;">
-          <div id="mc-winodds-gauge" style="height:14px; border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,.10); background:linear-gradient(90deg, rgba(59,130,246,.95), rgba(255,255,255,.85), rgba(239,68,68,.95)); position:relative;">
-            <div id="mc-winodds-marker" style="position:absolute; top:-4px; width:2px; height:22px; background:rgba(15,23,42,.95); left:50%; transform:translateX(-1px); box-shadow:0 0 0 1px rgba(255,255,255,.35);"></div>
-          </div>
-          <div style="display:flex; justify-content:space-between; margin-top:10px;">
-            <div class="mono" id="mc-away-pct">—</div>
-            <div class="mono" id="mc-home-pct">—</div>
-          </div>
+        <div style="padding:14px; text-align:center;">
+          <svg id="mc-winodds-gauge" viewBox="0 0 300 170" style="width:100%; max-width:380px; display:block; margin:0 auto; overflow:visible;">
+            <!-- Background arc -->
+            <path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="22" stroke-linecap="round"/>
+            <!-- Away arc (blue, left→right) -->
+            <path id="mc-gauge-away-arc" d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="rgba(59,130,246,.85)" stroke-width="22" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="377"/>
+            <!-- Home arc (red, right→left) -->
+            <path id="mc-gauge-home-arc" d="M270 150 A120 120 0 0 0 30 150" fill="none" stroke="rgba(239,68,68,.85)" stroke-width="22" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="377"/>
+            <!-- Needle -->
+            <line id="mc-winodds-needle" x1="150" y1="150" x2="150" y2="36" stroke="rgba(255,255,255,.9)" stroke-width="2.5" stroke-linecap="round" transform="rotate(0 150 150)"/>
+            <!-- Center dot -->
+            <circle cx="150" cy="150" r="5" fill="rgba(255,255,255,.9)"/>
+            <!-- Labels -->
+            <text id="mc-away-pct" x="24" y="172" font-size="12" fill="rgba(148,163,184,.9)" font-family="monospace" text-anchor="middle">—</text>
+            <text id="mc-home-pct" x="276" y="172" font-size="12" fill="rgba(148,163,184,.9)" font-family="monospace" text-anchor="middle">—</text>
+          </svg>
         </div>
       </div>
 
-      <!-- Batted ball maps -->
-      <div class="gc-grid" style="grid-template-columns: 1fr 1fr; gap:14px;">
+      <!-- Batted ball maps side-by-side -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:0 0 14px 0;">
         <div class="card" style="margin:0;">
           <div class="card-header">
             <div class="card-title" id="bbmap-away-title">Away Batted Balls</div>
           </div>
-          <div style="padding:14px;">
-            <div style="position:relative;">
-              <svg id="bbmap-away" viewBox="0 0 250 250" preserveAspectRatio="xMidYMid meet" style="width:100%; max-width:520px; display:block; margin:0 auto;">
-                <g class="sprayOverlay"></g>
-                <g class="sprayPoints"></g>
-              </svg>
-              <div id="bbmap-tip" class="card" style="display:none; position:absolute; left:0; top:0; padding:10px; pointer-events:none; max-width:260px;">
-                <div class="mono" id="bbmap-tip-title" style="font-weight:700; margin-bottom:6px;">—</div>
-                <div class="mono" id="bbmap-tip-body" style="font-size:12px; line-height:1.35; opacity:.9;"></div>
-              </div>
+          <div style="padding:14px; position:relative;">
+            <svg id="bbmap-away" viewBox="0 0 250 250" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block; background:rgba(15,23,42,.5); border-radius:6px;">
+              <g class="sprayOverlay"></g>
+              <g class="sprayPoints"></g>
+            </svg>
+            <div id="bbmap-tip" class="card" style="display:none; position:absolute; left:14px; top:14px; padding:10px; pointer-events:none; max-width:240px; z-index:10;">
+              <div class="mono" id="bbmap-tip-title" style="font-weight:700; margin-bottom:6px;">—</div>
+              <div class="mono" id="bbmap-tip-body" style="font-size:11px; line-height:1.4; opacity:.9;"></div>
             </div>
           </div>
         </div>
@@ -1873,7 +1879,7 @@
             <div class="card-title" id="bbmap-home-title">Home Batted Balls</div>
           </div>
           <div style="padding:14px;">
-            <svg id="bbmap-home" viewBox="0 0 250 250" preserveAspectRatio="xMidYMid meet" style="width:100%; max-width:520px; display:block; margin:0 auto;">
+            <svg id="bbmap-home" viewBox="0 0 250 250" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block; background:rgba(15,23,42,.5); border-radius:6px;">
               <g class="sprayOverlay"></g>
               <g class="sprayPoints"></g>
             </svg>
@@ -1881,15 +1887,41 @@
         </div>
       </div>
 
-      <!-- Expected box -->
-      <div class="card" style="margin-top:14px;">
+      <!-- Expected vs Actual Linescore -->
+      <div class="card" id="exp-linescore-analytics-card" style="margin:0 0 14px 0; display:none;">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Expected vs Actual Linescore</div>
+            <div class="card-subtitle">R = actual runs per inning • xR = Monte Carlo total • xH = expected hits</div>
+          </div>
+        </div>
+        <div style="padding:0 14px 14px 14px; overflow-x:auto;">
+          <div id="exp-linescore-analytics-wrap" class="muted">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Expected runs per inning line chart -->
+      <div class="card" id="exp-runs-chart-card" style="margin:0 0 14px 0; display:none;">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Expected Runs Per Inning</div>
+            <div class="card-subtitle">Monte Carlo expected runs by inning</div>
+          </div>
+        </div>
+        <div style="padding:14px;">
+          <svg id="exp-runs-chart" viewBox="0 0 600 200" style="width:100%; display:block;"></svg>
+        </div>
+      </div>
+
+      <!-- Expected box scores side-by-side -->
+      <div class="card" style="margin:0;">
         <div class="card-header">
           <div>
             <div class="card-title">Expected Box Scores</div>
             <div class="card-subtitle">Expected hits/total bases from xBA/xSLG (balls in play)</div>
           </div>
         </div>
-        <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
+        <div style="padding:0 14px 14px 14px; overflow-x:auto;">
           <div id="exp-box-wrap" class="muted" style="padding-top:14px;">Loading…</div>
         </div>
       </div>
@@ -3095,29 +3127,34 @@ function __render_expected_linescore(sim){
 
 function __render_winodds(sim, awayAbbrev, homeAbbrev){
   const sub = document.getElementById("mc-winodds-sub");
-  const marker = document.getElementById("mc-winodds-marker");
+  const needle = document.getElementById("mc-winodds-needle");
+  const awayArc = document.getElementById("mc-gauge-away-arc");
+  const homeArc = document.getElementById("mc-gauge-home-arc");
   const awayPctEl = document.getElementById("mc-away-pct");
   const homePctEl = document.getElementById("mc-home-pct");
-  if(!sub || !marker || !awayPctEl || !homePctEl) return;
+  if(!sub) return;
 
   if(!sim){
     sub.textContent = "—";
-    awayPctEl.textContent = "—";
-    homePctEl.textContent = "—";
-    marker.style.left = "50%";
     return;
   }
 
   const aw = Number(sim.awayWinPct || 0);
   const hm = Number(sim.homeWinPct || 0);
+  const arcLen = 377; // π × 120
 
   sub.textContent = `After ${sim.sims || "—"} sims`;
-  awayPctEl.textContent = `${awayAbbrev} ${(aw*100).toFixed(1)}%`;
-  homePctEl.textContent = `${homeAbbrev} ${(hm*100).toFixed(1)}%`;
+  if(awayPctEl) awayPctEl.textContent = `${awayAbbrev} ${(aw*100).toFixed(1)}%`;
+  if(homePctEl) homePctEl.textContent = `${homeAbbrev} ${(hm*100).toFixed(1)}%`;
 
-  // Marker tracks HOME win pct across the bar (0..100)
-  const leftPct = Math.max(0, Math.min(100, hm*100));
-  marker.style.left = `${leftPct}%`;
+  // Away arc (left→right): dashoffset shrinks as away% grows
+  if(awayArc) awayArc.setAttribute("stroke-dashoffset", String((arcLen*(1-aw)).toFixed(2)));
+  // Home arc (right→left): dashoffset shrinks as home% grows
+  if(homeArc) homeArc.setAttribute("stroke-dashoffset", String((arcLen*(1-hm)).toFixed(2)));
+
+  // Needle: 50% away → 0° (up), 100% away → -90° (left), 0% → +90° (right)
+  const angle = (0.5 - aw) * 180;
+  if(needle) needle.setAttribute("transform", `rotate(${angle.toFixed(1)} 150 150)`);
 }
 
 function __overlay_field(svg){
@@ -3125,12 +3162,24 @@ function __overlay_field(svg){
   const g = svg.querySelector(".sprayOverlay");
   if(!g) return;
 
-  // very lightweight "field" overlay (same 250x250 viewbox as mini charts)
+  // Baseball field overlay — 250×250 viewbox, home plate ≈ (125,204)
   g.innerHTML = `
-    <path d="M125 232 L30 140 Q125 35 220 140 Z" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)" stroke-width="2"/>
-    <path d="M125 232 L125 60" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
-    <path d="M125 232 L55 160" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
-    <path d="M125 232 L195 160" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
+    <!-- Outfield grass -->
+    <path d="M125 204 L18 130 Q125 15 232 130 Z" fill="rgba(34,197,94,.07)" stroke="rgba(34,197,94,.25)" stroke-width="1.5"/>
+    <!-- Infield dirt diamond -->
+    <path d="M125 204 L59 142 L125 80 L191 142 Z" fill="rgba(194,154,108,.08)" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+    <!-- Foul lines (dashed) -->
+    <line x1="125" y1="204" x2="18" y2="97" stroke="rgba(255,255,255,.20)" stroke-width="1" stroke-dasharray="5 4"/>
+    <line x1="125" y1="204" x2="232" y2="97" stroke="rgba(255,255,255,.20)" stroke-width="1" stroke-dasharray="5 4"/>
+    <!-- Center field line -->
+    <line x1="125" y1="204" x2="125" y2="15" stroke="rgba(255,255,255,.08)" stroke-width="1" stroke-dasharray="3 5"/>
+    <!-- Pitcher's mound -->
+    <circle cx="125" cy="155" r="5" fill="rgba(255,255,255,.18)" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+    <!-- Bases -->
+    <rect x="118" y="197" width="14" height="14" fill="rgba(255,255,255,.55)" rx="2" transform="rotate(45 125 204)"/>
+    <rect x="53" y="137" width="11" height="11" fill="rgba(255,255,255,.35)" rx="1" transform="rotate(45 59 143)"/>
+    <rect x="119" y="74" width="11" height="11" fill="rgba(255,255,255,.35)" rx="1" transform="rotate(45 125 80)"/>
+    <rect x="185" y="137" width="11" height="11" fill="rgba(255,255,255,.35)" rx="1" transform="rotate(45 191 143)"/>
   `;
 }
 
@@ -3198,52 +3247,186 @@ function __plot_batted_balls(svg, balls, tip){
 function __render_expected_box(sim, awayAbbrev, homeAbbrev){
   const wrap = document.getElementById("exp-box-wrap");
   if(!wrap) return;
-  if(!sim || !sim.expectedBox){
-    wrap.textContent = "—";
-    return;
-  }
+  if(!sim || !sim.expectedBox){ wrap.textContent = "—"; return; }
 
   function tableFor(sideKey, label){
     const rows = (sim.expectedBox[sideKey] || []);
-    if(!rows.length) return `<div class="muted">No data.</div>`;
+    if(!rows.length) return `<div class="muted small" style="padding:8px 0;">No data.</div>`;
 
     let trs = "";
     rows.forEach(r=>{
-      trs += `
-        <tr>
-          <td class="mono">${r.name || "—"}</td>
-          <td class="mono" style="text-align:right;">${(r.ab!=null)?Number(r.ab).toFixed(1):"—"}</td>
-          <td class="mono" style="text-align:right;">${(r.xH!=null)?Number(r.xH).toFixed(2):"—"}</td>
-          <td class="mono" style="text-align:right;">${(r.xTB!=null)?Number(r.xTB).toFixed(2):"—"}</td>
-          <td class="mono" style="text-align:right;">${(r.xAVG!=null)?Number(r.xAVG).toFixed(3):"—"}</td>
-          <td class="mono" style="text-align:right;">${(r.xSLG!=null)?Number(r.xSLG).toFixed(3):"—"}</td>
-        </tr>
-      `;
+      const tot = r.isTotals;
+      const nameCell = (r.playerId && !tot)
+        ? `<a href="/player/${r.playerId}">${r.name||"—"}</a>`
+        : (r.name||"—");
+      trs += `<tr class="${tot?"tr-totals":""}">
+        <td><span>${nameCell}</span></td>
+        <td class="mono" style="text-align:right;">${(r.ab!=null)?Number(r.ab).toFixed(0):"—"}</td>
+        <td class="mono" style="text-align:right;">${(r.xH!=null)?Number(r.xH).toFixed(2):"—"}</td>
+        <td class="mono" style="text-align:right;">${(r.xTB!=null)?Number(r.xTB).toFixed(2):"—"}</td>
+        <td class="mono" style="text-align:right;">${(r.xAVG!=null)?Number(r.xAVG).toFixed(3):"—"}</td>
+        <td class="mono" style="text-align:right;">${(r.xSLG!=null)?Number(r.xSLG).toFixed(3):"—"}</td>
+      </tr>`;
     });
 
-    return `
-      <div class="card" style="margin:14px 0 0 0;">
-        <div class="card-header"><div class="card-title">${label}</div></div>
-        <div style="padding:0 14px 14px 14px; overflow-x:auto;">
-          <table class="tbl">
-            <thead>
-              <tr>
-                <th>Player</th>
-                <th class="mono" style="text-align:right;">AB</th>
-                <th class="mono" style="text-align:right;">xH</th>
-                <th class="mono" style="text-align:right;">xTB</th>
-                <th class="mono" style="text-align:right;">xAVG</th>
-                <th class="mono" style="text-align:right;">xSLG</th>
-              </tr>
-            </thead>
-            <tbody>${trs}</tbody>
-          </table>
-        </div>
+    return `<div>
+      <div class="mono muted small" style="margin:8px 0 6px 0;">${label}</div>
+      <div style="overflow-x:auto;">
+        <table class="tbl">
+          <thead><tr>
+            <th>Player</th>
+            <th class="mono" style="text-align:right;">AB</th>
+            <th class="mono" style="text-align:right;">xH</th>
+            <th class="mono" style="text-align:right;">xTB</th>
+            <th class="mono" style="text-align:right;">xAVG</th>
+            <th class="mono" style="text-align:right;">xSLG</th>
+          </tr></thead>
+          <tbody>${trs}</tbody>
+        </table>
       </div>
-    `;
+    </div>`;
   }
 
-  wrap.innerHTML = tableFor("away", `${awayAbbrev} Expected`) + tableFor("home", `${homeAbbrev} Expected`);
+  wrap.innerHTML = `<div class="grid2">${tableFor("away",`${awayAbbrev} Expected`)}${tableFor("home",`${homeAbbrev} Expected`)}</div>`;
+}
+
+function __render_analytics_linescore(sim, linescore){
+  const card = document.getElementById("exp-linescore-analytics-card");
+  const wrap = document.getElementById("exp-linescore-analytics-wrap");
+  if(!card || !wrap) return;
+  if(!sim || !sim.expectedLinescore) return;
+
+  const innA = sim.expectedLinescore.away || [];
+  const innH = sim.expectedLinescore.home || [];
+  const n = Math.max(innA.length, innH.length, 9);
+  const actualInnings = (linescore && linescore.innings) || [];
+
+  const getAct = (side, i) => {
+    const inn = actualInnings[i];
+    if(!inn || inn[side] == null) return null;
+    const v = (typeof inn[side] === "object") ? inn[side].runs : inn[side];
+    return (v != null) ? v : null;
+  };
+
+  let thInns = "";
+  for(let i=1;i<=n;i++) thInns += `<th class="mono" style="text-align:center;min-width:28px;">${i}</th>`;
+
+  const actCells = (side) => {
+    let s = "";
+    for(let i=0;i<n;i++){
+      const v = getAct(side, i);
+      s += `<td class="mono" style="text-align:center;">${v==null?"—":v}</td>`;
+    }
+    return s;
+  };
+
+  const xCells = (arr) => {
+    let s = "";
+    for(let i=0;i<n;i++){
+      const v = i<arr.length ? arr[i] : null;
+      s += `<td class="mono" style="text-align:center;opacity:.6;font-size:11px;">${v==null?"—":Number(v).toFixed(2)}</td>`;
+    }
+    return s;
+  };
+
+  const aTot = sim.expectedScore?.away != null ? Number(sim.expectedScore.away).toFixed(2) : "—";
+  const hTot = sim.expectedScore?.home != null ? Number(sim.expectedScore.home).toFixed(2) : "—";
+  const aActR = linescore?.teams?.away?.runs;
+  const hActR = linescore?.teams?.home?.runs;
+  const aHits = sim.expectedLinescore.awayHits;
+  const hHits = sim.expectedLinescore.homeHits;
+
+  wrap.innerHTML = `
+    <table class="tbl" style="font-size:13px;">
+      <thead><tr>
+        <th style="min-width:60px;"></th>
+        ${thInns}
+        <th class="mono" style="text-align:center;">R</th>
+        <th class="mono" style="text-align:center;">xR</th>
+        <th class="mono" style="text-align:center;">xH</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td class="mono">${window.__away_abbrev||"AWAY"}</td>
+          ${actCells("away")}
+          <td class="mono" style="text-align:center;">${aActR==null?"—":aActR}</td>
+          <td class="mono" style="text-align:center;opacity:.7;font-size:11px;">${aTot}</td>
+          <td class="mono" style="text-align:center;opacity:.7;font-size:11px;">${aHits==null?"—":Number(aHits).toFixed(1)}</td>
+        </tr>
+        <tr>
+          <td class="mono">${window.__home_abbrev||"HOME"}</td>
+          ${actCells("home")}
+          <td class="mono" style="text-align:center;">${hActR==null?"—":hActR}</td>
+          <td class="mono" style="text-align:center;opacity:.7;font-size:11px;">${hTot}</td>
+          <td class="mono" style="text-align:center;opacity:.7;font-size:11px;">${hHits==null?"—":Number(hHits).toFixed(1)}</td>
+        </tr>
+        <tr style="opacity:.5;font-size:11px;">
+          <td class="muted small">xR/inn</td>
+          ${xCells(innA)}
+          <td></td><td></td><td></td>
+        </tr>
+        <tr style="opacity:.5;font-size:11px;">
+          <td class="muted small">xR/inn</td>
+          ${xCells(innH)}
+          <td></td><td></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+  card.style.display = "block";
+}
+
+function __render_expected_runs_chart(sim, awayAbbrev, homeAbbrev){
+  const card = document.getElementById("exp-runs-chart-card");
+  const svg = document.getElementById("exp-runs-chart");
+  if(!card || !svg) return;
+  if(!sim || !sim.expectedLinescore) return;
+
+  const innA = sim.expectedLinescore.away || [];
+  const innH = sim.expectedLinescore.home || [];
+  const n = Math.max(innA.length, innH.length, 9);
+
+  const W=600, H=200, ml=44, mr=20, mt=20, mb=38;
+  const pw = W-ml-mr, ph = H-mt-mb;
+
+  const allV = [...innA, ...innH].filter(v=>v!=null);
+  const yMax = allV.length ? Math.max(1, Math.ceil(Math.max(...allV)*1.15)) : 2;
+
+  const xp = i => ml + (n<=1 ? pw/2 : (i/(n-1))*pw);
+  const yp = v => mt + ph - (v/yMax)*ph;
+
+  let grid="", yLbl="", xLbl="";
+  const ticks=4;
+  for(let j=0;j<=ticks;j++){
+    const v=(yMax/ticks)*j, y=yp(v).toFixed(1);
+    grid += `<line x1="${ml}" y1="${y}" x2="${W-mr}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
+    yLbl += `<text x="${ml-6}" y="${y}" dy="4" font-size="10" fill="rgba(255,255,255,.4)" text-anchor="end" font-family="monospace">${v.toFixed(1)}</text>`;
+  }
+  for(let i=0;i<n;i++){
+    const x=xp(i).toFixed(1);
+    xLbl += `<text x="${x}" y="${H-mb+14}" font-size="10" fill="rgba(255,255,255,.4)" text-anchor="middle" font-family="monospace">${i+1}</text>`;
+  }
+
+  const pts = arr => arr.slice(0,n).map((v,i)=>`${xp(i).toFixed(1)},${yp(v).toFixed(1)}`).join(" ");
+
+  const dots = (arr, color) => arr.slice(0,n).map((v,i)=>
+    `<circle cx="${xp(i).toFixed(1)}" cy="${yp(v).toFixed(1)}" r="3" fill="${color}"/>`
+  ).join("");
+
+  svg.innerHTML = `
+    ${grid}${yLbl}${xLbl}
+    <line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ph}" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+    <line x1="${ml}" y1="${mt+ph}" x2="${W-mr}" y2="${mt+ph}" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+    <polyline points="${pts(innA)}" fill="none" stroke="rgba(59,130,246,.85)" stroke-width="2" stroke-linejoin="round"/>
+    ${dots(innA,"rgba(59,130,246,.9)")}
+    <polyline points="${pts(innH)}" fill="none" stroke="rgba(239,68,68,.85)" stroke-width="2" stroke-linejoin="round"/>
+    ${dots(innH,"rgba(239,68,68,.9)")}
+    <rect x="${ml+10}" y="${mt+2}" width="12" height="3" fill="rgba(59,130,246,.85)" rx="1"/>
+    <text x="${ml+26}" y="${mt+6}" font-size="10" fill="rgba(255,255,255,.7)" font-family="monospace">${awayAbbrev||"Away"}</text>
+    <rect x="${ml+72}" y="${mt+2}" width="12" height="3" fill="rgba(239,68,68,.85)" rx="1"/>
+    <text x="${ml+88}" y="${mt+6}" font-size="10" fill="rgba(255,255,255,.7)" font-family="monospace">${homeAbbrev||"Home"}</text>
+  `;
+  card.style.display = "block";
 }
 
 async function loadAnalyticsIfNeeded(){
@@ -3266,6 +3449,8 @@ async function loadAnalyticsIfNeeded(){
     __render_winodds(data.sim, awayAbbrev, homeAbbrev);
     __render_expected_linescore(data.sim);
     __render_expected_box(data.sim, awayAbbrev, homeAbbrev);
+    __render_analytics_linescore(data.sim, data.linescore);
+    __render_expected_runs_chart(data.sim, awayAbbrev, homeAbbrev);
 
     // batted balls
     const awayBalls = data?.battedBalls?.away || [];

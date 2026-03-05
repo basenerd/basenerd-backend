@@ -4522,7 +4522,9 @@ def _build_expected_box_from_pas(pas: List[dict]) -> Dict[str, List[dict]]:
         xba = to_float(bb.get("xBA"))
         xslg = to_float(bb.get("xSLG"))
 
-        r = agg[team].setdefault(bid, {"PA": 0, "AB": 0, "xH": 0.0, "xTB": 0.0, "bip": 0})
+        if bid not in agg[team]:
+            agg[team][bid] = {"PA": 0, "AB": 0, "xH": 0.0, "xTB": 0.0, "bip": 0, "_slot": len(agg[team])}
+        r = agg[team][bid]
         r["PA"] += 1
 
         is_walk = ("walk" in event and "intent" not in event) or "hit by pitch" in event
@@ -4535,11 +4537,12 @@ def _build_expected_box_from_pas(pas: List[dict]) -> Dict[str, List[dict]]:
 
     def make_rows(side: str) -> List[dict]:
         rows = []
+        tot_pa = tot_ab = 0
+        tot_xh = tot_xtb = 0.0
         for pid, s in agg[side].items():
             ab = s["AB"]
             xh = s["xH"]
             xtb = s["xTB"]
-            bip = s["bip"]
             rows.append({
                 "playerId": pid,
                 "name": names.get(pid, str(pid)),
@@ -4549,8 +4552,23 @@ def _build_expected_box_from_pas(pas: List[dict]) -> Dict[str, List[dict]]:
                 "xTB": xtb,
                 "xAVG": (xh / ab) if ab > 0 else None,
                 "xSLG": (xtb / ab) if ab > 0 else None,
+                "_slot": s["_slot"],
             })
-        rows.sort(key=lambda row: (row.get("xSLG") or 0.0), reverse=True)
+            tot_pa += s["PA"]; tot_ab += ab
+            tot_xh += xh; tot_xtb += xtb
+        rows.sort(key=lambda row: row["_slot"])
+        rows.append({
+            "playerId": None,
+            "name": "Totals",
+            "PA": tot_pa,
+            "ab": tot_ab,
+            "xH": tot_xh,
+            "xTB": tot_xtb,
+            "xAVG": (tot_xh / tot_ab) if tot_ab > 0 else None,
+            "xSLG": (tot_xtb / tot_ab) if tot_ab > 0 else None,
+            "isTotals": True,
+            "_slot": 9999,
+        })
         return rows
 
     return {"away": make_rows("away"), "home": make_rows("home")}
@@ -4646,6 +4664,7 @@ def get_game_analytics(game_pk, sims: int = 600) -> dict:
         "home": game_obj.get("home"),
         "sim": sim,
         "battedBalls": {"away": away_bip, "home": home_bip},
+        "linescore": game_obj.get("linescore"),
         "debug": debug,
     }
 
