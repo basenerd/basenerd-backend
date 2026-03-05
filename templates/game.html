@@ -3254,6 +3254,7 @@ async function loadAnalyticsIfNeeded(){
     const res = await fetch(ANALYTICS_URL, { cache: "no-store" });
     if(!res.ok) throw new Error(`analytics.json HTTP ${res.status}`);
     const data = await res.json();
+    console.log("[analytics] response:", JSON.stringify({ok:data.ok, status:data.statusPill, debug:data.debug, simKeys:data.sim?Object.keys(data.sim):null}));
 
     window.__away_abbrev = (data?.away?.abbrev || window.__away_abbrev || "AWAY");
     window.__home_abbrev = (data?.home?.abbrev || window.__home_abbrev || "HOME");
@@ -3282,9 +3283,9 @@ async function loadAnalyticsIfNeeded(){
 
     __analytics_loaded = true;
   }catch(e){
-    console.error("[analytics] load failed", e);
+    console.error("[analytics] load failed", e, "url:", ANALYTICS_URL);
     const wrap = document.getElementById("exp-box-wrap");
-    if(wrap) wrap.textContent = "Analytics unavailable.";
+    if(wrap) wrap.textContent = `Analytics unavailable (${e?.message || e})`;
   }
 }
 

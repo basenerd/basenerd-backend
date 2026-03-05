@@ -4494,28 +4494,94 @@ def get_hitter_pitch_profile(player_id: int, year: int) -> dict:
 # ----------------------------
 # Analytics JSON builder (deferred expensive work)
 # ----------------------------
-def get_game_analytics(game_pk, sims: int = 600) -> dict:
-    """Heavy analytics for Analytics tab.
 
-    Runs Monte Carlo off game_obj['pas'] with strict caps + caching to avoid Gunicorn timeouts.
+def _build_expected_box_from_pas(pas: List[dict]) -> Dict[str, List[dict]]:
+    """Fast expected box from raw xBA/xSLG values — no simulation needed.
+
+    For each batter: sum xBA per BIP = xH, sum xSLG per BIP = xTB.
+    xAVG = xH/AB,  xSLG = xTB/AB.
     """
+    agg: Dict[str, Dict[int, Dict[str, Any]]] = {"away": {}, "home": {}}
+    names: Dict[int, str] = {}
+
+    for pa in (pas or []):
+        half = str(pa.get("half") or "").lower()
+        team = "away" if half.startswith("top") else "home"
+
+        try:
+            bid = int(pa.get("batterId"))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            continue
+
+        name = (pa.get("batterName") or "").strip()
+        if name and bid not in names:
+            names[bid] = name
+
+        event = (pa.get("summaryEvent") or "").strip().lower()
+        bb = pa.get("battedBall") or {}
+        xba = to_float(bb.get("xBA"))
+        xslg = to_float(bb.get("xSLG"))
+
+        r = agg[team].setdefault(bid, {"PA": 0, "AB": 0, "xH": 0.0, "xTB": 0.0, "bip": 0})
+        r["PA"] += 1
+
+        is_walk = ("walk" in event and "intent" not in event) or "hit by pitch" in event
+        if not is_walk:
+            r["AB"] += 1
+            if xba is not None and xslg is not None:
+                r["xH"] += xba
+                r["xTB"] += xslg
+                r["bip"] += 1
+
+    def make_rows(side: str) -> List[dict]:
+        rows = []
+        for pid, s in agg[side].items():
+            ab = s["AB"]
+            xh = s["xH"]
+            xtb = s["xTB"]
+            bip = s["bip"]
+            rows.append({
+                "playerId": pid,
+                "name": names.get(pid, str(pid)),
+                "PA": s["PA"],
+                "ab": ab,
+                "xH": xh,
+                "xTB": xtb,
+                "xAVG": (xh / ab) if ab > 0 else None,
+                "xSLG": (xtb / ab) if ab > 0 else None,
+            })
+        rows.sort(key=lambda row: (row.get("xSLG") or 0.0), reverse=True)
+        return rows
+
+    return {"away": make_rows("away"), "home": make_rows("home")}
+
+
+def get_game_analytics(game_pk, sims: int = 600) -> dict:
+    """Heavy analytics for Analytics tab — never raises, always returns a dict."""
+    debug: Dict[str, Any] = {}
     try:
         game_pk_int = int(game_pk)
     except Exception:
         return {"ok": False, "reason": "bad game_pk"}
 
-    feed = get_game_feed(game_pk_int)
-    game_obj = normalize_game_detail(feed)
+    try:
+        feed = get_game_feed(game_pk_int)
+        game_obj = normalize_game_detail(feed)
+    except Exception as e:
+        print(f"[analytics] feed/normalize failed for {game_pk}: {e}")
+        return {"ok": False, "reason": f"feed_error:{type(e).__name__}", "debug": str(e)}
+
+    pas = game_obj.get("pas") or []
+    debug["pasCount"] = len(pas)
 
     sig = "|".join([
         str(game_obj.get("statusPill") or ""),
-        str(((game_obj.get("score") or {}).get("away"))),
-        str(((game_obj.get("score") or {}).get("home"))),
+        str((game_obj.get("away") or {}).get("score")),
+        str((game_obj.get("home") or {}).get("score")),
         str(game_obj.get("inning") or ""),
         str(game_obj.get("half") or ""),
         str(game_obj.get("outs") if game_obj.get("outs") is not None else ""),
-        str(game_obj.get("lastPlay") or ""),
-        str(len(game_obj.get("pas") or [])),
+        str(len(pas)),
     ])
 
     status_lc = str(game_obj.get("statusPill") or "").lower()
@@ -4527,32 +4593,50 @@ def get_game_analytics(game_pk, sims: int = 600) -> dict:
     if cached is not None:
         return cached
 
+    # --- Direct expected box (fast, always works) ---
+    direct_box = _build_expected_box_from_pas(pas)
+    debug["directBoxAway"] = len(direct_box.get("away") or [])
+    debug["directBoxHome"] = len(direct_box.get("home") or [])
+
+    # --- Monte Carlo (for win odds + expected linescore) ---
     try:
-        sims_in = int(sims)
+        sims_in = max(300, min(900 if not is_final else 1500, int(sims)))
     except Exception:
-        sims_in = 600
+        sims_in = 300
 
-    sims_cap = 900 if not is_final else 1500
-    sims_floor = 300
-    sims_in = max(sims_floor, min(sims_in, sims_cap))
-
-    sim = None
+    sim: Optional[Dict[str, Any]] = None
+    sim_error: Optional[str] = None
     try:
-        sim = monte_carlo_game_from_pas((game_obj.get("pas") or []), sims=sims_in)
+        sim = monte_carlo_game_from_pas(pas, sims=sims_in)
+        debug["simOk"] = sim is not None
     except Exception as e:
-        sim = {"ok": False, "reason": "sim_failed:" + type(e).__name__}
+        sim_error = f"{type(e).__name__}: {e}"
+        debug["simError"] = sim_error
+        print(f"[analytics] MC failed for {game_pk}: {sim_error}")
 
-    # batted ball tooltip list (coords + metrics)
-    away_bip = []
-    home_bip = []
-    for pa in (game_obj.get("pas") or []):
-        bbt = pa.get("battedBallTooltip")
-        if not bbt:
-            continue
-        if pa.get("battingTeam") == "home":
-            home_bip.append(bbt)
-        else:
-            away_bip.append(bbt)
+    # Merge: always have an expectedBox even if MC failed
+    if sim is None:
+        sim = {"expectedBox": direct_box}
+    elif not sim.get("expectedBox"):
+        sim["expectedBox"] = direct_box
+
+    # --- Batted ball tooltip list (for spray maps) ---
+    away_bip: List[dict] = []
+    home_bip: List[dict] = []
+    try:
+        for pa in pas:
+            bbt = pa.get("battedBallTooltip")
+            if not bbt:
+                continue
+            if pa.get("battingTeam") == "home":
+                home_bip.append(bbt)
+            else:
+                away_bip.append(bbt)
+    except Exception as e:
+        print(f"[analytics] bip collection failed: {e}")
+
+    debug["bipAway"] = len(away_bip)
+    debug["bipHome"] = len(home_bip)
 
     payload = {
         "ok": True,
@@ -4562,6 +4646,7 @@ def get_game_analytics(game_pk, sims: int = 600) -> dict:
         "home": game_obj.get("home"),
         "sim": sim,
         "battedBalls": {"away": away_bip, "home": home_bip},
+        "debug": debug,
     }
 
     _analytics_cache_set(cache_key, payload)
