@@ -1249,10 +1249,11 @@
                       <th class="num">Zone%</th>
                       <th class="num">Chase%</th>
                       <th class="num">Stuff+</th>
+                      <th class="num">Ctrl+</th>
                     </tr>
                   </thead>
                   <tbody id="arsenalBody">
-                    <tr><td colspan="12" class="muted">Loading…</td></tr>
+                    <tr><td colspan="13" class="muted">Loading…</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1351,6 +1352,7 @@
                     <th class="num">Pitches</th>
                     <th class="num">Velo</th>
                     <th class="num">Stuff+</th>
+                    <th class="num">Ctrl+</th>
                     <th class="num">Whiff%</th>
                     <th class="num">Zone%</th>
                     <th class="num">Chase%</th>
@@ -1360,7 +1362,7 @@
                   </tr>
                 </thead>
                 <tbody id="statcastGamelogBody">
-                  <tr><td colspan="10" class="muted">Loading…</td></tr>
+                  <tr><td colspan="11" class="muted">Loading…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1578,7 +1580,7 @@
     const total = mix.reduce((a,r)=>a+(r.n||0),0) || 0;
 
     if(!mix.length){
-      arsenalBody.innerHTML = `<tr><td colspan="12" class="muted">No pitches found for this selection.</td></tr>`;
+      arsenalBody.innerHTML = `<tr><td colspan="13" class="muted">No pitches found for this selection.</td></tr>`;
       if(pitchNotes) pitchNotes.textContent = "—";
       return;
     }
@@ -1601,6 +1603,7 @@
           <td class="num mono">${fmt1(r.zone_pct)}</td>
           <td class="num mono">${fmt1(r.chase_pct)}</td>
           <td class="num mono">${r.stuff_plus != null ? fmt1(r.stuff_plus) : "—"}</td>
+          <td class="num mono">${r.control_plus != null ? fmt1(r.control_plus) : "—"}</td>
         </tr>
       `;
     }).join("");
@@ -1899,7 +1902,7 @@
     const tbody = document.getElementById("statcastGamelogBody");
     if(!tbody) return;
     if(!games || !games.length){
-      tbody.innerHTML = `<tr><td colspan="10" class="muted">No game data found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" class="muted">No game data found.</td></tr>`;
       return;
     }
     tbody.innerHTML = games.map(g => `
@@ -1908,6 +1911,7 @@
         <td class="num mono">${fmt0(g.pitches)}</td>
         <td class="num mono">${fmt1(g.avg_velo)}</td>
         <td class="num mono">${g.avg_stuff_plus != null ? fmt1(g.avg_stuff_plus) : "—"}</td>
+        <td class="num mono">${g.avg_control_plus != null ? fmt1(g.avg_control_plus) : "—"}</td>
         <td class="num mono">${fmt1(g.whiff_pct)}</td>
         <td class="num mono">${fmt1(g.zone_pct)}</td>
         <td class="num mono">${fmt1(g.chase_pct)}</td>
@@ -1921,12 +1925,12 @@
   async function loadGameLog(season){
     const tbody = document.getElementById("statcastGamelogBody");
     if(!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="10" class="muted">Loading…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" class="muted">Loading…</td></tr>`;
     try{
       const data = await getJSON(`/player/${playerId}/pitching_gamelog.json?season=${encodeURIComponent(season)}`);
       renderGameLog(data && data.ok ? data.games : []);
     }catch(e){
-      tbody.innerHTML = `<tr><td colspan="10" class="muted">Error loading game log.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" class="muted">Error loading game log.</td></tr>`;
     }
   }
 
@@ -1994,7 +1998,7 @@
       const bestSeason = await findMostRecentPitchSeason();
       if(!bestSeason){
         setStatus("No pitching seasons found.");
-        if(arsenalBody) arsenalBody.innerHTML = `<tr><td colspan="12" class="muted">No pitches found for this player.</td></tr>`;
+        if(arsenalBody) arsenalBody.innerHTML = `<tr><td colspan="13" class="muted">No pitches found for this player.</td></tr>`;
         if(pitchNotes) pitchNotes.textContent = "—";
         renderBasic({});
         renderHeatmap(heatL, null, "density");

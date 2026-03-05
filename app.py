@@ -47,6 +47,7 @@ from services.pitching_report import (
     pitching_report_summary,
     pitching_heatmap,
     pitching_gamelog,
+    pitching_scatter,
 )
 from services.articles import load_articles, get_article
 from services.articles import get_markdown_page
@@ -257,6 +258,13 @@ def player_pitching_gamelog_json(player_id: int):
         season = datetime.utcnow().year
     data = pitching_gamelog(player_id, season)
     return jsonify({"ok": True, "player_id": player_id, "season": season, "games": data})
+
+@app.get("/player/<int:player_id>/pitching_scatter.json")
+def player_pitching_scatter_json(player_id: int):
+    season = request.args.get("season", type=int) or datetime.utcnow().year
+    game_pk = request.args.get("game_pk", type=int)
+    data = pitching_scatter(player_id, season, game_pk)
+    return jsonify({"ok": True, "player_id": player_id, "season": season, "game_pk": game_pk, "pitches": data})
 
 @app.get("/random-player")
 def random_player_landing():

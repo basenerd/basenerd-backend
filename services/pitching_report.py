@@ -225,7 +225,8 @@ def _fetch_pitches(
       sp.estimated_woba_using_speedangle,
       sp.zone,
       sp.events,
-      spl.stuff_plus
+      spl.stuff_plus,
+      spl.control_plus
     FROM statcast_pitches sp
     LEFT JOIN statcast_pitches_live spl
       ON sp.game_pk = spl.game_pk
@@ -356,6 +357,7 @@ def pitching_report_summary(
         hb = [_safe_float(x.get("pfx_x")) for x in rows]  # feet
         vb = [_safe_float(x.get("pfx_z")) for x in rows]  # feet
         sp_vals = [_safe_float(x.get("stuff_plus")) for x in rows]
+        cp_vals = [_safe_float(x.get("control_plus")) for x in rows]
 
         swings = 0
         whiffs = 0
@@ -401,8 +403,9 @@ def pitching_report_summary(
         agg_ooz_swings += ooz_swings
         agg_xw.extend(xw_list)
 
-        # Only include stuff_plus mean if we have data
+        # Only include stuff_plus/control_plus mean if we have data
         sp_mean = _mean([v for v in sp_vals if v is not None])
+        cp_mean = _mean([v for v in cp_vals if v is not None])
 
         mix.append(
             {
@@ -419,6 +422,7 @@ def pitching_report_summary(
                 "zone_pct": (100.0 * in_zone / n) if n else None,
                 "chase_pct": (100.0 * ooz_swings / ooz) if ooz else None,
                 "stuff_plus": sp_mean,
+                "control_plus": cp_mean,
             }
         )
 
@@ -564,6 +568,32 @@ def pitching_heatmap(
     return out
 
 
+def pitching_scatter(
+    pitcher_id: int,
+    season: int,
+    game_pk: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Return per-pitch location + movement data for scatter plots."""
+    arr = _fetch_pitches(pitcher_id, season, game_pk=game_pk)
+    out = []
+    for r in arr:
+        pt = (r.get("pitch_type") or "").strip()
+        if not pt:
+            continue
+        hb = _safe_float(r.get("pfx_x"))
+        vb = _safe_float(r.get("pfx_z"))
+        out.append({
+            "pitch_type": pt,
+            "pitch_name": r.get("pitch_name") or pt,
+            "stand": (r.get("stand") or "").upper(),
+            "plate_x": _safe_float(r.get("plate_x")),
+            "plate_z": _safe_float(r.get("plate_z")),
+            "hb": (hb * 12.0) if hb is not None else None,
+            "ivb": (vb * 12.0) if vb is not None else None,
+        })
+    return out
+
+
 def pitching_gamelog(pitcher_id: int, season: int) -> List[Dict[str, Any]]:
     """Return game-by-game pitching stats for the given pitcher/season."""
     arr = _fetch_pitches(pitcher_id, season)
@@ -593,9 +623,11 @@ def pitching_gamelog(pitcher_id: int, season: int) -> List[Dict[str, Any]]:
         velos = [_safe_float(p.get("release_speed")) for p in pitches]
         avg_velo = _mean(velos)
 
-        # Stuff+
+        # Stuff+ / Control+
         sp_vals = [_safe_float(p.get("stuff_plus")) for p in pitches]
         avg_stuff = _mean([v for v in sp_vals if v is not None])
+        cp_vals = [_safe_float(p.get("control_plus")) for p in pitches]
+        avg_control = _mean([v for v in cp_vals if v is not None])
 
         # Whiff / Chase / Zone
         swings = 0
@@ -641,6 +673,7 @@ def pitching_gamelog(pitcher_id: int, season: int) -> List[Dict[str, Any]]:
             "pitches": n,
             "avg_velo": avg_velo,
             "avg_stuff_plus": avg_stuff,
+            "avg_control_plus": avg_control,
             "whiff_pct": (100.0 * whiffs / swings) if swings else None,
             "zone_pct": (100.0 * in_zone / n) if n else None,
             "chase_pct": (100.0 * ooz_swings / ooz) if ooz else None,

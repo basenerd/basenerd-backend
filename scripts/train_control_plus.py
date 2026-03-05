@@ -33,7 +33,7 @@ NUM_FEATURES = ["plate_x", "plate_z", "sz_top", "sz_bot"]
 CAT_FEATURES = ["pitch_type"]
 FEATURE_COLS = NUM_FEATURES + CAT_FEATURES
 
-MODEL_VERSION = "control_v1_location_hgbm"
+MODEL_VERSION = "control_v2_location_hgbm"
 TRAIN_YEARS = (2021, 2024)
 SAMPLE_FRAC = 1.0       # use all data; set <1.0 to subsample for faster iteration
 RANDOM_STATE = 42
@@ -54,6 +54,8 @@ def fetch_training_data(conn) -> pd.DataFrame:
     print("Fetching training data...")
     sql = """
         SELECT
+            pitcher,
+            game_year,
             plate_x,
             plate_z,
             sz_top,
@@ -156,8 +158,8 @@ def main():
     y = df["rv_resid"]
 
     print("Train/val split...")
-    X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.1, random_state=RANDOM_STATE
+    X_train, X_val, y_train, y_val, meta_train, meta_val = train_test_split(
+        X, y, df[["pitcher", "game_year"]], test_size=0.1, random_state=RANDOM_STATE
     )
     print(f"  Train: {len(X_train):,}  Val: {len(X_val):,}")
 
@@ -170,14 +172,27 @@ def main():
     val_r2 = r2_score(y_val, val_preds)
     print(f"  Val RMSE: {val_rmse:.5f}   R²: {val_r2:.5f}")
 
-    # goodness = -prediction (lower rv = better for pitcher)
-    goodness = -pd.Series(val_preds)
-    goodness_std = float(goodness.std())
-    print(f"  goodness_std: {goodness_std:.6f}")
+    # Compute goodness_std at the PITCHER-SEASON level, not per-pitch.
+    # Per-pitch std compresses to near-zero when averaged over 2000+ pitches.
+    # Instead we want: 1 std above average pitcher -> Control+ = 115.
+    all_preds = pipe.predict(X)
+    goodness_all = -pd.Series(all_preds, index=X.index)
+    pitcher_season_key = df["pitcher"].astype(str) + "_" + df["game_year"].astype(str)
+    # Only count pitcher-seasons with enough pitches to be stable
+    pitcher_season_counts = pitcher_season_key.value_counts()
+    qualified = pitcher_season_counts[pitcher_season_counts >= 200].index
+    pitcher_season_means = (
+        goodness_all.groupby(pitcher_season_key)
+        .mean()
+        .loc[lambda s: s.index.isin(qualified)]
+    )
+    goodness_std = float(pitcher_season_means.std())
+    print(f"  Pitcher-season goodness_std: {goodness_std:.6f}  (n={len(pitcher_season_means)} pitcher-seasons)")
 
-    # Quick sanity: scale a sample and check mean/std
-    control_sample = CONTROL_CENTER + CONTROL_SCALE * (goodness / goodness_std)
-    print(f"  Sample Control+ mean: {control_sample.mean():.1f}  std: {control_sample.std():.1f}")
+    # Sanity check: what does the pitcher-season spread look like?
+    ctrl_pitcher = CONTROL_CENTER + CONTROL_SCALE * (pitcher_season_means / goodness_std)
+    ctrl_pitcher = ctrl_pitcher.clip(CONTROL_CLIP_MIN, CONTROL_CLIP_MAX)
+    print(f"  Pitcher-season Control+ — mean: {ctrl_pitcher.mean():.1f}  std: {ctrl_pitcher.std():.1f}  min: {ctrl_pitcher.min():.1f}  max: {ctrl_pitcher.max():.1f}")
 
     os.makedirs(os.path.dirname(args.out_model), exist_ok=True)
     joblib.dump(pipe, args.out_model)

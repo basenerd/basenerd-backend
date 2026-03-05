@@ -1916,7 +1916,7 @@
       </div>
 
       <!-- Expected box scores side-by-side -->
-      <div class="card" style="margin:0;">
+      <div class="card" style="margin:0 0 14px 0;">
         <div class="card-header">
           <div>
             <div class="card-title">Expected Box Scores</div>
@@ -1925,6 +1925,117 @@
         </div>
         <div style="padding:0 14px 14px 14px; overflow-x:auto;">
           <div id="exp-box-wrap" class="muted" style="padding-top:14px;">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Pitcher Reports -->
+      <div class="card" style="margin:0;">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Pitcher Reports</div>
+            <div class="card-subtitle">Per-game Statcast data by pitcher</div>
+          </div>
+        </div>
+        <div style="padding:14px;">
+
+          <!-- Team dropdowns -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+            <div>
+              <div style="font-weight:900; margin-bottom:6px;">{{ away.name or away.abbrev }}</div>
+              <select id="pr-away-sel" style="width:100%; padding:6px 8px; background:#1e2a3a; border:1px solid rgba(148,163,184,.3); color:inherit; border-radius:6px; font-size:13px;">
+                <option value="">— Select Pitcher —</option>
+                {% for p in (game.box.away.pitching or []) %}{% if not p.isTotals and p.playerId %}<option value="{{ p.playerId }}">{{ p.name }}</option>{% endif %}{% endfor %}
+              </select>
+            </div>
+            <div>
+              <div style="font-weight:900; margin-bottom:6px;">{{ home.name or home.abbrev }}</div>
+              <select id="pr-home-sel" style="width:100%; padding:6px 8px; background:#1e2a3a; border:1px solid rgba(148,163,184,.3); color:inherit; border-radius:6px; font-size:13px;">
+                <option value="">— Select Pitcher —</option>
+                {% for p in (game.box.home.pitching or []) %}{% if not p.isTotals and p.playerId %}<option value="{{ p.playerId }}">{{ p.name }}</option>{% endif %}{% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <!-- Away pitcher dashboard -->
+          <div id="pr-away-dash" style="display:none; margin-bottom:14px;">
+            <div style="font-weight:900; font-size:15px; margin-bottom:10px;" id="pr-away-name"></div>
+            <div style="overflow-x:auto; margin-bottom:10px;">
+              <table class="table" style="min-width:360px;">
+                <thead><tr>
+                  <th>IP</th><th class="num">H</th><th class="num">R</th><th class="num">ER</th>
+                  <th class="num">BB</th><th class="num">K</th><th class="num">HR</th><th class="num">P-S</th>
+                </tr></thead>
+                <tbody id="pr-away-stat-body"><tr><td colspan="8" class="muted">—</td></tr></tbody>
+              </table>
+            </div>
+            <div style="overflow-x:auto; margin-bottom:14px;">
+              <table class="table" style="min-width:580px;">
+                <thead><tr>
+                  <th>Pitch</th><th class="num">#</th><th class="num">Usage%</th>
+                  <th class="num">Velo</th><th class="num">Whiff%</th>
+                  <th class="num">Zone%</th><th class="num">Chase%</th>
+                  <th class="num">Stuff+</th><th class="num">Ctrl+</th>
+                </tr></thead>
+                <tbody id="pr-away-mix-body"><tr><td colspan="9" class="muted">—</td></tr></tbody>
+              </table>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+              <div>
+                <div class="mono" style="font-size:11px; text-align:center; margin-bottom:4px; opacity:.6;">vs LHH</div>
+                <svg id="pr-away-zone-l" viewBox="0 0 220 240" style="width:100%; display:block; background:rgba(15,23,42,.04); border-radius:8px;"></svg>
+              </div>
+              <div>
+                <div class="mono" style="font-size:11px; text-align:center; margin-bottom:4px; opacity:.6;">vs RHH</div>
+                <svg id="pr-away-zone-r" viewBox="0 0 220 240" style="width:100%; display:block; background:rgba(15,23,42,.04); border-radius:8px;"></svg>
+              </div>
+              <div>
+                <div class="mono" style="font-size:11px; text-align:center; margin-bottom:4px; opacity:.6;">Movement (in.)</div>
+                <svg id="pr-away-move" viewBox="0 0 220 220" style="width:100%; display:block; background:rgba(15,23,42,.04); border-radius:8px;"></svg>
+              </div>
+            </div>
+          </div>
+
+          <hr id="pr-divider" style="display:none; border:none; border-top:1px solid rgba(148,163,184,.2); margin:14px 0;">
+
+          <!-- Home pitcher dashboard -->
+          <div id="pr-home-dash" style="display:none;">
+            <div style="font-weight:900; font-size:15px; margin-bottom:10px;" id="pr-home-name"></div>
+            <div style="overflow-x:auto; margin-bottom:10px;">
+              <table class="table" style="min-width:360px;">
+                <thead><tr>
+                  <th>IP</th><th class="num">H</th><th class="num">R</th><th class="num">ER</th>
+                  <th class="num">BB</th><th class="num">K</th><th class="num">HR</th><th class="num">P-S</th>
+                </tr></thead>
+                <tbody id="pr-home-stat-body"><tr><td colspan="8" class="muted">—</td></tr></tbody>
+              </table>
+            </div>
+            <div style="overflow-x:auto; margin-bottom:14px;">
+              <table class="table" style="min-width:580px;">
+                <thead><tr>
+                  <th>Pitch</th><th class="num">#</th><th class="num">Usage%</th>
+                  <th class="num">Velo</th><th class="num">Whiff%</th>
+                  <th class="num">Zone%</th><th class="num">Chase%</th>
+                  <th class="num">Stuff+</th><th class="num">Ctrl+</th>
+                </tr></thead>
+                <tbody id="pr-home-mix-body"><tr><td colspan="9" class="muted">—</td></tr></tbody>
+              </table>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+              <div>
+                <div class="mono" style="font-size:11px; text-align:center; margin-bottom:4px; opacity:.6;">vs LHH</div>
+                <svg id="pr-home-zone-l" viewBox="0 0 220 240" style="width:100%; display:block; background:rgba(15,23,42,.04); border-radius:8px;"></svg>
+              </div>
+              <div>
+                <div class="mono" style="font-size:11px; text-align:center; margin-bottom:4px; opacity:.6;">vs RHH</div>
+                <svg id="pr-home-zone-r" viewBox="0 0 220 240" style="width:100%; display:block; background:rgba(15,23,42,.04); border-radius:8px;"></svg>
+              </div>
+              <div>
+                <div class="mono" style="font-size:11px; text-align:center; margin-bottom:4px; opacity:.6;">Movement (in.)</div>
+                <svg id="pr-home-move" viewBox="0 0 220 220" style="width:100%; display:block; background:rgba(15,23,42,.04); border-radius:8px;"></svg>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -3561,6 +3672,191 @@ document.addEventListener("DOMContentLoaded", ()=>{
   loadAnalyticsIfNeeded();
 });
 
+</script>
+
+<script>
+// --------------------------------
+// Pitcher Reports
+// --------------------------------
+(function(){
+  const PR_GAME_PK = {{ game_pk | tojson }};
+  {% set _gw = (game.when or '')[:4] %}
+  const PR_SEASON = {{ (_gw | int) if _gw | length >= 4 else 'new Date().getFullYear()' }};
+
+  const BOX_PITCHING = {
+    away: {{ ((game.box.away.pitching) | tojson) if (game.box and game.box.away) else "[]" }},
+    home: {{ ((game.box.home.pitching) | tojson) if (game.box and game.box.home) else "[]" }},
+  };
+
+  const PT_COLORS = {
+    "FF":"#d9534f","FT":"#f0ad4e","SI":"#f0ad4e","FC":"#5bc0de",
+    "SL":"#ffd54f","ST":"#ffd54f","SV":"#9b59b6","CU":"#5dade2",
+    "KC":"#5dade2","CH":"#5cb85c","FS":"#5cb85c","KN":"#95a5a6",
+  };
+  function ptColor(pt){ return PT_COLORS[pt] || "#94a3b8"; }
+
+  function fmt1(v){ return (v != null && isFinite(Number(v))) ? Number(v).toFixed(1) : "—"; }
+  function fmt0(v){ return (v != null && isFinite(Number(v))) ? String(Math.round(Number(v))) : "—"; }
+
+  function renderStatline(tbodyId, row){
+    const el = document.getElementById(tbodyId);
+    if(!el) return;
+    if(!row){ el.innerHTML = `<tr><td colspan="8" class="muted">No data</td></tr>`; return; }
+    el.innerHTML = `<tr>
+      <td class="mono">${row.IP ?? "—"}</td>
+      <td class="num mono">${row.H ?? "—"}</td>
+      <td class="num mono">${row.R ?? "—"}</td>
+      <td class="num mono">${row.ER ?? "—"}</td>
+      <td class="num mono">${row.BB ?? "—"}</td>
+      <td class="num mono">${row.SO ?? "—"}</td>
+      <td class="num mono">${row.HR ?? "—"}</td>
+      <td class="num mono">${row.PS ?? "—"}</td>
+    </tr>`;
+  }
+
+  function renderMix(tbodyId, mix){
+    const el = document.getElementById(tbodyId);
+    if(!el) return;
+    if(!mix || !mix.length){ el.innerHTML = `<tr><td colspan="9" class="muted">No pitch data</td></tr>`; return; }
+    el.innerHTML = mix.map(r => {
+      const c = ptColor(r.pitch_type);
+      return `<tr>
+        <td style="font-weight:700; color:${c};">${r.pitch_name || r.pitch_type}</td>
+        <td class="num mono">${fmt0(r.n)}</td>
+        <td class="num mono">${fmt1(r.usage)}%</td>
+        <td class="num mono">${fmt1(r.velo)}</td>
+        <td class="num mono">${r.whiff != null ? fmt1(r.whiff)+"%" : "—"}</td>
+        <td class="num mono">${r.zone_pct != null ? fmt1(r.zone_pct)+"%" : "—"}</td>
+        <td class="num mono">${r.chase_pct != null ? fmt1(r.chase_pct)+"%" : "—"}</td>
+        <td class="num mono">${r.stuff_plus != null ? fmt1(r.stuff_plus) : "—"}</td>
+        <td class="num mono">${r.control_plus != null ? fmt1(r.control_plus) : "—"}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  // Zone SVG helpers — viewBox "0 0 220 240"
+  // x: -2.5 to 2.5 ft → 0 to 220px (44 px/ft)
+  // z: 0 to 5 ft → 240 to 0px (48 px/ft, flipped)
+  const ZW=220, ZH=240, ZXS=44, ZZS=48;
+  function zx(x){ return (x+2.5)*ZXS; }
+  function zz(z){ return ZH - z*ZZS; }
+  const ZL=zx(-0.83).toFixed(1), ZR=zx(0.83).toFixed(1);
+  const ZT=zz(3.5).toFixed(1),   ZB=zz(1.5).toFixed(1);
+  const ZRW=(zx(0.83)-zx(-0.83)).toFixed(1);
+  const ZRH=(zz(1.5)-zz(3.5)).toFixed(1);
+
+  function renderZone(svgId, pitches, stand){
+    const svg = document.getElementById(svgId);
+    if(!svg) return;
+    const pts = pitches.filter(p => p.stand===stand && p.plate_x!=null && p.plate_z!=null);
+    const dots = pts.map(p =>
+      `<circle cx="${zx(p.plate_x).toFixed(1)}" cy="${zz(p.plate_z).toFixed(1)}" r="3.5" fill="${ptColor(p.pitch_type)}" fill-opacity="0.78" stroke="rgba(0,0,0,.3)" stroke-width="0.5"/>`
+    ).join("");
+    svg.innerHTML =
+      `<rect x="${ZL}" y="${ZT}" width="${ZRW}" height="${ZRH}" fill="none" stroke="rgba(148,163,184,.7)" stroke-width="1.5"/>` +
+      `<text x="${ZW/2}" y="${ZH-4}" font-size="9" fill="rgba(148,163,184,.5)" font-family="monospace" text-anchor="middle">Home Plate</text>` +
+      dots;
+  }
+
+  // Movement SVG helpers — viewBox "0 0 220 220"
+  // hb / ivb range: ±28 inches → 220px (scale = 220/56 ≈ 3.93 px/in)
+  const MW=220, MH=220, MR=28, MS=MW/(MR*2);
+  function mx(h){ return MW/2 + h*MS; }
+  function my(v){ return MH/2 - v*MS; }
+
+  function renderMove(svgId, pitches, mix){
+    const svg = document.getElementById(svgId);
+    if(!svg) return;
+    const pts = pitches.filter(p => p.hb!=null && p.ivb!=null);
+    const dots = pts.map(p =>
+      `<circle cx="${mx(p.hb).toFixed(1)}" cy="${my(p.ivb).toFixed(1)}" r="3" fill="${ptColor(p.pitch_type)}" fill-opacity="0.75" stroke="rgba(0,0,0,.25)" stroke-width="0.5"/>`
+    ).join("");
+
+    // Legend from mix (only pitch types that appear in scatter)
+    const ptsSeen = new Set(pts.map(p=>p.pitch_type));
+    const legendPts = (mix||[]).filter(r=>ptsSeen.has(r.pitch_type));
+    let ly=12, legend="";
+    legendPts.forEach(r=>{
+      legend += `<circle cx="8" cy="${ly-3}" r="4" fill="${ptColor(r.pitch_type)}"/>`;
+      legend += `<text x="16" y="${ly}" font-size="9" fill="rgba(200,210,220,.85)" font-family="monospace">${r.pitch_name||r.pitch_type}</text>`;
+      ly+=13;
+    });
+
+    const cx=MW/2, cy=MH/2;
+    svg.innerHTML =
+      `<line x1="${cx}" y1="0" x2="${cx}" y2="${MH}" stroke="rgba(148,163,184,.25)" stroke-width="1"/>` +
+      `<line x1="0" y1="${cy}" x2="${MW}" y2="${cy}" stroke="rgba(148,163,184,.25)" stroke-width="1"/>` +
+      `<text x="${cx+3}" y="10" font-size="8" fill="rgba(148,163,184,.5)" font-family="monospace">+IVB</text>` +
+      `<text x="${cx+3}" y="${MH-3}" font-size="8" fill="rgba(148,163,184,.5)" font-family="monospace">-IVB</text>` +
+      `<text x="${MW-26}" y="${cy-3}" font-size="8" fill="rgba(148,163,184,.5)" font-family="monospace">Arm</text>` +
+      `<text x="2" y="${cy-3}" font-size="8" fill="rgba(148,163,184,.5)" font-family="monospace">Glove</text>` +
+      dots + legend;
+  }
+
+  function syncDivider(){
+    const div = document.getElementById("pr-divider");
+    if(!div) return;
+    const awayVis = document.getElementById("pr-away-dash").style.display !== "none";
+    const homeVis = document.getElementById("pr-home-dash").style.display !== "none";
+    div.style.display = (awayVis && homeVis) ? "block" : "none";
+  }
+
+  async function loadPitcherReport(side, pitcherId, name){
+    const dash = document.getElementById(`pr-${side}-dash`);
+    const nameEl = document.getElementById(`pr-${side}-name`);
+    if(!dash) return;
+
+    if(!pitcherId){
+      dash.style.display = "none";
+      syncDivider();
+      return;
+    }
+
+    dash.style.display = "block";
+    if(nameEl) nameEl.textContent = name;
+    syncDivider();
+
+    // Statline from pre-loaded box data
+    const box = BOX_PITCHING[side] || [];
+    const statRow = box.find(r => r.playerId == pitcherId && !r.isTotals) || null;
+    renderStatline(`pr-${side}-stat-body`, statRow);
+
+    // Clear charts while loading
+    [`pr-${side}-mix-body`].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.innerHTML=`<tr><td colspan="9" class="muted">Loading…</td></tr>`;
+    });
+
+    try {
+      const [report, scatter] = await Promise.all([
+        fetch(`/player/${pitcherId}/pitching_report.json?season=${PR_SEASON}&game_pk=${PR_GAME_PK}`).then(r=>r.json()),
+        fetch(`/player/${pitcherId}/pitching_scatter.json?season=${PR_SEASON}&game_pk=${PR_GAME_PK}`).then(r=>r.json()),
+      ]);
+
+      const mix = (report.ok && report.mix) ? report.mix : [];
+      renderMix(`pr-${side}-mix-body`, mix);
+
+      const pitches = (scatter.ok && scatter.pitches) ? scatter.pitches : [];
+      renderZone(`pr-${side}-zone-l`, pitches, "L");
+      renderZone(`pr-${side}-zone-r`, pitches, "R");
+      renderMove(`pr-${side}-move`, pitches, mix);
+    } catch(e) {
+      console.error("[pitcherReport]", e);
+      const el = document.getElementById(`pr-${side}-mix-body`);
+      if(el) el.innerHTML=`<tr><td colspan="9" class="muted">Error loading data</td></tr>`;
+    }
+  }
+
+  ["away","home"].forEach(side=>{
+    const sel = document.getElementById(`pr-${side}-sel`);
+    if(!sel) return;
+    sel.addEventListener("change", ()=>{
+      const opt = sel.options[sel.selectedIndex];
+      const pid = parseInt(opt.value) || null;
+      loadPitcherReport(side, pid, opt.text);
+    });
+  });
+})();
 </script>
 
 {% endblock %}
