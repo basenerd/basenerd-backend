@@ -1286,7 +1286,7 @@
           <div style="border:1px solid rgba(226,232,240,.9); border-radius:12px; background:#fff; overflow:hidden;">
             <div style="padding:10px 12px; border-bottom:1px solid rgba(226,232,240,.9); display:flex; align-items:center; justify-content:space-between;">
                 <div style="font-weight:900;">Movement Profile (Induced Break)</div>
-                <div class="mono" style="font-size:11px; opacity:.75;">Arm-side / Glove-side vs Rise / Drop (in)</div>
+                <div class="mono" style="font-size:11px; opacity:.75;">Pitcher's View: HB vs Rise / Drop (in)</div>
               </div>
               <div style="padding:10px 12px;">
                 <canvas id="breakCanvas" width="520" height="360" style="width:100%; max-width:100%; border:1px solid rgba(226,232,240,.9); border-radius:12px; background:linear-gradient(180deg, rgba(246,248,251,1), rgba(238,242,247,.95));"></canvas>
@@ -1760,9 +1760,9 @@
       if(hb==null || vb==null || !isFinite(hb) || !isFinite(vb)) return null;
       const x = Math.max(-maxV, Math.min(maxV, hb));
       const y = Math.max(-maxV, Math.min(maxV, vb));
-      // canvas: +x right, +y up
+      // canvas: pitcher's view (negate x so 3B=right, 1B=left)
       return {
-        x: cx + (x/maxV)*R,
+        x: cx - (x/maxV)*R,
         y: cy - (y/maxV)*R,
         hb, vb
       };

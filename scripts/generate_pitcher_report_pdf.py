@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate a post-game pitcher report PDF (Twitter-optimized 1200x1680).
+Generate a post-game pitcher report PDF (Twitter-optimized 1080x1350 portrait).
 
 Pulls pitch data directly from the MLB Stats API live feed — no database needed.
 Scores BNStuff+ and BNControl+ on-the-fly using local model .pkl files.
@@ -46,13 +46,13 @@ CTRL_MODEL = ROOT / "models" / "control_model.pkl"
 CTRL_META = ROOT / "models" / "control_model_meta.json"
 
 # ---------------------------------------------------------------------------
-# Page dimensions — 1200x1680 (5:7, fits Twitter/X + IG well)
+# Page dimensions — 1080x1350 portrait (4:5, optimal for Twitter/X mobile)
 # ---------------------------------------------------------------------------
-W = 1200
-H = 1680
+W = 1080
+H = 1350
 PAD = 28
 CARD_R = 12
-GAP = 14
+GAP = 12
 
 # ---------------------------------------------------------------------------
 # Colors
@@ -623,18 +623,18 @@ def _color_for_metric(val, center=100.0):
 def _draw_movement_chart(c, x, y, w, h, shapes, scatter_data, title="Pitch Movement"):
     _rounded_rect(c, x, y, w, h, CARD_R, fill_color=BG_CARD)
     c.setFillColor(TEXT_PRIMARY)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(x + 12, y + h - 20, title)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(x + 14, y + h - 28, title)
 
     # Make chart area square within the card
-    chart_top = y + h - 30
-    chart_bot = y + 16
+    chart_top = y + h - 36
+    chart_bot = y + 12
     avail_h = chart_top - chart_bot
-    avail_w = w - 32
+    avail_w = w - 28
     side = min(avail_h, avail_w)
     cx = x + w / 2
     cy = chart_bot + avail_h / 2
-    R = side / 2 - 10
+    R = side / 2 - 8
     max_v = 24.0
 
     # Grid
@@ -648,7 +648,7 @@ def _draw_movement_chart(c, x, y, w, h, shapes, scatter_data, title="Pitch Movem
         c.circle(cx, cy, rr, fill=0, stroke=1)
     c.setDash()
     c.setFillColor(TEXT_MUTED)
-    c.setFont("Helvetica", 8)
+    c.setFont("Helvetica", 12)
     for rv in [6, 12, 18]:
         rr = (rv / max_v) * R
         c.drawString(cx + 3, cy + rr + 2, f'{rv}"')
@@ -660,13 +660,13 @@ def _draw_movement_chart(c, x, y, w, h, shapes, scatter_data, title="Pitch Movem
             ivb = p.get("ivb_in")
             if hb is None or ivb is None:
                 continue
-            px = cx + (hb / max_v) * R
+            px = cx - (hb / max_v) * R
             py = cy + (ivb / max_v) * R
             color = HexColor(PITCH_COLORS.get(p.get("pitch_type", ""), "#94a3b8"))
             c.setFillColor(color)
             c.setStrokeColor(Color(0, 0, 0, alpha=0.25))
             c.setLineWidth(0.3)
-            c.circle(px, py, 2.5, fill=1, stroke=1)
+            c.circle(px, py, 4, fill=1, stroke=1)
 
     # Average dots
     if shapes:
@@ -679,30 +679,30 @@ def _draw_movement_chart(c, x, y, w, h, shapes, scatter_data, title="Pitch Movem
                 continue
             hb = max(-max_v, min(max_v, pfx_x * 12.0))
             ivb = max(-max_v, min(max_v, pfx_z * 12.0))
-            px = cx + (hb / max_v) * R
+            px = cx - (hb / max_v) * R
             py = cy + (ivb / max_v) * R
             t = d.get("n", 0) / n_max
-            rad = 7 + 10 * t
+            rad = 8 + 12 * t
             color = HexColor(PITCH_COLORS.get(pt, "#94a3b8"))
             c.setFillColor(color)
             c.setStrokeColor(white)
             c.setLineWidth(2)
             c.circle(px, py, rad, fill=1, stroke=1)
             c.setFillColor(HexColor("#0b1220"))
-            c.setFont("Helvetica-Bold", 9)
-            c.drawCentredString(px, py - 3, pt)
+            c.setFont("Helvetica-Bold", 12)
+            c.drawCentredString(px, py - 4, pt)
 
 
 def _draw_location_chart(c, x, y, w, h, scatter_data, stand_filter, title):
     _rounded_rect(c, x, y, w, h, CARD_R, fill_color=BG_CARD)
     c.setFillColor(TEXT_PRIMARY)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(x + 12, y + h - 20, title)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(x + 14, y + h - 28, title)
 
-    chart_top = y + h - 30
-    chart_bot = y + 16
+    chart_top = y + h - 36
+    chart_bot = y + 12
     avail_h = chart_top - chart_bot
-    avail_w = w - 32
+    avail_w = w - 28
 
     # Keep aspect ratio ~4:5 (x_range=4, z_range=4)
     side = min(avail_h, avail_w)
@@ -724,7 +724,7 @@ def _draw_location_chart(c, x, y, w, h, scatter_data, stand_filter, title):
     zl, zb = to_px(zone_left, zone_bot)
     zr, zt = to_px(zone_right, zone_top)
     c.setStrokeColor(HexColor("#ffffff"))
-    c.setLineWidth(1.5)
+    c.setLineWidth(2)
     c.rect(zl, zb, zr - zl, zt - zb, fill=0, stroke=1)
     # Inner grid
     c.setStrokeColor(HexColor("#334155"))
@@ -747,33 +747,33 @@ def _draw_location_chart(c, x, y, w, h, scatter_data, stand_filter, title):
             c.setFillColor(color)
             c.setStrokeColor(Color(0, 0, 0, alpha=0.25))
             c.setLineWidth(0.3)
-            c.circle(px, py, 4, fill=1, stroke=1)
+            c.circle(px, py, 5.5, fill=1, stroke=1)
 
     c.setFillColor(TEXT_MUTED)
-    c.setFont("Helvetica", 9)
-    c.drawRightString(x + w - 12, y + h - 20, f"n={len(filtered)}")
+    c.setFont("Helvetica", 13)
+    c.drawRightString(x + w - 14, y + h - 28, f"n={len(filtered)}")
 
 
 def _draw_tornado_chart(c, x, y, w, h, usage_lr):
     _rounded_rect(c, x, y, w, h, CARD_R, fill_color=BG_CARD)
     c.setFillColor(TEXT_PRIMARY)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(x + 12, y + h - 20, "Usage Split")
+    c.setFont("Helvetica-Bold", 13)
+    c.drawCentredString(x + w / 2, y + h - 20, "Usage Split")
     c.setFillColor(TEXT_SECONDARY)
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(x + 12, y + h - 38, "vs LHH")
-    c.drawRightString(x + w - 12, y + h - 38, "vs RHH")
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(x + 8, y + h - 36, "LHH")
+    c.drawRightString(x + w - 8, y + h - 36, "RHH")
 
     if not usage_lr:
         return
 
     n = len(usage_lr)
-    top_y = y + h - 48
-    bot_y = y + 12
+    top_y = y + h - 44
+    bot_y = y + 8
     avail = top_y - bot_y
-    row_h = min(26, avail / max(n, 1))
+    row_h = min(28, avail / max(n, 1))
     center_x = x + w / 2
-    half_w = (w / 2) - 44
+    half_w = (w / 2) - 24
     max_pct = max(
         max((r.get("l_usage", 0) for r in usage_lr), default=1),
         max((r.get("r_usage", 0) for r in usage_lr), default=1),
@@ -786,30 +786,127 @@ def _draw_tornado_chart(c, x, y, w, h, usage_lr):
         color = HexColor(PITCH_COLORS.get(pt, "#94a3b8"))
 
         c.setFillColor(TEXT_PRIMARY)
-        c.setFont("Helvetica-Bold", 10)
+        c.setFont("Helvetica-Bold", 11)
         c.drawCentredString(center_x, ry + row_h / 2 - 4, pt)
 
         # LHH bar (left)
         l_pct = row.get("l_usage", 0)
         if l_pct > 0:
             bw = (l_pct / max_pct) * half_w
-            bx = center_x - 20 - bw
+            bx = center_x - 14 - bw
             _rounded_rect(c, bx, ry + 2, bw, row_h - 6, 4, fill_color=color)
-            if bw > 35:
+            if bw > 25:
                 c.setFillColor(HexColor("#0b1220"))
-                c.setFont("Helvetica-Bold", 9)
+                c.setFont("Helvetica-Bold", 10)
                 c.drawCentredString(bx + bw / 2, ry + row_h / 2 - 4, f"{l_pct:.0f}%")
 
         # RHH bar (right)
         r_pct = row.get("r_usage", 0)
         if r_pct > 0:
             bw = (r_pct / max_pct) * half_w
-            bx = center_x + 20
+            bx = center_x + 14
             _rounded_rect(c, bx, ry + 2, bw, row_h - 6, 4, fill_color=color)
-            if bw > 35:
+            if bw > 25:
                 c.setFillColor(HexColor("#0b1220"))
-                c.setFont("Helvetica-Bold", 9)
+                c.setFont("Helvetica-Bold", 10)
                 c.drawCentredString(bx + bw / 2, ry + row_h / 2 - 4, f"{r_pct:.0f}%")
+
+
+def _draw_release_point_chart(c, x, y, w, h, scatter_data, shapes, title="Release Point"):
+    _rounded_rect(c, x, y, w, h, CARD_R, fill_color=BG_CARD)
+    c.setFillColor(TEXT_PRIMARY)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(x + 14, y + h - 28, title)
+
+    chart_top = y + h - 36
+    chart_bot = y + 24
+    avail_h = chart_top - chart_bot
+    avail_w = w - 28
+    chart_x0 = x + 16
+    chart_y0 = chart_bot
+
+    # Compute data bounds from actual release points
+    rx_vals = []
+    rz_vals = []
+    for p in (scatter_data or []):
+        rx = _safe_float(p.get("release_pos_x"))
+        rz = _safe_float(p.get("release_pos_z"))
+        if rx is not None and rz is not None:
+            rx_vals.append(rx)
+            rz_vals.append(rz)
+
+    if not rx_vals:
+        # No data — draw empty card
+        c.setFillColor(TEXT_MUTED)
+        c.setFont("Helvetica", 12)
+        c.drawCentredString(x + w / 2, y + h / 2, "No data")
+        return
+
+    # Add padding around data extent (0.5 ft on each side, min 1 ft range)
+    data_x_min, data_x_max = min(rx_vals), max(rx_vals)
+    data_z_min, data_z_max = min(rz_vals), max(rz_vals)
+    pad_ft = 0.5
+    data_x_min -= pad_ft
+    data_x_max += pad_ft
+    data_z_min -= pad_ft
+    data_z_max += pad_ft
+    # Enforce minimum range of 1.5 ft
+    x_range = max(data_x_max - data_x_min, 1.5)
+    z_range = max(data_z_max - data_z_min, 1.5)
+    # Center the range
+    x_mid = (data_x_min + data_x_max) / 2
+    z_mid = (data_z_min + data_z_max) / 2
+    data_x_min = x_mid - x_range / 2
+    data_x_max = x_mid + x_range / 2
+    data_z_min = z_mid - z_range / 2
+    data_z_max = z_mid + z_range / 2
+
+    # Make chart square, fit within available space
+    side = min(avail_h, avail_w)
+    chart_cx = x + w / 2
+    chart_cy = chart_bot + avail_h / 2
+    half = side / 2 - 6
+
+    def to_px(rx, rz):
+        px = chart_cx - half + ((rx - data_x_min) / (data_x_max - data_x_min)) * (2 * half)
+        py = chart_cy - half + ((rz - data_z_min) / (data_z_max - data_z_min)) * (2 * half)
+        return px, py
+
+    # Grid lines and axis labels
+    c.setStrokeColor(BORDER)
+    c.setLineWidth(0.5)
+    c.setDash(2, 3)
+    n_grid = 3
+    c.setFillColor(TEXT_MUTED)
+    c.setFont("Helvetica", 11)
+    # Horizontal grid lines with z labels
+    for i in range(n_grid + 1):
+        frac = i / n_grid
+        gz = data_z_min + frac * (data_z_max - data_z_min)
+        _, py = to_px(data_x_min, gz)
+        c.line(chart_cx - half, py, chart_cx + half, py)
+        c.drawRightString(chart_cx - half - 4, py - 4, f"{gz:.1f}")
+    # Vertical grid lines with x labels (skip edges to avoid crowding)
+    for i in range(1, n_grid):
+        frac = i / n_grid
+        gx = data_x_min + frac * (data_x_max - data_x_min)
+        px, _ = to_px(gx, data_z_min)
+        c.line(px, chart_cy - half, px, chart_cy + half)
+        c.drawCentredString(px, chart_cy - half - 14, f"{gx:.1f}")
+    c.setDash()
+
+    # Individual scatter dots
+    for p in scatter_data:
+        rx = _safe_float(p.get("release_pos_x"))
+        rz = _safe_float(p.get("release_pos_z"))
+        if rx is None or rz is None:
+            continue
+        px, py = to_px(rx, rz)
+        color = HexColor(PITCH_COLORS.get(p.get("pitch_type", ""), "#94a3b8"))
+        c.setFillColor(color)
+        c.setStrokeColor(Color(0, 0, 0, alpha=0.3))
+        c.setLineWidth(0.5)
+        c.circle(px, py, 5, fill=1, stroke=1)
 
 
 # ---------------------------------------------------------------------------
@@ -861,30 +958,21 @@ def generate_report(
     c.setFillColor(BG)
     c.rect(0, 0, W, H, fill=1, stroke=0)
 
+    cw_full = W - PAD * 2  # usable content width
+    col_gap = GAP
     cur = H  # cursor — top edge of next section
 
     # ===== HEADER =====
-    hdr_h = 110
+    hdr_h = 100
     cur -= PAD + hdr_h
-    _rounded_rect(c, PAD, cur, W - PAD * 2, hdr_h, CARD_R, fill_color=BG_CARD)
+    _rounded_rect(c, PAD, cur, cw_full, hdr_h, CARD_R, fill_color=BG_CARD)
 
-    # Logo
-    logo_sz = 65
-    if LOGO_PATH.exists():
-        try:
-            logo = PILImage.open(str(LOGO_PATH)).convert("RGBA")
-            c.drawImage(ImageReader(logo), PAD + 14, cur + (hdr_h - logo_sz) / 2,
-                        width=logo_sz, height=logo_sz, mask="auto")
-        except Exception:
-            pass
-
-    # Headshot — preserve aspect ratio, circular crop
-    hs_display = 80
-    hs_x = PAD + (W - PAD * 2) - 16 - hs_display
+    # Headshot — circular crop (left side, next to name)
+    hs_display = 72
+    hs_x = PAD + 12
     hs_y = cur + (hdr_h - hs_display) / 2
     if headshot_img:
         try:
-            # Make square crop from center, then circular mask
             img = headshot_img
             sz = min(img.size)
             left = (img.width - sz) // 2
@@ -899,10 +987,20 @@ def generate_report(
         except Exception:
             pass
 
+    # Logo — top right branding
+    logo_sz = 60
+    if LOGO_PATH.exists():
+        try:
+            logo = PILImage.open(str(LOGO_PATH)).convert("RGBA")
+            c.drawImage(ImageReader(logo), PAD + cw_full - 12 - logo_sz, cur + (hdr_h - logo_sz) / 2,
+                        width=logo_sz, height=logo_sz, mask="auto")
+        except Exception:
+            pass
+
     # Text
-    tx = PAD + 14 + logo_sz + 14
+    tx = PAD + 12 + hs_display + 12
     c.setFillColor(WHITE)
-    c.setFont("Helvetica-Bold", 28)
+    c.setFont("Helvetica-Bold", 30)
     c.drawString(tx, cur + hdr_h - 34, player_name)
 
     away_ab = game_info.get("away_abbrev", "")
@@ -911,18 +1009,18 @@ def generate_report(
     hr_ = game_info.get("home_runs")
     score = f"  |  {away_ab} {ar} - {home_ab} {hr_}" if ar is not None else ""
     c.setFillColor(TEXT_SECONDARY)
-    c.setFont("Helvetica", 14)
-    c.drawString(tx, cur + hdr_h - 56, f"{team_name}  |  {game_date}{score}")
+    c.setFont("Helvetica", 15)
+    c.drawString(tx, cur + hdr_h - 54, f"{team_name}  |  {game_date}{score}")
 
     c.setFillColor(ACCENT)
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(tx, cur + hdr_h - 76, "POST-GAME PITCHER REPORT")
+    c.setFont("Helvetica-Bold", 13)
+    c.drawString(tx, cur + hdr_h - 74, "POST-GAME PITCHER REPORT")
 
     # ===== BOXSCORE BAR =====
     cur -= GAP
-    bar_h = 48
+    bar_h = 52
     cur -= bar_h
-    _rounded_rect(c, PAD, cur, W - PAD * 2, bar_h, CARD_R, fill_color=BG_CARD)
+    _rounded_rect(c, PAD, cur, cw_full, bar_h, CARD_R, fill_color=BG_CARD)
     box_items = [
         ("IP", str(box_stats.get("IP", "--"))),
         ("H", str(box_stats.get("H", "--"))),
@@ -933,20 +1031,20 @@ def generate_report(
         ("HR", str(box_stats.get("HR", "--"))),
         ("P-S", f"{box_stats.get('pitches', '--')}-{box_stats.get('strikes', '--')}"),
     ]
-    bw = (W - PAD * 2) / len(box_items)
+    bw = cw_full / len(box_items)
     for i, (lbl, val) in enumerate(box_items):
         bx = PAD + i * bw
         c.setFillColor(TEXT_MUTED)
-        c.setFont("Helvetica", 10)
-        c.drawCentredString(bx + bw / 2, cur + bar_h - 14, lbl)
+        c.setFont("Helvetica", 12)
+        c.drawCentredString(bx + bw / 2, cur + bar_h - 16, lbl)
         c.setFillColor(WHITE)
-        c.setFont("Helvetica-Bold", 18)
+        c.setFont("Helvetica-Bold", 20)
         c.drawCentredString(bx + bw / 2, cur + 8, val)
 
     # ===== STATCAST BAR =====
     cur -= GAP
     cur -= bar_h
-    _rounded_rect(c, PAD, cur, W - PAD * 2, bar_h, CARD_R, fill_color=BG_CARD)
+    _rounded_rect(c, PAD, cur, cw_full, bar_h, CARD_R, fill_color=BG_CARD)
     stat_items = [
         ("K%", _pct(basic.get("k_pct"))),
         ("BB%", _pct(basic.get("bb_pct"))),
@@ -955,50 +1053,61 @@ def generate_report(
         ("Chase%", _pct(basic.get("chase_pct"))),
         ("Pitches", str(total_pitches)),
     ]
-    sw = (W - PAD * 2) / len(stat_items)
+    sw = cw_full / len(stat_items)
     for i, (lbl, val) in enumerate(stat_items):
         sx = PAD + i * sw
         c.setFillColor(TEXT_MUTED)
-        c.setFont("Helvetica", 10)
-        c.drawCentredString(sx + sw / 2, cur + bar_h - 14, lbl)
+        c.setFont("Helvetica", 12)
+        c.drawCentredString(sx + sw / 2, cur + bar_h - 16, lbl)
         c.setFillColor(WHITE)
-        c.setFont("Helvetica-Bold", 18)
+        c.setFont("Helvetica-Bold", 20)
         c.drawCentredString(sx + sw / 2, cur + 8, val)
 
-    # ===== ARSENAL TABLE =====
+    # ===== ARSENAL TABLE (left) + TORNADO CHART (right) side by side =====
     cur -= GAP
-    cols = ["Pitch", "#", "Use%", "Velo", "HB", "IVB", "Spin", "Whiff%", "Zone%", "Chase%", "BNStuff+", "BNCtrl+"]
-    col_w = [68, 38, 52, 52, 48, 48, 52, 58, 56, 58, 78, 72]
+
+    # Tornado width — enough for the bars but skinny
+    tornado_w = 220
+    table_w = cw_full - col_gap - tornado_w
+
+    # Table columns — scaled to fit table_w
+    cols = ["Pitch", "#", "Velo", "HB", "IVB", "Whiff%", "Zone%", "Chase%", "BNStuff+", "BNCtrl+"]
+    col_w = [100, 34, 52, 46, 46, 60, 58, 62, 74, 68]
     ttw = sum(col_w)
-    tx0 = (W - ttw) / 2
-    rh = 26
+    scale = (table_w - 12) / ttw
+    col_w = [int(w * scale) for w in col_w]
+    ttw = sum(col_w)
+    col_w[0] += int(table_w - 12) - ttw
+
+    rh = 30
     table_h = rh * (len(mix) + 1) + 6
     cur -= table_h
 
-    # Header
+    # Draw table card
+    tx0 = PAD + 6
     hdr_y = cur + table_h - rh - 3
-    _rounded_rect(c, tx0 - 6, hdr_y, ttw + 12, rh + 3, 5, fill_color=BORDER)
-    c.setFont("Helvetica-Bold", 10)
+    _rounded_rect(c, PAD, cur, table_w, table_h, CARD_R, fill_color=BG_CARD)
+    _rounded_rect(c, tx0 - 6, hdr_y, table_w, rh + 3, 5, fill_color=BORDER)
+    c.setFont("Helvetica-Bold", 12)
     cx_ = tx0
     for ci, cn in enumerate(cols):
         cw = col_w[ci]
         c.setFillColor(ACCENT if cn.startswith("BN") else TEXT_SECONDARY)
         if ci == 0:
-            c.drawString(cx_ + 4, hdr_y + 7, cn)
+            c.drawString(cx_ + 4, hdr_y + 9, cn)
         else:
-            c.drawCentredString(cx_ + cw / 2, hdr_y + 7, cn)
+            c.drawCentredString(cx_ + cw / 2, hdr_y + 9, cn)
         cx_ += cw
 
-    # Rows
     for ri, row in enumerate(mix):
         ry = hdr_y - (ri + 1) * rh
         if ri % 2 == 0:
-            _rounded_rect(c, tx0 - 6, ry - 1, ttw + 12, rh, 3, fill_color=BG_TABLE_ROW)
+            _rounded_rect(c, tx0 - 6, ry - 1, table_w, rh, 3, fill_color=BG_TABLE_ROW)
         pt = row.get("pitch_type", "UNK")
         vals = [
-            pt, _fmt(row.get("n"), 0), _fmt(row.get("usage"), 1),
+            pt, _fmt(row.get("n"), 0),
             _fmt(row.get("velo"), 1), _fmt(row.get("hb"), 1), _fmt(row.get("ivb"), 1),
-            _fmt(row.get("spin"), 0), _pct(row.get("whiff")),
+            _pct(row.get("whiff")),
             _pct(row.get("zone_pct")), _pct(row.get("chase_pct")),
             _fmt(row.get("stuff_plus"), 0), _fmt(row.get("control_plus"), 0),
         ]
@@ -1006,46 +1115,51 @@ def generate_report(
         for ci, val in enumerate(vals):
             cw = col_w[ci]
             if ci == 0:
+                pname = row.get("pitch_name") or pt
                 color = HexColor(PITCH_COLORS.get(pt, "#94a3b8"))
-                _rounded_rect(c, cx_ + 2, ry + 2, 52, 18, 9, fill_color=color)
+                pill_w = min(cw - 6, max(52, len(pname) * 8 + 12))
+                _rounded_rect(c, cx_ + 2, ry + 4, pill_w, 22, 11, fill_color=color)
                 c.setFillColor(HexColor("#0b1220"))
-                c.setFont("Helvetica-Bold", 10)
-                c.drawCentredString(cx_ + 28, ry + 5, pt)
-            elif ci >= 10:
-                raw = row.get("stuff_plus") if ci == 10 else row.get("control_plus")
-                c.setFillColor(_color_for_metric(raw))
                 c.setFont("Helvetica-Bold", 11)
-                c.drawCentredString(cx_ + cw / 2, ry + 6, val)
+                c.drawCentredString(cx_ + 2 + pill_w / 2, ry + 8, pname)
+            elif ci >= 8:
+                raw = row.get("stuff_plus") if ci == 8 else row.get("control_plus")
+                c.setFillColor(_color_for_metric(raw))
+                c.setFont("Helvetica-Bold", 14)
+                c.drawCentredString(cx_ + cw / 2, ry + 8, val)
             else:
                 c.setFillColor(TEXT_PRIMARY)
-                c.setFont("Helvetica", 11)
-                c.drawCentredString(cx_ + cw / 2, ry + 6, val)
+                c.setFont("Helvetica", 13)
+                c.drawCentredString(cx_ + cw / 2, ry + 8, val)
             cx_ += cw
 
-    # ===== BOTTOM: 4 charts in 2x2 grid =====
+    # Draw tornado chart beside the table
+    _draw_tornado_chart(c, PAD + table_w + col_gap, cur, tornado_w, table_h, usage_lr)
+
+    # ===== CHART ROW 1: Location LHH + Location RHH (2 side by side) =====
     cur -= GAP
-    remaining = cur - 40  # footer space
-    chart_h = (remaining - GAP) / 2   # two rows
-    col_gap = GAP
-    half_w = (W - PAD * 2 - col_gap) / 2
+    footer_h = 28
+    remaining = cur - PAD - footer_h
+    chart_row_h = (remaining - GAP) / 2  # split remaining space into 2 rows
 
-    # Top row: Movement chart (left) + Tornado chart (right)
-    row1_y = cur - chart_h
-    _draw_movement_chart(c, PAD, row1_y, half_w, chart_h, shapes, pitches)
-    _draw_tornado_chart(c, PAD + half_w + col_gap, row1_y, half_w, chart_h, usage_lr)
+    chart_half_w = (cw_full - col_gap) / 2
+    chart_y1 = cur - chart_row_h
+    _draw_location_chart(c, PAD, chart_y1, chart_half_w, chart_row_h, pitches, "L", "Locations vs LHH")
+    _draw_location_chart(c, PAD + chart_half_w + col_gap, chart_y1, chart_half_w, chart_row_h, pitches, "R", "Locations vs RHH")
 
-    # Bottom row: Location vs LHH (left) + Location vs RHH (right)
-    row2_y = row1_y - GAP - chart_h
-    _draw_location_chart(c, PAD, row2_y, half_w, chart_h, pitches, "L", "Locations vs LHH")
-    _draw_location_chart(c, PAD + half_w + col_gap, row2_y, half_w, chart_h, pitches, "R", "Locations vs RHH")
+    # ===== CHART ROW 2: Movement + Release Point (2 side by side) =====
+    cur = chart_y1 - GAP
+    chart_y2 = cur - chart_row_h
+    _draw_movement_chart(c, PAD, chart_y2, chart_half_w, chart_row_h, shapes, pitches)
+    _draw_release_point_chart(c, PAD + chart_half_w + col_gap, chart_y2, chart_half_w, chart_row_h, pitches, shapes)
 
     # ===== FOOTER =====
     c.setFillColor(TEXT_MUTED)
-    c.setFont("Helvetica", 10)
-    c.drawString(PAD, 12, f"basenerd.com  |  Data via MLB Stats API  |  {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
+    c.setFont("Helvetica", 12)
+    c.drawString(PAD, 10, f"basenerd.com  |  Data: MLB Stats API  |  {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     c.setFillColor(ACCENT)
-    c.setFont("Helvetica-Bold", 11)
-    c.drawRightString(W - PAD, 12, "@basenerd")
+    c.setFont("Helvetica-Bold", 13)
+    c.drawRightString(W - PAD, 10, "@basenerd")
 
     c.save()
     print(f"  Saved: {out_path}")
@@ -1083,14 +1197,25 @@ def main():
         count = 0
         for g in games:
             gp = g["game_pk"]
-            for pid in [g.get("away_pitcher_id"), g.get("home_pitcher_id")]:
-                if pid:
+            # Fetch live feed once per game, find ALL pitchers
+            try:
+                print(f"\n  Fetching live feed for game {gp}...")
+                feed = _fetch_live_feed(gp)
+                game_info = _extract_game_info(feed)
+                all_pitcher_ids = list((game_info.get("pitcher_stats") or {}).keys())
+                if not all_pitcher_ids:
+                    print(f"  No pitchers found in game {gp}")
+                    continue
+                print(f"  Found {len(all_pitcher_ids)} pitchers in game {gp}")
+                for pid in all_pitcher_ids:
                     try:
                         result = generate_report(pid, gp, out_dir=out_dir)
                         if result:
                             count += 1
                     except Exception as e:
                         print(f"  Error: pitcher {pid}, game {gp}: {e}")
+            except Exception as e:
+                print(f"  Error fetching game {gp}: {e}")
         print(f"\nDone. Generated {count} reports.")
 
     elif args.pitcher_id and args.game_pk:
