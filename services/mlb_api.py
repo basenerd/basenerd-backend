@@ -3119,6 +3119,9 @@ def get_games_for_date(
             on2 = bool(offense.get("second"))
             on3 = bool(offense.get("third"))
 
+            balls_now = _safe_int(ls.get("balls"))
+            strikes_now = _safe_int(ls.get("strikes"))
+
             card = {
                 "gamePk": g.get("gamePk"),
                 "date": date_ymd,
@@ -3132,6 +3135,8 @@ def get_games_for_date(
 
                 "isLive": is_live,
                 "outs": outs_now,
+                "balls": balls_now,
+                "strikes": strikes_now,
                 "bases": {"on1": on1, "on2": on2, "on3": on3},
 
                 "home": {

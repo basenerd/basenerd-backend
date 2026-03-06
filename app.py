@@ -1096,10 +1096,17 @@ def ticker_json():
     # Return lightweight cards
     cards = []
     for g in games_list:
+        status_lc = (g.get("detailedState") or "").lower()
+        is_final = "final" in status_lc or "completed" in status_lc or "game over" in status_lc
         cards.append({
             "gamePk": g.get("gamePk"),
             "statusPill": g.get("statusPill"),
             "isLive": g.get("isLive"),
+            "isFinal": is_final,
+            "outs": g.get("outs"),
+            "balls": g.get("balls"),
+            "strikes": g.get("strikes"),
+            "bases": g.get("bases"),
             "away": {
                 "abbrev": g.get("away", {}).get("abbrev"),
                 "score": g.get("away", {}).get("score"),
@@ -1111,6 +1118,14 @@ def ticker_json():
                 "logo": g.get("home", {}).get("logo"),
             },
         })
+    # Sort: live first, then scheduled, then final
+    def _sort_key(c):
+        if c["isLive"]:
+            return 0
+        if c["isFinal"]:
+            return 2
+        return 1
+    cards.sort(key=_sort_key)
     return jsonify(cards)
 
 @app.get("/games")
