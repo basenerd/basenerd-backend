@@ -1087,6 +1087,32 @@ def team(team_id):
 
 from datetime import timedelta
 
+@app.get("/api/ticker.json")
+def ticker_json():
+    """Today's games for the global ticker bar."""
+    user_tz = "America/Phoenix"
+    today_ymd = datetime.utcnow().date().strftime("%Y-%m-%d")
+    games_list = get_games_for_date(today_ymd, tz_name=user_tz, include_live_context=False)
+    # Return lightweight cards
+    cards = []
+    for g in games_list:
+        cards.append({
+            "gamePk": g.get("gamePk"),
+            "statusPill": g.get("statusPill"),
+            "isLive": g.get("isLive"),
+            "away": {
+                "abbrev": g.get("away", {}).get("abbrev"),
+                "score": g.get("away", {}).get("score"),
+                "logo": g.get("away", {}).get("logo"),
+            },
+            "home": {
+                "abbrev": g.get("home", {}).get("abbrev"),
+                "score": g.get("home", {}).get("score"),
+                "logo": g.get("home", {}).get("logo"),
+            },
+        })
+    return jsonify(cards)
+
 @app.get("/games")
 def games():
     """
@@ -1107,16 +1133,6 @@ def games():
     games_list = get_games_for_date(target, tz_name=user_tz)
 
     auto_advanced = False
-    if not picked and not games_list:
-        try:
-            nxt = find_next_date_with_games(today_ymd, max_days_ahead=120)
-        except Exception:
-            nxt = None
-
-        if nxt:
-            target = nxt
-            games_list = get_games_for_date(target, tz_name=user_tz)
-            auto_advanced = True
 
     if show_wbc:
         try:

@@ -2,60 +2,41 @@
 {% block content %}
 
 <!-- ===================== -->
-<!-- HERO -->
+<!-- HERO                  -->
 <!-- ===================== -->
-<div class="card home-hero">
-  <div class="card-body">
-    <div class="home-hero-grid">
-      <div class="home-hero-left">
-        <div class="home-eyebrow mono">BASEBALL • DATA • VISUALS</div>
-        <div class="home-headline">Basenerd</div>
-        <div class="home-subhead">
-          A modern, stats-first MLB hub — standings, games, teams, player profiles, and deep dives.
+<div class="home-hero-v2">
+  <div class="home-hero-v2-inner">
+    <div class="home-hero-v2-text">
+      <div class="home-eyebrow-v2 mono">BASEBALL  ·  DATA  ·  VISUALS</div>
+      <h1 class="home-headline-v2">Basenerd</h1>
+      <p class="home-subhead-v2">
+        A modern, stats-first MLB hub. Live scores, standings, player profiles, pitcher reports, and deep analytics — all in one place.
+      </p>
+      <div class="home-cta-v2">
+        <a class="btn primary" href="/games">Today's Games</a>
+        <a class="btn" href="/standings">Standings</a>
+        <a class="btn" href="/random-player">Random Player</a>
+      </div>
+    </div>
+    <div class="home-hero-v2-stats">
+      <div class="home-stat-row">
+        <div class="home-stat">
+          <div class="home-stat-num mono">30</div>
+          <div class="home-stat-label">Teams</div>
         </div>
-
-        <div class="home-cta">
-          <a class="btn primary" href="/games">Today’s Games</a>
-          <a class="btn" href="/standings">Standings</a>
-          <a class="btn" href="/random-player">Random Player</a>
-        </div>
-
-        <div class="home-muted muted" style="margin-top:10px; max-width: 720px;">
-          Built as a living project — features roll out continuously. Bookmark it, poke around, and let the numbers tell the story.
+        <div class="home-stat">
+          <div class="home-stat-num mono">1200+</div>
+          <div class="home-stat-label">Active Players</div>
         </div>
       </div>
-
-      <div class="home-hero-right">
-        <div class="home-kpi-grid">
-          <div class="home-kpi">
-            <div class="k mono">Explore</div>
-            <div class="v">Games</div>
-            <div class="muted small">Live • scheduled • final</div>
-          </div>
-          <div class="home-kpi">
-            <div class="k mono">Compare</div>
-            <div class="v">Standings</div>
-            <div class="muted small">Division + wild card</div>
-          </div>
-          <div class="home-kpi">
-            <div class="k mono">Dive In</div>
-            <div class="v">Players</div>
-            <div class="muted small">Stats • awards • bios</div>
-          </div>
-          <div class="home-kpi">
-            <div class="k mono">Build</div>
-            <div class="v">Tools</div>
-            <div class="muted small">Generator + more</div>
-          </div>
+      <div class="home-stat-row">
+        <div class="home-stat">
+          <div class="home-stat-num mono">162</div>
+          <div class="home-stat-label">Games / Team</div>
         </div>
-
-        <div class="home-callout">
-          <div class="home-callout-title">Quick Start</div>
-          <div class="home-callout-links">
-            <a href="/teams" class="home-mini-link">Browse Teams →</a>
-            <a href="/stats" class="home-mini-link">Leaderboards →</a>
-            <a href="/articles" class="home-mini-link">Read Articles →</a>
-          </div>
+        <div class="home-stat">
+          <div class="home-stat-num mono">Live</div>
+          <div class="home-stat-label">Pitch-by-Pitch</div>
         </div>
       </div>
     </div>
@@ -63,7 +44,7 @@
 </div>
 
 <!-- ===================== -->
-<!-- WBC BANNER           -->
+<!-- WBC BANNER            -->
 <!-- ===================== -->
 <a href="/wbc" class="wbc-home-banner" style="display:block; text-decoration:none; margin-top:14px;">
   <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
@@ -72,7 +53,7 @@
       <div>
         <div style="font-size:11px; font-weight:900; letter-spacing:1.5px; opacity:0.75; text-transform:uppercase; margin-bottom:3px;">Now Underway</div>
         <div style="font-size:20px; font-weight:900; letter-spacing:0.2px;">2026 World Baseball Classic</div>
-        <div style="font-size:12px; opacity:0.75; margin-top:3px;">Games • Pool Standings • All 20 National Teams</div>
+        <div style="font-size:12px; opacity:0.75; margin-top:3px;">Games · Pool Standings · All 20 National Teams</div>
       </div>
     </div>
     <div style="font-size:13px; font-weight:900; opacity:0.85; white-space:nowrap;">View WBC →</div>
@@ -97,106 +78,113 @@
 </style>
 
 <!-- ===================== -->
-<!-- START HERE -->
+<!-- FEATURE CARDS         -->
 <!-- ===================== -->
-<div class="card" style="margin-top:14px;">
-  <div class="card-header">
-    <div>
-      <div class="card-title">Start here</div>
-      <div class="card-subtitle">Pick a lane — everything stays fast + stats-forward</div>
+<div class="home-features" style="margin-top:14px;">
+
+  <a href="/games" class="home-feature-card">
+    <div class="home-feature-icon">&#9918;</div>
+    <div class="home-feature-body">
+      <div class="home-feature-title">Games</div>
+      <div class="home-feature-desc">Live scores, box scores, GameCast with pitch-by-pitch tracking, and full game detail pages.</div>
     </div>
-  </div>
+    <div class="home-feature-arrow">→</div>
+  </a>
 
-  <div class="card-body">
-    <div class="home-nav-grid">
-
-      <a href="/games" class="card home-nav-card home-nav-tile">
-        <div class="home-nav-top">
-          <div class="home-nav-emoji">📅</div>
-          <div class="home-nav-title">Games</div>
-        </div>
-        <div class="card-subtitle" style="padding-left: 6px;">Today, upcoming, finals • game pages with detail</div>
-      </a>
-
-      <a href="/standings" class="card home-nav-card home-nav-tile">
-        <div class="home-nav-top">
-          <div class="home-nav-emoji">🏁</div>
-          <div class="home-nav-title">Standings</div>
-        </div>
-        <div class="card-subtitle" style="padding-left: 6px;">Division + wild card views • postseason context</div>
-      </a>
-
-      <a href="/teams" class="card home-nav-card home-nav-tile">
-        <div class="home-nav-top">
-          <div class="home-nav-emoji">🧢</div>
-          <div class="home-nav-title">Teams</div>
-        </div>
-        <div class="card-subtitle" style="padding-left: 6px;">Rosters, schedules, leaders, transactions</div>
-      </a>
-
-      <a href="/players" class="card home-nav-card home-nav-tile">
-        <div class="home-nav-top">
-          <div class="home-nav-emoji">👤</div>
-          <div class="home-nav-title">Players</div>
-        </div>
-        <div class="card-subtitle" style="padding-left: 6px;">Profiles • year-by-year • awards • career totals</div>
-      </a>
-
-      <a href="/stats" class="card home-nav-card home-nav-tile">
-        <div class="home-nav-top">
-          <div class="home-nav-emoji">📊</div>
-          <div class="home-nav-title">Stats</div>
-        </div>
-        <div class="card-subtitle" style="padding-left: 6px;">Sortable leaderboards • filters • columns</div>
-      </a>
-
-      <a href="/random-player" class="card home-nav-card home-nav-tile">
-        <div class="home-nav-top">
-          <div class="home-nav-emoji">🎲</div>
-          <div class="home-nav-title">Random Player</div>
-        </div>
-        <div class="card-subtitle" style="padding-left: 6px;">A fun way to discover new profiles</div>
-      </a>
-
+  <a href="/standings" class="home-feature-card">
+    <div class="home-feature-icon">&#127942;</div>
+    <div class="home-feature-body">
+      <div class="home-feature-title">Standings</div>
+      <div class="home-feature-desc">Division standings, wild card race, and postseason bracket context — always up to date.</div>
     </div>
-  </div>
+    <div class="home-feature-arrow">→</div>
+  </a>
+
+  <a href="/players" class="home-feature-card">
+    <div class="home-feature-icon">&#129351;</div>
+    <div class="home-feature-body">
+      <div class="home-feature-title">Players</div>
+      <div class="home-feature-desc">Full profiles with year-by-year stats, awards, career totals, and pitcher reports with Stuff+ grades.</div>
+    </div>
+    <div class="home-feature-arrow">→</div>
+  </a>
+
+  <a href="/stats" class="home-feature-card">
+    <div class="home-feature-icon">&#128202;</div>
+    <div class="home-feature-body">
+      <div class="home-feature-title">Leaderboards</div>
+      <div class="home-feature-desc">Sortable stat leaderboards with filters, percentile rankings, and custom column views.</div>
+    </div>
+    <div class="home-feature-arrow">→</div>
+  </a>
+
+  <a href="/teams" class="home-feature-card">
+    <div class="home-feature-icon">&#129406;</div>
+    <div class="home-feature-body">
+      <div class="home-feature-title">Teams</div>
+      <div class="home-feature-desc">Full 40-man rosters, schedules, team leaders, and recent transactions for all 30 clubs.</div>
+    </div>
+    <div class="home-feature-arrow">→</div>
+  </a>
+
+  <a href="/random-player" class="home-feature-card">
+    <div class="home-feature-icon">&#127922;</div>
+    <div class="home-feature-body">
+      <div class="home-feature-title">Random Player</div>
+      <div class="home-feature-desc">Discover someone new. One click and you're on a random active player's profile.</div>
+    </div>
+    <div class="home-feature-arrow">→</div>
+  </a>
+
 </div>
 
 <!-- ===================== -->
-<!-- RECENT ARTICLES -->
+<!-- RECENT ARTICLES       -->
 <!-- ===================== -->
+{% if articles and articles|length > 0 %}
 <div class="card" style="margin-top:14px;">
   <div class="card-header">
     <div>
       <div class="card-title">Recent Articles</div>
-      <div class="card-subtitle">Latest from basenerd</div>
+      <div class="card-subtitle">Latest from Basenerd</div>
     </div>
-    <a href="/articles" class="small">View all →</a>
+    <a href="/articles" class="small" style="white-space:nowrap;">View all →</a>
   </div>
 
   <div class="card-body">
-    {% if articles and articles|length > 0 %}
-      <div class="home-articles">
-        {% for a in articles[:6] %}
-          <a class="home-article" href="{{ a.url if a.url is defined else ('/article/' ~ a.slug) }}">
-            <div class="home-article-title">{{ a.title }}</div>
-            <div class="home-article-row">
-              {% if a.date %}
-                <div class="home-article-meta mono">{{ a.date }}</div>
-              {% endif %}
-              <div class="home-article-pill">Read</div>
-            </div>
-            {% if a.snippet %}
-              <div class="home-article-snippet">{{ a.snippet }}</div>
+    <div class="home-articles">
+      {% for a in articles[:6] %}
+        <a class="home-article" href="{{ a.url if a.url is defined else ('/article/' ~ a.slug) }}">
+          <div class="home-article-title">{{ a.title }}</div>
+          <div class="home-article-row">
+            {% if a.date %}
+              <div class="home-article-meta mono">{{ a.date }}</div>
             {% endif %}
-          </a>
-        {% endfor %}
+            <div class="home-article-pill">Read</div>
+          </div>
+          {% if a.snippet %}
+            <div class="home-article-snippet">{{ a.snippet }}</div>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ===================== -->
+<!-- ABOUT BLURB           -->
+<!-- ===================== -->
+<div class="home-about" style="margin-top:14px;">
+  <div class="home-about-inner">
+    <div class="home-about-text">
+      <div style="font-weight:900; margin-bottom:4px;">Built as a living project</div>
+      <div class="muted" style="font-size:13px; line-height:1.45;">
+        Features roll out continuously. Bookmark it, poke around, and let the numbers tell the story.
+        Data powered by MLB Stats API and Statcast.
       </div>
-    {% else %}
-      <div class="muted">
-        No articles yet — once you publish, your latest posts will appear here.
-      </div>
-    {% endif %}
+    </div>
+    <a href="/about" class="btn" style="flex:0 0 auto;">About Basenerd →</a>
   </div>
 </div>
 

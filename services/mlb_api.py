@@ -2777,7 +2777,7 @@ def get_schedule_for_dates(start_date_ymd: str, end_date_ymd: str) -> dict:
         "startDate": start_date_ymd,
         "endDate": end_date_ymd,
         # linescore gives inning info; probables/decisions are nice-to-have
-        "hydrate": "team,linescore,probablePitchers,decisions,venue,seriesStatus",
+        "hydrate": "team,linescore,probablePitcher(note),probablePitchers,decisions,venue,seriesStatus",
     }
     r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()

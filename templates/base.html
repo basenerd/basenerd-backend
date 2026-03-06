@@ -110,6 +110,86 @@
       /* ----------------------------- */
       /* OPENING DAY COUNTDOWN (HOME)  */
       /* ----------------------------- */
+      /* ----------------------------- */
+      /* GLOBAL GAME TICKER            */
+      /* ----------------------------- */
+      .game-ticker{
+        width:100%;
+        overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
+        scrollbar-width:none;
+        background: rgba(255,255,255,.04);
+        border-bottom: 1px solid rgba(226,232,240,.12);
+      }
+      .game-ticker::-webkit-scrollbar{ display:none; }
+      .game-ticker-track{
+        display:flex;
+        gap:0;
+        min-width:max-content;
+        padding:0;
+      }
+      .ticker-game{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        padding:7px 16px;
+        border-right:1px solid rgba(226,232,240,.15);
+        text-decoration:none;
+        color:inherit;
+        white-space:nowrap;
+        flex:0 0 auto;
+        transition: background .1s ease;
+      }
+      .ticker-game:hover{
+        background: rgba(255,255,255,.06);
+        text-decoration:none;
+      }
+      .ticker-game .t-matchup{
+        display:flex;
+        flex-direction:column;
+        gap:2px;
+        font-size:12px;
+        font-weight:700;
+      }
+      .ticker-game .t-row{
+        display:flex;
+        align-items:center;
+        gap:6px;
+      }
+      .ticker-game .t-logo{
+        width:14px;
+        height:14px;
+      }
+      .ticker-game .t-abbrev{
+        min-width:28px;
+      }
+      .ticker-game .t-score{
+        font-family:"IBM Plex Mono", monospace;
+        font-weight:900;
+        min-width:16px;
+        text-align:right;
+      }
+      .ticker-game .t-status{
+        font-size:10px;
+        font-weight:900;
+        opacity:.7;
+        font-family:"IBM Plex Mono", monospace;
+        letter-spacing:.3px;
+        text-transform:uppercase;
+        max-width:64px;
+        text-align:center;
+        line-height:1.2;
+      }
+      .ticker-game.is-live .t-status{
+        color:#22c55e;
+        opacity:1;
+      }
+      .ticker-nogames{
+        padding:7px 16px;
+        font-size:12px;
+        opacity:.6;
+      }
+
       .opening-day-countdown{
         margin: 10px auto 10px auto;
         max-width: 980px;
@@ -214,6 +294,13 @@
              class="site-banner">
           </div>
 
+          <!-- Global game ticker -->
+          <div id="gameTicker" class="game-ticker">
+            <div class="game-ticker-track" id="gameTickerTrack">
+              <div class="game-ticker-loading muted mono" style="font-size:12px; padding:6px 0;">Loading games...</div>
+            </div>
+          </div>
+
           <!-- Opening Day countdown (HOME ONLY) -->
           {% if request.path == "/" %}
             <div id="openingDayCountdown" class="opening-day-countdown">
@@ -311,6 +398,44 @@
 
         tick();
         setInterval(tick, 1000);
+      })();
+
+      // Global game ticker
+      (function () {
+        const track = document.getElementById("gameTickerTrack");
+        if (!track) return;
+
+        fetch("/api/ticker.json")
+          .then(r => r.json())
+          .then(games => {
+            if (!games || !games.length) {
+              track.innerHTML = '<div class="ticker-nogames mono">No games today</div>';
+              return;
+            }
+            track.innerHTML = games.map(g => {
+              const live = g.isLive ? ' is-live' : '';
+              const awayScore = g.away.score != null ? g.away.score : '—';
+              const homeScore = g.home.score != null ? g.home.score : '—';
+              return `<a class="ticker-game${live}" href="/game/${g.gamePk}">
+                <div class="t-matchup">
+                  <div class="t-row">
+                    <img class="t-logo" src="${g.away.logo}" alt="">
+                    <span class="t-abbrev">${g.away.abbrev}</span>
+                    <span class="t-score">${awayScore}</span>
+                  </div>
+                  <div class="t-row">
+                    <img class="t-logo" src="${g.home.logo}" alt="">
+                    <span class="t-abbrev">${g.home.abbrev}</span>
+                    <span class="t-score">${homeScore}</span>
+                  </div>
+                </div>
+                <div class="t-status">${g.statusPill}</div>
+              </a>`;
+            }).join('');
+          })
+          .catch(() => {
+            track.innerHTML = '<div class="ticker-nogames mono">—</div>';
+          });
       })();
     </script>
   </body>
