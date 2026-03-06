@@ -205,8 +205,7 @@ def _fetch_pitches(
         base_filter += " AND sp.game_pk = %s"
         params.append(int(game_pk))
 
-    sql_with_stuff = f"""
-    SELECT
+    _join_cols = """
       sp.game_pk,
       sp.game_date,
       sp.at_bat_number,
@@ -224,9 +223,9 @@ def _fetch_pitches(
       sp.description,
       sp.estimated_woba_using_speedangle,
       sp.zone,
-      sp.events,
-      spl.stuff_plus,
-      spl.control_plus
+      sp.events"""
+
+    _join_clause = f"""
     FROM statcast_pitches sp
     LEFT JOIN statcast_pitches_live spl
       ON sp.game_pk = spl.game_pk
@@ -235,7 +234,12 @@ def _fetch_pitches(
     {base_filter}
     """
 
-    # Fallback: no JOIN, no stuff_plus
+    # Try with both stuff_plus and control_plus first
+    sql_both = f"SELECT {_join_cols}, spl.stuff_plus, spl.control_plus {_join_clause}"
+    # Fallback: stuff_plus only (control_plus column may not exist yet)
+    sql_stuff_only = f"SELECT {_join_cols}, spl.stuff_plus, NULL as control_plus {_join_clause}"
+
+    # Final fallback: no JOIN, no stuff_plus
     fb_filter = base_filter.replace("sp.", "")
     fb_params: List[Any] = [int(pitcher_id), int(season)]
     if game_pk:
@@ -268,10 +272,14 @@ def _fetch_pitches(
     with psycopg.connect(_db_url()) as conn:
         with conn.cursor() as cur:
             try:
-                cur.execute(sql_with_stuff, params)
+                cur.execute(sql_both, params)
             except Exception:
                 conn.rollback()
-                cur.execute(sql_fallback, fb_params)
+                try:
+                    cur.execute(sql_stuff_only, params)
+                except Exception:
+                    conn.rollback()
+                    cur.execute(sql_fallback, fb_params)
             rows = cur.fetchall()
             cols = [d.name for d in cur.description]
             return [dict(zip(cols, r)) for r in rows]
