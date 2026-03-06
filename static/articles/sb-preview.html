@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Article Preview — Stolen Base Break-Even</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+<div class="wrap">
+<div class="card">
+<div class="card-header">
+  <div>
+    <div class="article-title">When Is a Stolen Base Worth the Risk? A Monte Carlo Approach</div>
+    <div class="card-subtitle">2026-03-06 &bull; Nick Labella</div>
+  </div>
+  <div><a class="small" href="#">&larr; All Articles</a></div>
+</div>
+<div class="card-body">
+<div class="article-content">
+
+<p>Every stolen base attempt is a gamble. A successful steal puts a runner in scoring position. A failed one burns an out and removes a baserunner. But how good does the odds need to be for the gamble to pay off?</p>
+<p>We built a Monte Carlo simulation to answer that question for every realistic steal scenario, and the results challenge some conventional wisdom about when to run.</p>
+
+<h2>The Problem</h2>
+<p>Baseball managers have always relied on gut feel and general rules of thumb when deciding whether to send a runner. The classic guideline says you need about a 70% success rate to justify stealing second base. But that number doesn&rsquo;t account for the base/out state &ndash; and as we&rsquo;ll show, context matters a lot.</p>
+<p>The real question isn&rsquo;t &ldquo;can this runner steal a base?&rdquo; It&rsquo;s <strong>&ldquo;does stealing this base in this specific situation produce more runs than standing still?&rdquo;</strong></p>
+
+<h2>Run Expectancy: The Foundation</h2>
+<p>Before we can evaluate steals, we need to know what each base/out state is actually worth. Run expectancy tells us the average number of runs a team will score from any given point in an inning through the end of that inning.</p>
+<p>We calculated run expectancy by simulating 20,000 half-innings for each of the 24 possible base/out states (8 base combinations &times; 3 out states) using a Monte Carlo model. The model uses league-average event probabilities, spray direction distributions, and a runner advancement matrix built from real Statcast data.</p>
+
+<figure class="article-figure">
+<img src="sb-re-matrix.png" alt="Run Expectancy Matrix">
+<figcaption>Expected runs scored for the remainder of the inning from each base/out state</figcaption>
+</figure>
+
+<p>A few things jump out immediately:</p>
+<ul>
+<li><strong>Outs are expensive.</strong> Going from 0 outs to 1 out in any base state drops your expected runs by roughly 35&ndash;45%.</li>
+<li><strong>The difference between 2nd and 3rd isn&rsquo;t as big as you&rsquo;d think.</strong> Runner on 2nd with 0 outs is worth 1.000 runs; runner on 3rd with 0 outs is 1.222. That&rsquo;s only a 0.222 run gain for a successful steal of third.</li>
+<li><strong>With 2 outs, the gap shrinks further.</strong> Runner on 2nd, 2 outs: 0.329. Runner on 3rd, 2 outs: 0.347. Almost identical &ndash; the runner is nearly as likely to score from second as from third with two outs.</li>
+</ul>
+<p>This is the table that powers everything that follows.</p>
+
+<h2>The Method</h2>
+<p>For each steal scenario, there are two possible outcomes:</p>
+<ol>
+<li><strong>Success</strong>: The runner advances, and the new base/out state has a different (hopefully higher) run expectancy</li>
+<li><strong>Failure</strong>: The runner is caught, adding an out and removing them from the bases</li>
+</ol>
+<p>We can find the break-even point &ndash; the minimum success rate where the steal has positive expected value &ndash; with a simple formula:</p>
+
+<figure class="article-figure">
+<img src="sb-scenario-example.png" alt="Steal scenario example">
+<figcaption>Worked example: Runner on 1st, 0 outs attempts to steal 2nd</figcaption>
+</figure>
+
+<p><strong>Break-Even % = (RE<sub>current</sub> &minus; RE<sub>failure</sub>) / (RE<sub>success</sub> &minus; RE<sub>failure</sub>)</strong></p>
+<p>If your runner&rsquo;s estimated success rate is <em>above</em> the break-even, send him. If it&rsquo;s <em>below</em>, hold him.</p>
+
+<h2>The Results</h2>
+<p>We evaluated five steal scenarios that cover the vast majority of real-game stolen base attempts:</p>
+
+<figure class="article-figure">
+<img src="sb-breakeven-matrix.png" alt="Full break-even matrix">
+<figcaption>Minimum success rate needed for a +EV steal attempt in each scenario</figcaption>
+</figure>
+
+<h3>Stealing Second (Runner on First Only)</h3>
+<p>The textbook steal. Our model shows break-evens of <strong>76.9%</strong> with 0 outs, <strong>69.9%</strong> with 1 out, and <strong>67.9%</strong> with 2 outs.</p>
+<p>The 70% rule of thumb holds up reasonably well here, especially with 1 or 2 outs. But with 0 outs, the bar is a bit higher than most people assume &ndash; you need closer to 77% to justify it. That&rsquo;s because with nobody out, you still have plenty of plate appearances to drive the runner in without risking the out.</p>
+
+<h3>Stealing Third (Runner on Second Only)</h3>
+<p>This is where things get interesting. Stealing third with 0 or 1 out requires about <strong>75&ndash;77%</strong> success, which is similar to stealing second. But with 2 outs, the break-even spikes to <strong>94.7%</strong> &ndash; meaning you almost never want to attempt it.</p>
+<p>Why? Because the run expectancy gain from 2nd to 3rd with 2 outs is tiny (0.329 to 0.347), but the cost of being caught is total (the inning is over). You&rsquo;re risking everything for almost nothing.</p>
+
+<h3>The Double Steal: A Hidden Edge</h3>
+<p>Here&rsquo;s the most interesting finding. With runners on first and second, teams have two options: send just the lead runner to third, or attempt a double steal.</p>
+
+<figure class="article-figure">
+<img src="sb-double-vs-lead.png" alt="Double steal vs lead steal comparison">
+<figcaption>Sending both runners drops the break-even by 20+ percentage points</figcaption>
+</figure>
+
+<p>The difference is dramatic:</p>
+<ul>
+<li><strong>Lead runner steals 3rd only:</strong> 85% / 84% / 98% break-even &ndash; extremely hard to justify</li>
+<li><strong>Double steal (both advance):</strong> 65% / 59% / 78% break-even &ndash; much more favorable</li>
+</ul>
+<p>The double steal with 1 out has the <strong>lowest break-even on the entire board at 59.3%</strong>. The reason: you&rsquo;re going from runners on 1st and 2nd (RE: 0.882) to runners on 2nd and 3rd (RE: 1.263) &ndash; a massive 0.381 run gain. And if caught, you drop to runner on 2nd with 2 outs (RE: 0.329), which isn&rsquo;t catastrophic.</p>
+<p>Meanwhile, sending only the lead runner to third gains much less (1st &amp; 2nd to 1st &amp; 3rd is a smaller RE jump), and if he&rsquo;s caught you&rsquo;re down to just a runner on first with an extra out.</p>
+<p>The takeaway: <strong>if you&rsquo;re going to steal with runners on first and second, send both runners.</strong> A double steal is dramatically easier to justify than sending the lead runner alone.</p>
+
+<h3>Stealing Second with Runners on First and Third</h3>
+<p>With runners on the corners, the steal of second has break-evens of <strong>74.8%</strong> (0 out), <strong>72.6%</strong> (1 out), and <strong>79.6%</strong> (2 out). These are slightly higher than a straight steal of second because the runner on third provides a safety net &ndash; even if the steal fails, you still have the lead runner on third (though with an extra out).</p>
+<p>The 2-out number is notably higher at 79.6% because getting caught at second with 2 outs ends the inning and strands the runner on third.</p>
+
+<h2>Practical Takeaways</h2>
+<p><strong>1. The 70% rule is a decent starting point, but context matters.</strong><br>
+Stealing second with 0 outs actually requires closer to 77%. With 2 outs, 68% is enough. The &ldquo;right&rdquo; number shifts by up to 10 percentage points depending on the situation.</p>
+<p><strong>2. Don&rsquo;t steal third with 2 outs. Almost ever.</strong><br>
+You need a 95%+ success rate. Unless you&rsquo;re facing a catcher who literally cannot throw, hold the runner. The same applies to sending just the lead runner from 1st &amp; 2nd &ndash; 98% break-even with 2 outs means it&rsquo;s essentially never worth it.</p>
+<p><strong>3. Double steals are underrated.</strong><br>
+At 59% break-even with 1 out, the double steal is the single most favorable steal opportunity on the board. Teams should be looking for double steal opportunities with runners on first and second far more often than they currently do.</p>
+<p><strong>4. Outs are the most valuable currency in baseball.</strong><br>
+The running theme across every scenario: outs are precious. Any time you risk trading a baserunner for an out, the bar for justification is high. The scenarios where steals are cheapest are the ones where the positional gain is largest relative to the out risk.</p>
+
+<figure class="article-figure">
+<img src="sb-breakeven-bars.png" alt="Break-even by scenario and outs">
+<figcaption>All five scenarios compared &mdash; the 70% rule of thumb only tells part of the story</figcaption>
+</figure>
+
+<h2>Methodology</h2>
+<p>This analysis uses a Monte Carlo simulation engine that models half-innings from any base/out state. For each state, we simulate 20,000 half-innings using:</p>
+<ul>
+<li><strong>League-average event probabilities</strong> (22% K rate, 8.5% BB rate, BIP mix including ground ball outs, fly ball outs, singles, doubles, triples, and home runs)</li>
+<li><strong>Spray direction distributions</strong> (38% pull, 34% center, 28% opposite field)</li>
+<li><strong>A runner advancement probability matrix</strong> built from historical Statcast data, accounting for the specific event type, base state, outs, and spray direction</li>
+</ul>
+<p>The break-even probabilities are derived algebraically from the simulated run expectancy values, not from simulating the steal attempts themselves. This gives us clean, interpretable results tied directly to the underlying run environment.</p>
+<p>All code and data behind this analysis are part of the Basenerd analytics platform.</p>
+
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>
