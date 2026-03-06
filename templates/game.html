@@ -1944,14 +1944,14 @@
               <div style="font-weight:900; margin-bottom:6px;">{{ away.name or away.abbrev }}</div>
               <select id="pr-away-sel" style="width:100%; padding:6px 8px; background:#1e2a3a; border:1px solid rgba(148,163,184,.3); color:inherit; border-radius:6px; font-size:13px;">
                 <option value="">— Select Pitcher —</option>
-                {% for p in (game.box.away.pitching or []) %}{% if not p.isTotals and p.playerId %}<option value="{{ p.playerId }}">{{ p.name }}</option>{% endif %}{% endfor %}
+                {% if game.box and game.box.away %}{% for p in (game.box.away.pitching or []) %}{% if not p.isTotals and p.playerId %}<option value="{{ p.playerId }}">{{ p.name }}</option>{% endif %}{% endfor %}{% endif %}
               </select>
             </div>
             <div>
               <div style="font-weight:900; margin-bottom:6px;">{{ home.name or home.abbrev }}</div>
               <select id="pr-home-sel" style="width:100%; padding:6px 8px; background:#1e2a3a; border:1px solid rgba(148,163,184,.3); color:inherit; border-radius:6px; font-size:13px;">
                 <option value="">— Select Pitcher —</option>
-                {% for p in (game.box.home.pitching or []) %}{% if not p.isTotals and p.playerId %}<option value="{{ p.playerId }}">{{ p.name }}</option>{% endif %}{% endfor %}
+                {% if game.box and game.box.home %}{% for p in (game.box.home.pitching or []) %}{% if not p.isTotals and p.playerId %}<option value="{{ p.playerId }}">{{ p.name }}</option>{% endif %}{% endfor %}{% endif %}
               </select>
             </div>
           </div>
@@ -3855,6 +3855,29 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const pid = parseInt(opt.value) || null;
       loadPitcherReport(side, pid, opt.text);
     });
+  });
+
+  // Auto-load first pitcher (starting pitcher) for each side
+  function autoLoadStarters(){
+    ["away","home"].forEach(side=>{
+      const sel = document.getElementById(`pr-${side}-sel`);
+      if(!sel || sel.options.length < 2) return; // no pitchers available
+      sel.selectedIndex = 1; // select the first pitcher (index 0 is "— Select Pitcher —")
+      const opt = sel.options[1];
+      const pid = parseInt(opt.value) || null;
+      if(pid) loadPitcherReport(side, pid, opt.text);
+    });
+  }
+
+  // Auto-load when analytics tab is first opened
+  let _prAutoLoaded = false;
+  document.addEventListener("click", (e)=>{
+    if(_prAutoLoaded) return;
+    const a = e.target && (e.target.closest ? e.target.closest('[data-tab="analytics"]') : null);
+    if(a){
+      _prAutoLoaded = true;
+      autoLoadStarters();
+    }
   });
 })();
 </script>
