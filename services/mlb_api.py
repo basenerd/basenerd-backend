@@ -990,21 +990,12 @@ def to_float(x) -> Optional[float]:
 def _get_ivb_hb(pitch_data: dict) -> tuple[Optional[float], Optional[float]]:
     """Return (IVB, HB) in inches.
 
-    IVB = vertical_break_inches - (523 / speed)^2
-
-    Tries these vertical-break sources in order:
-      1. pitchData.breaks.breakVertical  (inches, gravity-included)
-      2. pitchData.breaks.pfxZ / pitchData.pfxZ  (often in feet)
-      3. pitchData.breaks.inducedVerticalBreak  (inches)
-
-    HB sources:
-      1. pitchData.breaks.horizontalBreak  (inches)
-      2. pitchData.breaks.pfxX / pitchData.pfxX  (often in feet)
-      3. pitchData.breaks.breakHorizontal  (inches)
+    Prefers already-induced sources (inducedVerticalBreak, pfxZ) which need
+    no gravity correction.  Falls back to breakVertical (gravity-included,
+    negative-down convention) and applies:  IVB = breakVertical + (523/speed)^2
     """
     pitch_data = pitch_data or {}
     breaks = pitch_data.get("breaks") or {}
-    speed = to_float(pitch_data.get("startSpeed"))
 
     def _maybe_inches(v: Optional[float]) -> Optional[float]:
         v = to_float(v)
@@ -1012,33 +1003,25 @@ def _get_ivb_hb(pitch_data: dict) -> tuple[Optional[float], Optional[float]]:
             return None
         return v * 12.0 if abs(v) < 5.0 else v
 
-    # --- Vertical break → IVB via gravity formula ---
-    vb_raw = None
+    # --- IVB ---
+    # 1. inducedVerticalBreak (already gravity-removed, inches)
+    ivb = to_float(breaks.get("inducedVerticalBreak"))
 
-    # Prefer breakVertical (gravity-included total movement, inches)
-    bv = to_float(breaks.get("breakVertical"))
-    if bv is not None:
-        vb_raw = bv
-
-    # Fallback: pfxZ (often in feet)
-    if vb_raw is None:
+    # 2. pfxZ (already induced, often in feet → convert to inches)
+    if ivb is None:
         pfxz = pitch_data.get("pfxZ") if pitch_data.get("pfxZ") is not None else breaks.get("pfxZ")
-        pfxz = _maybe_inches(pfxz)
-        if pfxz is not None:
-            vb_raw = pfxz
+        ivb = _maybe_inches(pfxz)
 
-    # Fallback: inducedVerticalBreak (inches)
-    if vb_raw is None:
-        ivb_raw = to_float(breaks.get("inducedVerticalBreak"))
-        if ivb_raw is not None:
-            vb_raw = ivb_raw
+    # 3. breakVertical (gravity-included, negative-down convention in inches)
+    #    IVB = breakVertical + (523/speed)^2  (adds gravity back to isolate spin effect)
+    if ivb is None:
+        vb_raw = to_float(breaks.get("breakVertical"))
+        if vb_raw is not None:
+            speed = to_float(pitch_data.get("startSpeed"))
+            if speed and speed > 0:
+                ivb = vb_raw + (523.0 / speed) ** 2
 
-    # Apply gravity correction: IVB = vb - (523/speed)^2
-    ivb = None
-    if vb_raw is not None and speed and speed > 0:
-        ivb = vb_raw - (523.0 / speed) ** 2
-
-    # --- Horizontal break ---
+    # --- HB ---
     hb = to_float(breaks.get("horizontalBreak"))
     if hb is None:
         pfxx = pitch_data.get("pfxX") if pitch_data.get("pfxX") is not None else breaks.get("pfxX")

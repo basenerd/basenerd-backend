@@ -355,16 +355,7 @@ def pitching_report_summary(
         velo = [_safe_float(x.get("release_speed")) for x in rows]
         spin = [_safe_float(x.get("release_spin_rate")) for x in rows]
         hb = [_safe_float(x.get("pfx_x")) for x in rows]  # feet
-        vb = [_safe_float(x.get("pfx_z")) for x in rows]  # feet
-        # IVB = (pfx_z in inches) - (523/speed)^2
-        ivb_vals = []
-        for x in rows:
-            v = _safe_float(x.get("pfx_z"))
-            s = _safe_float(x.get("release_speed"))
-            if v is not None and s is not None and s > 0:
-                ivb_vals.append(v * 12.0 - (523.0 / s) ** 2)
-            else:
-                ivb_vals.append(None)
+        vb = [_safe_float(x.get("pfx_z")) for x in rows]  # feet (already induced / gravity-removed)
         sp_vals = [_safe_float(x.get("stuff_plus")) for x in rows]
         cp_vals = [_safe_float(x.get("control_plus")) for x in rows]
 
@@ -425,7 +416,7 @@ def pitching_report_summary(
                 "velo": _mean(velo),
                 "spin": _mean(spin),
                 "hb": (_mean(hb) * 12.0) if _mean(hb) is not None else None,  # inches
-                "ivb": _mean([v for v in ivb_vals if v is not None]),  # inches (gravity-corrected)
+                "ivb": (_mean(vb) * 12.0) if _mean(vb) is not None else None,  # inches (pfx_z already induced)
                 "xwoba": _mean(xw_list),
                 "whiff": (100.0 * whiffs / swings) if swings else None,
                 "zone_pct": (100.0 * in_zone / n) if n else None,
@@ -591,10 +582,6 @@ def pitching_scatter(
             continue
         hb = _safe_float(r.get("pfx_x"))
         vb = _safe_float(r.get("pfx_z"))
-        spd = _safe_float(r.get("release_speed"))
-        ivb = None
-        if vb is not None and spd is not None and spd > 0:
-            ivb = vb * 12.0 - (523.0 / spd) ** 2
         out.append({
             "pitch_type": pt,
             "pitch_name": r.get("pitch_name") or pt,
@@ -602,7 +589,7 @@ def pitching_scatter(
             "plate_x": _safe_float(r.get("plate_x")),
             "plate_z": _safe_float(r.get("plate_z")),
             "hb": (hb * 12.0) if hb is not None else None,
-            "ivb": ivb,
+            "ivb": (vb * 12.0) if vb is not None else None,
         })
     return out
 
