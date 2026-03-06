@@ -4196,6 +4196,7 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                 "batterName": (batter_obj.get("fullName") or "").strip(),
                 "pitcherId": pitcher_obj.get("id"),
                 "pitcherName": (pitcher_obj.get("fullName") or "").strip(),
+                "stand": ((matchup.get("batSide") or {}).get("code") or "").upper(),
             }
         )
 

@@ -3688,6 +3688,26 @@ document.addEventListener("DOMContentLoaded", ()=>{
     home: {{ ((game.box.home.pitching) | tojson) if (game.box and game.box.home) else "[]" }},
   };
 
+  // PBP pitch data grouped by pitcherId (fallback when statcast DB has no data)
+  {# Build lean pitch array in Jinja to avoid serializing all of game.pas #}
+  {% set _pbp_pitches = [] %}
+  {% for pa in (game.pas or []) %}
+    {% if pa.pitcherId %}
+      {% for p in (pa.pitches or []) %}
+        {% set _ = _pbp_pitches.append({"pid": pa.pitcherId, "tc": p.typeCode or "", "pn": p.pitchType or "", "mph": p.mph, "spin": p.spinRate, "px": p.px, "pz": p.pz, "hb": p.horizMove, "ivb": p.vertMove, "call": p.call or "", "stand": pa.stand or ""}) %}
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+  const PBP_PITCHES = (function(){
+    const raw = {{ _pbp_pitches | tojson }};
+    const byPitcher = {};
+    for(const p of raw){
+      if(!byPitcher[p.pid]) byPitcher[p.pid] = [];
+      byPitcher[p.pid].push(p);
+    }
+    return byPitcher;
+  })();
+
   const PT_COLORS = {
     "FF":"#d9534f","FT":"#f0ad4e","SI":"#f0ad4e","FC":"#5bc0de",
     "SL":"#ffd54f","ST":"#ffd54f","SV":"#9b59b6","CU":"#5dade2",
@@ -3801,6 +3821,81 @@ document.addEventListener("DOMContentLoaded", ()=>{
     div.style.display = (awayVis && homeVis) ? "block" : "none";
   }
 
+  // Build mix + scatter from PBP data (fallback when statcast DB has no data)
+  function buildFromPBP(pitcherId){
+    const raw = PBP_PITCHES[pitcherId];
+    if(!raw || !raw.length) return null;
+
+    const SWING_CALLS = new Set(["Swinging Strike","Swinging Strike (Blocked)","Foul","Foul Tip",
+      "Foul Bunt","In play, no out","In play, out(s)","In play, run(s)"]);
+    const WHIFF_CALLS = new Set(["Swinging Strike","Swinging Strike (Blocked)"]);
+
+    const byType = {};
+    for(const p of raw){
+      const tc = p.tc || "UNK";
+      if(!byType[tc]) byType[tc] = {pitches:[], name: p.pn || tc};
+      byType[tc].pitches.push(p);
+    }
+
+    const total = raw.length;
+    const mix = [];
+    const scatter = [];
+
+    for(const [tc, data] of Object.entries(byType)){
+      const pts = data.pitches;
+      const n = pts.length;
+
+      const velos = pts.map(p=>p.mph).filter(v=>v!=null);
+      const avgVelo = velos.length ? velos.reduce((a,b)=>a+b,0)/velos.length : null;
+      const spins = pts.map(p=>p.spin).filter(v=>v!=null);
+      const avgSpin = spins.length ? spins.reduce((a,b)=>a+b,0)/spins.length : null;
+
+      let swings=0, whiffs=0, inZone=0, ooz=0, oozSwings=0;
+      for(const p of pts){
+        const c = p.call;
+        if(SWING_CALLS.has(c)) swings++;
+        if(WHIFF_CALLS.has(c)) whiffs++;
+        // Zone approximation: px in [-0.83,0.83] and pz in [1.5,3.5]
+        if(p.px!=null && p.pz!=null){
+          const iz = (p.px >= -0.83 && p.px <= 0.83 && p.pz >= 1.5 && p.pz <= 3.5);
+          if(iz) inZone++;
+          else { ooz++; if(SWING_CALLS.has(c)) oozSwings++; }
+        }
+      }
+
+      mix.push({
+        pitch_type: tc,
+        pitch_name: data.name,
+        n: n,
+        usage: (100*n/total),
+        velo: avgVelo,
+        spin: avgSpin,
+        whiff: swings ? (100*whiffs/swings) : null,
+        zone_pct: n ? (100*inZone/n) : null,
+        chase_pct: ooz ? (100*oozSwings/ooz) : null,
+        stuff_plus: null,
+        control_plus: null,
+      });
+
+      for(const p of pts){
+        if(p.px!=null && p.pz!=null){
+          scatter.push({
+            pitch_type: tc,
+            pitch_name: data.name,
+            stand: (p.stand || "").toUpperCase(),
+            plate_x: p.px,
+            plate_z: p.pz,
+            hb: p.hb,
+            ivb: p.ivb,
+          });
+        }
+      }
+    }
+
+    mix.sort((a,b)=>b.n - a.n);
+    return {mix, scatter};
+  }
+
   async function loadPitcherReport(side, pitcherId, name){
     const dash = document.getElementById(`pr-${side}-dash`);
     const nameEl = document.getElementById(`pr-${side}-name`);
@@ -3833,17 +3928,35 @@ document.addEventListener("DOMContentLoaded", ()=>{
         fetch(`/player/${pitcherId}/pitching_scatter.json?season=${PR_SEASON}&game_pk=${PR_GAME_PK}`).then(r=>r.json()),
       ]);
 
-      const mix = (report.ok && report.mix) ? report.mix : [];
-      renderMix(`pr-${side}-mix-body`, mix);
+      let mix = (report.ok && report.mix) ? report.mix : [];
+      let pitches = (scatter.ok && scatter.pitches) ? scatter.pitches : [];
 
-      const pitches = (scatter.ok && scatter.pitches) ? scatter.pitches : [];
+      // Fallback to PBP data if statcast DB has no data for this game
+      if(!mix.length || !pitches.length){
+        const pbp = buildFromPBP(pitcherId);
+        if(pbp){
+          if(!mix.length) mix = pbp.mix;
+          if(!pitches.length) pitches = pbp.scatter;
+        }
+      }
+
+      renderMix(`pr-${side}-mix-body`, mix);
       renderZone(`pr-${side}-zone-l`, pitches, "L");
       renderZone(`pr-${side}-zone-r`, pitches, "R");
       renderMove(`pr-${side}-move`, pitches, mix);
     } catch(e) {
       console.error("[pitcherReport]", e);
-      const el = document.getElementById(`pr-${side}-mix-body`);
-      if(el) el.innerHTML=`<tr><td colspan="9" class="muted">Error loading data</td></tr>`;
+      // Try PBP fallback even on fetch error
+      const pbp = buildFromPBP(pitcherId);
+      if(pbp){
+        renderMix(`pr-${side}-mix-body`, pbp.mix);
+        renderZone(`pr-${side}-zone-l`, pbp.scatter, "L");
+        renderZone(`pr-${side}-zone-r`, pbp.scatter, "R");
+        renderMove(`pr-${side}-move`, pbp.scatter, pbp.mix);
+      } else {
+        const el = document.getElementById(`pr-${side}-mix-body`);
+        if(el) el.innerHTML=`<tr><td colspan="9" class="muted">Error loading data</td></tr>`;
+      }
     }
   }
 
