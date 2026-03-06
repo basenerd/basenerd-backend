@@ -162,8 +162,8 @@
       .ticker-game{
         display:flex;
         align-items:center;
-        gap:10px;
-        padding:7px 16px;
+        gap:8px;
+        padding:5px 14px;
         border-right:1px solid rgba(226,232,240,.15);
         text-decoration:none;
         color:inherit;
@@ -175,40 +175,39 @@
         background: rgba(255,255,255,.06);
         text-decoration:none;
       }
-      .ticker-game .t-matchup{
-        display:flex;
-        flex-direction:column;
-        gap:2px;
-        font-size:12px;
-        font-weight:700;
-      }
-      .ticker-game .t-row{
+      .ticker-game .t-teams{
         display:flex;
         align-items:center;
-        gap:6px;
+        gap:8px;
+      }
+      .ticker-game .t-side{
+        display:flex;
+        align-items:center;
+        gap:4px;
+        font-size:11px;
+        font-weight:700;
       }
       .ticker-game .t-logo{
-        width:14px;
-        height:14px;
-      }
-      .ticker-game .t-abbrev{
-        min-width:28px;
+        width:13px;
+        height:13px;
       }
       .ticker-game .t-score{
         font-family:"IBM Plex Mono", monospace;
         font-weight:900;
-        min-width:16px;
-        text-align:right;
+        font-size:11px;
+      }
+      .ticker-game .t-at{
+        font-size:9px;
+        opacity:.4;
+        font-weight:400;
       }
       .ticker-game .t-status{
-        font-size:10px;
+        font-size:9px;
         font-weight:900;
-        opacity:.7;
+        opacity:.65;
         font-family:"IBM Plex Mono", monospace;
-        letter-spacing:.3px;
+        letter-spacing:.2px;
         text-transform:uppercase;
-        max-width:64px;
-        text-align:center;
         line-height:1.2;
       }
       .ticker-game.is-live .t-status{
@@ -216,24 +215,23 @@
         opacity:1;
       }
 
-      /* Live game state: BSO dots + bases */
+      /* Live state: bases + outs (inline, to the right) */
       .ticker-game .t-live-state{
         display:flex;
-        flex-direction:column;
         align-items:center;
-        gap:3px;
+        gap:6px;
       }
-      /* Bases diamond (mini) */
       .t-bases{
         position:relative;
-        width:20px;
-        height:20px;
+        width:18px;
+        height:18px;
+        flex:0 0 18px;
       }
       .t-base{
         position:absolute;
-        width:7px;
-        height:7px;
-        border-radius:1.5px;
+        width:6px;
+        height:6px;
+        border-radius:1px;
         border:1px solid rgba(148,163,184,.5);
         background:rgba(255,255,255,.8);
         transform:rotate(45deg);
@@ -243,23 +241,11 @@
       .t-base-2{ left:50%; top:0; transform:rotate(45deg) translate(-50%,0); }
       .t-base-3{ left:0; top:50%; transform:rotate(45deg) translate(1px,-1px); }
 
-      /* BSO dots row */
-      .t-bso{
-        display:flex;
-        gap:6px;
-        font-size:0;
-      }
-      .t-bso-group{
+      /* Outs dots */
+      .t-outs{
         display:flex;
         align-items:center;
         gap:2px;
-      }
-      .t-bso-label{
-        font-size:7px;
-        font-weight:900;
-        opacity:.5;
-        margin-right:1px;
-        font-family:"IBM Plex Mono", monospace;
       }
       .t-dot{
         width:5px;
@@ -268,11 +254,10 @@
         border:1px solid rgba(148,163,184,.5);
         background:rgba(255,255,255,.8);
       }
-      .t-dot.on{ background:#22c55e; border-color:#16a34a; }
-      .t-dot.strike-on{ background:#ef4444; border-color:#dc2626; }
+      .t-dot.on{ background:#f59e0b; border-color:#d97706; }
 
       .ticker-nogames{
-        padding:7px 16px;
+        padding:5px 14px;
         font-size:12px;
         opacity:.6;
       }
@@ -508,16 +493,14 @@
         if (rightBtn) rightBtn.addEventListener('click', () => { track.scrollLeft += 260; });
         track.addEventListener('scroll', updateArrows);
 
-        function dots(n, max, cls) {
+        function outDots(n) {
           let h = '';
-          for (let i = 0; i < max; i++) h += `<span class="t-dot${i < n ? ' ' + cls : ''}"></span>`;
+          for (let i = 0; i < 3; i++) h += `<span class="t-dot${i < n ? ' on' : ''}"></span>`;
           return h;
         }
 
         function renderLiveState(g) {
           const b = g.bases || {};
-          const balls = g.balls != null ? g.balls : 0;
-          const strikes = g.strikes != null ? g.strikes : 0;
           const outs = g.outs != null ? g.outs : 0;
           return `<div class="t-live-state">
             <div class="t-bases">
@@ -525,11 +508,7 @@
               <span class="t-base t-base-2${b.on2 ? ' on' : ''}"></span>
               <span class="t-base t-base-3${b.on3 ? ' on' : ''}"></span>
             </div>
-            <div class="t-bso">
-              <div class="t-bso-group"><span class="t-bso-label">B</span>${dots(balls, 4, 'on')}</div>
-              <div class="t-bso-group"><span class="t-bso-label">S</span>${dots(strikes, 3, 'strike-on')}</div>
-              <div class="t-bso-group"><span class="t-bso-label">O</span>${dots(outs, 3, 'on')}</div>
-            </div>
+            <div class="t-outs">${outDots(outs)}</div>
           </div>`;
         }
 
@@ -545,22 +524,25 @@
               const live = g.isLive ? ' is-live' : '';
               const awayScore = g.away.score != null ? g.away.score : '—';
               const homeScore = g.home.score != null ? g.home.score : '—';
-              const stateHtml = g.isLive ? renderLiveState(g) : '';
+              // For scheduled games show start time, otherwise show status pill
+              const statusText = (!g.isLive && !g.isFinal && g.timeLocal) ? g.timeLocal : g.statusPill;
+              const liveHtml = g.isLive ? renderLiveState(g) : '';
               return `<a class="ticker-game${live}" href="/game/${g.gamePk}">
-                <div class="t-matchup">
-                  <div class="t-row">
+                <div class="t-teams">
+                  <div class="t-side">
                     <img class="t-logo" src="${g.away.logo}" alt="">
-                    <span class="t-abbrev">${g.away.abbrev}</span>
+                    <span>${g.away.abbrev}</span>
                     <span class="t-score">${awayScore}</span>
                   </div>
-                  <div class="t-row">
+                  <span class="t-at">@</span>
+                  <div class="t-side">
                     <img class="t-logo" src="${g.home.logo}" alt="">
-                    <span class="t-abbrev">${g.home.abbrev}</span>
+                    <span>${g.home.abbrev}</span>
                     <span class="t-score">${homeScore}</span>
                   </div>
                 </div>
-                ${stateHtml}
-                <div class="t-status">${g.statusPill}</div>
+                ${liveHtml}
+                <div class="t-status">${statusText}</div>
               </a>`;
             }).join('');
             requestAnimationFrame(updateArrows);

@@ -1101,11 +1101,10 @@ def ticker_json():
         cards.append({
             "gamePk": g.get("gamePk"),
             "statusPill": g.get("statusPill"),
+            "timeLocal": g.get("timeLocal"),
             "isLive": g.get("isLive"),
             "isFinal": is_final,
             "outs": g.get("outs"),
-            "balls": g.get("balls"),
-            "strikes": g.get("strikes"),
             "bases": g.get("bases"),
             "away": {
                 "abbrev": g.get("away", {}).get("abbrev"),
