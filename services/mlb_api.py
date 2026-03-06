@@ -4473,7 +4473,13 @@ def get_wbc_teams(year: int) -> dict:
 
 
 def get_wbc_standings(year: int) -> list:
-    """Returns [{name, teams:[{team_id,abbrev,w,l,rs,ra,run_diff,logo_url}]}] grouped by WBC pool."""
+    """
+    Returns [{name, teams:[{team_id,abbrev,w,l,rs,ra,run_diff,logo_url}]}]
+    grouped by WBC pool.
+
+    The MLB standings API doesn't update for WBC, so we compute standings
+    from actual pool-play game results in the schedule.
+    """
     import re as _re
 
     _WBC_VENUES = {
@@ -4483,94 +4489,129 @@ def get_wbc_standings(year: int) -> list:
         "D": "Miami, Florida",
     }
 
-    def _extract_pool_display(raw_name: str) -> str:
-        m = _re.search(r'\bPool\s+([A-Z])\b', raw_name or "", _re.IGNORECASE)
-        if m:
-            letter = m.group(1).upper()
-            venue = _WBC_VENUES.get(letter, "")
-            return f"Pool {letter}" + (f" — {venue}" if venue else "")
-        return raw_name or "Group"
-
     cache_key = f"wbc_standings:{year}"
     cached = _get_cached(cache_key)
     if cached:
         return cached
 
-    # Fetch WBC leagues (groups/pools) for this year
+    # Fetch all WBC games for the season
+    try:
+        sr = requests.get(
+            f"{BASE}/schedule",
+            params={
+                "sportId": WBC_SPORT_ID,
+                "startDate": f"{year}-01-01",
+                "endDate": f"{year}-12-31",
+                "hydrate": "team(division),linescore",
+            },
+            timeout=20,
+        )
+        sr.raise_for_status()
+        sched = sr.json()
+    except Exception as e:
+        print(f"[get_wbc_standings] schedule fetch failed: {e}")
+        return []
+
+    # Accumulate W/L/RS/RA per team, grouped by pool
+    # Only count pool play games (gameType=F) that are final
+    pools = {}  # pool_name -> {team_id -> {abbrev, w, l, rs, ra, team_id, logo_url}}
+
+    for d in (sched.get("dates") or []):
+        for g in (d.get("games") or []):
+            if (g.get("gameType") or "") != "F":
+                continue
+            status_lc = ((g.get("status") or {}).get("detailedState") or "").lower()
+            if "final" not in status_lc and "completed" not in status_lc:
+                continue
+
+            teams = g.get("teams") or {}
+            home = teams.get("home") or {}
+            away = teams.get("away") or {}
+            home_team = home.get("team") or {}
+            away_team = away.get("team") or {}
+
+            home_score = home.get("score")
+            away_score = away.get("score")
+            if home_score is None or away_score is None:
+                continue
+
+            home_score = int(home_score)
+            away_score = int(away_score)
+
+            # Determine pool from division name
+            pool_name = (home_team.get("division") or {}).get("name") or "Unknown"
+
+            if pool_name not in pools:
+                pools[pool_name] = {}
+
+            for side_team, side_score, opp_score in [
+                (home_team, home_score, away_score),
+                (away_team, away_score, home_score),
+            ]:
+                tid = side_team.get("id")
+                if not tid:
+                    continue
+                if tid not in pools[pool_name]:
+                    pools[pool_name][tid] = {
+                        "team_id": tid,
+                        "abbrev": (side_team.get("abbreviation") or "").upper(),
+                        "w": 0, "l": 0, "rs": 0, "ra": 0,
+                        "logo_url": f"https://www.mlbstatic.com/team-logos/{tid}.svg",
+                    }
+                rec = pools[pool_name][tid]
+                rec["rs"] += side_score
+                rec["ra"] += opp_score
+                if side_score > opp_score:
+                    rec["w"] += 1
+                else:
+                    rec["l"] += 1
+
+    # Also include teams with 0 games from the standings API (to show full pools)
     try:
         lr = requests.get(
-            f"{BASE}/leagues",
-            params={"sportId": WBC_SPORT_ID, "season": year},
+            f"{BASE}/standings",
+            params={
+                "leagueId": "160",
+                "season": year,
+                "standingsTypes": "regularSeason",
+                "hydrate": "team(division)",
+            },
             timeout=10,
         )
         lr.raise_for_status()
-        leagues = lr.json().get("leagues") or []
-        league_ids = [str(lg["id"]) for lg in leagues if lg.get("id")]
+        for record in (lr.json().get("records") or []):
+            for tr in (record.get("teamRecords") or []):
+                team = tr.get("team") or {}
+                tid = team.get("id")
+                pool_name = (team.get("division") or {}).get("name") or "Unknown"
+                if pool_name not in pools:
+                    pools[pool_name] = {}
+                if tid and tid not in pools[pool_name]:
+                    pools[pool_name][tid] = {
+                        "team_id": tid,
+                        "abbrev": (team.get("abbreviation") or "").upper(),
+                        "w": 0, "l": 0, "rs": 0, "ra": 0,
+                        "logo_url": f"https://www.mlbstatic.com/team-logos/{tid}.svg",
+                    }
     except Exception:
-        return []
+        pass
 
-    if not league_ids:
-        return []
-
-    try:
-        sr = requests.get(
-            f"{BASE}/standings",
-            params={
-                "leagueId": ",".join(league_ids),
-                "season": year,
-                "standingsTypes": "regularSeason",
-                "hydrate": "team(league,division),league,division",
-            },
-            timeout=15,
-        )
-        sr.raise_for_status()
-        standings_data = sr.json()
-    except Exception as e:
-        print(f"[get_wbc_standings] failed: {e}")
-        return []
-
-    def _has_pool(s: str) -> bool:
-        return bool(_re.search(r'\bPool\s+[A-Z]\b', s or "", _re.IGNORECASE))
-
+    # Build output sorted by pool letter
     groups = []
-    for record in (standings_data.get("records") or []):
-        # Try record-level fields first, then fall through to individual team fields
-        candidates = [
-            (record.get("division") or {}).get("name") or "",
-            (record.get("league") or {}).get("name") or "",
-        ]
-        # Also check the first team's division/league as a fallback
-        first_team = ((record.get("teamRecords") or [{}])[0]).get("team") or {}
-        candidates += [
-            (first_team.get("division") or {}).get("name") or "",
-            (first_team.get("league") or {}).get("name") or "",
-        ]
-        raw_name = next((c for c in candidates if _has_pool(c)), candidates[0] or "Group")
-        group_name = _extract_pool_display(raw_name)
+    for pool_name in sorted(pools.keys()):
+        m = _re.search(r'\bPool\s+([A-Z])\b', pool_name or "", _re.IGNORECASE)
+        if m:
+            letter = m.group(1).upper()
+            venue = _WBC_VENUES.get(letter, "")
+            display = f"Pool {letter}" + (f" — {venue}" if venue else "")
+        else:
+            display = pool_name
 
-        team_records = []
-        for tr in (record.get("teamRecords") or []):
-            team = tr.get("team") or {}
-            team_id = team.get("id")
-            wins = tr.get("wins", 0) or 0
-            losses = tr.get("losses", 0) or 0
-            rs = tr.get("runsScored") or tr.get("runs") or 0
-            ra = tr.get("runsAllowed") or 0
-            run_diff = tr.get("runDifferential") or (rs - ra)
-
-            team_records.append({
-                "team_id": team_id,
-                "abbrev": (team.get("abbreviation") or "").upper(),
-                "w": wins,
-                "l": losses,
-                "rs": rs,
-                "ra": ra,
-                "run_diff": run_diff,
-                "logo_url": f"https://www.mlbstatic.com/team-logos/{team_id}.svg" if team_id else None,
-            })
-
-        team_records.sort(key=lambda x: (-x["w"], x["l"]))
-        groups.append({"name": group_name, "teams": team_records})
+        team_list = list(pools[pool_name].values())
+        for t in team_list:
+            t["run_diff"] = t["rs"] - t["ra"]
+        team_list.sort(key=lambda x: (-x["w"], x["l"], -x["run_diff"]))
+        groups.append({"name": display, "teams": team_list})
 
     _set_cached(cache_key, groups)
     return groups
