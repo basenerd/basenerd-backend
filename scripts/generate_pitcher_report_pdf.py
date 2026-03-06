@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """
-Generate a post-game pitcher report PDF (Twitter-optimized 1200x1500).
+Generate a post-game pitcher report PDF (Twitter-optimized 1200x1680).
+
+Pulls pitch data directly from the MLB Stats API live feed — no database needed.
+Scores BNStuff+ and BNControl+ on-the-fly using local model .pkl files.
 
 Usage:
-    python scripts/generate_pitcher_report_pdf.py --pitcher_id 669373 --game_pk 747131
-    python scripts/generate_pitcher_report_pdf.py --date 2026-03-05          # all starters
-    python scripts/generate_pitcher_report_pdf.py --date yesterday           # yesterday's games
+    python scripts/generate_pitcher_report_pdf.py --pitcher_id 684007 --game_pk 831781
+    python scripts/generate_pitcher_report_pdf.py --date 2026-02-24
+    python scripts/generate_pitcher_report_pdf.py --date yesterday
 
 Output: reports/<date>/<PlayerName>_<game_pk>.pdf
 """
@@ -13,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import math
 import os
 import sys
@@ -21,38 +25,34 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
-from PIL import Image as PILImage
+import numpy as np
+import pandas as pd
+import joblib
+from PIL import Image as PILImage, ImageDraw
 
-from reportlab.lib.colors import Color, HexColor, white, black
-from reportlab.lib.pagesizes import landscape
-from reportlab.lib.units import inch
+from reportlab.lib.colors import Color, HexColor, white
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.lib.utils import ImageReader
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 
-# ---------------------------------------------------------------------------
-# Paths
 # ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-os.environ.setdefault("DATABASE_URL", os.environ.get("DATABASE_URL_PG", ""))
-
-from services.pitching_report import (
-    pitching_report_summary,
-    pitching_scatter,
-)
-
 LOGO_PATH = ROOT / "static" / "basenerd-logo-official.png"
 REPORTS_DIR = ROOT / "reports"
+STUFF_MODEL = ROOT / "models" / "stuff_model.pkl"
+STUFF_META = ROOT / "models" / "stuff_model_meta.json"
+CTRL_MODEL = ROOT / "models" / "control_model.pkl"
+CTRL_META = ROOT / "models" / "control_model_meta.json"
 
 # ---------------------------------------------------------------------------
-# Twitter card: 1200x1500 px  (4:5 portrait, good for Twitter/X + IG)
-# We'll use points. 1 pt = 1 px at 72 dpi.
+# Page dimensions — 1200x1680 (5:7, fits Twitter/X + IG well)
 # ---------------------------------------------------------------------------
 W = 1200
-H = 1500
+H = 1680
+PAD = 28
+CARD_R = 12
+GAP = 14
 
 # ---------------------------------------------------------------------------
 # Colors
@@ -75,12 +75,21 @@ PITCH_COLORS = {
     "KC": "#5dade2", "CH": "#5cb85c", "FS": "#5cb85c", "KN": "#95a5a6",
 }
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+SWING_DESCS = {
+    "swinging_strike", "swinging_strike_blocked", "foul", "foul_tip",
+    "foul_bunt", "hit_into_play", "hit_into_play_no_out", "hit_into_play_score",
+}
+WHIFF_DESCS = {"swinging_strike", "swinging_strike_blocked"}
+IN_ZONE = set(range(1, 10))
+OUT_OF_ZONE = {11, 12, 13, 14}
+K_EVENTS = {"strikeout", "strikeout_double_play"}
+BB_EVENTS = {"walk", "intent_walk"}
+
 MLB_API = "https://statsapi.mlb.com/api/v1"
 
-
+# ---------------------------------------------------------------------------
+# Formatting helpers
+# ---------------------------------------------------------------------------
 def _fmt(v, decimals=1, fallback="--"):
     if v is None or (isinstance(v, float) and not math.isfinite(v)):
         return fallback
@@ -88,24 +97,35 @@ def _fmt(v, decimals=1, fallback="--"):
         return str(int(round(v)))
     return f"{v:.{decimals}f}"
 
-
 def _pct(v, fallback="--"):
     if v is None:
         return fallback
     return f"{v:.1f}%"
 
+def _safe_float(x):
+    try:
+        if x is None:
+            return None
+        v = float(x)
+        return v if math.isfinite(v) else None
+    except Exception:
+        return None
 
+def _mean(vals):
+    vv = [v for v in vals if v is not None and math.isfinite(v)]
+    return float(sum(vv)) / len(vv) if vv else None
+
+
+# ---------------------------------------------------------------------------
+# MLB API data fetching
+# ---------------------------------------------------------------------------
 def _fetch_player(pid: int) -> dict:
     r = requests.get(f"{MLB_API}/people/{pid}", params={"hydrate": "currentTeam"}, timeout=15)
     r.raise_for_status()
     return (r.json().get("people") or [{}])[0]
 
-
 def _fetch_headshot(pid: int, size: int = 360) -> Optional[PILImage.Image]:
-    url = (
-        f"https://img.mlbstatic.com/mlb-photos/image/upload/"
-        f"w_{size},q_100/v1/people/{pid}/headshot/67/current"
-    )
+    url = f"https://img.mlbstatic.com/mlb-photos/image/upload/w_{size},q_100/v1/people/{pid}/headshot/67/current"
     try:
         r = requests.get(url, timeout=10)
         if r.status_code == 200 and len(r.content) > 1000:
@@ -114,49 +134,440 @@ def _fetch_headshot(pid: int, size: int = 360) -> Optional[PILImage.Image]:
         pass
     return None
 
-
-def _fetch_game_info(game_pk: int) -> dict:
-    """Get basic game info (teams, score, date) from MLB API."""
+def _fetch_live_feed(game_pk: int) -> dict:
     url = f"https://statsapi.mlb.com/api/v1.1/game/{game_pk}/feed/live"
-    try:
-        r = requests.get(url, timeout=15)
-        if r.status_code != 200:
-            return {}
-        data = r.json()
-        gd = (data.get("gameData") or {})
-        dt = gd.get("datetime") or {}
-        teams = gd.get("teams") or {}
-        ls = ((data.get("liveData") or {}).get("linescore") or {}).get("teams") or {}
+    r = requests.get(url, timeout=20)
+    r.raise_for_status()
+    return r.json()
 
-        away = teams.get("away") or {}
-        home = teams.get("home") or {}
-        return {
-            "date": (dt.get("officialDate") or "")[:10],
-            "away_name": away.get("teamName") or away.get("name", ""),
-            "home_name": home.get("teamName") or home.get("name", ""),
-            "away_abbrev": away.get("abbreviation", ""),
-            "home_abbrev": home.get("abbreviation", ""),
-            "away_runs": (ls.get("away") or {}).get("runs"),
-            "home_runs": (ls.get("home") or {}).get("runs"),
-        }
-    except Exception:
-        return {}
+def _extract_game_info(feed: dict) -> dict:
+    gd = feed.get("gameData") or {}
+    dt = gd.get("datetime") or {}
+    teams = gd.get("teams") or {}
+    live = feed.get("liveData") or {}
+    ls = (live.get("linescore") or {}).get("teams") or {}
+    away = teams.get("away") or {}
+    home = teams.get("home") or {}
+
+    # Boxscore pitcher stats
+    boxscore = live.get("boxscore") or {}
+    pitcher_stats = {}
+    for side in ("away", "home"):
+        side_box = (boxscore.get("teams") or {}).get(side) or {}
+        players = side_box.get("players") or {}
+        for key, pdata in players.items():
+            pid = (pdata.get("person") or {}).get("id")
+            try:
+                stats = pdata.get("stats", {}).get("pitching", {}) or {}
+            except Exception:
+                stats = {}
+            if pid and stats.get("pitchesThrown"):
+                pitcher_stats[int(pid)] = {
+                    "IP": stats.get("inningsPitched", "--"),
+                    "H": stats.get("hits", "--"),
+                    "R": stats.get("runs", "--"),
+                    "ER": stats.get("earnedRuns", "--"),
+                    "BB": stats.get("baseOnBalls", "--"),
+                    "SO": stats.get("strikeOuts", "--"),
+                    "HR": stats.get("homeRuns", "--"),
+                    "pitches": stats.get("pitchesThrown", "--"),
+                    "strikes": stats.get("strikes", "--"),
+                }
+
+    return {
+        "date": (dt.get("officialDate") or "")[:10],
+        "away_name": away.get("teamName") or away.get("name", ""),
+        "home_name": home.get("teamName") or home.get("name", ""),
+        "away_abbrev": away.get("abbreviation", ""),
+        "home_abbrev": home.get("abbreviation", ""),
+        "away_runs": (ls.get("away") or {}).get("runs"),
+        "home_runs": (ls.get("home") or {}).get("runs"),
+        "pitcher_stats": pitcher_stats,
+    }
+
+
+def _extract_pitches(feed: dict, pitcher_id: int) -> List[dict]:
+    """Extract pitch-level data for a pitcher from the live feed."""
+    plays = (feed.get("liveData") or {}).get("plays") or {}
+    all_plays = plays.get("allPlays") or []
+    pitches = []
+
+    for play in all_plays:
+        matchup = play.get("matchup") or {}
+        pid = (matchup.get("pitcher") or {}).get("id")
+        if pid != pitcher_id:
+            continue
+
+        stand = (matchup.get("batSide") or {}).get("code", "")
+        p_throws = (matchup.get("pitchHand") or {}).get("code", "")
+
+        # Get the event for this at-bat (only on the last pitch)
+        ab_event = (play.get("result") or {}).get("event", "")
+
+        events = play.get("playEvents") or []
+        n_pitches_in_ab = sum(1 for e in events if e.get("isPitch"))
+        pitch_idx = 0
+
+        for ev in events:
+            if not ev.get("isPitch"):
+                continue
+            pitch_idx += 1
+            det = ev.get("details") or {}
+            pd_ = ev.get("pitchData") or {}
+            coords = pd_.get("coordinates") or {}
+            breaks = pd_.get("breaks") or {}
+            count = ev.get("count") or {}
+
+            pitch_type = (det.get("type") or {}).get("code", "")
+            pitch_name = (det.get("type") or {}).get("description", pitch_type)
+            desc = (det.get("description") or "").lower().strip()
+
+            # Map live feed description to statcast description format
+            sc_desc = _map_description(det, ev)
+
+            # pfxX/pfxZ from live feed are in inches; convert to feet for model
+            pfx_x_in = _safe_float(coords.get("pfxX"))
+            pfx_z_in = _safe_float(coords.get("pfxZ"))
+            pfx_x_ft = pfx_x_in / 12.0 if pfx_x_in is not None else None
+            pfx_z_ft = pfx_z_in / 12.0 if pfx_z_in is not None else None
+
+            pitch = {
+                "pitch_type": pitch_type,
+                "pitch_name": pitch_name,
+                "stand": stand,
+                "p_throws": p_throws,
+                "description": sc_desc,
+                "zone": pd_.get("zone"),
+                "events": ab_event.lower().strip() if pitch_idx == n_pitches_in_ab else "",
+                # For model scoring
+                "release_speed": _safe_float(pd_.get("startSpeed")),
+                "release_spin_rate": _safe_float(breaks.get("spinRate")),
+                "release_extension": _safe_float(pd_.get("extension")),
+                "release_pos_x": _safe_float(coords.get("x0")),
+                "release_pos_z": _safe_float(coords.get("z0")),
+                "release_pos_y": _safe_float(coords.get("y0")),
+                "pfx_x": pfx_x_ft,
+                "pfx_z": pfx_z_ft,
+                "vx0": _safe_float(coords.get("vX0")),
+                "vy0": _safe_float(coords.get("vY0")),
+                "vz0": _safe_float(coords.get("vZ0")),
+                "ax": _safe_float(coords.get("aX")),
+                "ay": _safe_float(coords.get("aY")),
+                "az": _safe_float(coords.get("aZ")),
+                "sz_top": _safe_float(pd_.get("strikeZoneTop")),
+                "sz_bot": _safe_float(pd_.get("strikeZoneBottom")),
+                "plate_x": _safe_float(coords.get("pX")),
+                "plate_z": _safe_float(coords.get("pZ")),
+                "estimated_woba_using_speedangle": None,  # not in live feed
+                # Movement in inches for display
+                "hb_in": pfx_x_in,
+                "ivb_in": pfx_z_in,
+            }
+            pitches.append(pitch)
+
+    return pitches
+
+
+def _map_description(details: dict, event: dict) -> str:
+    """Map MLB API pitch description to Statcast description format."""
+    desc = (details.get("description") or "").lower().strip()
+    if "swinging" in desc and "block" in desc:
+        return "swinging_strike_blocked"
+    if "swinging" in desc:
+        return "swinging_strike"
+    if "foul tip" in desc:
+        return "foul_tip"
+    if "foul bunt" in desc:
+        return "foul_bunt"
+    if "foul" in desc:
+        return "foul"
+    if "in play" in desc:
+        return "hit_into_play"
+    if "called strike" in desc:
+        return "called_strike"
+    if "ball" in desc:
+        return "ball"
+    return desc
+
+
+# ---------------------------------------------------------------------------
+# Model scoring
+# ---------------------------------------------------------------------------
+_STUFF_OHE_CATS = sorted([
+    'CH', 'CS', 'CU', 'EP', 'FA', 'FC', 'FF', 'FO', 'FS', 'FT',
+    'KC', 'KN', 'PO', 'SC', 'SI', 'SL', 'ST', 'SV',
+])
+
+def _predict_stuff(stuff_pipe, X_df, num_feats, cat_feats):
+    """Predict with stuff model, bypassing broken sklearn pipeline deserialization.
+
+    The pipeline's SimpleImputer and OneHotEncoder lost fitted state during
+    cross-version unpickling. We manually impute NaN with column medians and
+    one-hot encode pitch_type, then call the RandomForestRegressor directly.
+    """
+    model = stuff_pipe.named_steps["model"]
+    # Fix missing attr on decision trees (added in newer sklearn)
+    for tree in model.estimators_:
+        if not hasattr(tree, "monotonic_cst"):
+            tree.monotonic_cst = None
+
+    num_data = X_df[num_feats].values.astype(np.float64)
+    # Impute NaN with column medians (mimics SimpleImputer(strategy='median'))
+    for col_i in range(num_data.shape[1]):
+        col = num_data[:, col_i]
+        nans = np.isnan(col)
+        if nans.any():
+            med = np.nanmedian(col) if not nans.all() else 0.0
+            col[nans] = med
+
+    # One-hot encode pitch_type (alphabetical, matching OHE(categories='auto'))
+    cats = _STUFF_OHE_CATS
+    cat_vals = X_df[cat_feats[0]].values
+    ohe_data = np.zeros((len(cat_vals), len(cats)))
+    for i, pt in enumerate(cat_vals):
+        if pt in cats:
+            ohe_data[i, cats.index(pt)] = 1.0
+
+    X_combined = np.hstack([num_data, ohe_data])
+    return model.predict(X_combined)
+
+
+def _predict_control(ctrl_pipe, X_df, num_feats, cat_feats):
+    """Predict with control model, bypassing broken sklearn pipeline deserialization.
+
+    The control model's ColumnTransformer + OrdinalEncoder don't deserialize
+    cleanly across sklearn versions. We manually pass numeric features through
+    and ordinal-encode pitch_type, then call the model's _raw_predict directly.
+    """
+    model = ctrl_pipe.named_steps["model"]
+    if not hasattr(model, "_preprocessor"):
+        model._preprocessor = None
+    if not hasattr(model._loss, "link"):
+        from sklearn._loss.loss import HalfSquaredError
+        model._loss = HalfSquaredError()
+
+    num_data = X_df[num_feats].values.astype(np.float64)
+    cat_vals = X_df[cat_feats[0]].values
+    n_cat_bins = model._bin_mapper.n_bins_non_missing_[-1]
+    all_types = sorted(['CH', 'CS', 'CU', 'EP', 'FA', 'FC', 'FF', 'FS', 'FT',
+                        'KC', 'KN', 'SI', 'SL', 'ST', 'SV', 'SC', 'PO'])[:n_cat_bins]
+    type_map = {pt: float(i) for i, pt in enumerate(all_types)}
+    cat_encoded = np.array([type_map.get(v, 0.0) for v in cat_vals]).reshape(-1, 1)
+    X_combined = np.hstack([num_data, cat_encoded])
+    return model._raw_predict(X_combined).ravel()
+
+
+def _score_models(pitches: List[dict]) -> List[dict]:
+    """Score stuff+ and control+ on each pitch using local models."""
+    if not pitches:
+        return pitches
+
+    df = pd.DataFrame(pitches)
+
+    # Score Stuff+
+    if STUFF_MODEL.exists() and STUFF_META.exists():
+        try:
+            import warnings as _w
+            with _w.catch_warnings():
+                _w.simplefilter("ignore")
+                stuff_pipe = joblib.load(str(STUFF_MODEL))
+            with open(str(STUFF_META)) as f:
+                meta = json.load(f)
+            num_feats = meta["num_features"]
+            cat_feats = meta["cat_features"]
+            feat_cols = num_feats + cat_feats
+            goodness_std = float(meta.get("goodness_std", 0.01)) or 0.01
+            center = float(meta.get("stuff_center", 100.0))
+            scale = float(meta.get("stuff_scale", 15.0))
+            clip_lo = float(meta.get("stuff_clip_min", 40.0))
+            clip_hi = float(meta.get("stuff_clip_max", 160.0))
+
+            X = df[feat_cols].copy()
+            for c in num_feats:
+                X[c] = pd.to_numeric(X[c], errors="coerce")
+            preds = _predict_stuff(stuff_pipe, X, num_feats, cat_feats)
+            goodness = -pd.Series(preds, index=X.index)
+            sp = center + scale * (goodness / goodness_std)
+            sp = sp.clip(clip_lo, clip_hi)
+            df["stuff_plus"] = sp
+        except Exception as e:
+            print(f"  Warning: stuff+ scoring failed: {e}")
+
+    # Score Control+
+    if CTRL_MODEL.exists() and CTRL_META.exists():
+        try:
+            import warnings as _w
+            with _w.catch_warnings():
+                _w.simplefilter("ignore")
+                ctrl_pipe = joblib.load(str(CTRL_MODEL))
+            with open(str(CTRL_META)) as f:
+                meta = json.load(f)
+            num_feats = meta["num_features"]
+            cat_feats = meta["cat_features"]
+            feat_cols = num_feats + cat_feats
+            goodness_std = float(meta.get("goodness_std", 0.01)) or 0.01
+            center = float(meta.get("control_center", 100.0))
+            scale = float(meta.get("control_scale", 15.0))
+            clip_lo = float(meta.get("control_clip_min", 40.0))
+            clip_hi = float(meta.get("control_clip_max", 160.0))
+
+            X = df[feat_cols].copy()
+            for c in num_feats:
+                X[c] = pd.to_numeric(X[c], errors="coerce")
+            mask = X[num_feats].notna().all(axis=1)
+            if mask.any():
+                preds = _predict_control(ctrl_pipe, X.loc[mask], num_feats, cat_feats)
+                goodness = -pd.Series(preds, index=X.loc[mask].index)
+                cp = center + scale * (goodness / goodness_std)
+                cp = cp.clip(clip_lo, clip_hi)
+                df.loc[mask, "control_plus"] = cp
+        except Exception as e:
+            print(f"  Warning: control+ scoring failed: {e}")
+
+    # Merge scores back
+    for i, row in df.iterrows():
+        pitches[i]["stuff_plus"] = _safe_float(row.get("stuff_plus"))
+        pitches[i]["control_plus"] = _safe_float(row.get("control_plus"))
+
+    return pitches
+
+
+# ---------------------------------------------------------------------------
+# Aggregate pitch data into report structure
+# ---------------------------------------------------------------------------
+def _build_report(pitches: List[dict]) -> dict:
+    """Build report structure matching what the website uses."""
+    if not pitches:
+        return {"ok": False}
+
+    by_pt = {}
+    for p in pitches:
+        pt = (p.get("pitch_type") or "").strip() or "UNK"
+        by_pt.setdefault(pt, []).append(p)
+
+    total = len(pitches)
+    mix = []
+    shapes = []
+
+    # Side totals for usage_lr
+    side_totals = {"L": 0, "R": 0}
+    side_by_pt = {}
+
+    # Aggregate counters
+    agg_swings = agg_whiffs = agg_in_zone = agg_ooz = agg_ooz_swings = 0
+    agg_events = []
+
+    for pt, rows in by_pt.items():
+        n = len(rows)
+        pitch_name = rows[0].get("pitch_name") or pt
+
+        velo = [_safe_float(r.get("release_speed")) for r in rows]
+        spin = [_safe_float(r.get("release_spin_rate")) for r in rows]
+        hb_vals = [_safe_float(r.get("hb_in")) for r in rows]
+        ivb_vals = [_safe_float(r.get("ivb_in")) for r in rows]
+        sp_vals = [_safe_float(r.get("stuff_plus")) for r in rows]
+        cp_vals = [_safe_float(r.get("control_plus")) for r in rows]
+
+        swings = whiffs = in_zone = ooz = ooz_swings = 0
+
+        for r in rows:
+            desc = (r.get("description") or "")
+            zone_num = r.get("zone")
+            ev = (r.get("events") or "")
+
+            # Side tracking
+            stand = (r.get("stand") or "").upper()
+            if stand in ("L", "R"):
+                side_totals[stand] += 1
+                d = side_by_pt.setdefault(pt, {"L": 0, "R": 0})
+                d[stand] += 1
+
+            if desc in SWING_DESCS:
+                swings += 1
+            if desc in WHIFF_DESCS:
+                whiffs += 1
+            if zone_num is not None:
+                try:
+                    zn = int(zone_num)
+                    if zn in IN_ZONE:
+                        in_zone += 1
+                    elif zn in OUT_OF_ZONE:
+                        ooz += 1
+                        if desc in SWING_DESCS:
+                            ooz_swings += 1
+                except (ValueError, TypeError):
+                    pass
+            if ev:
+                agg_events.append(ev)
+
+        agg_swings += swings
+        agg_whiffs += whiffs
+        agg_in_zone += in_zone
+        agg_ooz += ooz
+        agg_ooz_swings += ooz_swings
+
+        # pfx in feet for shapes (movement chart)
+        pfx_x_vals = [_safe_float(r.get("pfx_x")) for r in rows]
+        pfx_z_vals = [_safe_float(r.get("pfx_z")) for r in rows]
+
+        mix.append({
+            "pitch_type": pt, "pitch_name": pitch_name, "n": n,
+            "usage": 100.0 * n / total if total else 0,
+            "velo": _mean(velo), "spin": _mean(spin),
+            "hb": _mean(hb_vals),  # already inches
+            "ivb": _mean(ivb_vals),  # already inches
+            "whiff": (100.0 * whiffs / swings) if swings else None,
+            "zone_pct": (100.0 * in_zone / n) if n else None,
+            "chase_pct": (100.0 * ooz_swings / ooz) if ooz else None,
+            "stuff_plus": _mean([v for v in sp_vals if v is not None]),
+            "control_plus": _mean([v for v in cp_vals if v is not None]),
+        })
+        shapes.append({
+            "pitch_type": pt, "pitch_name": pitch_name, "n": n,
+            "pfx_x": _mean(pfx_x_vals), "pfx_z": _mean(pfx_z_vals),
+        })
+
+    agg_pa = len(agg_events)
+    basic = {
+        "whiff_pct": (100.0 * agg_whiffs / agg_swings) if agg_swings else None,
+        "zone_pct": (100.0 * agg_in_zone / total) if total else None,
+        "chase_pct": (100.0 * agg_ooz_swings / agg_ooz) if agg_ooz else None,
+        "k_pct": (100.0 * sum(1 for e in agg_events if e in K_EVENTS) / agg_pa) if agg_pa else None,
+        "bb_pct": (100.0 * sum(1 for e in agg_events if e in BB_EVENTS) / agg_pa) if agg_pa else None,
+    }
+
+    # Build usage_lr
+    usage_lr = []
+    ltot = side_totals.get("L", 0)
+    rtot = side_totals.get("R", 0)
+    for m in sorted(mix, key=lambda x: x["n"], reverse=True):
+        pt = m["pitch_type"]
+        d = side_by_pt.get(pt, {"L": 0, "R": 0})
+        usage_lr.append({
+            "pitch_type": pt, "pitch_name": m["pitch_name"],
+            "l_count": d["L"], "r_count": d["R"],
+            "l_usage": (100.0 * d["L"] / ltot) if ltot else 0,
+            "r_usage": (100.0 * d["R"] / rtot) if rtot else 0,
+        })
+
+    mix.sort(key=lambda x: x["n"], reverse=True)
+    shapes.sort(key=lambda x: x["n"], reverse=True)
+
+    return {
+        "ok": True, "total": total, "basic": basic,
+        "mix": mix, "shapes": shapes,
+        "usage_lr": usage_lr, "side_totals": side_totals,
+    }
 
 
 def _games_for_date(date_str: str) -> List[dict]:
-    """Return list of {game_pk, away_pitcher_id, home_pitcher_id} for a date."""
     url = f"{MLB_API}/schedule"
-    params = {
-        "date": date_str,
-        "sportId": 1,
-        "hydrate": "probablePitcher,linescore",
-    }
+    params = {"date": date_str, "sportId": 1, "hydrate": "probablePitcher,linescore"}
     try:
         r = requests.get(url, params=params, timeout=15)
         r.raise_for_status()
-        dates = r.json().get("dates") or []
         out = []
-        for d in dates:
+        for d in r.json().get("dates") or []:
             for g in d.get("games") or []:
                 gp = g.get("gamePk")
                 if not gp:
@@ -174,7 +585,7 @@ def _games_for_date(date_str: str) -> List[dict]:
                 })
         return out
     except Exception as e:
-        print(f"Error fetching schedule for {date_str}: {e}")
+        print(f"Error fetching schedule: {e}")
         return []
 
 
@@ -182,191 +593,223 @@ def _games_for_date(date_str: str) -> List[dict]:
 # Drawing helpers
 # ---------------------------------------------------------------------------
 def _rounded_rect(c, x, y, w, h, r, fill_color=None, stroke_color=None):
-    """Draw a rounded rectangle."""
-    p = c.beginPath()
-    p.moveTo(x + r, y)
-    p.lineTo(x + w - r, y)
-    p.arcTo(x + w - r, y, x + w, y + r, r)
-    p.lineTo(x + w, y + h - r)
-    p.arcTo(x + w, y + h - r, x + w - r, y + h, r)
-    p.lineTo(x + r, y + h)
-    p.arcTo(x + r, y + h, x, y + h - r, r)
-    p.lineTo(x, y + r)
-    p.arcTo(x, y + r, x + r, y, r)
-    p.closePath()
+    c.saveState()
     if fill_color:
         c.setFillColor(fill_color)
     if stroke_color:
         c.setStrokeColor(stroke_color)
         c.setLineWidth(1)
-        c.drawPath(p, fill=1 if fill_color else 0, stroke=1 if stroke_color else 0)
-    elif fill_color:
-        c.drawPath(p, fill=1, stroke=0)
-
-
-def _draw_pitch_pill(c, x, y, pt_code, size=22):
-    """Draw a colored pitch-type pill."""
-    color = HexColor(PITCH_COLORS.get(pt_code, "#94a3b8"))
-    _rounded_rect(c, x, y, size + 12, size, size // 2, fill_color=color)
-    c.setFillColor(HexColor("#0b1220"))
-    c.setFont("Helvetica-Bold", 11)
-    c.drawCentredString(x + (size + 12) / 2, y + 6, pt_code)
-
-
-def _draw_movement_chart(c, x, y, size, shapes, scatter_data=None):
-    """Draw pitch movement chart with axes and dots."""
-    cx_chart = x + size / 2
-    cy_chart = y + size / 2
-    R = size / 2 - 30
-
-    # Background
-    _rounded_rect(c, x, y, size, size, 10, fill_color=BG_CARD)
-
-    # Grid lines
-    c.setStrokeColor(HexColor("#1e3a5f"))
-    c.setLineWidth(0.5)
-    c.line(cx_chart - R, cy_chart, cx_chart + R, cy_chart)
-    c.line(cx_chart, cy_chart - R, cx_chart, cy_chart + R)
-
-    # Rings at 6", 12", 18"
-    max_v = 24.0
-    c.setDash(2, 3)
-    for ring_val in [6, 12, 18]:
-        rr = (ring_val / max_v) * R
-        c.circle(cx_chart, cy_chart, rr, fill=0, stroke=1)
-    c.setDash()
-
-    # Ring labels
-    c.setFillColor(TEXT_MUTED)
-    c.setFont("Helvetica", 9)
-    for ring_val in [6, 12, 18]:
-        rr = (ring_val / max_v) * R
-        c.drawString(cx_chart + 4, cy_chart + rr + 2, f'{ring_val}"')
-
-    # Axis labels
-    c.setFillColor(TEXT_SECONDARY)
-    c.setFont("Helvetica", 10)
-    c.drawCentredString(cx_chart, y + size - 8, "HB (in)")
-    c.saveState()
-    c.translate(x + 10, cy_chart)
-    c.rotate(90)
-    c.drawCentredString(0, 0, "IVB (in)")
+    r = min(r, w / 2, h / 2)
+    c.roundRect(x, y, w, h, r,
+                fill=1 if fill_color else 0,
+                stroke=1 if stroke_color else 0)
     c.restoreState()
 
-    # Draw individual pitch dots if we have scatter data
+def _color_for_metric(val, center=100.0):
+    if val is None:
+        return TEXT_MUTED
+    diff = val - center
+    if abs(diff) < 3:
+        return TEXT_PRIMARY
+    target = GREEN_GOOD if diff > 0 else RED_BAD
+    intensity = min(1.0, abs(diff) / 30.0)
+    return Color(
+        target.red * intensity + TEXT_PRIMARY.red * (1 - intensity),
+        target.green * intensity + TEXT_PRIMARY.green * (1 - intensity),
+        target.blue * intensity + TEXT_PRIMARY.blue * (1 - intensity),
+    )
+
+
+def _draw_movement_chart(c, x, y, w, h, shapes, scatter_data, title="Pitch Movement"):
+    _rounded_rect(c, x, y, w, h, CARD_R, fill_color=BG_CARD)
+    c.setFillColor(TEXT_PRIMARY)
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(x + 12, y + h - 20, title)
+
+    # Make chart area square within the card
+    chart_top = y + h - 30
+    chart_bot = y + 16
+    avail_h = chart_top - chart_bot
+    avail_w = w - 32
+    side = min(avail_h, avail_w)
+    cx = x + w / 2
+    cy = chart_bot + avail_h / 2
+    R = side / 2 - 10
+    max_v = 24.0
+
+    # Grid
+    c.setStrokeColor(BORDER)
+    c.setLineWidth(0.5)
+    c.line(cx - R, cy, cx + R, cy)
+    c.line(cx, cy - R, cx, cy + R)
+    c.setDash(2, 3)
+    for rv in [6, 12, 18]:
+        rr = (rv / max_v) * R
+        c.circle(cx, cy, rr, fill=0, stroke=1)
+    c.setDash()
+    c.setFillColor(TEXT_MUTED)
+    c.setFont("Helvetica", 8)
+    for rv in [6, 12, 18]:
+        rr = (rv / max_v) * R
+        c.drawString(cx + 3, cy + rr + 2, f'{rv}"')
+
+    # Scatter dots
     if scatter_data:
-        c.saveState()
-        for pt_data in scatter_data:
-            pt = pt_data.get("pitch_type", "")
-            hb = pt_data.get("hb")
-            ivb = pt_data.get("ivb")
+        for p in scatter_data:
+            hb = p.get("hb_in")
+            ivb = p.get("ivb_in")
             if hb is None or ivb is None:
                 continue
-            px = cx_chart + (hb / max_v) * R
-            py = cy_chart + (ivb / max_v) * R
-            color = HexColor(PITCH_COLORS.get(pt, "#94a3b8"))
+            px = cx + (hb / max_v) * R
+            py = cy + (ivb / max_v) * R
+            color = HexColor(PITCH_COLORS.get(p.get("pitch_type", ""), "#94a3b8"))
             c.setFillColor(color)
-            c.setStrokeColor(Color(0, 0, 0, alpha=0.3))
-            c.setLineWidth(0.5)
-            c.circle(px, py, 3, fill=1, stroke=1)
-        c.restoreState()
+            c.setStrokeColor(Color(0, 0, 0, alpha=0.25))
+            c.setLineWidth(0.3)
+            c.circle(px, py, 2.5, fill=1, stroke=1)
 
-    # Draw average dots (larger, labeled)
+    # Average dots
     if shapes:
         ordered = sorted(shapes, key=lambda d: d.get("n", 0), reverse=True)
         n_max = max(1, max(d.get("n", 1) for d in ordered))
-
         for d in ordered:
             pt = d.get("pitch_type", "UNK")
-            pfx_x = d.get("pfx_x")
-            pfx_z = d.get("pfx_z")
+            pfx_x, pfx_z = d.get("pfx_x"), d.get("pfx_z")
             if pfx_x is None or pfx_z is None:
                 continue
-
-            hb = pfx_x * 12.0
-            ivb = pfx_z * 12.0
-            hb = max(-max_v, min(max_v, hb))
-            ivb = max(-max_v, min(max_v, ivb))
-
-            px = cx_chart + (hb / max_v) * R
-            py = cy_chart + (ivb / max_v) * R
-
-            t = (d.get("n", 0)) / n_max
-            rad = 8 + 12 * t
-
+            hb = max(-max_v, min(max_v, pfx_x * 12.0))
+            ivb = max(-max_v, min(max_v, pfx_z * 12.0))
+            px = cx + (hb / max_v) * R
+            py = cy + (ivb / max_v) * R
+            t = d.get("n", 0) / n_max
+            rad = 7 + 10 * t
             color = HexColor(PITCH_COLORS.get(pt, "#94a3b8"))
             c.setFillColor(color)
             c.setStrokeColor(white)
             c.setLineWidth(2)
             c.circle(px, py, rad, fill=1, stroke=1)
-
-            # Label
             c.setFillColor(HexColor("#0b1220"))
-            c.setFont("Helvetica-Bold", 10)
-            c.drawCentredString(px, py - 3.5, pt)
+            c.setFont("Helvetica-Bold", 9)
+            c.drawCentredString(px, py - 3, pt)
 
 
-def _draw_usage_bars(c, x, y, w, h, usage_lr, side_totals):
-    """Draw horizontal stacked bars for vs LHH / vs RHH usage."""
-    _rounded_rect(c, x, y, w, h, 10, fill_color=BG_CARD)
-
-    pad = 14
-    inner_x = x + pad
-    inner_w = w - pad * 2
-    bar_h = 22
-
-    c.setFont("Helvetica-Bold", 13)
+def _draw_location_chart(c, x, y, w, h, scatter_data, stand_filter, title):
+    _rounded_rect(c, x, y, w, h, CARD_R, fill_color=BG_CARD)
     c.setFillColor(TEXT_PRIMARY)
-    c.drawString(inner_x, y + h - 28, "Usage Split")
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(x + 12, y + h - 20, title)
 
-    c.setFont("Helvetica", 11)
+    chart_top = y + h - 30
+    chart_bot = y + 16
+    avail_h = chart_top - chart_bot
+    avail_w = w - 32
+
+    # Keep aspect ratio ~4:5 (x_range=4, z_range=4)
+    side = min(avail_h, avail_w)
+    chart_x = x + (w - side) / 2
+    chart_y = chart_bot + (avail_h - side) / 2
+    chart_w = chart_h = side
+
+    x_min, x_max = -2.0, 2.0
+    z_min, z_max = 0.5, 4.5
+    zone_left, zone_right = -0.83, 0.83
+    zone_bot, zone_top = 1.59, 3.39
+
+    def to_px(plate_x, plate_z):
+        px = chart_x + ((plate_x - x_min) / (x_max - x_min)) * chart_w
+        py = chart_y + ((plate_z - z_min) / (z_max - z_min)) * chart_h
+        return px, py
+
+    # Strike zone
+    zl, zb = to_px(zone_left, zone_bot)
+    zr, zt = to_px(zone_right, zone_top)
+    c.setStrokeColor(HexColor("#ffffff"))
+    c.setLineWidth(1.5)
+    c.rect(zl, zb, zr - zl, zt - zb, fill=0, stroke=1)
+    # Inner grid
+    c.setStrokeColor(HexColor("#334155"))
+    c.setLineWidth(0.5)
+    zw = (zr - zl) / 3
+    zh = (zt - zb) / 3
+    for i in range(1, 3):
+        c.line(zl + i * zw, zb, zl + i * zw, zt)
+        c.line(zl, zb + i * zh, zr, zb + i * zh)
+
+    filtered = [p for p in scatter_data
+                if (p.get("stand") or "").upper() == stand_filter.upper()
+                and p.get("plate_x") is not None and p.get("plate_z") is not None]
+
+    for p in filtered:
+        px, py = to_px(p["plate_x"], p["plate_z"])
+        if chart_x <= px <= chart_x + chart_w and chart_y <= py <= chart_y + chart_h:
+            pt = p.get("pitch_type", "")
+            color = HexColor(PITCH_COLORS.get(pt, "#94a3b8"))
+            c.setFillColor(color)
+            c.setStrokeColor(Color(0, 0, 0, alpha=0.25))
+            c.setLineWidth(0.3)
+            c.circle(px, py, 4, fill=1, stroke=1)
+
+    c.setFillColor(TEXT_MUTED)
+    c.setFont("Helvetica", 9)
+    c.drawRightString(x + w - 12, y + h - 20, f"n={len(filtered)}")
+
+
+def _draw_tornado_chart(c, x, y, w, h, usage_lr):
+    _rounded_rect(c, x, y, w, h, CARD_R, fill_color=BG_CARD)
+    c.setFillColor(TEXT_PRIMARY)
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(x + 12, y + h - 20, "Usage Split")
     c.setFillColor(TEXT_SECONDARY)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(x + 12, y + h - 38, "vs LHH")
+    c.drawRightString(x + w - 12, y + h - 38, "vs RHH")
 
-    for idx, label in enumerate(["vs LHH", "vs RHH"]):
-        by = y + h - 60 - idx * 48
-        c.setFillColor(TEXT_SECONDARY)
-        c.drawString(inner_x, by + bar_h + 6, f"{label}")
+    if not usage_lr:
+        return
 
-        # Draw stacked bar
-        bx = inner_x
-        key = "l_usage" if idx == 0 else "r_usage"
-        for row in usage_lr:
-            pct = row.get(key, 0)
-            if pct <= 0:
-                continue
-            seg_w = (pct / 100.0) * inner_w
-            color = HexColor(PITCH_COLORS.get(row.get("pitch_type", ""), "#94a3b8"))
-            _rounded_rect(c, bx, by, max(seg_w, 2), bar_h, 3, fill_color=color)
-            if seg_w > 30:
+    n = len(usage_lr)
+    top_y = y + h - 48
+    bot_y = y + 12
+    avail = top_y - bot_y
+    row_h = min(26, avail / max(n, 1))
+    center_x = x + w / 2
+    half_w = (w / 2) - 44
+    max_pct = max(
+        max((r.get("l_usage", 0) for r in usage_lr), default=1),
+        max((r.get("r_usage", 0) for r in usage_lr), default=1),
+        1,
+    )
+
+    for i, row in enumerate(usage_lr):
+        ry = top_y - (i + 1) * row_h
+        pt = row.get("pitch_type", "UNK")
+        color = HexColor(PITCH_COLORS.get(pt, "#94a3b8"))
+
+        c.setFillColor(TEXT_PRIMARY)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawCentredString(center_x, ry + row_h / 2 - 4, pt)
+
+        # LHH bar (left)
+        l_pct = row.get("l_usage", 0)
+        if l_pct > 0:
+            bw = (l_pct / max_pct) * half_w
+            bx = center_x - 20 - bw
+            _rounded_rect(c, bx, ry + 2, bw, row_h - 6, 4, fill_color=color)
+            if bw > 35:
                 c.setFillColor(HexColor("#0b1220"))
                 c.setFont("Helvetica-Bold", 9)
-                c.drawCentredString(bx + seg_w / 2, by + 7, f"{row.get('pitch_type', '')}")
-            bx += seg_w
+                c.drawCentredString(bx + bw / 2, ry + row_h / 2 - 4, f"{l_pct:.0f}%")
 
-
-def _color_for_metric(val, center=100.0, good_high=True):
-    """Color scale: green=good, red=bad, white=neutral."""
-    if val is None:
-        return TEXT_MUTED
-    diff = val - center
-    if not good_high:
-        diff = -diff
-    if abs(diff) < 3:
-        return TEXT_PRIMARY
-    if diff > 0:
-        intensity = min(1.0, abs(diff) / 30.0)
-        return Color(
-            GREEN_GOOD.red * intensity + TEXT_PRIMARY.red * (1 - intensity),
-            GREEN_GOOD.green * intensity + TEXT_PRIMARY.green * (1 - intensity),
-            GREEN_GOOD.blue * intensity + TEXT_PRIMARY.blue * (1 - intensity),
-        )
-    else:
-        intensity = min(1.0, abs(diff) / 30.0)
-        return Color(
-            RED_BAD.red * intensity + TEXT_PRIMARY.red * (1 - intensity),
-            RED_BAD.green * intensity + TEXT_PRIMARY.green * (1 - intensity),
-            RED_BAD.blue * intensity + TEXT_PRIMARY.blue * (1 - intensity),
-        )
+        # RHH bar (right)
+        r_pct = row.get("r_usage", 0)
+        if r_pct > 0:
+            bw = (r_pct / max_pct) * half_w
+            bx = center_x + 20
+            _rounded_rect(c, bx, ry + 2, bw, row_h - 6, 4, fill_color=color)
+            if bw > 35:
+                c.setFillColor(HexColor("#0b1220"))
+                c.setFont("Helvetica-Bold", 9)
+                c.drawCentredString(bx + bw / 2, ry + row_h / 2 - 4, f"{r_pct:.0f}%")
 
 
 # ---------------------------------------------------------------------------
@@ -375,315 +818,238 @@ def _color_for_metric(val, center=100.0, good_high=True):
 def generate_report(
     pitcher_id: int,
     game_pk: int,
-    season: Optional[int] = None,
     out_dir: Optional[Path] = None,
 ) -> Optional[Path]:
-    """Generate a single pitcher report PDF. Returns the output path."""
-    if season is None:
-        season = datetime.now(timezone.utc).year
+    print(f"  Fetching live feed for game {game_pk}...")
+    feed = _fetch_live_feed(game_pk)
+    game_info = _extract_game_info(feed)
 
-    print(f"  Fetching report for pitcher {pitcher_id}, game {game_pk}, season {season}...")
-
-    # Fetch data
-    report = pitching_report_summary(pitcher_id, season, game_pk=game_pk)
-    if not report or not report.get("ok"):
-        print(f"  No pitch data for pitcher {pitcher_id} in game {game_pk}")
+    print(f"  Extracting pitches for pitcher {pitcher_id}...")
+    raw_pitches = _extract_pitches(feed, pitcher_id)
+    if not raw_pitches:
+        print(f"  No pitches found for pitcher {pitcher_id} in game {game_pk}")
         return None
 
-    scatter = pitching_scatter(pitcher_id, season, game_pk=game_pk)
+    print(f"  Scoring {len(raw_pitches)} pitches with BNStuff+ and BNControl+ models...")
+    pitches = _score_models(raw_pitches)
+    report = _build_report(pitches)
+    if not report.get("ok"):
+        return None
+
     player = _fetch_player(pitcher_id)
-    headshot = _fetch_headshot(pitcher_id, size=360)
-    game_info = _fetch_game_info(game_pk)
+    headshot_img = _fetch_headshot(pitcher_id, size=360)
 
     player_name = player.get("fullName", f"Player {pitcher_id}")
     team_name = ((player.get("currentTeam") or {}).get("name") or "")
-    game_date = game_info.get("date") or report.get("game_date") or str(season)
+    game_date = game_info.get("date") or ""
 
-    # Build output path
     if out_dir is None:
-        out_dir = REPORTS_DIR / game_date.replace("-", "")
+        out_dir = REPORTS_DIR / (game_date.replace("-", "") or "unknown")
     out_dir.mkdir(parents=True, exist_ok=True)
     safe_name = player_name.replace(" ", "_").replace(".", "")
     out_path = out_dir / f"{safe_name}_{game_pk}.pdf"
 
-    mix = report.get("mix") or []
-    basic = report.get("basic") or {}
-    shapes = report.get("shapes") or []
-    usage_lr = report.get("usage_lr") or []
-    side_totals = report.get("side_totals") or {}
-    total_pitches = report.get("total") or 0
+    mix = report["mix"]
+    basic = report["basic"]
+    shapes = report["shapes"]
+    usage_lr = report["usage_lr"]
+    total_pitches = report["total"]
+    box_stats = (game_info.get("pitcher_stats") or {}).get(pitcher_id) or {}
 
     # --- Create PDF ---
     c = rl_canvas.Canvas(str(out_path), pagesize=(W, H))
-
-    # Background
     c.setFillColor(BG)
     c.rect(0, 0, W, H, fill=1, stroke=0)
 
-    # ===== HEADER BAR =====
-    header_h = 130
-    header_y = H - header_h
-    _rounded_rect(c, 20, header_y, W - 40, header_h - 10, 14, fill_color=BG_CARD)
+    cur = H  # cursor — top edge of next section
 
-    # Logo (left side)
+    # ===== HEADER =====
+    hdr_h = 110
+    cur -= PAD + hdr_h
+    _rounded_rect(c, PAD, cur, W - PAD * 2, hdr_h, CARD_R, fill_color=BG_CARD)
+
+    # Logo
+    logo_sz = 65
     if LOGO_PATH.exists():
         try:
-            logo_img = PILImage.open(str(LOGO_PATH)).convert("RGBA")
-            logo_size = 80
-            logo_reader = ImageReader(logo_img)
-            c.drawImage(logo_reader, 36, header_y + 18, width=logo_size, height=logo_size, mask="auto")
-        except Exception as e:
-            print(f"  Warning: Could not load logo: {e}")
-
-    # Headshot (right side)
-    if headshot:
-        try:
-            hs_size = 90
-            hs_reader = ImageReader(headshot)
-            c.drawImage(hs_reader, W - 60 - hs_size, header_y + 12, width=hs_size, height=hs_size, mask="auto")
+            logo = PILImage.open(str(LOGO_PATH)).convert("RGBA")
+            c.drawImage(ImageReader(logo), PAD + 14, cur + (hdr_h - logo_sz) / 2,
+                        width=logo_sz, height=logo_sz, mask="auto")
         except Exception:
             pass
 
-    # Player name + details
-    name_x = 130
+    # Headshot — preserve aspect ratio, circular crop
+    hs_display = 80
+    hs_x = PAD + (W - PAD * 2) - 16 - hs_display
+    hs_y = cur + (hdr_h - hs_display) / 2
+    if headshot_img:
+        try:
+            # Make square crop from center, then circular mask
+            img = headshot_img
+            sz = min(img.size)
+            left = (img.width - sz) // 2
+            top = (img.height - sz) // 2
+            img = img.crop((left, top, left + sz, top + sz))
+            img = img.resize((256, 256), PILImage.LANCZOS if hasattr(PILImage, 'LANCZOS') else PILImage.ANTIALIAS)
+            mask = PILImage.new("L", (256, 256), 0)
+            ImageDraw.Draw(mask).ellipse([0, 0, 255, 255], fill=255)
+            img.putalpha(mask)
+            c.drawImage(ImageReader(img), hs_x, hs_y,
+                        width=hs_display, height=hs_display, mask="auto")
+        except Exception:
+            pass
+
+    # Text
+    tx = PAD + 14 + logo_sz + 14
     c.setFillColor(WHITE)
-    c.setFont("Helvetica-Bold", 32)
-    c.drawString(name_x, header_y + 78, player_name)
+    c.setFont("Helvetica-Bold", 28)
+    c.drawString(tx, cur + hdr_h - 34, player_name)
 
-    # Game context line
-    away_abbrev = game_info.get("away_abbrev", "")
-    home_abbrev = game_info.get("home_abbrev", "")
-    away_runs = game_info.get("away_runs")
-    home_runs = game_info.get("home_runs")
-    score_str = ""
-    if away_runs is not None and home_runs is not None:
-        score_str = f"  |  {away_abbrev} {away_runs} - {home_abbrev} {home_runs}"
-
+    away_ab = game_info.get("away_abbrev", "")
+    home_ab = game_info.get("home_abbrev", "")
+    ar = game_info.get("away_runs")
+    hr_ = game_info.get("home_runs")
+    score = f"  |  {away_ab} {ar} - {home_ab} {hr_}" if ar is not None else ""
     c.setFillColor(TEXT_SECONDARY)
-    c.setFont("Helvetica", 16)
-    context_line = f"{team_name}  |  {game_date}{score_str}  |  {total_pitches} pitches"
-    c.drawString(name_x, header_y + 48, context_line)
+    c.setFont("Helvetica", 14)
+    c.drawString(tx, cur + hdr_h - 56, f"{team_name}  |  {game_date}{score}")
 
-    # "Post-Game Pitcher Report" tag
     c.setFillColor(ACCENT)
-    c.setFont("Helvetica-Bold", 13)
-    c.drawString(name_x, header_y + 22, "POST-GAME PITCHER REPORT")
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(tx, cur + hdr_h - 76, "POST-GAME PITCHER REPORT")
 
-    # ===== TOP-LINE STATS BAR =====
-    stat_bar_y = header_y - 70
-    stat_bar_h = 56
-    _rounded_rect(c, 20, stat_bar_y, W - 40, stat_bar_h, 10, fill_color=BG_CARD)
+    # ===== BOXSCORE BAR =====
+    cur -= GAP
+    bar_h = 48
+    cur -= bar_h
+    _rounded_rect(c, PAD, cur, W - PAD * 2, bar_h, CARD_R, fill_color=BG_CARD)
+    box_items = [
+        ("IP", str(box_stats.get("IP", "--"))),
+        ("H", str(box_stats.get("H", "--"))),
+        ("R", str(box_stats.get("R", "--"))),
+        ("ER", str(box_stats.get("ER", "--"))),
+        ("BB", str(box_stats.get("BB", "--"))),
+        ("SO", str(box_stats.get("SO", "--"))),
+        ("HR", str(box_stats.get("HR", "--"))),
+        ("P-S", f"{box_stats.get('pitches', '--')}-{box_stats.get('strikes', '--')}"),
+    ]
+    bw = (W - PAD * 2) / len(box_items)
+    for i, (lbl, val) in enumerate(box_items):
+        bx = PAD + i * bw
+        c.setFillColor(TEXT_MUTED)
+        c.setFont("Helvetica", 10)
+        c.drawCentredString(bx + bw / 2, cur + bar_h - 14, lbl)
+        c.setFillColor(WHITE)
+        c.setFont("Helvetica-Bold", 18)
+        c.drawCentredString(bx + bw / 2, cur + 8, val)
 
+    # ===== STATCAST BAR =====
+    cur -= GAP
+    cur -= bar_h
+    _rounded_rect(c, PAD, cur, W - PAD * 2, bar_h, CARD_R, fill_color=BG_CARD)
     stat_items = [
         ("K%", _pct(basic.get("k_pct"))),
         ("BB%", _pct(basic.get("bb_pct"))),
         ("Whiff%", _pct(basic.get("whiff_pct"))),
         ("Zone%", _pct(basic.get("zone_pct"))),
         ("Chase%", _pct(basic.get("chase_pct"))),
-        ("xwOBA", _fmt(basic.get("xwoba"), 3)),
+        ("Pitches", str(total_pitches)),
     ]
-
-    stat_w = (W - 80) / len(stat_items)
-    for i, (label, val) in enumerate(stat_items):
-        sx = 40 + i * stat_w
+    sw = (W - PAD * 2) / len(stat_items)
+    for i, (lbl, val) in enumerate(stat_items):
+        sx = PAD + i * sw
         c.setFillColor(TEXT_MUTED)
-        c.setFont("Helvetica", 11)
-        c.drawCentredString(sx + stat_w / 2, stat_bar_y + stat_bar_h - 16, label)
+        c.setFont("Helvetica", 10)
+        c.drawCentredString(sx + sw / 2, cur + bar_h - 14, lbl)
         c.setFillColor(WHITE)
-        c.setFont("Helvetica-Bold", 20)
-        c.drawCentredString(sx + stat_w / 2, stat_bar_y + 10, val)
+        c.setFont("Helvetica-Bold", 18)
+        c.drawCentredString(sx + sw / 2, cur + 8, val)
 
     # ===== ARSENAL TABLE =====
-    table_y = stat_bar_y - 30
-    cols = ["Pitch", "#", "Use%", "Velo", "HB", "IVB", "Spin", "xwOBA", "Whiff%", "Zone%", "Chase%", "BNStuff+", "BNCtrl+"]
-    col_widths = [70, 40, 55, 55, 50, 50, 55, 65, 60, 55, 60, 75, 70]
-    total_table_w = sum(col_widths)
-    table_x = (W - total_table_w) / 2
-    row_h = 28
+    cur -= GAP
+    cols = ["Pitch", "#", "Use%", "Velo", "HB", "IVB", "Spin", "Whiff%", "Zone%", "Chase%", "BNStuff+", "BNCtrl+"]
+    col_w = [68, 38, 52, 52, 48, 48, 52, 58, 56, 58, 78, 72]
+    ttw = sum(col_w)
+    tx0 = (W - ttw) / 2
+    rh = 26
+    table_h = rh * (len(mix) + 1) + 6
+    cur -= table_h
 
-    # Table header
-    table_header_y = table_y - row_h
-    _rounded_rect(c, table_x - 8, table_header_y - 2, total_table_w + 16, row_h + 4, 6, fill_color=BORDER)
-
-    c.setFont("Helvetica-Bold", 11)
-    cx_pos = table_x
-    for ci, col_name in enumerate(cols):
-        cw = col_widths[ci]
-        c.setFillColor(ACCENT if col_name.startswith("BN") else TEXT_SECONDARY)
+    # Header
+    hdr_y = cur + table_h - rh - 3
+    _rounded_rect(c, tx0 - 6, hdr_y, ttw + 12, rh + 3, 5, fill_color=BORDER)
+    c.setFont("Helvetica-Bold", 10)
+    cx_ = tx0
+    for ci, cn in enumerate(cols):
+        cw = col_w[ci]
+        c.setFillColor(ACCENT if cn.startswith("BN") else TEXT_SECONDARY)
         if ci == 0:
-            c.drawString(cx_pos + 4, table_header_y + 8, col_name)
+            c.drawString(cx_ + 4, hdr_y + 7, cn)
         else:
-            c.drawCentredString(cx_pos + cw / 2, table_header_y + 8, col_name)
-        cx_pos += cw
+            c.drawCentredString(cx_ + cw / 2, hdr_y + 7, cn)
+        cx_ += cw
 
-    # Table rows
+    # Rows
     for ri, row in enumerate(mix):
-        ry = table_header_y - (ri + 1) * row_h
+        ry = hdr_y - (ri + 1) * rh
         if ri % 2 == 0:
-            _rounded_rect(c, table_x - 8, ry - 2, total_table_w + 16, row_h, 4, fill_color=BG_TABLE_ROW)
-
+            _rounded_rect(c, tx0 - 6, ry - 1, ttw + 12, rh, 3, fill_color=BG_TABLE_ROW)
         pt = row.get("pitch_type", "UNK")
-        values = [
-            pt,
-            _fmt(row.get("n"), 0),
-            _fmt(row.get("usage"), 1),
-            _fmt(row.get("velo"), 1),
-            _fmt(row.get("hb"), 1),
-            _fmt(row.get("ivb"), 1),
-            _fmt(row.get("spin"), 0),
-            _fmt(row.get("xwoba"), 3),
-            _pct(row.get("whiff")),
-            _pct(row.get("zone_pct")),
-            _pct(row.get("chase_pct")),
-            _fmt(row.get("stuff_plus"), 0),
-            _fmt(row.get("control_plus"), 0),
+        vals = [
+            pt, _fmt(row.get("n"), 0), _fmt(row.get("usage"), 1),
+            _fmt(row.get("velo"), 1), _fmt(row.get("hb"), 1), _fmt(row.get("ivb"), 1),
+            _fmt(row.get("spin"), 0), _pct(row.get("whiff")),
+            _pct(row.get("zone_pct")), _pct(row.get("chase_pct")),
+            _fmt(row.get("stuff_plus"), 0), _fmt(row.get("control_plus"), 0),
         ]
-
-        cx_pos = table_x
-        for ci, val in enumerate(values):
-            cw = col_widths[ci]
+        cx_ = tx0
+        for ci, val in enumerate(vals):
+            cw = col_w[ci]
             if ci == 0:
-                # Pitch type pill
                 color = HexColor(PITCH_COLORS.get(pt, "#94a3b8"))
-                _rounded_rect(c, cx_pos + 2, ry + 2, 56, 20, 10, fill_color=color)
+                _rounded_rect(c, cx_ + 2, ry + 2, 52, 18, 9, fill_color=color)
                 c.setFillColor(HexColor("#0b1220"))
+                c.setFont("Helvetica-Bold", 10)
+                c.drawCentredString(cx_ + 28, ry + 5, pt)
+            elif ci >= 10:
+                raw = row.get("stuff_plus") if ci == 10 else row.get("control_plus")
+                c.setFillColor(_color_for_metric(raw))
                 c.setFont("Helvetica-Bold", 11)
-                c.drawCentredString(cx_pos + 30, ry + 6, pt)
-            elif ci in (11, 12):
-                # BNStuff+ / BNCtrl+ with color coding
-                raw = row.get("stuff_plus") if ci == 11 else row.get("control_plus")
-                c.setFillColor(_color_for_metric(raw, center=100, good_high=True))
-                c.setFont("Helvetica-Bold", 12)
-                c.drawCentredString(cx_pos + cw / 2, ry + 7, val)
+                c.drawCentredString(cx_ + cw / 2, ry + 6, val)
             else:
                 c.setFillColor(TEXT_PRIMARY)
-                c.setFont("Helvetica", 12)
-                c.drawCentredString(cx_pos + cw / 2, ry + 7, val)
-            cx_pos += cw
+                c.setFont("Helvetica", 11)
+                c.drawCentredString(cx_ + cw / 2, ry + 6, val)
+            cx_ += cw
 
-    # ===== BOTTOM SECTION: Movement chart (left) + Usage bars (right) =====
-    bottom_y = table_header_y - (len(mix) + 1) * row_h - 30
-    chart_size = min(460, bottom_y - 80)
-    chart_y = bottom_y - chart_size
+    # ===== BOTTOM: 4 charts in 2x2 grid =====
+    cur -= GAP
+    remaining = cur - 40  # footer space
+    chart_h = (remaining - GAP) / 2   # two rows
+    col_gap = GAP
+    half_w = (W - PAD * 2 - col_gap) / 2
 
-    if chart_size > 200:
-        # Movement chart
-        _draw_movement_chart(c, 30, chart_y, chart_size, shapes, scatter_data=scatter)
+    # Top row: Movement chart (left) + Tornado chart (right)
+    row1_y = cur - chart_h
+    _draw_movement_chart(c, PAD, row1_y, half_w, chart_h, shapes, pitches)
+    _draw_tornado_chart(c, PAD + half_w + col_gap, row1_y, half_w, chart_h, usage_lr)
 
-        # Title above chart
-        c.setFillColor(TEXT_PRIMARY)
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(30, chart_y + chart_size + 8, "Pitch Movement")
-
-        # Usage split bars (right of chart)
-        usage_x = 30 + chart_size + 30
-        usage_w = W - usage_x - 30
-        usage_h = 170
-        if usage_lr:
-            _draw_usage_bars(c, usage_x, chart_y + chart_size - usage_h, usage_w, usage_h, usage_lr, side_totals)
-
-        # ===== PITCH NOTES (right side, below usage) =====
-        notes_y = chart_y + chart_size - usage_h - 30
-        notes_h = chart_size - usage_h - 10
-        if notes_h > 80:
-            _rounded_rect(c, usage_x, chart_y, usage_w, max(notes_h, 100), 10, fill_color=BG_CARD)
-            c.setFillColor(TEXT_PRIMARY)
-            c.setFont("Helvetica-Bold", 13)
-            c.drawString(usage_x + 14, chart_y + notes_h - 20, "Pitch Insights")
-
-            ny = chart_y + notes_h - 44
-            c.setFont("Helvetica", 11)
-            c.setFillColor(TEXT_SECONDARY)
-
-            # Generate some insights from the data
-            insights = _generate_insights(mix, basic, total_pitches)
-            for insight in insights[:6]:
-                if ny < chart_y + 10:
-                    break
-                # Wrap long lines
-                lines = _wrap_text(insight, 55)
-                for line in lines:
-                    if ny < chart_y + 10:
-                        break
-                    c.drawString(usage_x + 14, ny, line)
-                    ny -= 16
-                ny -= 6
+    # Bottom row: Location vs LHH (left) + Location vs RHH (right)
+    row2_y = row1_y - GAP - chart_h
+    _draw_location_chart(c, PAD, row2_y, half_w, chart_h, pitches, "L", "Locations vs LHH")
+    _draw_location_chart(c, PAD + half_w + col_gap, row2_y, half_w, chart_h, pitches, "R", "Locations vs RHH")
 
     # ===== FOOTER =====
     c.setFillColor(TEXT_MUTED)
     c.setFont("Helvetica", 10)
-    c.drawString(30, 18, f"basenerd.com  |  Data from Baseball Savant  |  Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
-
+    c.drawString(PAD, 12, f"basenerd.com  |  Data via MLB Stats API  |  {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     c.setFillColor(ACCENT)
     c.setFont("Helvetica-Bold", 11)
-    c.drawRightString(W - 30, 18, "@basenerd")
+    c.drawRightString(W - PAD, 12, "@basenerd")
 
     c.save()
     print(f"  Saved: {out_path}")
     return out_path
-
-
-def _generate_insights(mix, basic, total_pitches) -> List[str]:
-    """Auto-generate short text insights from the data."""
-    insights = []
-
-    # Best stuff+ pitch
-    sp_pitches = [(r.get("pitch_name", r.get("pitch_type", "?")), r.get("stuff_plus")) for r in mix if r.get("stuff_plus") is not None]
-    if sp_pitches:
-        best = max(sp_pitches, key=lambda x: x[1])
-        if best[1] >= 110:
-            insights.append(f"Best BNStuff+: {best[0]} at {best[1]:.0f}")
-
-    # Highest whiff pitch
-    whiff_pitches = [(r.get("pitch_name", r.get("pitch_type", "?")), r.get("whiff"), r.get("n", 0)) for r in mix if r.get("whiff") is not None and (r.get("n") or 0) >= 5]
-    if whiff_pitches:
-        best_w = max(whiff_pitches, key=lambda x: x[1])
-        if best_w[1] >= 30:
-            insights.append(f"Top whiff: {best_w[0]} at {best_w[1]:.1f}%")
-
-    # Chase rate
-    chase = basic.get("chase_pct")
-    if chase is not None:
-        if chase >= 35:
-            insights.append(f"Elite chase rate: {chase:.1f}%")
-        elif chase <= 20:
-            insights.append(f"Low chase rate: {chase:.1f}%")
-
-    # K% / BB%
-    k_pct = basic.get("k_pct")
-    bb_pct = basic.get("bb_pct")
-    if k_pct is not None and bb_pct is not None and bb_pct > 0:
-        k_bb = k_pct / bb_pct
-        insights.append(f"K/BB ratio: {k_bb:.1f}")
-
-    # xwOBA
-    xw = basic.get("xwoba")
-    if xw is not None:
-        if xw <= 0.280:
-            insights.append(f"Dominant xwOBA: {xw:.3f}")
-        elif xw >= 0.370:
-            insights.append(f"Rough outing: {xw:.3f} xwOBA")
-
-    # Pitch count
-    insights.append(f"Total pitches: {total_pitches}")
-
-    return insights
-
-
-def _wrap_text(text, max_chars):
-    """Simple word-wrap."""
-    words = text.split()
-    lines = []
-    current = ""
-    for w in words:
-        if len(current) + len(w) + 1 > max_chars:
-            lines.append(current)
-            current = w
-        else:
-            current = f"{current} {w}" if current else w
-    if current:
-        lines.append(current)
-    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -691,11 +1057,10 @@ def _wrap_text(text, max_chars):
 # ---------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(description="Generate post-game pitcher report PDFs")
-    parser.add_argument("--pitcher_id", type=int, help="Single pitcher MLBAM ID")
-    parser.add_argument("--game_pk", type=int, help="Single game PK")
-    parser.add_argument("--season", type=int, default=None)
-    parser.add_argument("--date", type=str, help="Date (YYYY-MM-DD or 'yesterday') to generate all starters")
-    parser.add_argument("--outdir", type=str, default=None, help="Custom output directory")
+    parser.add_argument("--pitcher_id", type=int)
+    parser.add_argument("--game_pk", type=int)
+    parser.add_argument("--date", type=str, help="YYYY-MM-DD or 'yesterday'")
+    parser.add_argument("--outdir", type=str, default=None)
     args = parser.parse_args()
 
     out_dir = Path(args.outdir) if args.outdir else None
@@ -712,35 +1077,26 @@ def main():
         print(f"Generating reports for {date_str}...")
         games = _games_for_date(date_str)
         if not games:
-            print("No final games found for this date.")
+            print("No final games found.")
             return
 
-        season = args.season or int(date_str[:4])
         count = 0
         for g in games:
             gp = g["game_pk"]
             for pid in [g.get("away_pitcher_id"), g.get("home_pitcher_id")]:
                 if pid:
                     try:
-                        result = generate_report(pid, gp, season=season, out_dir=out_dir)
+                        result = generate_report(pid, gp, out_dir=out_dir)
                         if result:
                             count += 1
                     except Exception as e:
-                        print(f"  Error generating report for pitcher {pid}, game {gp}: {e}")
-
+                        print(f"  Error: pitcher {pid}, game {gp}: {e}")
         print(f"\nDone. Generated {count} reports.")
 
     elif args.pitcher_id and args.game_pk:
-        season = args.season or datetime.now(timezone.utc).year
-        generate_report(args.pitcher_id, args.game_pk, season=season, out_dir=out_dir)
-
+        generate_report(args.pitcher_id, args.game_pk, out_dir=out_dir)
     else:
         parser.print_help()
-        print("\nExamples:")
-        print("  python scripts/generate_pitcher_report_pdf.py --pitcher_id 669373 --game_pk 747131")
-        print("  python scripts/generate_pitcher_report_pdf.py --date yesterday")
-        print("  python scripts/generate_pitcher_report_pdf.py --date 2026-03-05")
-
 
 if __name__ == "__main__":
     main()
