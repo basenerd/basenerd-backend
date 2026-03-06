@@ -1716,8 +1716,8 @@
                                           {% else %}-{% endif %}
                                         </td>
                                         <td class="mono">{{ dash(p.spinRate if p.spinRate is defined else none) }}</td>
-                                        <td class="mono">{{ dash(p.vertMove if p.vertMove is defined else none) }}</td>
-                                        <td class="mono">{{ dash(p.horizMove if p.horizMove is defined else none) }}</td>
+                                        <td class="mono">{% if p.vertMove is defined and p.vertMove is not none %}{{ '%.1f'|format(p.vertMove) }}{% else %}-{% endif %}</td>
+                                        <td class="mono">{% if p.horizMove is defined and p.horizMove is not none %}{{ '%.1f'|format(p.horizMove) }}{% else %}-{% endif %}</td>
                                       </tr>
                                     {% endfor %}
                                   </tbody>
