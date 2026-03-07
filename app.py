@@ -1091,7 +1091,7 @@ from datetime import timedelta
 def ticker_json():
     """Today's games for the global ticker bar."""
     user_tz = "America/Phoenix"
-    today_ymd = datetime.utcnow().date().strftime("%Y-%m-%d")
+    today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
     games_list = get_games_for_date(today_ymd, tz_name=user_tz, include_live_context=False)
     # Return lightweight cards
     cards = []
@@ -1141,7 +1141,7 @@ def games():
 
     picked = (request.args.get("date") or "").strip()  # YYYY-MM-DD
     show_wbc = request.args.get("show_wbc", "0") == "1"
-    today_ymd = datetime.utcnow().date().strftime("%Y-%m-%d")
+    today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
 
     target = picked or today_ymd
     games_list = get_games_for_date(target, tz_name=user_tz)
@@ -2466,7 +2466,7 @@ def wbc():
 
     if tab == "games":
         picked = (request.args.get("date") or "").strip()
-        today_ymd = datetime.utcnow().date().strftime("%Y-%m-%d")
+        today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
         target = picked or today_ymd
 
         try:
