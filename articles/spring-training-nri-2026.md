@@ -1,6 +1,6 @@
 ---
 title: 2026 Spring Training Non-Roster Invitees
-date: 2026-03-28
+date: 2026-03-01
 author: Nick Labella
 slug: spring-training-nri-2026
 ---
