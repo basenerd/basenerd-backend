@@ -292,6 +292,49 @@
         opacity: .8;
         font-size: 12px;
       }
+
+      /* BUY A COFFEE */
+      .buy-coffee{
+        margin-top: 12px;
+        border-top: 1px solid rgba(255,255,255,.10);
+        padding-top: 12px;
+      }
+      .buy-coffee-link{
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(255,255,255,.06);
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 8px;
+        padding: 8px 16px;
+        color: inherit;
+        text-decoration: none;
+        transition: background .15s, border-color .15s;
+      }
+      .buy-coffee-link:hover{
+        background: rgba(255,255,255,.12);
+        border-color: rgba(255,255,255,.22);
+        text-decoration: none;
+        color: inherit;
+      }
+      .buy-coffee-icon{
+        font-size: 22px;
+      }
+      .buy-coffee-text{
+        display: flex;
+        flex-direction: column;
+        text-align: left;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      .buy-coffee-text strong{
+        font-size: 14px;
+      }
+      .buy-coffee-text small{
+        opacity: .7;
+        font-size: 11px;
+        margin-top: 2px;
+      }
     </style>
   </head>
 
@@ -386,6 +429,16 @@
                 <span><b id="odcSecs">--</b> sec</span>
               </div>
               <div class="odc-sub">First pitch: March 25, 8:05 PM ET</div>
+
+              <div class="buy-coffee">
+                <a href="https://venmo.com/u/NickLabella" target="_blank" rel="noopener" class="buy-coffee-link">
+                  <span class="buy-coffee-icon">&#9749;</span>
+                  <span class="buy-coffee-text">
+                    <strong>Buy the developer a coffee</strong>
+                    <small>All donations go directly back into improving Basenerd</small>
+                  </span>
+                </a>
+              </div>
             </div>
           {% endif %}
 
