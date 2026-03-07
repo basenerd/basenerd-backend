@@ -480,16 +480,32 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
 .article-content sub { font-size: 0.75em; }
 .article-content blockquote { border-left: 3px solid var(--accent); margin: 16px 0; padding: 8px 16px; color: var(--muted); }
 .article-content code { background: var(--rowAlt); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+/* Article hero */
+.article-hero { background: #1a1a2e; margin: -16px -16px 28px; padding: 48px 32px 40px; border-radius: 8px 8px 0 0; text-align: center; }
+.article-hero-label { font-size: 11px; text-transform: uppercase; letter-spacing: 2.5px; color: #64ffda; margin-bottom: 14px; font-weight: 600; }
+.article-hero-title { font-size: 38px; font-weight: 800; line-height: 1.15; color: #fff; letter-spacing: -0.03em; margin: 0 0 14px; }
+.article-hero-subtitle { font-size: 15px; color: #8892b0; font-style: italic; }
 /* Dark-bg visuals in light article */
 .article-figure { margin: 24px -12px; background: #1a1a2e; border-radius: 10px; padding: 12px; text-align: center; }
 .article-figure img { margin: 0; border-radius: 6px; border: none; }
-.article-figure figcaption { color: #8892b0; font-size: 12px; margin-top: 6px; font-style: italic; }
+.article-figure figcaption { color: #8892b0; font-size: 12px; margin-top: 8px; font-style: italic; line-height: 1.5; padding: 0 12px; }
+.article-figure-wide { margin: 32px -24px; padding: 16px 20px; border-radius: 12px; }
+/* Article callout boxes */
+.article-callout { background: var(--rowAlt); border-left: 3px solid var(--accent); border-radius: 6px; padding: 14px 18px; margin: 20px 0; font-size: 15px; line-height: 1.6; }
+.article-callout-muted { color: var(--muted); font-size: 13px; }
+.article-callout-highlight { background: #1a1a2e; border-left-color: #64ffda; color: #ccd6f6; }
+.article-callout-highlight strong { color: #64ffda; }
 @media(max-width:640px){
   .article-title { font-size: 22px; }
+  .article-hero { margin: -12px -12px 20px; padding: 32px 16px 28px; }
+  .article-hero-title { font-size: 26px; }
+  .article-hero-subtitle { font-size: 13px; }
   .article-content { font-size: 14px; }
   .article-content h2 { font-size: 18px; }
   .article-content h3 { font-size: 16px; }
   .article-figure { margin: 16px -8px; padding: 8px; }
+  .article-figure-wide { margin: 20px -12px; padding: 10px; }
+  .article-callout { padding: 12px 14px; }
 }
 
 .home-nav-card{
