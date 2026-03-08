@@ -2559,5 +2559,35 @@ def wbc():
         )
 
 
+@app.get("/playoff-odds")
+def playoff_odds():
+    import json as _json
+    season = request.args.get("season", default=2026, type=int)
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    results_path = os.path.join(data_dir, f"season_projection_{season}.json")
+
+    error = None
+    projection = None
+    meta = None
+
+    if os.path.exists(results_path):
+        with open(results_path, "r") as f:
+            raw = _json.load(f)
+        meta = raw.pop("_meta", {})
+        projection = raw
+    else:
+        error = f"No projection data found for {season}. Run the season simulator first."
+
+    return render_template(
+        "playoff_odds.html",
+        title=f"Playoff Odds {season} • Basenerd",
+        season=season,
+        seasons=[2026, 2025],
+        projection=projection,
+        meta=meta,
+        error=error,
+    )
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
