@@ -507,8 +507,7 @@ def pitcher_counting_stats(rates, ip):
     W/L are set later at team level to ensure they sum correctly."""
     era = max(2.00, min(7.00, -6.0 + 33.0 * rates["xwoba"]))
 
-    k_pct = min(0.40, rates["whiff_rate"] * 0.90)
-    k_per_9 = max(4.0, min(14.0, k_pct * 27.0))
+    k_per_9 = max(4.0, min(14.5, rates["whiff_rate"] * 40 + rates["chase_rate"] * 3.5 - 2.5))
     bb_pct = max(0.04, 0.22 - 0.33 * rates["zone_rate"])
     bb_per_9 = max(1.5, min(6.0, bb_pct * 27.0))
     whip = max(0.80, min(2.00, 0.72 + era * 0.145))
