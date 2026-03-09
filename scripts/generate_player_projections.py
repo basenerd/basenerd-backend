@@ -59,15 +59,17 @@ TEAM_PA_PER_SEASON = 6100       # ~37.65 PA/game × 162
 TEAM_IP_PER_SEASON = 1458.0     # 162 × 9
 TEAM_GAMES = 162
 
-# PA allocation by lineup role
-PA_ALLOCATION = {
-    "everyday": 620,      # everyday starter (slots 1-8)
-    "primary_dh": 580,    # primary DH
-    "platoon": 400,       # platoon / semi-regular
-    "bench_bat": 250,     # backup infielder/outfielder
-    "backup_c": 200,      # backup catcher
-    "extra": 150,         # extra man / September callup
-}
+# PA allocation by lineup role — must sum to ~6100 for a typical 14-player roster
+PA_TEMPLATE = [
+    650, 630, 620, 610, 600, 590, 570, 550,  # 8 everyday starters
+    500,                                        # 9th starter (weak-side platoon / DH)
+    350,                                        # 10th man (strong platoon / utility)
+    250,                                        # 11th (backup IF/OF)
+    200,                                        # 12th (backup C or pinch-hitter)
+    130,                                        # 13th (extra bench)
+    100,                                        # 14th
+    80, 70, 60, 50, 40, 30,                    # 15th+ (callups, Sept extras)
+]
 
 # IP allocation by pitching role
 IP_ALLOCATION = {
@@ -167,20 +169,46 @@ def load_player_data():
     return bp, pa, pw
 
 
-def load_team_wins():
-    """Load projected team wins from season projection."""
-    path = os.path.join(DATA_DIR, "season_projection_2026.json")
-    if not os.path.exists(path):
-        return {}
-    with open(path) as f:
-        raw = json.load(f)
-    wins = {}
-    for div, teams in raw.items():
-        if div.startswith("_"):
-            continue
-        for t in teams:
-            wins[t["team_id"]] = t["avg_wins"]
-    return wins
+def load_team_context():
+    """Load projected team wins and runs per game from existing data."""
+    context = {}
+
+    # Team wins from season projection
+    proj_path = os.path.join(DATA_DIR, "season_projection_2026.json")
+    if os.path.exists(proj_path):
+        with open(proj_path) as f:
+            raw = json.load(f)
+        for div, teams in raw.items():
+            if div.startswith("_"):
+                continue
+            for t in teams:
+                context[t["team_id"]] = {
+                    "wins": t["avg_wins"],
+                    "losses": TEAM_GAMES - t["avg_wins"],
+                }
+
+    # Runs per game from team rosters (used in season sim)
+    roster_path = os.path.join(DATA_DIR, "team_rosters.json")
+    if os.path.exists(roster_path):
+        with open(roster_path) as f:
+            rosters = json.load(f)
+        for tid_str, t in rosters.items():
+            if tid_str.startswith("_"):
+                continue
+            tid = int(tid_str)
+            if tid not in context:
+                context[tid] = {"wins": 81, "losses": 81}
+            context[tid]["rs_pg"] = t.get("runs_scored_pg", 4.50)
+            context[tid]["ra_pg"] = t.get("runs_allowed_pg", 4.50)
+            context[tid]["season_runs"] = int(t.get("runs_scored_pg", 4.50) * TEAM_GAMES)
+
+    # Default for any missing team
+    for tid in TEAM_IDS:
+        if tid not in context:
+            context[tid] = {"wins": 81, "losses": 81, "rs_pg": 4.50, "ra_pg": 4.50,
+                           "season_runs": 729}
+
+    return context
 
 
 # ────────────────────────────────────────────────────────
@@ -330,7 +358,8 @@ def marcel_pitcher_rates(player_id, pa_df, age=None):
 # ────────────────────────────────────────────────────────
 
 def batter_counting_stats(rates, pa):
-    """Derive counting stats from rate stats and allocated PA."""
+    """Derive counting stats from rate stats and allocated PA.
+    Returns dict with raw run_production_weight for team-level R/RBI scaling."""
     ab = int(pa * (1 - rates["bb_pct"] - 0.012))
 
     # AVG from components
@@ -343,17 +372,15 @@ def batter_counting_stats(rates, pa):
     doubles = max(0, int((hits - hr) * 0.24))
     triples = max(0, int((hits - hr) * 0.025))
     singles = max(0, hits - hr - doubles - triples)
-
-    # RBI/R using realistic per-event values
-    # HR: batter scores + ~0.5 avg runners on base = ~1.5 RBI per HR
-    # non-HR hits: ~0.12 RBI each
-    # BB: ~0.04 RBI each (bases loaded walks, etc.)
     bb = int(pa * rates["bb_pct"])
-    rbi = max(0, int(hr * 1.50 + (hits - hr) * 0.12 + bb * 0.04 + pa * 0.005))
-    runs = max(0, int(hr * 0.65 + (hits - hr) * 0.27 + bb * 0.20 + pa * 0.01))
 
     slg = avg + rates["iso"]
     obp = max(avg, min(0.500, avg + rates["bb_pct"] * 0.85 + 0.010))
+
+    # Raw run production weight (used for team-level R/RBI distribution)
+    # This is a relative weight, not an absolute count — team totals scale these
+    run_weight = hr * 4.0 + (hits - hr) * 1.0 + bb * 0.5
+    rbi_weight = hr * 4.5 + (hits - hr) * 0.9 + bb * 0.3
 
     return {
         "pa": pa,
@@ -362,8 +389,10 @@ def batter_counting_stats(rates, pa):
         "hr": hr,
         "2b": doubles,
         "3b": triples,
-        "rbi": rbi,
-        "r": runs,
+        "rbi": 0,  # placeholder — set by team-level scaling
+        "r": 0,    # placeholder — set by team-level scaling
+        "_run_weight": run_weight,
+        "_rbi_weight": rbi_weight,
         "avg": round(avg, 3),
         "obp": round(obp, 3),
         "slg": round(slg, 3),
@@ -381,8 +410,9 @@ def batter_counting_stats(rates, pa):
     }
 
 
-def pitcher_counting_stats(rates, ip, team_wins, team_losses, team_ip_total):
-    """Derive counting stats from rate stats and allocated IP."""
+def pitcher_counting_stats(rates, ip):
+    """Derive rate-based counting stats (ERA, K, WHIP, etc.) from rates and IP.
+    W/L are set later at team level to ensure they sum correctly."""
     era = max(2.00, min(7.00, -6.0 + 33.0 * rates["xwoba"]))
 
     k_pct = min(0.40, rates["whiff_rate"] * 0.90)
@@ -390,26 +420,16 @@ def pitcher_counting_stats(rates, ip, team_wins, team_losses, team_ip_total):
     bb_pct = max(0.04, 0.22 - 0.33 * rates["zone_rate"])
     bb_per_9 = max(1.5, min(6.0, bb_pct * 27.0))
     whip = max(0.80, min(2.00, 0.72 + era * 0.145))
-
     k_total = max(0, int(ip * k_per_9 / 9))
 
-    # W/L: distribute team wins proportionally by IP, adjusted by ERA
-    # Better ERA = higher share of wins, lower share of losses
-    ip_share = ip / team_ip_total if team_ip_total > 0 else 0
-    era_factor = max(0.4, min(1.6, (4.50 / max(2.0, era))))  # >1 for good ERA, <1 for bad
-    raw_wins = team_wins * ip_share * era_factor
-    raw_losses = team_losses * ip_share * (1 / era_factor)
-
-    # Pitchers only get decisions in ~55% of their games
-    decision_rate = 0.55 if ip > 80 else 0.30  # starters vs relievers
-    wins = max(0, int(raw_wins * decision_rate))
-    losses = max(0, int(raw_losses * decision_rate))
+    # Win/loss weight: IP-share × quality factor. Used for team-level distribution.
+    era_quality = max(0.3, min(2.0, 4.50 / max(2.0, era)))
 
     return {
         "ip": round(ip, 1),
         "era": round(era, 2),
-        "w": wins,
-        "l": losses,
+        "w": 0,  # placeholder — set by team-level distribution
+        "l": 0,  # placeholder — set by team-level distribution
         "k": k_total,
         "k_per_9": round(k_per_9, 1),
         "bb_per_9": round(bb_per_9, 1),
@@ -422,6 +442,7 @@ def pitcher_counting_stats(rates, ip, team_wins, team_losses, team_ip_total):
         "velo": round(rates.get("velo", 93.0), 1),
         "stuff_plus": round(rates.get("stuff_plus", 100.0), 1),
         "control_plus": round(rates.get("control_plus", 100.0), 1),
+        "_era_quality": era_quality,
     }
 
 
@@ -486,41 +507,19 @@ def allocate_hitter_pa(hitters, bp_df, player_info):
     # Sort by quality (xwoba) descending
     scored.sort(key=lambda x: x["xwoba"], reverse=True)
 
+    # Assign PA from template (top player gets most PA, etc.)
     allocations = []
-    total_pa = 0
-    positions_filled = set()
-
     for i, h in enumerate(scored):
-        pos = h["primary_pos"]
-
-        if i < 8:
-            # Top 8 hitters are everyday starters
-            pa = PA_ALLOCATION["everyday"]
-        elif i == 8:
-            # 9th hitter (DH or weaker starter)
-            pa = PA_ALLOCATION["primary_dh"]
-        elif i < 11:
-            # Platoon / semi-regular
-            pa = PA_ALLOCATION["platoon"]
-        elif pos == "C" and i >= 8:
-            # Backup catcher
-            pa = PA_ALLOCATION["backup_c"]
-        elif i < 14:
-            # Bench bats
-            pa = PA_ALLOCATION["bench_bat"]
-        else:
-            # Extra men
-            pa = PA_ALLOCATION["extra"]
-
+        pa = PA_TEMPLATE[i] if i < len(PA_TEMPLATE) else 25
         allocations.append((h, pa))
-        total_pa += pa
 
     # Scale to hit exactly TEAM_PA_PER_SEASON
+    total_pa = sum(pa for _, pa in allocations)
     if total_pa > 0:
         scale = TEAM_PA_PER_SEASON / total_pa
-        allocations = [(h, max(50, int(pa * scale))) for h, pa in allocations]
+        allocations = [(h, max(25, int(pa * scale))) for h, pa in allocations]
 
-        # Fine-tune: adjust top hitters to absorb rounding errors
+        # Fix rounding to hit exact target
         current_total = sum(pa for _, pa in allocations)
         diff = TEAM_PA_PER_SEASON - current_total
         if diff != 0 and allocations:
@@ -635,11 +634,11 @@ def generate_projections(season=2026):
     # Load data
     print("\nLoading data...")
     bp_df, pa_df, pw_df = load_player_data()
-    team_wins_proj = load_team_wins()
+    team_context = load_team_context()
     print(f"  Batter profiles: {bp_df['batter'].nunique()} players")
     print(f"  Pitcher arsenal: {pa_df['pitcher'].nunique()} players")
     print(f"  Pitcher workload: {pw_df['pitcher'].nunique()} players")
-    print(f"  Team win projections: {len(team_wins_proj)} teams")
+    print(f"  Team context: {len(team_context)} teams")
 
     # Fetch all rosters
     print("\nFetching rosters from MLB API...")
@@ -665,8 +664,10 @@ def generate_projections(season=2026):
     for tid in TEAM_IDS:
         abbrev = TEAM_ABBREVS.get(tid, str(tid))
         roster = all_rosters[tid]
-        proj_wins = team_wins_proj.get(tid, 81)
-        proj_losses = TEAM_GAMES - proj_wins
+        ctx = team_context.get(tid, {"wins": 81, "losses": 81, "season_runs": 729})
+        proj_wins = ctx["wins"]
+        proj_losses = ctx["losses"]
+        team_season_runs = ctx.get("season_runs", 729)
 
         if not roster:
             print(f"  {abbrev}: No roster data, skipping")
@@ -676,12 +677,9 @@ def generate_projections(season=2026):
         hitters = [p for p in roster if p["pos_type"] != "Pitcher"]
         pitchers = [p for p in roster if p["pos_type"] == "Pitcher"]
 
-        # ── Hitter projections ──
+        # ── Hitter projections (pass 1: rate stats + raw weights) ──
         hitter_allocs = allocate_hitter_pa(hitters, bp_df, player_info)
-
-        team_rbi_total = 0
-        team_runs_total = 0
-        team_hr_total = 0
+        team_batter_stats = []
 
         for h, pa_alloc in hitter_allocs:
             pid = h["id"]
@@ -689,7 +687,6 @@ def generate_projections(season=2026):
             rates = marcel_batter_rates(pid, bp_df, age=info.get("age"))
 
             if rates is None:
-                # Use league average defaults for unproven players
                 rates = dict(LG_AVG_BATTER)
                 rates["_career_pa"] = 0
 
@@ -698,15 +695,30 @@ def generate_projections(season=2026):
             stats["name"] = h["name"]
             stats["team"] = abbrev
             stats["team_id"] = tid
-            all_batters.append(stats)
+            team_batter_stats.append(stats)
 
-            team_rbi_total += stats["rbi"]
-            team_runs_total += stats["r"]
-            team_hr_total += stats["hr"]
+        # ── Hitter pass 2: distribute team R and RBI proportionally ──
+        # Team RBI ≈ team runs × 0.95 (some runs score on errors/WP/balks)
+        team_rbi_target = int(team_season_runs * 0.95)
+        team_runs_target = team_season_runs
 
-        # ── Pitcher projections ──
+        total_run_weight = sum(s["_run_weight"] for s in team_batter_stats)
+        total_rbi_weight = sum(s["_rbi_weight"] for s in team_batter_stats)
+
+        for s in team_batter_stats:
+            if total_run_weight > 0:
+                s["r"] = max(1, int(team_runs_target * s["_run_weight"] / total_run_weight))
+            if total_rbi_weight > 0:
+                s["rbi"] = max(1, int(team_rbi_target * s["_rbi_weight"] / total_rbi_weight))
+            # Clean up internal keys
+            del s["_run_weight"]
+            del s["_rbi_weight"]
+
+        all_batters.extend(team_batter_stats)
+
+        # ── Pitcher projections (pass 1: rate stats) ──
         pitcher_allocs = allocate_pitcher_ip(pitchers, pw_df, player_info)
-        team_ip_total = sum(ip for _, ip, _ in pitcher_allocs)
+        team_pitcher_stats = []
 
         for p, ip_alloc, role in pitcher_allocs:
             pid = p["id"]
@@ -720,25 +732,67 @@ def generate_projections(season=2026):
                 rates["control_plus"] = 100.0
                 rates["_career_pitches"] = 0
 
-            stats = pitcher_counting_stats(rates, ip_alloc, proj_wins, proj_losses, team_ip_total)
+            stats = pitcher_counting_stats(rates, ip_alloc)
             stats["player_id"] = pid
             stats["name"] = p["name"]
             stats["team"] = abbrev
             stats["team_id"] = tid
             stats["role"] = role
-            all_pitchers.append(stats)
+            team_pitcher_stats.append(stats)
+
+        # ── Pitcher pass 2: distribute exact team W and L ──
+        # Every team win has a pitcher of record; every loss too.
+        # Distribute by IP × ERA quality factor
+        total_win_weight = sum(s["ip"] * s["_era_quality"] for s in team_pitcher_stats)
+        total_loss_weight = sum(s["ip"] / s["_era_quality"] for s in team_pitcher_stats)
+
+        # Round proj_wins/losses to int for distribution
+        target_w = int(round(proj_wins))
+        target_l = int(round(proj_losses))
+
+        # Compute raw fractional W/L
+        raw_wins = []
+        raw_losses = []
+        for s in team_pitcher_stats:
+            ww = (s["ip"] * s["_era_quality"] / total_win_weight * target_w) if total_win_weight > 0 else 0
+            ll = (s["ip"] / s["_era_quality"] / total_loss_weight * target_l) if total_loss_weight > 0 else 0
+            raw_wins.append(ww)
+            raw_losses.append(ll)
+
+        # Distribute using largest-remainder method to sum exactly
+        int_wins = [int(w) for w in raw_wins]
+        int_losses = [int(l) for l in raw_losses]
+        win_remainders = [(raw_wins[i] - int_wins[i], i) for i in range(len(raw_wins))]
+        loss_remainders = [(raw_losses[i] - int_losses[i], i) for i in range(len(raw_losses))]
+
+        # Give remaining wins/losses to pitchers with largest fractional parts
+        win_gap = target_w - sum(int_wins)
+        for _, idx in sorted(win_remainders, reverse=True)[:max(0, win_gap)]:
+            int_wins[idx] += 1
+
+        loss_gap = target_l - sum(int_losses)
+        for _, idx in sorted(loss_remainders, reverse=True)[:max(0, loss_gap)]:
+            int_losses[idx] += 1
+
+        for i, s in enumerate(team_pitcher_stats):
+            s["w"] = int_wins[i]
+            s["l"] = int_losses[i]
+            del s["_era_quality"]
+
+        all_pitchers.extend(team_pitcher_stats)
 
         # Team summary
-        team_pitcher_wins = sum(p["w"] for p in all_pitchers if p["team"] == abbrev)
-        team_pitcher_losses = sum(p["l"] for p in all_pitchers if p["team"] == abbrev)
-        n_hitters = len([b for b in all_batters if b["team"] == abbrev])
-        n_pitchers = len([p for p in all_pitchers if p["team"] == abbrev])
+        team_ip_total = sum(s["ip"] for s in team_pitcher_stats)
+        team_pitcher_wins = sum(s["w"] for s in team_pitcher_stats)
+        team_pitcher_losses = sum(s["l"] for s in team_pitcher_stats)
+        team_hr = sum(s["hr"] for s in team_batter_stats)
+        team_r = sum(s["r"] for s in team_batter_stats)
+        team_rbi = sum(s["rbi"] for s in team_batter_stats)
 
-        print(f"  {abbrev}: {n_hitters}H + {n_pitchers}P | "
-              f"PA={sum(pa for _, pa in hitter_allocs):.0f} IP={team_ip_total:.0f} | "
-              f"Proj W-L: {proj_wins:.0f}-{proj_losses:.0f} | "
-              f"Pitcher W-L: {team_pitcher_wins}-{team_pitcher_losses} | "
-              f"Team R: {team_runs_total} HR: {team_hr_total}")
+        print(f"  {abbrev}: {len(team_batter_stats)}H + {len(team_pitcher_stats)}P | "
+              f"PA={sum(s['pa'] for s in team_batter_stats)} IP={team_ip_total:.0f} | "
+              f"R={team_r} RBI={team_rbi} HR={team_hr} | "
+              f"W-L: {team_pitcher_wins}-{team_pitcher_losses} (proj {proj_wins:.0f}-{proj_losses:.0f})")
 
     # Sort results
     all_batters.sort(key=lambda x: x["xwoba"], reverse=True)
@@ -783,7 +837,7 @@ def generate_projections(season=2026):
 
     # Team validation
     print(f"\nTeam Validation (PA / IP / W-L):")
-    for tid in sorted(TEAM_IDS, key=lambda t: team_wins_proj.get(t, 81), reverse=True):
+    for tid in sorted(TEAM_IDS, key=lambda t: team_context.get(t, {}).get("wins", 81), reverse=True):
         ab = TEAM_ABBREVS.get(tid, str(tid))
         team_b = [b for b in all_batters if b.get("team_id") == tid]
         team_p = [p for p in all_pitchers if p.get("team_id") == tid]
@@ -793,11 +847,13 @@ def generate_projections(season=2026):
         t_l = sum(p["l"] for p in team_p)
         t_hr = sum(b["hr"] for b in team_b)
         t_r = sum(b["r"] for b in team_b)
-        proj_w = team_wins_proj.get(tid, 81)
+        t_rbi = sum(b["rbi"] for b in team_b)
+        ctx = team_context.get(tid, {})
+        proj_w = ctx.get("wins", 81)
         print(f"  {ab:>4}: {len(team_b):>2}H {len(team_p):>2}P | "
               f"PA={t_pa:>5} IP={t_ip:>6.0f} | "
-              f"HR={t_hr:>3} R={t_r:>4} | "
-              f"PitcherW-L={t_w:>2}-{t_l:<2} (proj {proj_w:.0f})")
+              f"R={t_r:>4} RBI={t_rbi:>4} HR={t_hr:>3} | "
+              f"W={t_w:>3} L={t_l:>3} (proj {proj_w:.0f}W)")
 
     return output
 
