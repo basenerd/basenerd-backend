@@ -1564,12 +1564,218 @@ def gamecast_json(game_pk: int):
     # Defense positions shown on field: defense side only
     defense_positions = _extract_defense_positions(defense_side)
 
+    # -------------------------
+    # Between innings / inning state / display half
+    # -------------------------
+    inning_state_raw = (linescore.get("inningState") or "").strip()
+    inning_state_lc = inning_state_raw.lower()
+    between_innings = inning_state_lc in ("middle", "end")
+
+    # Display-friendly half: "Mid 3" / "End 5" when between innings
+    if inning_state_lc == "middle":
+        display_half = "Mid"
+    elif inning_state_lc == "end":
+        display_half = "End"
+    else:
+        display_half = half
+
+    # Inning summary (runs/hits/errors/LOB for completed half)
+    inning_summary = None
+    try:
+        innings_arr = linescore.get("innings") or []
+        cur_inn = _i(linescore.get("currentInning"), None)
+        if between_innings and cur_inn and innings_arr and cur_inn >= 1:
+            inn_obj = innings_arr[cur_inn - 1] if (cur_inn - 1) < len(innings_arr) else None
+            if isinstance(inn_obj, dict):
+                if inning_state_lc == "middle":
+                    side_key = "away"
+                    half_done = "Top"
+                elif inning_state_lc == "end":
+                    side_key = "home"
+                    half_done = "Bottom"
+                else:
+                    side_key = "away" if half == "Top" else "home"
+                    half_done = half or ""
+                side = inn_obj.get(side_key) or {}
+                inning_summary = {
+                    "inning": int(cur_inn),
+                    "halfDone": half_done,
+                    "runs": side.get("runs"),
+                    "hits": side.get("hits"),
+                    "errors": side.get("errors"),
+                    "lob": side.get("leftOnBase"),
+                }
+    except Exception:
+        inning_summary = None
+
+    # Due up (next 3 hitters) — only during between-innings
+    due_up = []
+    if between_innings:
+        try:
+            off = linescore.get("offense") or {}
+            for k in ("batter", "onDeck", "inHole"):
+                o = off.get(k)
+                if not isinstance(o, dict):
+                    continue
+                pid = _i(o.get("id"), None) or _i(_safe(o, "person", "id"), None)
+                nm = (o.get("fullName") or _safe(o, "person", "fullName", default="") or "").strip()
+                if pid or nm:
+                    due_up.append({
+                        "id": pid,
+                        "name": nm,
+                        "shortName": _short_name(nm),
+                        "headshot": get_player_headshot_url(pid, 84) if pid else "",
+                    })
+        except Exception:
+            due_up = []
+
+    # -------------------------
+    # Event feed: chronological list of ALL events (at-bats + actions)
+    # Includes: stolen bases, caught stealing, wild pitches, passed balls,
+    #           balks, substitutions, ABS challenges, pickoffs, etc.
+    # -------------------------
+    feed_events = []
+    _FEED_ACTION_TYPES = {
+        "stolen_base_2b", "stolen_base_3b", "stolen_base_home",
+        "caught_stealing_2b", "caught_stealing_3b", "caught_stealing_home",
+        "pickoff_1b", "pickoff_2b", "pickoff_3b",
+        "pickoff_caught_stealing_2b", "pickoff_caught_stealing_3b", "pickoff_caught_stealing_home",
+        "wild_pitch", "passed_ball", "balk",
+        "defensive_substitution", "offensive_substitution", "pitching_substitution",
+        "defensive_switch", "ejection", "runner_placed",
+    }
+
+    for p_idx, p in enumerate(all_plays or []):
+        p_about = p.get("about") or {}
+        p_result = p.get("result") or {}
+        p_inning = _i(p_about.get("inning"), None)
+        p_half = _half_norm(p_about.get("halfInning"))
+        p_matchup = p.get("matchup") or {}
+        p_desc = (p_result.get("description") or "").strip()
+        p_event = (p_result.get("event") or p_result.get("eventType") or "").strip()
+        p_event_type = (p_result.get("eventType") or "").strip()
+        is_scoring = bool(p_result.get("isScoringPlay"))
+        p_type = (p_result.get("type") or "").strip()  # "atBat" or "action"
+
+        half_short = "Top" if (p_half or "").startswith("Top") else ("Bot" if (p_half or "").startswith("Bot") else "")
+        inning_label = f"{half_short} {p_inning}" if p_inning else ""
+
+        # 1) Completed at-bat results
+        if p_type == "atBat" and p_about.get("isComplete") and p_desc:
+            feed_events.append({
+                "type": "atBat",
+                "inning": inning_label,
+                "event": p_event,
+                "eventType": p_event_type,
+                "description": p_desc,
+                "isScoring": is_scoring,
+                "batter": (p_matchup.get("batter") or {}).get("fullName"),
+                "pitcher": (p_matchup.get("pitcher") or {}).get("fullName"),
+            })
+
+        # 2) Non-at-bat action plays (top-level stolen bases, etc.)
+        if p_type == "action" and p_desc:
+            category = "action"
+            if "stolen" in p_event_type:
+                category = "stolen_base"
+            elif "caught_stealing" in p_event_type:
+                category = "caught_stealing"
+            elif "pickoff" in p_event_type:
+                category = "pickoff"
+            elif "substitution" in p_event_type or "switch" in p_event_type:
+                category = "substitution"
+            elif "ejection" in p_event_type:
+                category = "ejection"
+
+            feed_events.append({
+                "type": category,
+                "inning": inning_label,
+                "event": p_event,
+                "eventType": p_event_type,
+                "description": p_desc,
+                "isScoring": is_scoring,
+            })
+
+        # 3) Scan playEvents for mid-AB actions (stolen bases, subs, wild pitches, ABS challenges)
+        play_events = p.get("playEvents") or []
+        for ev in play_events:
+            if ev.get("isPitch"):
+                # Check for ABS challenge on this pitch
+                review = ev.get("reviewDetails")
+                if isinstance(review, dict) and review.get("reviewType"):
+                    det = ev.get("details") or {}
+                    call_desc = (det.get("call") or {}).get("description") or ""
+                    overturned = bool(review.get("isOverturned"))
+                    review_type = review.get("reviewType") or ""
+                    challenge_team = review.get("challengeTeamId")
+
+                    abs_label = "ABS Challenge"
+                    if review_type == "MJ":
+                        abs_label = "ABS Challenge"
+                    elif review_type:
+                        abs_label = f"Review ({review_type})"
+
+                    result_text = "Overturned" if overturned else "Confirmed"
+                    feed_events.append({
+                        "type": "abs_challenge",
+                        "inning": inning_label,
+                        "event": abs_label,
+                        "eventType": "abs_challenge",
+                        "description": f"{abs_label}: {call_desc} — {result_text}",
+                        "isScoring": False,
+                        "isOverturned": overturned,
+                        "challengeTeamId": challenge_team,
+                    })
+                continue
+
+            # Non-pitch action events within at-bats
+            det = ev.get("details") or {}
+            etype = (det.get("eventType") or "").strip()
+            edesc = (det.get("description") or "").strip()
+
+            if not etype or etype in ("game_advisory", "batter_timeout", "mound_visit"):
+                continue
+
+            if etype in _FEED_ACTION_TYPES and edesc:
+                category = "action"
+                if "stolen_base" in etype:
+                    category = "stolen_base"
+                elif "caught_stealing" in etype:
+                    category = "caught_stealing"
+                elif "pickoff" in etype:
+                    category = "pickoff"
+                elif "wild_pitch" in etype:
+                    category = "wild_pitch"
+                elif "passed_ball" in etype:
+                    category = "passed_ball"
+                elif "balk" in etype:
+                    category = "balk"
+                elif "substitution" in etype or "switch" in etype:
+                    category = "substitution"
+                elif "ejection" in etype:
+                    category = "ejection"
+
+                feed_events.append({
+                    "type": category,
+                    "inning": inning_label,
+                    "event": det.get("event") or etype.replace("_", " ").title(),
+                    "eventType": etype,
+                    "description": edesc,
+                    "isScoring": False,
+                })
+
+    # Update lastPlay to show the most recent feed event (not just at-bat results)
+    if feed_events:
+        last_feed = feed_events[-1]
+        last_play = last_feed.get("description") or last_play
+
     return jsonify({
         "ok": True,
         "gamePk": game_pk,
         "status": status,
-        "inning": inning,
+        "inning": _i(linescore.get("currentInning"), None) or inning,
         "half": half,
+        "displayHalf": display_half,
         "balls": balls,
         "strikes": strikes,
         "outs": outs,
@@ -1597,6 +1803,12 @@ def gamecast_json(game_pk: int):
         "lineups": {"away": away_lineup, "home": home_lineup},
         "defenseSide": defense_side,
         "defense": defense_positions,
+
+        "inningState": inning_state_raw,
+        "betweenInnings": between_innings,
+        "inningSummary": inning_summary,
+        "dueUp": due_up,
+        "feed": feed_events,
     })
 
 

@@ -272,6 +272,34 @@
   #tab-gamecast .gc-dot.on.strike{ background: rgba(239,68,68,1); }
   #tab-gamecast .gc-dot.on.out{ background: rgba(239,68,68,1); }
 
+  /* Feed */
+  .gc-feed-item{
+    display:flex; align-items:flex-start; gap:8px;
+    padding:8px 10px; border-bottom:1px solid rgba(226,232,240,.7);
+    font-size:13px; line-height:1.35;
+  }
+  .gc-feed-item:last-child{ border-bottom:none; }
+  .gc-feed-badge{
+    flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
+    font-size:10px; font-weight:800; letter-spacing:.3px; text-transform:uppercase;
+    padding:2px 7px; border-radius:6px; white-space:nowrap;
+  }
+  .gc-feed-badge.ab{ background:rgba(15,23,42,.06); color:rgba(15,23,42,.7); }
+  .gc-feed-badge.sb{ background:rgba(34,197,94,.14); color:rgba(22,163,74,1); }
+  .gc-feed-badge.cs{ background:rgba(239,68,68,.12); color:rgba(220,38,38,1); }
+  .gc-feed-badge.wp,.gc-feed-badge.pb,.gc-feed-badge.bk{ background:rgba(251,191,36,.15); color:rgba(180,83,9,1); }
+  .gc-feed-badge.sub{ background:rgba(99,102,241,.12); color:rgba(79,70,229,1); }
+  .gc-feed-badge.abs{ background:rgba(168,85,247,.12); color:rgba(147,51,234,1); }
+  .gc-feed-badge.pk{ background:rgba(251,146,60,.14); color:rgba(194,65,12,1); }
+  .gc-feed-badge.ej{ background:rgba(239,68,68,.14); color:rgba(185,28,28,1); }
+  .gc-feed-badge.scoring{ background:rgba(34,197,94,.18); color:rgba(22,101,52,1); }
+  .gc-feed-inning{
+    flex:0 0 auto; font-size:11px; font-weight:700; opacity:.6;
+    min-width:42px; text-align:right; white-space:nowrap;
+  }
+  .gc-feed-desc{ flex:1; min-width:0; }
+  #gc-feed-body.collapsed{ display:none; }
+
   /* Field */
   #tab-gamecast .gc-field{
     position:relative;
@@ -821,8 +849,11 @@
       const inn = document.getElementById("hero-live-inning");
       if(pill && inn){
         pill.style.display = "inline-flex";
-        const half = (data.half || "").startsWith("Top") ? "Top" : ((data.half || "").startsWith("Bottom") ? "Bot" : "");
-        inn.textContent = data.inning ? `${half} ${data.inning}`.trim() : "—";
+        const dh = data.displayHalf || data.half || "";
+        let heroHalf;
+        if(dh === "Mid" || dh === "End") heroHalf = dh;
+        else heroHalf = dh.startsWith("Top") ? "Top" : (dh.startsWith("Bottom") ? "Bot" : "");
+        inn.textContent = data.inning ? `${heroHalf} ${data.inning}`.trim() : "—";
       }
 
       // mini bases/outs
@@ -954,7 +985,18 @@
         —
       </div>
 
-      
+      {# ---- Live Event Feed ---- #}
+      <div id="gc-feed-card" class="card" style="margin-top:14px; display:none;">
+        <div class="card-header" style="cursor:pointer;" onclick="document.getElementById('gc-feed-body').classList.toggle('collapsed');">
+          <div class="card-title">Live Feed</div>
+          <div class="card-subtitle mono" style="opacity:.75;">Plays, subs, steals, challenges</div>
+        </div>
+        <div id="gc-feed-body" style="max-height:320px; overflow-y:auto; padding:0 10px 10px;">
+          <div id="gc-feed-list"></div>
+        </div>
+      </div>
+
+
 {# -----------------------------
    Expected Linescore (Monte Carlo)
    ----------------------------- #}
@@ -2503,7 +2545,15 @@ async function __gc_show_bip_takeover(bip, endsInning){
       </div>
     `;
 
-    const nextHalf = (String(half||"").toLowerCase().startsWith("top")) ? `Bottom ${inning||""}` : `Top ${inning||""}`;
+    // Compute the upcoming half-inning label
+    const halfLc = String(half||"").toLowerCase();
+    let nextHalf;
+    if(halfLc.startsWith("top") || halfLc === "mid"){
+      nextHalf = `Bottom ${inning||""}`;
+    }else{
+      const nextInn = (inning && !isNaN(inning)) ? (Number(inning) + 1) : "";
+      nextHalf = `Top ${nextInn}`;
+    }
 
     const body = `
       <div style="display:flex; gap:12px; flex-wrap:wrap;">
@@ -2597,6 +2647,66 @@ if(gcBtn && gcPanel){
   }
   return `${parts[0][0]}. ${parts[parts.length-1]}`;
 }
+  // ---- Render live event feed ----
+  let __gc_last_feed_len = 0;
+  function renderFeed(feedArr){
+    const card = document.getElementById("gc-feed-card");
+    const list = document.getElementById("gc-feed-list");
+    if(!card || !list) return;
+    if(!feedArr || !feedArr.length){
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "block";
+
+    // Only re-render if feed length changed
+    if(feedArr.length === __gc_last_feed_len) return;
+    __gc_last_feed_len = feedArr.length;
+
+    const _badgeClass = (item) => {
+      const t = item.type || "";
+      if(t === "abs_challenge") return "abs";
+      if(t === "stolen_base") return "sb";
+      if(t === "caught_stealing") return "cs";
+      if(t === "wild_pitch") return "wp";
+      if(t === "passed_ball") return "pb";
+      if(t === "balk") return "bk";
+      if(t === "substitution") return "sub";
+      if(t === "pickoff") return "pk";
+      if(t === "ejection") return "ej";
+      if(item.isScoring) return "scoring";
+      return "ab";
+    };
+    const _badgeLabel = (item) => {
+      const t = item.type || "";
+      if(t === "abs_challenge") return "ABS";
+      if(t === "stolen_base") return "SB";
+      if(t === "caught_stealing") return "CS";
+      if(t === "wild_pitch") return "WP";
+      if(t === "passed_ball") return "PB";
+      if(t === "balk") return "BK";
+      if(t === "substitution") return "SUB";
+      if(t === "pickoff") return "PO";
+      if(t === "ejection") return "EJ";
+      if(item.isScoring) return "RUN";
+      return "AB";
+    };
+
+    // Show most recent events first (reversed), limit to 50
+    const items = feedArr.slice(-50).reverse();
+    list.innerHTML = items.map(item => {
+      const bc = _badgeClass(item);
+      const bl = _badgeLabel(item);
+      return `
+        <div class="gc-feed-item">
+          <div class="gc-feed-inning mono">${item.inning || ""}</div>
+          <div class="gc-feed-badge ${bc}">${bl}</div>
+          <div class="gc-feed-desc">${item.description || item.event || "—"}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
   // Updated: player rows expandable (NOT entire lineup card)
   function renderLineup(side, el, players){
     if(!el) return;
@@ -2839,10 +2949,12 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
       if(!data || !data.ok) return;
 
       const key = [
-        data.inning, data.half, data.balls, data.strikes, data.outs,
+        data.inning, data.displayHalf || data.half, data.balls, data.strikes, data.outs,
         data.score?.away, data.score?.home,
         data.lastPlay || "",
-        (data.pitches||[]).length
+        (data.pitches||[]).length,
+        (data.feed||[]).length,
+        data.betweenInnings ? "between" : ""
       ].join("|");
       if(key === gcLastKey) return;
       gcLastKey = key;
@@ -2853,7 +2965,10 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
         __gc_maybe_show_bip_takeover(data.bip, endsInning);
       }
       const innEl = document.getElementById("gc-inning");
-      if(innEl) innEl.textContent = (data.half && data.inning) ? `${data.half} ${data.inning}` : "—";
+      if(innEl){
+        const dh = data.displayHalf || data.half;
+        innEl.textContent = (dh && data.inning) ? `${dh} ${data.inning}` : "—";
+      }
 
       const awayRuns = document.getElementById("gc-away-runs");
       const homeRuns = document.getElementById("gc-home-runs");
@@ -2875,6 +2990,8 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
 
       renderLineup("away", document.getElementById("gc-lineup-away"), data.lineups?.away);
       renderLineup("home", document.getElementById("gc-lineup-home"), data.lineups?.home);
+
+      renderFeed(data.feed);
 
       renderField(document.getElementById("gc-field"), data.defense);
       renderBases(document.getElementById("gc-bases"), data.runners);

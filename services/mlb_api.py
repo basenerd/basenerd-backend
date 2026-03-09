@@ -1215,7 +1215,17 @@ def normalize_gamecast(feed: dict) -> dict:
 
     inning = linescore.get("currentInning")
     half_raw = (linescore.get("inningHalf") or linescore.get("inningState") or "")
-    half = "Top" if str(half_raw).lower().startswith("top") else ("Bottom" if str(half_raw).lower().startswith("bot") else "")
+    _half_lc = str(half_raw).lower()
+    half = "Top" if _half_lc.startswith("top") else ("Bottom" if _half_lc.startswith("bot") else "")
+
+    # Between-innings display: override half with Mid/End based on inningState
+    _inning_state_lc = str(linescore.get("inningState") or "").strip().lower()
+    if _inning_state_lc == "middle":
+        display_half = "Mid"
+    elif _inning_state_lc == "end":
+        display_half = "End"
+    else:
+        display_half = half
 
     # Prefer linescore counts; fallback to current play count
     balls = linescore.get("balls")
@@ -1782,6 +1792,7 @@ def normalize_gamecast(feed: dict) -> dict:
             "state": state,
             "inning": inning,
             "half": half,
+            "displayHalf": display_half,
             "balls": balls,
             "strikes": strikes,
             "outs": outs,
@@ -2827,8 +2838,13 @@ def _status_pill_text(game: dict) -> str:
     if abstract.lower() == "live":
         ls = game.get("linescore") or {}
         inning = _safe_int(ls.get("currentInning"))
+        inning_state = (ls.get("inningState") or "").strip().lower()
         is_top = ls.get("isTopInning")
         if inning:
+            if inning_state == "middle":
+                return f"Mid {inning}"
+            elif inning_state == "end":
+                return f"End {inning}"
             return f"{'Top' if is_top else 'Bot'} {inning}"
         # fallback
         return "Live"
