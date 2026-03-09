@@ -2596,5 +2596,37 @@ def playoff_odds():
     )
 
 
+@app.get("/projections")
+def projections():
+    import json as _json
+    season = request.args.get("season", default=2026, type=int)
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    proj_path = os.path.join(data_dir, f"player_projections_{season}.json")
+
+    error = None
+    batters = []
+    pitchers = []
+    meta = None
+
+    if os.path.exists(proj_path):
+        with open(proj_path, "r") as f:
+            raw = _json.load(f)
+        meta = raw.get("_meta", {})
+        batters = raw.get("batters", [])
+        pitchers = raw.get("pitchers", [])
+    else:
+        error = f"No projection data found for {season}. Run generate_player_projections.py first."
+
+    return render_template(
+        "projections.html",
+        title=f"Player Projections {season} • Basenerd",
+        season=season,
+        batters=batters,
+        pitchers=pitchers,
+        meta=meta,
+        error=error,
+    )
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

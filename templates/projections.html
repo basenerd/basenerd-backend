@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Player Projections {{ season }}</div>
+      <div class="muted" style="font-size:13px;">
+        Marcel-style weighted projections for the {{ season }} season
+        {% if meta %}
+          &mdash; {{ meta.n_batters }} batters, {{ meta.n_pitchers }} pitchers
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card-body">
+    {% if error %}
+      <div class="muted">{{ error }}</div>
+    {% else %}
+
+    <!-- Tabs -->
+    <div style="display:flex; gap:0; margin-bottom:12px;">
+      <button id="tabBatters" class="btn proj-tab active" onclick="showTab('batters')">Batting</button>
+      <button id="tabPitchers" class="btn proj-tab" onclick="showTab('pitchers')">Pitching</button>
+    </div>
+
+    <!-- Controls -->
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+      <input id="projSearch" class="select" style="height:34px; width:240px; font-size:16px;"
+             placeholder="Search player or team..." oninput="filterTable()" />
+      <select id="teamFilter" class="select" style="font-size:16px;" onchange="filterTable()">
+        <option value="">All Teams</option>
+      </select>
+      <select id="roleFilter" class="select" style="font-size:16px; display:none;" onchange="filterTable()">
+        <option value="">All Roles</option>
+        <option value="SP">Starters</option>
+        <option value="RP">Relievers</option>
+      </select>
+      <span class="muted" id="rowCount"></span>
+    </div>
+
+    <!-- Batter Table -->
+    <div id="battersPanel" class="table-wrap">
+      <table class="table stats-table" id="battersTable">
+        <thead>
+          <tr>
+            <th class="sortable" data-col="rank">#</th>
+            <th class="sortable sticky-name" data-col="name">Player</th>
+            <th class="sortable" data-col="team">Team</th>
+            <th class="sortable" data-col="pa">PA</th>
+            <th class="sortable" data-col="avg">AVG</th>
+            <th class="sortable" data-col="hr">HR</th>
+            <th class="sortable" data-col="rbi">RBI</th>
+            <th class="sortable" data-col="r">R</th>
+            <th class="sortable" data-col="h">H</th>
+            <th class="sortable" data-col="2b">2B</th>
+            <th class="sortable" data-col="obp">OBP</th>
+            <th class="sortable" data-col="slg">SLG</th>
+            <th class="sortable" data-col="ops">OPS</th>
+            <th class="sortable" data-col="iso">ISO</th>
+            <th class="sortable" data-col="xwoba">xwOBA</th>
+            <th class="sortable" data-col="k_pct">K%</th>
+            <th class="sortable" data-col="bb_pct">BB%</th>
+            <th class="sortable" data-col="barrel_rate">Barrel%</th>
+            <th class="sortable" data-col="avg_ev">AvgEV</th>
+            <th class="sortable" data-col="hard_hit_rate">HardHit%</th>
+            <th class="sortable" data-col="babip">BABIP</th>
+          </tr>
+        </thead>
+        <tbody id="battersTbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Pitcher Table -->
+    <div id="pitchersPanel" class="table-wrap" style="display:none;">
+      <table class="table stats-table" id="pitchersTable">
+        <thead>
+          <tr>
+            <th class="sortable" data-col="rank">#</th>
+            <th class="sortable sticky-name" data-col="name">Player</th>
+            <th class="sortable" data-col="team">Team</th>
+            <th class="sortable" data-col="role">Role</th>
+            <th class="sortable" data-col="ip">IP</th>
+            <th class="sortable" data-col="era">ERA</th>
+            <th class="sortable" data-col="w">W</th>
+            <th class="sortable" data-col="l">L</th>
+            <th class="sortable" data-col="k">K</th>
+            <th class="sortable" data-col="whip">WHIP</th>
+            <th class="sortable" data-col="k_per_9">K/9</th>
+            <th class="sortable" data-col="bb_per_9">BB/9</th>
+            <th class="sortable" data-col="xwoba">xwOBA</th>
+            <th class="sortable" data-col="whiff_rate">Whiff%</th>
+            <th class="sortable" data-col="chase_rate">Chase%</th>
+            <th class="sortable" data-col="zone_rate">Zone%</th>
+            <th class="sortable" data-col="csw_rate">CSW%</th>
+            <th class="sortable" data-col="velo">Velo</th>
+            <th class="sortable" data-col="stuff_plus">BNStuff+</th>
+            <th class="sortable" data-col="control_plus">BNCtrl+</th>
+          </tr>
+        </thead>
+        <tbody id="pitchersTbody"></tbody>
+      </table>
+    </div>
+
+    {% endif %}
+  </div>
+</div>
+
+<style>
+  .proj-tab {
+    border-radius: 0;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    font-weight: 600;
+    padding: 8px 20px;
+    cursor: pointer;
+  }
+  .proj-tab:first-child { border-radius: 8px 0 0 8px; }
+  .proj-tab:last-child { border-radius: 0 8px 8px 0; }
+  .proj-tab.active {
+    background: var(--accent, #2563eb);
+    color: #fff;
+    border-color: var(--accent, #2563eb);
+  }
+  .table-wrap { overflow-x: auto; }
+  .stats-table { width: max-content; min-width: 100%; }
+  .stats-table th, .stats-table td { white-space: nowrap; padding: 6px 10px; }
+  .stats-table th.sortable { cursor: pointer; user-select: none; }
+  .stats-table th.sortable:hover { background: var(--bg-hover, rgba(0,0,0,0.05)); }
+  .stats-table th.sort-asc::after { content: " \25B2"; font-size: 10px; }
+  .stats-table th.sort-desc::after { content: " \25BC"; font-size: 10px; }
+  .sticky-name {
+    position: sticky;
+    left: 0;
+    background: var(--bg-card, #fff);
+    z-index: 2;
+  }
+  .stats-table td:nth-child(2) {
+    position: sticky;
+    left: 0;
+    background: var(--bg-card, #fff);
+    z-index: 1;
+    font-weight: 600;
+  }
+  .stats-table tbody tr:hover td { background: var(--bg-hover, rgba(0,0,0,0.03)); }
+  .player-link { color: var(--accent, #2563eb); text-decoration: none; }
+  .player-link:hover { text-decoration: underline; }
+  @media (max-width: 640px) {
+    .stats-table th, .stats-table td { padding: 5px 7px; font-size: 13px; }
+    #projSearch, #teamFilter, #roleFilter { font-size: 16px !important; }
+  }
+</style>
+
+<script>
+(() => {
+  const batters = {{ batters | tojson }};
+  const pitchers = {{ pitchers | tojson }};
+
+  let currentTab = "batters";
+  let sortCol = "xwoba";
+  let sortDir = -1; // -1 = desc, 1 = asc
+
+  // Populate team filter
+  const teamSet = new Set();
+  batters.forEach(b => teamSet.add(b.team));
+  pitchers.forEach(p => teamSet.add(p.team));
+  const teamSelect = document.getElementById("teamFilter");
+  [...teamSet].sort().forEach(t => {
+    if (t) {
+      const opt = document.createElement("option");
+      opt.value = t; opt.textContent = t;
+      teamSelect.appendChild(opt);
+    }
+  });
+
+  // Format helpers
+  const fmt3 = v => v != null ? v.toFixed(3).replace(/^0/, "") : "";
+  const fmt2 = v => v != null ? v.toFixed(2) : "";
+  const fmt1 = v => v != null ? v.toFixed(1) : "";
+  const fmtPct = v => v != null ? (v * 100).toFixed(1) + "%" : "";
+  const fmtInt = v => v != null ? Math.round(v) : "";
+
+  const BATTER_FORMATTERS = {
+    avg: fmt3, obp: fmt3, slg: fmt3, ops: fmt3, iso: fmt3, babip: fmt3, xwoba: fmt3,
+    k_pct: fmtPct, bb_pct: fmtPct, barrel_rate: fmtPct, hard_hit_rate: fmtPct,
+    whiff_rate: fmtPct, chase_rate: fmtPct,
+    avg_ev: fmt1,
+    pa: fmtInt, hr: fmtInt, rbi: fmtInt, r: fmtInt, h: fmtInt, "2b": fmtInt,
+  };
+
+  const PITCHER_FORMATTERS = {
+    era: fmt2, whip: fmt2, ip: fmt1, k_per_9: fmt1, bb_per_9: fmt1, velo: fmt1,
+    stuff_plus: fmt1, control_plus: fmt1,
+    xwoba: fmt3,
+    whiff_rate: fmtPct, chase_rate: fmtPct, zone_rate: fmtPct, csw_rate: fmtPct,
+    w: fmtInt, l: fmtInt, k: fmtInt,
+  };
+
+  function getFormatter(col) {
+    return currentTab === "batters" ? BATTER_FORMATTERS[col] : PITCHER_FORMATTERS[col];
+  }
+
+  function getData() {
+    return currentTab === "batters" ? batters : pitchers;
+  }
+
+  function getFilteredData() {
+    let data = getData();
+    const search = document.getElementById("projSearch").value.toLowerCase();
+    const team = document.getElementById("teamFilter").value;
+    const role = document.getElementById("roleFilter").value;
+
+    if (search) {
+      data = data.filter(p => p.name.toLowerCase().includes(search) || (p.team || "").toLowerCase().includes(search));
+    }
+    if (team) {
+      data = data.filter(p => p.team === team);
+    }
+    if (role && currentTab === "pitchers") {
+      data = data.filter(p => p.role === role);
+    }
+    return data;
+  }
+
+  function sortData(data) {
+    return [...data].sort((a, b) => {
+      let av = a[sortCol], bv = b[sortCol];
+      if (typeof av === "string") return sortDir * av.localeCompare(bv);
+      return sortDir * ((av || 0) - (bv || 0));
+    });
+  }
+
+  function renderTable() {
+    const data = sortData(getFilteredData());
+    const tbodyId = currentTab === "batters" ? "battersTbody" : "pitchersTbody";
+    const tbody = document.getElementById(tbodyId);
+
+    const cols = currentTab === "batters"
+      ? ["name", "team", "pa", "avg", "hr", "rbi", "r", "h", "2b", "obp", "slg", "ops", "iso", "xwoba", "k_pct", "bb_pct", "barrel_rate", "avg_ev", "hard_hit_rate", "babip"]
+      : ["name", "team", "role", "ip", "era", "w", "l", "k", "whip", "k_per_9", "bb_per_9", "xwoba", "whiff_rate", "chase_rate", "zone_rate", "csw_rate", "velo", "stuff_plus", "control_plus"];
+
+    let html = "";
+    data.forEach((p, i) => {
+      html += "<tr>";
+      html += `<td style="color:var(--muted)">${i + 1}</td>`;
+      cols.forEach(col => {
+        if (col === "name") {
+          html += `<td><a class="player-link" href="/player/${p.player_id}">${p.name}</a></td>`;
+        } else {
+          const formatter = getFormatter(col);
+          const val = formatter ? formatter(p[col]) : (p[col] ?? "");
+          html += `<td>${val}</td>`;
+        }
+      });
+      html += "</tr>";
+    });
+
+    tbody.innerHTML = html;
+    document.getElementById("rowCount").textContent = `${data.length} players`;
+
+    // Update sort indicators
+    const table = document.getElementById(currentTab === "batters" ? "battersTable" : "pitchersTable");
+    table.querySelectorAll("th").forEach(th => {
+      th.classList.remove("sort-asc", "sort-desc");
+      if (th.dataset.col === sortCol) {
+        th.classList.add(sortDir === 1 ? "sort-asc" : "sort-desc");
+      }
+    });
+  }
+
+  function showTab(tab) {
+    currentTab = tab;
+    document.getElementById("battersPanel").style.display = tab === "batters" ? "" : "none";
+    document.getElementById("pitchersPanel").style.display = tab === "pitchers" ? "" : "none";
+    document.getElementById("tabBatters").classList.toggle("active", tab === "batters");
+    document.getElementById("tabPitchers").classList.toggle("active", tab === "pitchers");
+    document.getElementById("roleFilter").style.display = tab === "pitchers" ? "" : "none";
+
+    // Reset sort to xwoba desc for batters, xwoba asc for pitchers
+    if (tab === "batters") { sortCol = "xwoba"; sortDir = -1; }
+    else { sortCol = "xwoba"; sortDir = 1; }
+
+    renderTable();
+  }
+  window.showTab = showTab;
+
+  function filterTable() { renderTable(); }
+  window.filterTable = filterTable;
+
+  // Sort on header click
+  document.querySelectorAll("th.sortable").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.col;
+      if (sortCol === col) {
+        sortDir *= -1;
+      } else {
+        sortCol = col;
+        // Default sort direction by column type
+        const strCols = ["name", "team", "role"];
+        sortDir = strCols.includes(col) ? 1 : -1;
+      }
+      renderTable();
+    });
+  });
+
+  // Initial render
+  renderTable();
+})();
+</script>
+
+{% endblock %}
