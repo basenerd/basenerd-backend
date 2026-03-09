@@ -73,7 +73,7 @@
     border-radius: 8px;
     padding: 3px 7px;
     display: inline-block;
-    min-width: 44px;
+    min-width: 52px;
     text-align: right;
     font-weight: 800;
     font-size: 13px;
@@ -165,7 +165,7 @@
   {% macro prob_cell(pct) %}
     <span class="prob-badge" style="background: {{ prob_color(pct) }};">
       {%- if pct >= 0.01 -%}
-        {{ "%.0f"|format(pct * 100) }}%
+        {{ "%.1f"|format(pct * 100) }}%
       {%- else -%}
         <1%
       {%- endif -%}
@@ -179,7 +179,8 @@
         <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
       </td>
       <td class="num record-cell">{{ t.current_wins }}-{{ t.current_losses }}</td>
-      <td class="num win-proj">{{ "%.0f"|format(t.avg_wins) }}-{{ "%.0f"|format(t.avg_losses) }}</td>
+      <td class="num win-proj">{{ "%.0f"|format(t.avg_wins) }}</td>
+      <td class="num win-proj">{{ "%.0f"|format(t.avg_losses) }}</td>
       <td class="num win-proj hide-mobile">
         <span class="win-range">{{ "%.0f"|format(t.p10_wins) }}-{{ "%.0f"|format(t.p90_wins) }}</span>
       </td>
@@ -198,7 +199,8 @@
       <tr>
         <th>Team</th>
         <th class="num">Record</th>
-        <th class="num">Proj W-L</th>
+        <th class="num">Proj W</th>
+        <th class="num">Proj L</th>
         <th class="num hide-mobile">Range</th>
         <th class="num">Playoff</th>
         <th class="num">Win Div</th>
