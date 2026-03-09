@@ -211,7 +211,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -246,11 +246,12 @@
     "lineup_quality": 0.32346112335602045,
     "rotation_xwoba": 0.31646633469658314,
     "bullpen_xwoba": 0.30429308067512495,
-    "runs_scored_pg": 4.6309530287984195,
-    "runs_allowed_pg": 4.43151553095796,
-    "expected_wpct": 0.5201287470820934,
+    "pitching_xwoba": 0.31220569578907276,
     "n_hitters": 17,
-    "n_pitchers": 23
+    "n_pitchers": 23,
+    "runs_scored_pg": 4.265390102682911,
+    "runs_allowed_pg": 4.727296881118255,
+    "expected_wpct": 0.45309818583674755
   },
   "109": {
     "team_id": 109,
@@ -301,8 +302,8 @@
       {
         "id": 699912,
         "name": "Jose Fernandez",
-        "quality": 0.35,
-        "xwoba": 0.28
+        "quality": 0.34,
+        "xwoba": 0.295
       },
       {
         "id": 467793,
@@ -459,21 +460,12 @@
         "whiff_rate": 0.2304275500814044
       },
       {
-        "id": 656464,
-        "name": "Kevin Ginkel",
-        "stuff_plus": 100.0,
-        "control_plus": 100.0,
-        "velo": 90.59511201629324,
-        "xwoba": 0.3305339777298909,
-        "whiff_rate": 0.277105336721461
-      },
-      {
         "id": 691009,
         "name": "Dylan Ray",
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -482,7 +474,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -491,8 +483,17 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
+      },
+      {
+        "id": 656464,
+        "name": "Kevin Ginkel",
+        "stuff_plus": 100.0,
+        "control_plus": 100.0,
+        "velo": 90.59511201629324,
+        "xwoba": 0.3305339777298909,
+        "whiff_rate": 0.277105336721461
       },
       {
         "id": 680880,
@@ -550,14 +551,15 @@
       }
     ],
     "catcher_framing": 0.1238272311493469,
-    "lineup_quality": 0.33115069759069954,
+    "lineup_quality": 0.3328173642573662,
     "rotation_xwoba": 0.31089401863599886,
     "bullpen_xwoba": 0.28477676005130625,
-    "runs_scored_pg": 4.788589300609341,
-    "runs_allowed_pg": 4.124022436118135,
-    "expected_wpct": 0.5679309766593407,
+    "pitching_xwoba": 0.3017529781313565,
     "n_hitters": 16,
-    "n_pitchers": 28
+    "n_pitchers": 28,
+    "runs_scored_pg": 4.42842260038886,
+    "runs_allowed_pg": 4.465927750504402,
+    "expected_wpct": 0.49614173792919763
   },
   "110": {
     "team_id": 110,
@@ -762,7 +764,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -771,7 +773,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -806,11 +808,12 @@
     "lineup_quality": 0.33804393647114195,
     "rotation_xwoba": 0.29458684254610373,
     "bullpen_xwoba": 0.24901081361582272,
-    "runs_scored_pg": 4.92990069765841,
-    "runs_allowed_pg": 3.7097496384841495,
-    "expected_wpct": 0.6272339651354487,
+    "pitching_xwoba": 0.27863523242050536,
     "n_hitters": 18,
-    "n_pitchers": 24
+    "n_pitchers": 24,
+    "runs_scored_pg": 4.519495621213903,
+    "runs_allowed_pg": 4.1137958725155155,
+    "expected_wpct": 0.542923892736729
   },
   "111": {
     "team_id": 111,
@@ -979,7 +982,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -988,7 +991,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -997,7 +1000,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -1006,7 +1009,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -1022,12 +1025,13 @@
     "catcher_framing": 0.01859666148038979,
     "lineup_quality": 0.3308702838622038,
     "rotation_xwoba": 0.2872632728208127,
-    "bullpen_xwoba": 0.29731802490907994,
-    "runs_scored_pg": 4.782840819175178,
-    "runs_allowed_pg": 3.9517416083197827,
-    "expected_wpct": 0.5864495830680088,
+    "bullpen_xwoba": 0.29481802490907993,
+    "pitching_xwoba": 0.2899074360517062,
     "n_hitters": 21,
-    "n_pitchers": 20
+    "n_pitchers": 20,
+    "runs_scored_pg": 4.394494724503155,
+    "runs_allowed_pg": 4.304242171875804,
+    "expected_wpct": 0.5094926570204027
   },
   "112": {
     "team_id": 112,
@@ -1218,6 +1222,15 @@
         "whiff_rate": 0.2585675865451809
       },
       {
+        "id": 702303,
+        "name": "Riley Martin",
+        "stuff_plus": 95.0,
+        "control_plus": 95.0,
+        "velo": 93.0,
+        "xwoba": 0.33,
+        "whiff_rate": 0.22
+      },
+      {
         "id": 681432,
         "name": "Luke Little",
         "stuff_plus": 100.0,
@@ -1225,15 +1238,6 @@
         "velo": 88.23552631578947,
         "xwoba": 0.3337919473684211,
         "whiff_rate": 0.20065789473684212
-      },
-      {
-        "id": 702303,
-        "name": "Riley Martin",
-        "stuff_plus": 95.0,
-        "control_plus": 95.0,
-        "velo": 93.0,
-        "xwoba": 0.34,
-        "whiff_rate": 0.22
       },
       {
         "id": 668970,
@@ -1276,11 +1280,12 @@
     "lineup_quality": 0.35452108768458257,
     "rotation_xwoba": 0.30960030306518593,
     "bullpen_xwoba": 0.2710068542338885,
-    "runs_scored_pg": 5.267682297533943,
-    "runs_allowed_pg": 4.05934083234301,
-    "expected_wpct": 0.6170020860947956,
+    "pitching_xwoba": 0.2960925959742318,
     "n_hitters": 17,
-    "n_pitchers": 24
+    "n_pitchers": 24,
+    "runs_scored_pg": 4.806609981108107,
+    "runs_allowed_pg": 4.410948387295548,
+    "expected_wpct": 0.539219582188743
   },
   "113": {
     "team_id": 113,
@@ -1485,7 +1490,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -1502,11 +1507,12 @@
     "lineup_quality": 0.3238980285139339,
     "rotation_xwoba": 0.29342464961607717,
     "bullpen_xwoba": 0.2940923366578462,
-    "runs_scored_pg": 4.639909584535645,
-    "runs_allowed_pg": 4.013733945988783,
-    "expected_wpct": 0.5659388059370656,
+    "pitching_xwoba": 0.2936583400806963,
     "n_hitters": 19,
-    "n_pitchers": 21
+    "n_pitchers": 21,
+    "runs_scored_pg": 4.273003175059553,
+    "runs_allowed_pg": 4.3721825338944535,
+    "expected_wpct": 0.4895040123098612
   },
   "114": {
     "team_id": 114,
@@ -1543,28 +1549,28 @@
         "xwoba": 0.30139767548189994
       },
       {
+        "id": 682177,
+        "name": "Daniel Schneemann",
+        "quality": 0.34826631687903736,
+        "xwoba": 0.2966185897133882
+      },
+      {
         "id": 694197,
         "name": "Angel Genao",
-        "quality": 0.35,
-        "xwoba": 0.28
+        "quality": 0.34,
+        "xwoba": 0.295
       },
       {
         "id": 800050,
         "name": "Chase DeLauter",
-        "quality": 0.35,
-        "xwoba": 0.28
+        "quality": 0.34,
+        "xwoba": 0.295
       },
       {
         "id": 682877,
         "name": "Juan Brito",
-        "quality": 0.35,
-        "xwoba": 0.28
-      },
-      {
-        "id": 696135,
-        "name": "Kahlil Watson",
-        "quality": 0.35,
-        "xwoba": 0.28
+        "quality": 0.34,
+        "xwoba": 0.295
       }
     ],
     "rotation": [
@@ -1679,21 +1685,12 @@
         "whiff_rate": 0.28848251331846725
       },
       {
-        "id": 682120,
-        "name": "Tim Herrin",
-        "stuff_plus": 100.0,
-        "control_plus": 100.0,
-        "velo": 87.90973333333332,
-        "xwoba": 0.33635296591938324,
-        "whiff_rate": 0.2852105534473749
-      },
-      {
         "id": 804926,
         "name": "Austin Peterson",
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -1702,7 +1699,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -1711,7 +1708,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -1720,7 +1717,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -1729,8 +1726,17 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
+      },
+      {
+        "id": 682120,
+        "name": "Tim Herrin",
+        "stuff_plus": 100.0,
+        "control_plus": 100.0,
+        "velo": 87.90973333333332,
+        "xwoba": 0.33635296591938324,
+        "whiff_rate": 0.2852105534473749
       },
       {
         "id": 670059,
@@ -1761,14 +1767,15 @@
       }
     ],
     "catcher_framing": 0.13249514032897025,
-    "lineup_quality": 0.30196319830611235,
+    "lineup_quality": 0.3088097082742665,
     "rotation_xwoba": 0.31365015654512873,
-    "bullpen_xwoba": 0.2906490217336281,
-    "runs_scored_pg": 4.190245565275303,
-    "runs_allowed_pg": 4.198547496738136,
-    "expected_wpct": 0.4990944750445923,
+    "bullpen_xwoba": 0.2898549009937052,
+    "pitching_xwoba": 0.3053218171021305,
     "n_hitters": 19,
-    "n_pitchers": 21
+    "n_pitchers": 21,
+    "runs_scored_pg": 4.010089194883349,
+    "runs_allowed_pg": 4.524430908168801,
+    "expected_wpct": 0.4450129681954678
   },
   "115": {
     "team_id": 115,
@@ -1932,21 +1939,12 @@
         "whiff_rate": 0.2927665777812381
       },
       {
-        "id": 624522,
-        "name": "Keegan Thompson",
-        "stuff_plus": 100.0,
-        "control_plus": 100.0,
-        "velo": 89.21486988847585,
-        "xwoba": 0.33111810583439105,
-        "whiff_rate": 0.2815201371750683
-      },
-      {
         "id": 687312,
         "name": "Gabriel Hughes",
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -1955,7 +1953,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -1964,8 +1962,17 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
+      },
+      {
+        "id": 624522,
+        "name": "Keegan Thompson",
+        "stuff_plus": 100.0,
+        "control_plus": 100.0,
+        "velo": 89.21486988847585,
+        "xwoba": 0.33111810583439105,
+        "whiff_rate": 0.2815201371750683
       },
       {
         "id": 676105,
@@ -2007,12 +2014,13 @@
     "catcher_framing": -0.05409805353890146,
     "lineup_quality": 0.32274099237472,
     "rotation_xwoba": 0.3320033094194597,
-    "bullpen_xwoba": 0.3055501963610604,
-    "runs_scored_pg": 4.61619034368176,
-    "runs_allowed_pg": 4.64331578367436,
-    "expected_wpct": 0.49731955349643175,
+    "bullpen_xwoba": 0.30416043313176155,
+    "pitching_xwoba": 0.3222583027187654,
     "n_hitters": 18,
-    "n_pitchers": 24
+    "n_pitchers": 24,
+    "runs_scored_pg": 4.25284182033375,
+    "runs_allowed_pg": 4.898851277432508,
+    "expected_wpct": 0.43566206670868385
   },
   "116": {
     "team_id": 116,
@@ -2226,7 +2234,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -2261,11 +2269,12 @@
     "lineup_quality": 0.3452163092340997,
     "rotation_xwoba": 0.2952453475600164,
     "bullpen_xwoba": 0.2941353208878482,
-    "runs_scored_pg": 5.076934339299044,
-    "runs_allowed_pg": 3.9937110131461133,
-    "expected_wpct": 0.6080626009878266,
+    "pitching_xwoba": 0.29485683822475756,
     "n_hitters": 19,
-    "n_pitchers": 23
+    "n_pitchers": 23,
+    "runs_scored_pg": 4.644474216608441,
+    "runs_allowed_pg": 4.355163040978185,
+    "expected_wpct": 0.5293907061346158
   },
   "117": {
     "team_id": 117,
@@ -2452,7 +2461,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -2461,7 +2470,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -2470,7 +2479,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -2496,11 +2505,12 @@
     "lineup_quality": 0.33136811038582775,
     "rotation_xwoba": 0.2885586049041855,
     "bullpen_xwoba": 0.27694688834040376,
-    "runs_scored_pg": 4.793046262909469,
-    "runs_allowed_pg": 3.8218786345272737,
-    "expected_wpct": 0.6021319210959267,
+    "pitching_xwoba": 0.2844945041068619,
     "n_hitters": 16,
-    "n_pitchers": 24
+    "n_pitchers": 24,
+    "runs_scored_pg": 4.4031693516773025,
+    "runs_allowed_pg": 4.209105519152171,
+    "expected_wpct": 0.5206098670554846
   },
   "118": {
     "team_id": 118,
@@ -2700,21 +2710,12 @@
         "whiff_rate": 0.2466688671673691
       },
       {
-        "id": 663738,
-        "name": "Daniel Lynch IV",
-        "stuff_plus": 100.0,
-        "control_plus": 100.0,
-        "velo": 89.20229779411763,
-        "xwoba": 0.33305146515157463,
-        "whiff_rate": 0.21966810912170076
-      },
-      {
         "id": 695667,
         "name": "Ben Kudrna",
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -2723,7 +2724,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -2732,8 +2733,17 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
+      },
+      {
+        "id": 663738,
+        "name": "Daniel Lynch IV",
+        "stuff_plus": 100.0,
+        "control_plus": 100.0,
+        "velo": 89.20229779411763,
+        "xwoba": 0.33305146515157463,
+        "whiff_rate": 0.21966810912170076
       },
       {
         "id": 687765,
@@ -2749,11 +2759,12 @@
     "lineup_quality": 0.34608916151024116,
     "rotation_xwoba": 0.29873298739993304,
     "bullpen_xwoba": 0.2697542785714071,
-    "runs_scored_pg": 5.094827810959944,
-    "runs_allowed_pg": 3.895914477588813,
-    "expected_wpct": 0.6203382827884135,
+    "pitching_xwoba": 0.28859043930994893,
     "n_hitters": 17,
-    "n_pitchers": 24
+    "n_pitchers": 24,
+    "runs_scored_pg": 4.659683667520207,
+    "runs_allowed_pg": 4.27203598575448,
+    "expected_wpct": 0.5396536439717771
   },
   "119": {
     "team_id": 119,
@@ -2971,6 +2982,15 @@
         "whiff_rate": 0.3163992869875223
       },
       {
+        "id": 691947,
+        "name": "Ronan Kopp",
+        "stuff_plus": 95.0,
+        "control_plus": 95.0,
+        "velo": 93.0,
+        "xwoba": 0.33,
+        "whiff_rate": 0.22
+      },
+      {
         "id": 694361,
         "name": "Will Klein",
         "stuff_plus": 100.0,
@@ -2978,15 +2998,6 @@
         "velo": 94.05245901639346,
         "xwoba": 0.33145366121372777,
         "whiff_rate": 0.2735682719289277
-      },
-      {
-        "id": 691947,
-        "name": "Ronan Kopp",
-        "stuff_plus": 95.0,
-        "control_plus": 95.0,
-        "velo": 93.0,
-        "xwoba": 0.34,
-        "whiff_rate": 0.22
       },
       {
         "id": 669165,
@@ -3011,11 +3022,12 @@
     "lineup_quality": 0.3549607976856779,
     "rotation_xwoba": 0.2860238155702608,
     "bullpen_xwoba": 0.26846803518724294,
-    "runs_scored_pg": 5.276696352556397,
-    "runs_allowed_pg": 3.769908885977521,
-    "expected_wpct": 0.6491571352366821,
+    "pitching_xwoba": 0.2798792924362046,
     "n_hitters": 17,
-    "n_pitchers": 24
+    "n_pitchers": 24,
+    "runs_scored_pg": 4.814271927877192,
+    "runs_allowed_pg": 4.164931232884882,
+    "expected_wpct": 0.5658993116051143
   },
   "120": {
     "team_id": 120,
@@ -3070,10 +3082,10 @@
         "xwoba": 0.3021386294633402
       },
       {
-        "id": 694673,
-        "name": "Abimelec Ortiz",
-        "quality": 0.35,
-        "xwoba": 0.28
+        "id": 696285,
+        "name": "Jacob Young",
+        "quality": 0.3491140250553966,
+        "xwoba": 0.29680508551218726
       }
     ],
     "rotation": [
@@ -3188,6 +3200,33 @@
         "whiff_rate": 0.310518424813175
       },
       {
+        "id": 676046,
+        "name": "Griff McGarry",
+        "stuff_plus": 95.0,
+        "control_plus": 95.0,
+        "velo": 93.0,
+        "xwoba": 0.33,
+        "whiff_rate": 0.22
+      },
+      {
+        "id": 691384,
+        "name": "Luis Perales",
+        "stuff_plus": 95.0,
+        "control_plus": 95.0,
+        "velo": 93.0,
+        "xwoba": 0.33,
+        "whiff_rate": 0.22
+      },
+      {
+        "id": 683000,
+        "name": "Riley Cornelio",
+        "stuff_plus": 95.0,
+        "control_plus": 95.0,
+        "velo": 93.0,
+        "xwoba": 0.33,
+        "whiff_rate": 0.22
+      },
+      {
         "id": 671131,
         "name": "Jackson Rutledge",
         "stuff_plus": 100.0,
@@ -3204,33 +3243,6 @@
         "velo": 91.63233082706762,
         "xwoba": 0.3360534333196366,
         "whiff_rate": 0.21344297189217104
-      },
-      {
-        "id": 676046,
-        "name": "Griff McGarry",
-        "stuff_plus": 95.0,
-        "control_plus": 95.0,
-        "velo": 93.0,
-        "xwoba": 0.34,
-        "whiff_rate": 0.22
-      },
-      {
-        "id": 691384,
-        "name": "Luis Perales",
-        "stuff_plus": 95.0,
-        "control_plus": 95.0,
-        "velo": 93.0,
-        "xwoba": 0.34,
-        "whiff_rate": 0.22
-      },
-      {
-        "id": 683000,
-        "name": "Riley Cornelio",
-        "stuff_plus": 95.0,
-        "control_plus": 95.0,
-        "velo": 93.0,
-        "xwoba": 0.34,
-        "whiff_rate": 0.22
       },
       {
         "id": 687377,
@@ -3270,14 +3282,15 @@
       }
     ],
     "catcher_framing": 0.09073986936914136,
-    "lineup_quality": 0.31729096750896385,
+    "lineup_quality": 0.31915819923254024,
     "rotation_xwoba": 0.30615170394941116,
-    "bullpen_xwoba": 0.31223652727285567,
-    "runs_scored_pg": 4.504464833933759,
-    "runs_allowed_pg": 4.274398603624072,
-    "expected_wpct": 0.5239663664553085,
+    "bullpen_xwoba": 0.31170594653518396,
+    "pitching_xwoba": 0.3080956888544316,
     "n_hitters": 17,
-    "n_pitchers": 25
+    "n_pitchers": 25,
+    "runs_scored_pg": 4.190411649831268,
+    "runs_allowed_pg": 4.590511613610574,
+    "expected_wpct": 0.4583759852159026
   },
   "121": {
     "team_id": 121,
@@ -3486,6 +3499,15 @@
         "whiff_rate": 0.22146866105729154
       },
       {
+        "id": 697811,
+        "name": "Dylan Ross",
+        "stuff_plus": 95.0,
+        "control_plus": 95.0,
+        "velo": 93.0,
+        "xwoba": 0.33,
+        "whiff_rate": 0.22
+      },
+      {
         "id": 663542,
         "name": "Bryan Hudson",
         "stuff_plus": 100.0,
@@ -3493,15 +3515,6 @@
         "velo": 88.00754716981126,
         "xwoba": 0.33141032592508995,
         "whiff_rate": 0.2485347664388496
-      },
-      {
-        "id": 697811,
-        "name": "Dylan Ross",
-        "stuff_plus": 95.0,
-        "control_plus": 95.0,
-        "velo": 93.0,
-        "xwoba": 0.34,
-        "whiff_rate": 0.22
       },
       {
         "id": 673380,
@@ -3535,11 +3548,12 @@
     "lineup_quality": 0.34552173734200503,
     "rotation_xwoba": 0.3035349999948421,
     "bullpen_xwoba": 0.26755973008069245,
-    "runs_scored_pg": 5.083195615511103,
-    "runs_allowed_pg": 3.9542798042067533,
-    "expected_wpct": 0.6129167165060424,
+    "pitching_xwoba": 0.29094365552488977,
     "n_hitters": 18,
-    "n_pitchers": 25
+    "n_pitchers": 25,
+    "runs_scored_pg": 4.649796301388692,
+    "runs_allowed_pg": 4.321646513379729,
+    "expected_wpct": 0.5334330661630066
   },
   "133": {
     "team_id": 133,
@@ -3735,7 +3749,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -3744,7 +3758,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -3753,7 +3767,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -3770,11 +3784,12 @@
     "lineup_quality": 0.3280317066325251,
     "rotation_xwoba": 0.3059159244928466,
     "bullpen_xwoba": 0.30119797190508835,
-    "runs_scored_pg": 4.724649985966765,
-    "runs_allowed_pg": 4.248351888746364,
-    "expected_wpct": 0.5484624117078124,
+    "pitching_xwoba": 0.30426464108713125,
     "n_hitters": 17,
-    "n_pitchers": 23
+    "n_pitchers": 23,
+    "runs_scored_pg": 4.345032516276005,
+    "runs_allowed_pg": 4.571607785238397,
+    "expected_wpct": 0.47676124583658436
   },
   "134": {
     "team_id": 134,
@@ -3956,21 +3971,12 @@
         "whiff_rate": 0.26383290814749993
       },
       {
-        "id": 682254,
-        "name": "Mason Montgomery",
-        "stuff_plus": 100.0,
-        "control_plus": 100.0,
-        "velo": 95.68218859138533,
-        "xwoba": 0.33351585150780505,
-        "whiff_rate": 0.3546887404334633
-      },
-      {
         "id": 699008,
         "name": "Antwone Kelly",
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -3979,7 +3985,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -3988,7 +3994,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -3997,8 +4003,17 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
+      },
+      {
+        "id": 682254,
+        "name": "Mason Montgomery",
+        "stuff_plus": 100.0,
+        "control_plus": 100.0,
+        "velo": 95.68218859138533,
+        "xwoba": 0.33351585150780505,
+        "whiff_rate": 0.3546887404334633
       },
       {
         "id": 682995,
@@ -4041,11 +4056,12 @@
     "lineup_quality": 0.3432264024727267,
     "rotation_xwoba": 0.29088576842781777,
     "bullpen_xwoba": 0.2956245542495407,
-    "runs_scored_pg": 5.036141250690897,
-    "runs_allowed_pg": 4.016522341598615,
-    "expected_wpct": 0.6020440792204285,
+    "pitching_xwoba": 0.2925443434654208,
     "n_hitters": 20,
-    "n_pitchers": 21
+    "n_pitchers": 21,
+    "runs_scored_pg": 4.6098000912915165,
+    "runs_allowed_pg": 4.374552670162812,
+    "expected_wpct": 0.5239456203264715
   },
   "135": {
     "team_id": 135,
@@ -4277,7 +4293,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -4286,7 +4302,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -4295,7 +4311,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -4312,11 +4328,12 @@
     "lineup_quality": 0.34081703023677956,
     "rotation_xwoba": 0.3200967392857868,
     "bullpen_xwoba": 0.24596649817101468,
-    "runs_scored_pg": 4.986749119853981,
-    "runs_allowed_pg": 4.033437101015577,
-    "expected_wpct": 0.5958643734741362,
+    "pitching_xwoba": 0.2941511548956166,
     "n_hitters": 15,
-    "n_pitchers": 26
+    "n_pitchers": 26,
+    "runs_scored_pg": 4.567816780080138,
+    "runs_allowed_pg": 4.38893021566723,
+    "expected_wpct": 0.518268920722703
   },
   "136": {
     "team_id": 136,
@@ -4498,21 +4515,12 @@
         "whiff_rate": 0.24369544956312994
       },
       {
-        "id": 681006,
-        "name": "Josh Simpson",
-        "stuff_plus": 100.0,
-        "control_plus": 100.0,
-        "velo": 86.98939641109298,
-        "xwoba": 0.33289828875891847,
-        "whiff_rate": 0.25769072137719323
-      },
-      {
         "id": 695380,
         "name": "Alex Hoppe",
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -4521,7 +4529,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -4530,8 +4538,17 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
+      },
+      {
+        "id": 681006,
+        "name": "Josh Simpson",
+        "stuff_plus": 100.0,
+        "control_plus": 100.0,
+        "velo": 86.98939641109298,
+        "xwoba": 0.33289828875891847,
+        "whiff_rate": 0.25769072137719323
       },
       {
         "id": 691172,
@@ -4583,11 +4600,12 @@
     "lineup_quality": 0.3435812533390548,
     "rotation_xwoba": 0.30384799044726474,
     "bullpen_xwoba": 0.2868500077859873,
-    "runs_scored_pg": 5.043415693450624,
-    "runs_allowed_pg": 4.088734614049559,
-    "expected_wpct": 0.5948427688354774,
+    "pitching_xwoba": 0.29789869651581763,
     "n_hitters": 17,
-    "n_pitchers": 24
+    "n_pitchers": 24,
+    "runs_scored_pg": 4.615983367637284,
+    "runs_allowed_pg": 4.435933101746114,
+    "expected_wpct": 0.5181944866802856
   },
   "137": {
     "team_id": 137,
@@ -4854,11 +4872,12 @@
     "lineup_quality": 0.33094468485170037,
     "rotation_xwoba": 0.30396545589923846,
     "bullpen_xwoba": 0.2642760148640132,
-    "runs_scored_pg": 4.784366039459858,
-    "runs_allowed_pg": 3.8492008350133333,
-    "expected_wpct": 0.5982077638472229,
+    "pitching_xwoba": 0.29007415153690963,
     "n_hitters": 19,
-    "n_pitchers": 24
+    "n_pitchers": 24,
+    "runs_scored_pg": 4.395791161745134,
+    "runs_allowed_pg": 4.232329389565321,
+    "expected_wpct": 0.517330019876278
   },
   "138": {
     "team_id": 138,
@@ -4889,34 +4908,34 @@
         "xwoba": 0.3173913005985924
       },
       {
-        "id": 663494,
-        "name": "Bryan Torres",
-        "quality": 0.35,
-        "xwoba": 0.28
-      },
-      {
         "id": 693409,
         "name": "C\u00e9sar Prieto",
         "quality": 0.35,
-        "xwoba": 0.28
-      },
-      {
-        "id": 695491,
-        "name": "Joshua Baez",
-        "quality": 0.35,
-        "xwoba": 0.28
-      },
-      {
-        "id": 699024,
-        "name": "Leonardo Bernal",
-        "quality": 0.35,
-        "xwoba": 0.28
+        "xwoba": 0.295
       },
       {
         "id": 669357,
         "name": "Nolan Gorman",
         "quality": 0.3434708129955894,
         "xwoba": 0.2955635788590297
+      },
+      {
+        "id": 663494,
+        "name": "Bryan Torres",
+        "quality": 0.34,
+        "xwoba": 0.295
+      },
+      {
+        "id": 695491,
+        "name": "Joshua Baez",
+        "quality": 0.34,
+        "xwoba": 0.295
+      },
+      {
+        "id": 699024,
+        "name": "Leonardo Bernal",
+        "quality": 0.34,
+        "xwoba": 0.295
       }
     ],
     "rotation": [
@@ -5054,7 +5073,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5063,7 +5082,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5072,7 +5091,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5081,7 +5100,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5090,7 +5109,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5113,14 +5132,15 @@
       }
     ],
     "catcher_framing": -0.01720040905047382,
-    "lineup_quality": 0.30897845754203784,
+    "lineup_quality": 0.3156451242087045,
     "rotation_xwoba": 0.3263865581003263,
     "bullpen_xwoba": 0.29588763036147847,
-    "runs_scored_pg": 4.3340583796117755,
-    "runs_allowed_pg": 4.480694839055692,
-    "expected_wpct": 0.4847819568688748,
+    "pitching_xwoba": 0.31571193339172954,
     "n_hitters": 18,
-    "n_pitchers": 22
+    "n_pitchers": 22,
+    "runs_scored_pg": 4.129196317540931,
+    "runs_allowed_pg": 4.769099293001327,
+    "expected_wpct": 0.43446503798164193
   },
   "139": {
     "team_id": 139,
@@ -5169,16 +5189,16 @@
         "xwoba": 0.2986429497295154
       },
       {
-        "id": 681371,
-        "name": "Dom Keegan",
-        "quality": 0.35,
-        "xwoba": 0.28
+        "id": 802415,
+        "name": "Chandler Simpson",
+        "quality": 0.34882635106828624,
+        "xwoba": 0.296741797235023
       },
       {
-        "id": 699130,
-        "name": "Jadher Areinamo",
-        "quality": 0.35,
-        "xwoba": 0.28
+        "id": 669234,
+        "name": "Justyn-Henry Malloy",
+        "quality": 0.3412242064080497,
+        "xwoba": 0.29506932540977093
       }
     ],
     "rotation": [
@@ -5343,7 +5363,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5375,14 +5395,15 @@
       }
     ],
     "catcher_framing": -0.06899132544158414,
-    "lineup_quality": 0.3271766030244655,
+    "lineup_quality": 0.3307111722072204,
     "rotation_xwoba": 0.30996679918521824,
     "bullpen_xwoba": 0.28416985299542585,
-    "runs_scored_pg": 4.707120362001542,
-    "runs_allowed_pg": 4.203721957106006,
-    "expected_wpct": 0.5515620486249456,
+    "pitching_xwoba": 0.3009378680187909,
     "n_hitters": 20,
-    "n_pitchers": 21
+    "n_pitchers": 21,
+    "runs_scored_pg": 4.391722203915069,
+    "runs_allowed_pg": 4.533672343344094,
+    "expected_wpct": 0.48545065330446974
   },
   "140": {
     "team_id": 140,
@@ -5546,21 +5567,12 @@
         "whiff_rate": 0.22845184813203304
       },
       {
-        "id": 641302,
-        "name": "Tyler Alexander",
-        "stuff_plus": 100.0,
-        "control_plus": 100.0,
-        "velo": 86.52794952681391,
-        "xwoba": 0.33630113451445476,
-        "whiff_rate": 0.21603651940037769
-      },
-      {
         "id": 691945,
         "name": "Carter Baumler",
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5569,7 +5581,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5578,7 +5590,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5587,7 +5599,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5596,8 +5608,17 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
+      },
+      {
+        "id": 641302,
+        "name": "Tyler Alexander",
+        "stuff_plus": 100.0,
+        "control_plus": 100.0,
+        "velo": 86.52794952681391,
+        "xwoba": 0.33630113451445476,
+        "whiff_rate": 0.21603651940037769
       },
       {
         "id": 692030,
@@ -5639,12 +5660,13 @@
     "catcher_framing": -0.0802518999860146,
     "lineup_quality": 0.3300975980339324,
     "rotation_xwoba": 0.29978334184131655,
-    "bullpen_xwoba": 0.3151993303742774,
-    "runs_scored_pg": 4.767000759695614,
-    "runs_allowed_pg": 4.296294175463991,
-    "expected_wpct": 0.5474208060230991,
-    "n_hitters": 17,
-    "n_pitchers": 23
+    "bullpen_xwoba": 0.3131616885599705,
+    "pitching_xwoba": 0.30446576319284546,
+    "n_hitters": 18,
+    "n_pitchers": 23,
+    "runs_scored_pg": 4.381030673945526,
+    "runs_allowed_pg": 4.599931660933377,
+    "expected_wpct": 0.47770826002642547
   },
   "141": {
     "team_id": 141,
@@ -5840,7 +5862,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5849,7 +5871,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5858,7 +5880,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5867,7 +5889,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -5893,11 +5915,12 @@
     "lineup_quality": 0.3414620627068484,
     "rotation_xwoba": 0.3126526858194663,
     "bullpen_xwoba": 0.29557522732146185,
-    "runs_scored_pg": 4.999972285490393,
-    "runs_allowed_pg": 4.2291825019339395,
-    "expected_wpct": 0.5760027077119608,
+    "pitching_xwoba": 0.30667557534516476,
     "n_hitters": 17,
-    "n_pitchers": 24
+    "n_pitchers": 24,
+    "runs_scored_pg": 4.5790564708710875,
+    "runs_allowed_pg": 4.5553138064478365,
+    "expected_wpct": 0.5023783164430964
   },
   "142": {
     "team_id": 142,
@@ -6075,7 +6098,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6084,7 +6107,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6093,7 +6116,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6102,7 +6125,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6111,7 +6134,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6127,12 +6150,13 @@
     "catcher_framing": 0.12251602315102009,
     "lineup_quality": 0.337739920960299,
     "rotation_xwoba": 0.30740559193971984,
-    "bullpen_xwoba": 0.3080846518284449,
-    "runs_scored_pg": 4.923668379686129,
-    "runs_allowed_pg": 4.245428877890348,
-    "expected_wpct": 0.5673938988377153,
+    "bullpen_xwoba": 0.3068346518284449,
+    "pitching_xwoba": 0.3072057629007736,
     "n_hitters": 20,
-    "n_pitchers": 21
+    "n_pitchers": 21,
+    "runs_scored_pg": 4.514198150937464,
+    "runs_allowed_pg": 4.561499788510785,
+    "expected_wpct": 0.49523121217038235
   },
   "143": {
     "team_id": 143,
@@ -6323,21 +6347,12 @@
         "whiff_rate": 0.24178538101497
       },
       {
-        "id": 679775,
-        "name": "Kyle Backhus",
-        "stuff_plus": 100.0,
-        "control_plus": 100.0,
-        "velo": 86.36744186046515,
-        "xwoba": 0.33345940277088953,
-        "whiff_rate": 0.2176820434616851
-      },
-      {
         "id": 686934,
         "name": "Alex McFarlane",
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6346,7 +6361,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6355,7 +6370,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6364,7 +6379,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6373,7 +6388,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6382,8 +6397,17 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
+      },
+      {
+        "id": 679775,
+        "name": "Kyle Backhus",
+        "stuff_plus": 100.0,
+        "control_plus": 100.0,
+        "velo": 86.36744186046515,
+        "xwoba": 0.33345940277088953,
+        "whiff_rate": 0.2176820434616851
       },
       {
         "id": 660604,
@@ -6417,11 +6441,12 @@
     "lineup_quality": 0.3318704282206176,
     "rotation_xwoba": 0.2905612255395087,
     "bullpen_xwoba": 0.2735763895904937,
-    "runs_scored_pg": 4.8033437785226605,
-    "runs_allowed_pg": 3.97119120395308,
-    "expected_wpct": 0.5861690171228198,
+    "pitching_xwoba": 0.28461653295735345,
     "n_hitters": 15,
-    "n_pitchers": 24
+    "n_pitchers": 24,
+    "runs_scored_pg": 4.411922239948516,
+    "runs_allowed_pg": 4.3360212031641066,
+    "expected_wpct": 0.5079384778639714
   },
   "144": {
     "team_id": 144,
@@ -6635,7 +6660,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6688,11 +6713,12 @@
     "lineup_quality": 0.334189550798519,
     "rotation_xwoba": 0.30997691881691986,
     "bullpen_xwoba": 0.27983087656498573,
-    "runs_scored_pg": 4.850885791369639,
-    "runs_allowed_pg": 4.147836971398582,
-    "expected_wpct": 0.5711466628813638,
+    "pitching_xwoba": 0.2994258040287429,
     "n_hitters": 15,
-    "n_pitchers": 26
+    "n_pitchers": 26,
+    "runs_scored_pg": 4.452332950868447,
+    "runs_allowed_pg": 4.486170105492784,
+    "expected_wpct": 0.49653626016565106
   },
   "145": {
     "team_id": 145,
@@ -6892,21 +6918,12 @@
         "whiff_rate": 0.3184877745634504
       },
       {
-        "id": 663855,
-        "name": "Jordan Hicks",
-        "stuff_plus": 100.0,
-        "control_plus": 100.0,
-        "velo": 92.58857381150955,
-        "xwoba": 0.3342062255009804,
-        "whiff_rate": 0.22784407334776974
-      },
-      {
         "id": 693739,
         "name": "Alexander Alberto",
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6915,7 +6932,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6924,7 +6941,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6933,7 +6950,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -6942,8 +6959,17 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
+      },
+      {
+        "id": 663855,
+        "name": "Jordan Hicks",
+        "stuff_plus": 100.0,
+        "control_plus": 100.0,
+        "velo": 92.58857381150955,
+        "xwoba": 0.3342062255009804,
+        "whiff_rate": 0.22784407334776974
       },
       {
         "id": 641743,
@@ -6959,11 +6985,12 @@
     "lineup_quality": 0.317558642897333,
     "rotation_xwoba": 0.33768566020004187,
     "bullpen_xwoba": 0.29328594543078723,
-    "runs_scored_pg": 4.509952179395326,
-    "runs_allowed_pg": 4.702933918850929,
-    "expected_wpct": 0.48084013557584415,
+    "pitching_xwoba": 0.32214576003080275,
     "n_hitters": 17,
-    "n_pitchers": 24
+    "n_pitchers": 24,
+    "runs_scored_pg": 4.162539380690282,
+    "runs_allowed_pg": 4.958002510827278,
+    "expected_wpct": 0.42066939883683024
   },
   "146": {
     "team_id": 146,
@@ -7154,21 +7181,12 @@
         "whiff_rate": 0.24046064379345403
       },
       {
-        "id": 667463,
-        "name": "John King",
-        "stuff_plus": 100.0,
-        "control_plus": 100.0,
-        "velo": 89.62173913043482,
-        "xwoba": 0.336927057155985,
-        "whiff_rate": 0.20366700309300867
-      },
-      {
         "id": 690978,
         "name": "Dax Fulton",
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -7177,7 +7195,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -7186,8 +7204,17 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
+      },
+      {
+        "id": 667463,
+        "name": "John King",
+        "stuff_plus": 100.0,
+        "control_plus": 100.0,
+        "velo": 89.62173913043482,
+        "xwoba": 0.336927057155985,
+        "whiff_rate": 0.20366700309300867
       },
       {
         "id": 656848,
@@ -7203,11 +7230,12 @@
     "lineup_quality": 0.3326388436658663,
     "rotation_xwoba": 0.3169897707144389,
     "bullpen_xwoba": 0.2897686563809444,
-    "runs_scored_pg": 4.81909629515026,
-    "runs_allowed_pg": 4.304139577971368,
-    "expected_wpct": 0.5515182095933416,
+    "pitching_xwoba": 0.3074623806977158,
     "n_hitters": 18,
-    "n_pitchers": 23
+    "n_pitchers": 23,
+    "runs_scored_pg": 4.425311879081975,
+    "runs_allowed_pg": 4.619027321079651,
+    "expected_wpct": 0.4804091839427681
   },
   "147": {
     "team_id": 147,
@@ -7403,7 +7431,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -7412,7 +7440,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -7421,7 +7449,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -7456,11 +7484,12 @@
     "lineup_quality": 0.3592037989626417,
     "rotation_xwoba": 0.29044934533422995,
     "bullpen_xwoba": 0.29130954232092776,
-    "runs_scored_pg": 5.363677878734155,
-    "runs_allowed_pg": 3.9072756995161573,
-    "expected_wpct": 0.6410125126833269,
+    "pitching_xwoba": 0.29075041427957415,
     "n_hitters": 18,
-    "n_pitchers": 23
+    "n_pitchers": 23,
+    "runs_scored_pg": 4.888206225128286,
+    "runs_allowed_pg": 4.281693024392721,
+    "expected_wpct": 0.5603130751908032
   },
   "158": {
     "team_id": 158,
@@ -7683,7 +7712,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       },
       {
@@ -7692,7 +7721,7 @@
         "stuff_plus": 95.0,
         "control_plus": 95.0,
         "velo": 93.0,
-        "xwoba": 0.34,
+        "xwoba": 0.33,
         "whiff_rate": 0.22
       }
     ],
@@ -7700,10 +7729,11 @@
     "lineup_quality": 0.3393873874755461,
     "rotation_xwoba": 0.28362454306062496,
     "bullpen_xwoba": 0.2802706966585113,
-    "runs_scored_pg": 4.957441443248695,
-    "runs_allowed_pg": 3.8613062153999564,
-    "expected_wpct": 0.6123706577205146,
+    "pitching_xwoba": 0.2824506968198852,
     "n_hitters": 18,
-    "n_pitchers": 22
+    "n_pitchers": 22,
+    "runs_scored_pg": 4.542905254965644,
+    "runs_allowed_pg": 4.2426189628939515,
+    "expected_wpct": 0.5312458132815971
   }
 }

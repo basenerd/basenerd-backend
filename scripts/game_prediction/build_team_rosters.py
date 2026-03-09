@@ -118,7 +118,7 @@ def compute_batter_quality(stats) -> float:
     """Compute a batter quality score (0-1 scale, 0.5 = average).
     Based on xwoba, barrel rate, chase rate, k rate."""
     if stats is None:
-        return 0.35  # replacement-level default (well below average)
+        return 0.34  # slightly below-avg default for unproven players
 
     xwoba = float(stats.get("xwoba", 0) or 0)
     if xwoba <= 0:
@@ -135,7 +135,7 @@ def compute_pitcher_quality(stats_rows) -> dict:
     Returns dict with stuff_plus, control_plus, velo, xwoba."""
     if stats_rows is None or (hasattr(stats_rows, 'empty') and stats_rows.empty):
         return {"stuff_plus": 95.0, "control_plus": 95.0,
-                "velo": 93.0, "xwoba": 0.340, "whiff_rate": 0.22}
+                "velo": 93.0, "xwoba": 0.330, "whiff_rate": 0.22}
 
     if isinstance(stats_rows, pd.Series):
         stats_rows = stats_rows.to_frame().T
@@ -256,18 +256,18 @@ def build_team_rosters(season: int = 2026):
 
                 if b_stats is not None:
                     xw = float(b_stats.get("xwoba", 0) or 0)
-                    player_info["xwoba"] = xw if xw > 0.100 else 0.280  # treat near-zero as missing
+                    player_info["xwoba"] = xw if xw > 0.100 else 0.295  # treat near-zero as missing
                     player_info["k_pct"] = float(b_stats.get("k_pct", 0) or 0)
                     player_info["bb_pct"] = float(b_stats.get("bb_pct", 0) or 0)
                     player_info["barrel_rate"] = float(b_stats.get("barrel_rate", 0) or 0)
                     player_info["iso"] = float(b_stats.get("iso", 0) or 0)
                 else:
-                    # Unproven/prospect default: below-avg MLB but not replacement
-                    player_info["xwoba"] = 0.280
-                    player_info["k_pct"] = 0.26
+                    # Unproven/prospect default: slightly below-avg MLB hitter
+                    player_info["xwoba"] = 0.295
+                    player_info["k_pct"] = 0.24
                     player_info["bb_pct"] = 0.07
-                    player_info["barrel_rate"] = 0.05
-                    player_info["iso"] = 0.120
+                    player_info["barrel_rate"] = 0.06
+                    player_info["iso"] = 0.130
 
                 hitters.append(player_info)
 
@@ -304,42 +304,15 @@ def build_team_rosters(season: int = 2026):
                     catcher_framing = float(cf_row[cf_row["season"] == latest]["framing_runs_per_game"].iloc[0])
                     break
 
-        # === Pythagorean win estimation ===
-        # Estimate runs scored from lineup xwOBA
-        # League avg xwOBA ~.315 → ~4.5 R/G
-        # Linear weights: R/G ≈ -2.0 + 20.5 * avg_lineup_xwoba
-        # (calibrated: .260 → 3.33 R/G, .315 → 4.46 R/G, .370 → 5.59 R/G)
+        # Compute raw xwOBA values (will normalize across league after collecting all teams)
         lineup_xwobas = [h.get("xwoba", 0.260) for h in lineup]
         avg_lineup_xwoba = np.mean(lineup_xwobas)
-        runs_scored_per_game = -2.0 + 20.5 * avg_lineup_xwoba
 
-        # Estimate runs allowed from pitching xwOBA
-        # Rotation throws ~65% of innings, bullpen ~35%
         rotation_xwoba = np.mean([s["xwoba"] for s in starters[:5]]) if starters else 0.330
         bullpen_xwoba = np.mean([r["xwoba"] for r in relievers[:8]]) if relievers else 0.315
         pitching_xwoba = 0.65 * rotation_xwoba + 0.35 * bullpen_xwoba
-        runs_allowed_per_game = -2.0 + 20.5 * pitching_xwoba
 
-        # Catcher framing adjustment (~runs per game)
-        runs_allowed_per_game -= catcher_framing * 0.5  # positive framing = fewer runs
-
-        # Floor/ceiling for sanity
-        runs_scored_per_game = max(3.0, min(6.5, runs_scored_per_game))
-        runs_allowed_per_game = max(3.0, min(6.5, runs_allowed_per_game))
-
-        # Pythagorean expectation (Bill James exponent = 1.83)
-        exp = 1.83
-        rs_exp = runs_scored_per_game ** exp
-        ra_exp = runs_allowed_per_game ** exp
-        pyth_wpct = rs_exp / (rs_exp + ra_exp)
-
-        # No regression needed — season simulator uses RS/RA directly
-        # and the zero-sum constraint is satisfied by simulating every game
-        expected_wpct = pyth_wpct
-
-        # Store intermediate values for diagnostics
-        lineup_quality = float(avg_lineup_xwoba)
-
+        # Store raw data for second pass (normalization)
         teams[team_id] = {
             "team_id": team_id,
             "abbrev": abbrev,
@@ -356,15 +329,59 @@ def build_team_rosters(season: int = 2026):
                          "velo": r["velo"], "xwoba": r["xwoba"],
                          "whiff_rate": r["whiff_rate"]} for r in relievers],
             "catcher_framing": catcher_framing,
-            "lineup_quality": float(lineup_quality),
+            "lineup_quality": float(avg_lineup_xwoba),
             "rotation_xwoba": float(rotation_xwoba),
             "bullpen_xwoba": float(bullpen_xwoba),
-            "runs_scored_pg": float(runs_scored_per_game),
-            "runs_allowed_pg": float(runs_allowed_per_game),
-            "expected_wpct": float(expected_wpct),
+            "pitching_xwoba": float(pitching_xwoba),
             "n_hitters": len(hitters),
             "n_pitchers": len(pitchers_list),
         }
+
+    # === Second pass: normalize xwOBA pools and compute RS/RA ===
+    # Batting and pitching xwOBA come from different player pools and have different
+    # means. In a real league, league-avg offense = league-avg pitching. Normalize
+    # both pools to center on a common league average (.315, typical MLB).
+    league_xwoba = 0.315
+    all_bat_xwoba = [t["lineup_quality"] for t in teams.values()]
+    all_pit_xwoba = [t["pitching_xwoba"] for t in teams.values()]
+    mean_bat = np.mean(all_bat_xwoba)
+    mean_pit = np.mean(all_pit_xwoba)
+    print(f"\n  xwOBA pool means — batting: {mean_bat:.3f}, pitching: {mean_pit:.3f}")
+    print(f"  Normalizing both to league avg {league_xwoba:.3f}")
+
+    for team_id, t in teams.items():
+        # Shift each team's xwOBA relative to their pool's mean, centered on league avg
+        norm_bat_xwoba = league_xwoba + (t["lineup_quality"] - mean_bat)
+        norm_pit_xwoba = league_xwoba + (t["pitching_xwoba"] - mean_pit)
+
+        # Convert to runs using the same formula for both
+        runs_scored_per_game = -2.0 + 20.5 * norm_bat_xwoba
+        runs_allowed_per_game = -2.0 + 20.5 * norm_pit_xwoba
+
+        # Catcher framing adjustment
+        runs_allowed_per_game -= t["catcher_framing"] * 0.5
+
+        # Regress 15% toward league average (standard in projection systems)
+        # This accounts for roster uncertainty, in-season adjustments, and
+        # the tendency of extreme projections to overstate true talent gaps
+        league_avg_rpg = -2.0 + 20.5 * league_xwoba  # ~4.4575
+        regression = 0.15
+        runs_scored_per_game = runs_scored_per_game * (1 - regression) + league_avg_rpg * regression
+        runs_allowed_per_game = runs_allowed_per_game * (1 - regression) + league_avg_rpg * regression
+
+        # Floor/ceiling
+        runs_scored_per_game = max(3.0, min(6.5, runs_scored_per_game))
+        runs_allowed_per_game = max(3.0, min(6.5, runs_allowed_per_game))
+
+        # Pythagorean expectation
+        exp = 1.83
+        rs_exp = runs_scored_per_game ** exp
+        ra_exp = runs_allowed_per_game ** exp
+        pyth_wpct = rs_exp / (rs_exp + ra_exp)
+
+        t["runs_scored_pg"] = float(runs_scored_per_game)
+        t["runs_allowed_pg"] = float(runs_allowed_per_game)
+        t["expected_wpct"] = float(pyth_wpct)
 
     # Save
     output_path = os.path.join(OUTPUT_DIR, "team_rosters.json")
@@ -375,11 +392,11 @@ def build_team_rosters(season: int = 2026):
     print(f"\nTeam rosters saved to {output_path}")
 
     # Summary
-    print(f"\n{'Team':>5}  {'LinXW':>6}  {'RotXW':>6}  {'BpXW':>6}  {'RS/G':>5}  {'RA/G':>5}  {'ExpW%':>6}  {'Wins':>5}")
+    print(f"\n{'Team':>5}  {'LinXW':>6}  {'PitXW':>6}  {'RS/G':>5}  {'RA/G':>5}  {'ExpW%':>6}  {'Wins':>5}")
     for tid in sorted(teams.keys(), key=lambda t: teams[t]["expected_wpct"], reverse=True):
         t = teams[tid]
-        print(f"  {t['abbrev']:>4}  {t['lineup_quality']:>6.3f}  {t['rotation_xwoba']:>6.3f}  "
-              f"{t['bullpen_xwoba']:>6.3f}  {t['runs_scored_pg']:>5.2f}  {t['runs_allowed_pg']:>5.2f}  "
+        print(f"  {t['abbrev']:>4}  {t['lineup_quality']:>6.3f}  {t['pitching_xwoba']:>6.3f}  "
+              f"{t['runs_scored_pg']:>5.2f}  {t['runs_allowed_pg']:>5.2f}  "
               f"{t['expected_wpct']:>5.3f}  {t['expected_wpct']*162:>5.0f}")
 
     return teams
@@ -402,7 +419,7 @@ def _default_team(team_id):
 
 
 def _default_hitter():
-    return {"id": 0, "name": "Unknown", "quality": 0.27, "xwoba": 0.280}
+    return {"id": 0, "name": "Unknown", "quality": 0.34, "xwoba": 0.295}
 
 
 def _default_starter():
