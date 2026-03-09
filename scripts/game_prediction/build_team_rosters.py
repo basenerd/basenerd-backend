@@ -148,21 +148,27 @@ def compute_pitcher_quality(stats_rows) -> dict:
     if isinstance(stats_rows, pd.Series):
         stats_rows = stats_rows.to_frame().T
 
-    # Weighted average across pitch types
-    total_n = stats_rows["n"].sum()
+    # Weighted average across pitch types (drop NaN xwoba rows)
+    valid = stats_rows.dropna(subset=["xwoba"])
+    total_n = valid["n"].sum()
     if total_n == 0:
         return {"stuff_plus": 100.0, "control_plus": 100.0,
                 "velo": 93.0, "xwoba": 0.315, "whiff_rate": 0.24}
 
-    w_velo = (stats_rows["avg_velo"] * stats_rows["n"]).sum() / total_n
-    w_whiff = (stats_rows["whiff_rate"] * stats_rows["n"]).sum() / total_n
-    w_xwoba = (stats_rows["xwoba"] * stats_rows["n"]).sum() / total_n
+    w_velo = (valid["avg_velo"] * valid["n"]).sum() / total_n
+    w_whiff = (valid["whiff_rate"] * valid["n"]).sum() / total_n
+    w_xwoba = (valid["xwoba"] * valid["n"]).sum() / total_n
+
+    # Regress small samples toward league average (.315)
+    if total_n < 500:
+        weight = total_n / 500.0
+        w_xwoba = w_xwoba * weight + 0.315 * (1 - weight)
 
     # stuff_plus/control_plus may be NaN from our data
-    sp = stats_rows["avg_stuff_plus"].dropna()
-    cp = stats_rows["avg_control_plus"].dropna()
-    stuff = float((sp * stats_rows.loc[sp.index, "n"]).sum() / stats_rows.loc[sp.index, "n"].sum()) if not sp.empty and sp.sum() > 0 else 100.0
-    ctrl = float((cp * stats_rows.loc[cp.index, "n"]).sum() / stats_rows.loc[cp.index, "n"].sum()) if not cp.empty and cp.sum() > 0 else 100.0
+    sp = valid["avg_stuff_plus"].dropna()
+    cp = valid["avg_control_plus"].dropna()
+    stuff = float((sp * valid.loc[sp.index, "n"]).sum() / valid.loc[sp.index, "n"].sum()) if not sp.empty and sp.sum() > 0 else 100.0
+    ctrl = float((cp * valid.loc[cp.index, "n"]).sum() / valid.loc[cp.index, "n"].sum()) if not cp.empty and cp.sum() > 0 else 100.0
 
     return {
         "stuff_plus": stuff if stuff > 0 else 100.0,
@@ -221,24 +227,22 @@ def build_team_rosters(season: int = 2026):
             pos_abbr = entry["position"]["abbreviation"]
 
             if pos_type == "Pitcher":
-                # Get pitcher quality from arsenal data
-                p_rows = pitchers_df[
+                # Get pitcher quality from arsenal data.
+                # Prefer most recent season with meaningful sample (200+ pitches).
+                all_p_rows = pitchers_df[
                     (pitchers_df["pitcher"] == pid) & (pitchers_df["stand"] == "ALL")
                 ]
-                if p_rows.empty:
-                    # Try earlier seasons
-                    for fallback_season in sorted(pitchers_df["season"].unique(), reverse=True):
-                        p_rows = pitchers_df[
-                            (pitchers_df["pitcher"] == pid) &
-                            (pitchers_df["stand"] == "ALL") &
-                            (pitchers_df["season"] == fallback_season)
-                        ]
-                        if not p_rows.empty:
+                p_rows = pd.DataFrame()
+                if not all_p_rows.empty:
+                    for season_yr in sorted(all_p_rows["season"].unique(), reverse=True):
+                        candidate = all_p_rows[all_p_rows["season"] == season_yr]
+                        if candidate["n"].sum() >= 200:
+                            p_rows = candidate
                             break
-                else:
-                    # Use most recent season
-                    latest = p_rows["season"].max()
-                    p_rows = p_rows[p_rows["season"] == latest]
+                    # If no season has 200+ pitches, use most recent anyway
+                    if p_rows.empty:
+                        latest = all_p_rows["season"].max()
+                        p_rows = all_p_rows[all_p_rows["season"] == latest]
 
                 quality = compute_pitcher_quality(p_rows)
                 is_sp = is_starter_role(workload_df, pid)
