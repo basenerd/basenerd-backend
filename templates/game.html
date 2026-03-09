@@ -187,23 +187,7 @@
     width:44px;
     flex:0 0 auto;
   }
-/* BIP trace animation */
-#tab-gamecast .gc-bip-trace{
-  fill: none;
-  stroke: rgba(59,130,246,.85);
-  stroke-width: 2.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 240;
-  stroke-dashoffset: 240;
-  animation: gcTraceDraw 900ms ease-out forwards;
-}
-#tab-gamecast .gc-bip-trace.ground{
-  stroke: rgba(245,158,11,.9);
-}
-@keyframes gcTraceDraw{
-  to { stroke-dashoffset: 0; }
-}
+/* BIP trace — removed solid animated trace; only the dashed guide path remains */
    
   #tab-gamecast .gc-matchup{
     display:grid;
@@ -509,13 +493,17 @@
   /* --- GameCast: takeover overlay (Ball In Play / Due Up) --- */
   #tab-gamecast .gc-midgrid{ position: relative; }
   #tab-gamecast .gc-takeover{
-    position:absolute; inset:0; z-index:50;
+    grid-column: 1 / -1;
+    z-index:50;
     display:flex; align-items:stretch;
+  }
+  /* When takeover is active, hide sibling grid children */
+  #tab-gamecast .gc-midgrid.takeover-active > *:not(.gc-takeover){
+    display:none !important;
   }
   #tab-gamecast .gc-takeover-card{
     width:100%;
     border-radius:14px;
-    overflow:hidden;
     box-shadow: 0 18px 50px rgba(0,0,0,.12);
     animation: gcTakeoverIn .18s ease-out;
   }
@@ -543,6 +531,11 @@
     border-radius:12px;
     background: rgba(15,23,42,.03);
     font-weight:900;
+    word-wrap:break-word;
+    overflow-wrap:break-word;
+    white-space:normal;
+    line-height:1.35;
+    max-width:360px;
   }
 
 </style>
@@ -2306,6 +2299,9 @@ function __gc_hide_takeover(){
   const wrap = document.getElementById("gc-takeover");
   if(!wrap) return;
   wrap.style.display = "none";
+  // Re-show sibling grid children
+  const midgrid = wrap.closest(".gc-midgrid");
+  if(midgrid) midgrid.classList.remove("takeover-active");
   __gc_takeover_kind = "";
   __gc_takeover_sticky = false;
   if(__gc_takeover_timer) clearTimeout(__gc_takeover_timer);
@@ -2324,6 +2320,9 @@ function __gc_show_takeover(title, subtitle, bodyHTML, ms, kind){
   b.innerHTML = bodyHTML || "";
 
   wrap.style.display = "flex";
+  // Hide sibling grid children so takeover has full space
+  const midgrid = wrap.closest(".gc-midgrid");
+  if(midgrid) midgrid.classList.add("takeover-active");
 
   __gc_takeover_kind = kind || "";
   __gc_takeover_sticky = (ms === null || ms === undefined);
@@ -2425,24 +2424,6 @@ async function __gc_show_bip_takeover(bip, endsInning){
   const pt = __gc_map_point(sx, sy, scaleX, scaleY);
   const platePt = __gc_map_point(__GC_PLATE.x, __GC_PLATE.y, scaleX, scaleY);
 
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.classList.add("gc-bip-trace", kind);
-
-  if(kind === "air"){
-    const cx = (platePt.x + pt.x) / 2;
-    const cy = Math.min(platePt.y, pt.y) - 55;
-    path.setAttribute(
-      "d",
-      `M ${platePt.x.toFixed(2)} ${platePt.y.toFixed(2)} Q ${cx.toFixed(2)} ${cy.toFixed(2)} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`
-    );
-  }else{
-    path.setAttribute(
-      "d",
-      `M ${platePt.x.toFixed(2)} ${platePt.y.toFixed(2)} L ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`
-    );
-  }
-
-  pointsG.appendChild(path);
   // --- Animated batted-ball: move from plate -> landing point ---
   const start = __gc_map_point(__GC_PLATE.x, __GC_PLATE.y, scaleX, scaleY);
 
@@ -2463,17 +2444,18 @@ async function __gc_show_bip_takeover(bip, endsInning){
 
   const d = `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} Q ${ctrlX.toFixed(2)} ${ctrlY.toFixed(2)} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`;
 
-   // Faint path (optional, helps readability for fly balls)
-   const guidePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-   guidePath.setAttribute("d", d);
-   guidePath.setAttribute("fill", "none");
-   guidePath.setAttribute("stroke", isFly ? "rgba(59,130,246,.28)" : "rgba(15,23,42,.16)");
-   guidePath.setAttribute("stroke-width", isFly ? "2.2" : "1.6");
-   guidePath.setAttribute("stroke-linecap", "round");
-   guidePath.setAttribute("stroke-dasharray", isFly ? "5 6" : "3 6");
-   pointsG.appendChild(guidePath);
+  // Dashed guide path from home plate to landing spot
+  const guidePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  guidePath.setAttribute("d", d);
+  guidePath.setAttribute("fill", "none");
+  guidePath.setAttribute("stroke", isFly ? "rgba(59,130,246,.28)" : "rgba(15,23,42,.16)");
+  guidePath.setAttribute("stroke-width", isFly ? "2.2" : "1.6");
+  guidePath.setAttribute("stroke-linecap", "round");
+  guidePath.setAttribute("stroke-dasharray", isFly ? "5 6" : "3 6");
+  pointsG.appendChild(guidePath);
 
-  // The moving ball
+  // The moving ball (slower animation)
+  const durMs = isFly ? 1600 : 1000;
   const ball = document.createElementNS("http://www.w3.org/2000/svg", "circle");
   ball.setAttribute("r", isFly ? "5.0" : "4.6");
   ball.setAttribute("fill", "rgba(59,130,246,.92)");
@@ -2481,7 +2463,7 @@ async function __gc_show_bip_takeover(bip, endsInning){
   ball.setAttribute("stroke-width", "1.1");
 
   const motion = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
-  motion.setAttribute("dur", isFly ? "820ms" : "520ms");
+  motion.setAttribute("dur", `${durMs}ms`);
   motion.setAttribute("fill", "freeze");
   motion.setAttribute("path", d);
   motion.setAttribute("keySplines", "0.2 0.8 0.2 1");
@@ -2490,11 +2472,8 @@ async function __gc_show_bip_takeover(bip, endsInning){
   ball.appendChild(motion);
   pointsG.appendChild(ball);
 
-  // Final marker
+  // Final marker (shown after animation completes)
   const renderFinal = () => {
-    // keep overlay path but fade it a bit
-    path.setAttribute("opacity", "0.75");
-
     // halo at landing
     const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     halo.setAttribute("cx", pt.x.toFixed(2));
@@ -2541,9 +2520,8 @@ async function __gc_show_bip_takeover(bip, endsInning){
   // Kick off animation.
   try{ motion.beginElement(); }catch(e){}
 
-  const durMs = isFly ? 820 : 520;
   setTimeout(() => {
-    // remove moving ball
+    // remove moving ball, show final marker
     try{ ball.remove(); }catch(e){}
     renderFinal();
   }, durMs + 40);
