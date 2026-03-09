@@ -38,24 +38,32 @@ TEAM_ABBREVS = {
 }
 
 
-def fetch_roster(team_id: int, season: int) -> list:
-    """Fetch 40-man roster from MLB API."""
+def fetch_roster(team_id: int, season: int) -> tuple:
+    """Fetch depth chart roster from MLB API (projected starters, not full 40-man).
+    Falls back to 40-man if depth chart unavailable.
+    Returns (deduped_roster, raw_roster) — raw_roster preserves position-order
+    for lineup construction, deduped_roster is for iterating unique players."""
     url = f"{API_BASE}/teams/{team_id}/roster"
-    params = {"rosterType": "40Man", "season": season}
-    try:
-        resp = requests.get(url, params=params, timeout=30)
-        resp.raise_for_status()
-        return resp.json().get("roster", [])
-    except Exception as e:
-        print(f"  Warning: Could not fetch roster for team {team_id}: {e}")
-        # Fallback to previous season
-        try:
-            params["season"] = season - 1
-            resp = requests.get(url, params=params, timeout=30)
-            resp.raise_for_status()
-            return resp.json().get("roster", [])
-        except Exception:
-            return []
+    for roster_type in ["depthChart", "40Man"]:
+        for yr in [season, season - 1]:
+            try:
+                resp = requests.get(url, params={"rosterType": roster_type, "season": yr}, timeout=30)
+                resp.raise_for_status()
+                roster = resp.json().get("roster", [])
+                if roster:
+                    # Deduplicate for player iteration
+                    seen = set()
+                    deduped = []
+                    for entry in roster:
+                        pid = entry["person"]["id"]
+                        if pid not in seen:
+                            seen.add(pid)
+                            deduped.append(entry)
+                    return deduped, roster
+            except Exception:
+                continue
+    print(f"  Warning: Could not fetch roster for team {team_id}")
+    return [], []
 
 
 def load_player_data():
@@ -194,7 +202,7 @@ def build_team_rosters(season: int = 2026):
         abbrev = TEAM_ABBREVS.get(team_id, str(team_id))
         print(f"  {abbrev} ({team_id})...")
 
-        roster = fetch_roster(team_id, season)
+        roster, raw_roster = fetch_roster(team_id, season)
         time.sleep(0.1)  # rate limit
 
         if not roster:
@@ -274,9 +282,32 @@ def build_team_rosters(season: int = 2026):
                 if pos_abbr == "C":
                     catchers.append(player_info)
 
-        # Sort hitters by quality (best 9 form the lineup)
-        hitters.sort(key=lambda x: x["quality"], reverse=True)
-        lineup = hitters[:9] if len(hitters) >= 9 else hitters + [_default_hitter()] * (9 - len(hitters))
+        # Build lineup from depth chart: pick one starter per position slot.
+        # The depth chart lists players in order at each position, so the first
+        # unused player at each position is the projected starter there.
+        # We use the raw roster (before dedup) to find starters by position.
+        lineup_positions = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"]
+        hitter_by_id = {h["id"]: h for h in hitters}
+        lineup = []
+        used_ids = set()
+        for pos in lineup_positions:
+            # Walk the raw roster entries to find first player at this position
+            for entry in raw_roster:
+                pid = entry["person"]["id"]
+                if entry["position"]["abbreviation"] == pos and pid not in used_ids and pid in hitter_by_id:
+                    lineup.append(hitter_by_id[pid])
+                    used_ids.add(pid)
+                    break
+        # Fill any missing slots with best remaining hitters
+        for h in sorted(hitters, key=lambda x: x["quality"], reverse=True):
+            if len(lineup) >= 9:
+                break
+            if h["id"] not in used_ids:
+                lineup.append(h)
+                used_ids.add(h["id"])
+        # Pad if still short
+        while len(lineup) < 9:
+            lineup.append(_default_hitter())
 
         # Sort pitchers into rotation and bullpen
         starters = [p for p in pitchers_list if p["is_starter"]]
