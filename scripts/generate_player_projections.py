@@ -99,32 +99,124 @@ TEAM_ABBREVS = {
 # Data loading
 # ────────────────────────────────────────────────────────
 
-def fetch_full_roster(team_id, season):
-    """Fetch full depth chart roster from MLB API. Returns list of dicts."""
+def fetch_depth_chart(team_id, season):
+    """Fetch structured depth chart from MLB API.
+
+    Returns dict with:
+      starters: list of 9 dicts (first player at C/1B/2B/3B/SS/LF/CF/RF/DH)
+      bench: list of backup position players (deduplicated)
+      rotation: list of up to 5 starting pitchers (first 5 SPs)
+      bullpen: list of relief pitchers (remaining SPs + RPs + CP)
+    Each player dict has: id, name, pos, pos_code, depth_role
+    """
     url = f"{API_BASE}/teams/{team_id}/roster"
-    for roster_type in ["depthChart", "40Man"]:
+
+    raw_roster = []
+    for yr in [season, season - 1]:
+        try:
+            resp = requests.get(url, params={"rosterType": "depthChart", "season": yr}, timeout=30)
+            resp.raise_for_status()
+            raw_roster = resp.json().get("roster", [])
+            if raw_roster:
+                break
+        except Exception:
+            continue
+
+    if not raw_roster:
+        # Fallback to 40-man
         for yr in [season, season - 1]:
             try:
-                resp = requests.get(url, params={"rosterType": roster_type, "season": yr}, timeout=30)
+                resp = requests.get(url, params={"rosterType": "40Man", "season": yr}, timeout=30)
                 resp.raise_for_status()
-                roster = resp.json().get("roster", [])
-                if roster:
-                    seen = set()
-                    result = []
-                    for entry in roster:
-                        pid = entry["person"]["id"]
-                        if pid not in seen:
-                            seen.add(pid)
-                            result.append({
-                                "id": pid,
-                                "name": entry["person"]["fullName"],
-                                "pos_type": entry["position"]["type"],
-                                "pos": entry["position"]["abbreviation"],
-                            })
-                    return result
+                raw_roster = resp.json().get("roster", [])
+                if raw_roster:
+                    break
             except Exception:
                 continue
-    return []
+
+    if not raw_roster:
+        return {"starters": [], "bench": [], "rotation": [], "bullpen": []}
+
+    # Group entries by position code (players appear at multiple positions)
+    # Position codes: 2=C, 3=1B, 4=2B, 5=3B, 6=SS, 7=LF, 8=CF, 9=RF, 10=DH, S=SP, C=CP, 1=P(RP)
+    FIELD_POS_CODES = ["2", "3", "4", "5", "6", "7", "8", "9", "10"]
+    POS_LABELS = {"2": "C", "3": "1B", "4": "2B", "5": "3B", "6": "SS",
+                  "7": "LF", "8": "CF", "9": "RF", "10": "DH"}
+
+    # Build ordered lists per position (depth chart order = starter first)
+    pos_depth = {code: [] for code in FIELD_POS_CODES}
+    sp_list = []
+    rp_list = []
+    cp_list = []
+
+    for entry in raw_roster:
+        pid = entry["person"]["id"]
+        name = entry["person"]["fullName"]
+        pos_code = entry["position"]["code"]
+        pos_abbrev = entry["position"]["abbreviation"]
+
+        player = {"id": pid, "name": name, "pos": pos_abbrev, "pos_code": pos_code}
+
+        if pos_code in FIELD_POS_CODES:
+            # Only add if not already at this position
+            if pid not in [p["id"] for p in pos_depth[pos_code]]:
+                pos_depth[pos_code].append(player)
+        elif pos_code == "S":  # Starting Pitcher
+            if pid not in [p["id"] for p in sp_list]:
+                sp_list.append(player)
+        elif pos_code == "C":  # Closer (not catcher — catcher is code "2")
+            if pid not in [p["id"] for p in cp_list]:
+                cp_list.append(player)
+        elif pos_code == "1":  # Generic pitcher = reliever
+            if pid not in [p["id"] for p in rp_list]:
+                rp_list.append(player)
+
+    # Extract starters: first player at each field position
+    starters = []
+    starter_ids = set()
+    for pos_code in FIELD_POS_CODES:
+        depth = pos_depth[pos_code]
+        if depth:
+            player = depth[0]
+            if player["id"] not in starter_ids:
+                starter_ids.add(player["id"])
+                player["depth_role"] = f"starter_{POS_LABELS[pos_code]}"
+                starters.append(player)
+
+    # Extract bench: remaining position players not already a starter
+    bench = []
+    bench_ids = set()
+    for pos_code in FIELD_POS_CODES:
+        for player in pos_depth[pos_code]:
+            if player["id"] not in starter_ids and player["id"] not in bench_ids:
+                bench_ids.add(player["id"])
+                player["depth_role"] = "bench"
+                bench.append(player)
+
+    # Rotation: first 5 SPs
+    rotation = []
+    for i, sp in enumerate(sp_list[:5]):
+        sp["depth_role"] = f"sp{i+1}"
+        rotation.append(sp)
+
+    # Bullpen: remaining SPs (6+) + CP + RPs
+    bullpen = []
+    for sp in sp_list[5:]:
+        sp["depth_role"] = "long_rp"
+        bullpen.append(sp)
+    for cp in cp_list:
+        cp["depth_role"] = "closer"
+        bullpen.append(cp)
+    for rp in rp_list:
+        rp["depth_role"] = "mid_rp"
+        bullpen.append(rp)
+
+    return {
+        "starters": starters,
+        "bench": bench,
+        "rotation": rotation,
+        "bullpen": bullpen,
+    }
 
 
 def fetch_player_info(player_ids):
@@ -450,16 +542,6 @@ def pitcher_counting_stats(rates, ip):
 # Playing time allocation
 # ────────────────────────────────────────────────────────
 
-def is_starter_role(pw_df, pitcher_id):
-    """Check if pitcher is primarily a starter from workload data."""
-    if pw_df.empty:
-        return False
-    pw = pw_df[pw_df["pitcher"] == pitcher_id]
-    if pw.empty:
-        return False
-    latest = pw["season"].max()
-    return pw[pw["season"] == latest]["is_starter"].mean() > 0.5
-
 
 def get_pitcher_season_ip(pw_df, pitcher_id):
     """Get average season IP from workload history (last 2 years)."""
@@ -476,40 +558,35 @@ def get_pitcher_season_ip(pw_df, pitcher_id):
     return float(recent.mean())
 
 
-def allocate_hitter_pa(hitters, bp_df, player_info):
-    """Allocate PA to hitters based on roster position and quality.
-    Returns list of (player_dict, allocated_pa) tuples."""
+def allocate_hitter_pa(starters, bench, bp_df, player_info):
+    """Allocate PA to hitters using depth chart roles.
 
-    # Score each hitter for lineup ordering
-    scored = []
-    for h in hitters:
-        pid = h["id"]
-        info = player_info.get(pid, {})
-        pos = info.get("primary_pos", h.get("pos", ""))
+    starters: list of projected starters from depth chart (up to 9)
+    bench: list of bench players from depth chart
+    Returns list of (player_dict, allocated_pa) tuples.
+    """
 
-        # Get their projected quality (xwoba from rates or default)
+    # Starters get top PA slots, bench gets remaining slots
+    # Within starters, sort by xwOBA to assign higher PA to better hitters
+    def get_xwoba(player):
+        pid = player["id"]
         player_data = bp_df[(bp_df["batter"] == pid) & (bp_df["vs_hand"] == "ALL")]
         if not player_data.empty:
             latest = player_data.sort_values("season", ascending=False).iloc[0]
             xwoba = float(latest.get("xwoba", 0) or 0)
-            recent_pa = int(latest.get("pa", 0) or 0)
-        else:
-            xwoba = 0.280
-            recent_pa = 0
+            return xwoba if xwoba > 0.100 else 0.280
+        return 0.280
 
-        scored.append({
-            **h,
-            "xwoba": xwoba if xwoba > 0.100 else 0.280,
-            "recent_pa": recent_pa,
-            "primary_pos": pos,
-        })
+    # Sort starters by quality for PA ordering within the starter group
+    sorted_starters = sorted(starters, key=get_xwoba, reverse=True)
+    # Sort bench by quality too
+    sorted_bench = sorted(bench, key=get_xwoba, reverse=True)
 
-    # Sort by quality (xwoba) descending
-    scored.sort(key=lambda x: x["xwoba"], reverse=True)
+    # Build ordered roster: starters first, then bench
+    ordered = sorted_starters + sorted_bench
 
-    # Assign PA from template (top player gets most PA, etc.)
     allocations = []
-    for i, h in enumerate(scored):
+    for i, h in enumerate(ordered):
         pa = PA_TEMPLATE[i] if i < len(PA_TEMPLATE) else 25
         allocations.append((h, pa))
 
@@ -529,45 +606,32 @@ def allocate_hitter_pa(hitters, bp_df, player_info):
     return allocations
 
 
-def allocate_pitcher_ip(pitchers, pw_df, player_info):
-    """Allocate IP to pitchers based on role.
-    Returns list of (player_dict, allocated_ip, role) tuples."""
+def allocate_pitcher_ip(rotation, bullpen, pw_df, player_info):
+    """Allocate IP to pitchers using depth chart roles.
 
-    # Classify each pitcher
+    rotation: list of starting pitchers from depth chart (ordered SP1-SP5)
+    bullpen: list of relief pitchers from depth chart (closer, setup, middle)
+    Returns list of (player_dict, allocated_ip, role) tuples.
+    """
+
     starters = []
+    for sp in rotation[:5]:
+        historical_ip = get_pitcher_season_ip(pw_df, sp["id"])
+        starters.append({**sp, "historical_ip": historical_ip})
+
     relievers = []
+    for rp in bullpen:
+        historical_ip = get_pitcher_season_ip(pw_df, rp["id"])
+        relievers.append({**rp, "historical_ip": historical_ip})
 
-    for p in pitchers:
-        pid = p["id"]
-        is_sp = is_starter_role(pw_df, pid)
-        historical_ip = get_pitcher_season_ip(pw_df, pid)
-
-        p_scored = {
-            **p,
-            "is_sp": is_sp,
-            "historical_ip": historical_ip,
-        }
-
-        # Get quality from arsenal data for sorting
-        # (loaded in caller, passed through p dict)
-
-        if is_sp:
-            starters.append(p_scored)
-        else:
-            relievers.append(p_scored)
-
-    # If not enough starters detected, promote best relievers
+    # If not enough starters from depth chart, promote bullpen arms with most IP
     while len(starters) < 5 and relievers:
-        # Pick reliever with most historical IP
         relievers.sort(key=lambda x: x.get("historical_ip") or 0, reverse=True)
         promoted = relievers.pop(0)
-        promoted["is_sp"] = True
+        promoted["depth_role"] = f"sp{len(starters)+1}"
         starters.append(promoted)
 
-    # Sort starters: use historical IP as proxy for role (SP1 has most IP)
-    starters.sort(key=lambda x: x.get("historical_ip") or 100, reverse=True)
-
-    # Sort relievers by quality (we'll get xwoba from rates later, for now use historical)
+    # Sort relievers by historical IP for role assignment (closer has most)
     relievers.sort(key=lambda x: x.get("historical_ip") or 30, reverse=True)
 
     allocations = []
@@ -640,15 +704,16 @@ def generate_projections(season=2026):
     print(f"  Pitcher workload: {pw_df['pitcher'].nunique()} players")
     print(f"  Team context: {len(team_context)} teams")
 
-    # Fetch all rosters
-    print("\nFetching rosters from MLB API...")
-    all_rosters = {}
+    # Fetch all depth charts
+    print("\nFetching depth charts from MLB API...")
+    all_depth_charts = {}
     all_player_ids = set()
     for tid in TEAM_IDS:
-        roster = fetch_full_roster(tid, season)
-        all_rosters[tid] = roster
-        for p in roster:
-            all_player_ids.add(p["id"])
+        dc = fetch_depth_chart(tid, season)
+        all_depth_charts[tid] = dc
+        for group in [dc["starters"], dc["bench"], dc["rotation"], dc["bullpen"]]:
+            for p in group:
+                all_player_ids.add(p["id"])
         time.sleep(0.05)
     print(f"  Total players across all teams: {len(all_player_ids)}")
 
@@ -663,22 +728,29 @@ def generate_projections(season=2026):
 
     for tid in TEAM_IDS:
         abbrev = TEAM_ABBREVS.get(tid, str(tid))
-        roster = all_rosters[tid]
+        dc = all_depth_charts[tid]
         ctx = team_context.get(tid, {"wins": 81, "losses": 81, "season_runs": 729})
         proj_wins = ctx["wins"]
         proj_losses = ctx["losses"]
         team_season_runs = ctx.get("season_runs", 729)
 
-        if not roster:
-            print(f"  {abbrev}: No roster data, skipping")
+        starters = dc["starters"]
+        bench = dc["bench"]
+        rotation = dc["rotation"]
+        bullpen = dc["bullpen"]
+
+        if not starters and not rotation:
+            print(f"  {abbrev}: No depth chart data, skipping")
             continue
 
-        # Split roster into hitters and pitchers
-        hitters = [p for p in roster if p["pos_type"] != "Pitcher"]
-        pitchers = [p for p in roster if p["pos_type"] == "Pitcher"]
+        n_starters = len(starters)
+        n_bench = len(bench)
+        n_rotation = len(rotation)
+        n_bullpen = len(bullpen)
+        print(f"  {abbrev}: {n_starters} starters, {n_bench} bench, {n_rotation} SP, {n_bullpen} RP")
 
         # ── Hitter projections (pass 1: rate stats + raw weights) ──
-        hitter_allocs = allocate_hitter_pa(hitters, bp_df, player_info)
+        hitter_allocs = allocate_hitter_pa(starters, bench, bp_df, player_info)
         team_batter_stats = []
 
         for h, pa_alloc in hitter_allocs:
@@ -717,7 +789,7 @@ def generate_projections(season=2026):
         all_batters.extend(team_batter_stats)
 
         # ── Pitcher projections (pass 1: rate stats) ──
-        pitcher_allocs = allocate_pitcher_ip(pitchers, pw_df, player_info)
+        pitcher_allocs = allocate_pitcher_ip(rotation, bullpen, pw_df, player_info)
         team_pitcher_stats = []
 
         for p, ip_alloc, role in pitcher_allocs:
