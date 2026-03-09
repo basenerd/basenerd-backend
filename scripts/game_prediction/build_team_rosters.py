@@ -264,7 +264,15 @@ def build_team_rosters(season: int = 2026):
 
                 if b_stats is not None:
                     xw = float(b_stats.get("xwoba", 0) or 0)
-                    player_info["xwoba"] = xw if xw > 0.100 else 0.295  # treat near-zero as missing
+                    pa = int(b_stats.get("pa", 0) or 0)
+                    if xw <= 0.100:
+                        xw = 0.295  # treat near-zero as missing
+                    elif pa < 200:
+                        # Regress small samples toward league avg (.315)
+                        # At 0 PA = full default, at 200+ PA = full actual
+                        weight = pa / 200.0
+                        xw = xw * weight + 0.315 * (1 - weight)
+                    player_info["xwoba"] = xw
                     player_info["k_pct"] = float(b_stats.get("k_pct", 0) or 0)
                     player_info["bb_pct"] = float(b_stats.get("bb_pct", 0) or 0)
                     player_info["barrel_rate"] = float(b_stats.get("barrel_rate", 0) or 0)

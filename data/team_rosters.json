@@ -19,7 +19,7 @@
         "id": 695681,
         "name": "Christian Moore",
         "quality": 0.2838193083586436,
-        "xwoba": 0.2824402478389016
+        "xwoba": 0.2850450280117895
       },
       {
         "id": 660162,
@@ -198,15 +198,15 @@
       }
     ],
     "catcher_framing": -0.06259753456393903,
-    "lineup_quality": 0.32161302361842564,
+    "lineup_quality": 0.3219024436376354,
     "rotation_xwoba": 0.31646633469658314,
     "bullpen_xwoba": 0.3085220988824622,
     "pitching_xwoba": 0.3136858521616408,
     "n_hitters": 18,
     "n_pitchers": 15,
-    "runs_scored_pg": 4.429822479839717,
+    "runs_scored_pg": 4.427713906884814,
     "runs_allowed_pg": 4.693752373322484,
-    "expected_wpct": 0.4735478997862985
+    "expected_wpct": 0.4733306949349384
   },
   "109": {
     "team_id": 109,
@@ -264,7 +264,7 @@
         "id": 691783,
         "name": "Jordan Lawlar",
         "quality": 0.15103946460576892,
-        "xwoba": 0.25322868221326916
+        "xwoba": 0.2921446124189096
       }
     ],
     "rotation": [
@@ -452,15 +452,15 @@
       }
     ],
     "catcher_framing": 0.07886176340872789,
-    "lineup_quality": 0.32227201674929196,
+    "lineup_quality": 0.32659600899436314,
     "rotation_xwoba": 0.31089401863599886,
     "bullpen_xwoba": 0.2855399454764409,
     "pitching_xwoba": 0.3020200930301536,
     "n_hitters": 16,
     "n_pitchers": 22,
-    "runs_scored_pg": 4.441305435145063,
+    "runs_scored_pg": 4.509499283225795,
     "runs_allowed_pg": 4.430356318817936,
-    "expected_wpct": 0.5011292618868114
+    "expected_wpct": 0.5080998365364573
   },
   "110": {
     "team_id": 110,
@@ -518,7 +518,7 @@
         "id": 694212,
         "name": "Samuel Basallo",
         "quality": 0.3011368973470822,
-        "xwoba": 0.2862501174163581
+        "xwoba": 0.2980375692756513
       }
     ],
     "rotation": [
@@ -679,15 +679,15 @@
       }
     ],
     "catcher_framing": 0.004545252272420037,
-    "lineup_quality": 0.32416805760239575,
+    "lineup_quality": 0.3254777744756506,
     "rotation_xwoba": 0.29458684254610373,
     "bullpen_xwoba": 0.2767715883133728,
     "pitching_xwoba": 0.2883515035646479,
     "n_hitters": 17,
     "n_pitchers": 20,
-    "runs_scored_pg": 4.4743439470103965,
+    "runs_scored_pg": 4.49001404673723,
     "runs_allowed_pg": 4.22376566461443,
-    "expected_wpct": 0.5263425323665661
+    "expected_wpct": 0.5279372811576486
   },
   "111": {
     "team_id": 111,
@@ -709,7 +709,7 @@
         "id": 691785,
         "name": "Marcelo Mayer",
         "quality": 0.19616802924467105,
-        "xwoba": 0.26315696643382763
+        "xwoba": 0.2794875220071719
       },
       {
         "id": 702332,
@@ -879,15 +879,15 @@
       }
     ],
     "catcher_framing": 0.01859666148038979,
-    "lineup_quality": 0.3195993589632054,
+    "lineup_quality": 0.32141386513802145,
     "rotation_xwoba": 0.2872632728208127,
     "bullpen_xwoba": 0.29481802490907993,
     "pitching_xwoba": 0.2899074360517062,
     "n_hitters": 17,
     "n_pitchers": 17,
-    "runs_scored_pg": 4.394734373222505,
+    "runs_scored_pg": 4.4192004265290405,
     "runs_allowed_pg": 4.244905939288034,
-    "expected_wpct": 0.5158641723055428
+    "expected_wpct": 0.5184010828196369
   },
   "112": {
     "team_id": 112,
@@ -945,7 +945,7 @@
         "id": 694208,
         "name": "Mois\u00e9s Ballesteros",
         "quality": 0.5388166133157625,
-        "xwoba": 0.33853965492946775
+        "xwoba": 0.32276808612672436
       }
     ],
     "rotation": [
@@ -1124,15 +1124,15 @@
       }
     ],
     "catcher_framing": 0.021114770257483834,
-    "lineup_quality": 0.3409819599080716,
+    "lineup_quality": 0.33922956337443344,
     "rotation_xwoba": 0.30960030306518593,
     "bullpen_xwoba": 0.27524113406150885,
     "pitching_xwoba": 0.29757459391389895,
     "n_hitters": 16,
     "n_pitchers": 23,
-    "runs_scored_pg": 4.767326194686799,
+    "runs_scored_pg": 4.72963896829852,
     "runs_allowed_pg": 4.377435968806479,
-    "expected_wpct": 0.5389559056747794
+    "expected_wpct": 0.5353449134656881
   },
   "113": {
     "team_id": 113,
@@ -1339,9 +1339,9 @@
     "pitching_xwoba": 0.2938955973178794,
     "n_hitters": 16,
     "n_pitchers": 18,
-    "runs_scored_pg": 4.061291300035637,
+    "runs_scored_pg": 4.054139583246004,
     "runs_allowed_pg": 4.368002424890111,
-    "expected_wpct": 0.4667409803275351
+    "expected_wpct": 0.4659382917101178
   },
   "114": {
     "team_id": 114,
@@ -1557,9 +1557,9 @@
     "pitching_xwoba": 0.3035706114350753,
     "n_hitters": 17,
     "n_pitchers": 16,
-    "runs_scored_pg": 4.073836732267508,
+    "runs_scored_pg": 4.066685015477875,
     "runs_allowed_pg": 4.502104441781944,
-    "expected_wpct": 0.4543955346127277
+    "expected_wpct": 0.45359848164794364
   },
   "115": {
     "team_id": 115,
@@ -1802,9 +1802,9 @@
     "pitching_xwoba": 0.3222583027187654,
     "n_hitters": 16,
     "n_pitchers": 23,
-    "runs_scored_pg": 4.228185012206965,
+    "runs_scored_pg": 4.221033295417332,
     "runs_allowed_pg": 4.822350694370229,
-    "expected_wpct": 0.4401325117322986
+    "expected_wpct": 0.4393692688244471
   },
   "116": {
     "team_id": 116,
@@ -2002,9 +2002,9 @@
     "pitching_xwoba": 0.295893023514281,
     "n_hitters": 15,
     "n_pitchers": 16,
-    "runs_scored_pg": 4.429625187536943,
+    "runs_scored_pg": 4.42247347074731,
     "runs_allowed_pg": 4.313882337060361,
-    "expected_wpct": 0.512110720948068
+    "expected_wpct": 0.5113718890771136
   },
   "117": {
     "team_id": 117,
@@ -2044,7 +2044,7 @@
         "id": 670541,
         "name": "Yordan Alvarez",
         "quality": 0.7858635711315685,
-        "xwoba": 0.39288998564894506
+        "xwoba": 0.3925005357207003
       },
       {
         "id": 676694,
@@ -2223,15 +2223,15 @@
       }
     ],
     "catcher_framing": -0.01076684696813605,
-    "lineup_quality": 0.3282119940358296,
+    "lineup_quality": 0.32816872182158024,
     "rotation_xwoba": 0.29717618566697446,
     "bullpen_xwoba": 0.27694688834040376,
     "pitching_xwoba": 0.2900959316026747,
     "n_hitters": 15,
     "n_pitchers": 19,
-    "runs_scored_pg": 4.544809539362982,
+    "runs_scored_pg": 4.536903804240053,
     "runs_allowed_pg": 4.260669965354284,
-    "expected_wpct": 0.5295016203678518
+    "expected_wpct": 0.5287078012642796
   },
   "118": {
     "team_id": 118,
@@ -2289,7 +2289,7 @@
         "id": 695600,
         "name": "Carter Jensen",
         "quality": 0.95,
-        "xwoba": 0.44694860957400095
+        "xwoba": 0.3605222703030303
       }
     ],
     "rotation": [
@@ -2423,15 +2423,15 @@
       }
     ],
     "catcher_framing": -0.10627689920963293,
-    "lineup_quality": 0.33855662254417634,
+    "lineup_quality": 0.3289536959585129,
     "rotation_xwoba": 0.29873298739993304,
     "bullpen_xwoba": 0.2721713873554439,
     "pitching_xwoba": 0.2894364273843618,
     "n_hitters": 16,
     "n_pitchers": 17,
-    "runs_scored_pg": 4.725064691120924,
+    "runs_scored_pg": 4.550581978576105,
     "runs_allowed_pg": 4.289769876552818,
-    "expected_wpct": 0.5441016299604459
+    "expected_wpct": 0.5269763634921375
   },
   "119": {
     "team_id": 119,
@@ -2647,9 +2647,9 @@
     "pitching_xwoba": 0.28197089597833,
     "n_hitters": 16,
     "n_pitchers": 18,
-    "runs_scored_pg": 4.946126353834469,
+    "runs_scored_pg": 4.938974637044835,
     "runs_allowed_pg": 4.15431182842101,
-    "expected_wpct": 0.579143411446305
+    "expected_wpct": 0.5784978740905551
   },
   "120": {
     "team_id": 120,
@@ -2665,7 +2665,7 @@
         "id": 665953,
         "name": "Andr\u00e9s Chaparro",
         "quality": 0.15447258837053343,
-        "xwoba": 0.25398396944151735
+        "xwoba": 0.29242406869336146
       },
       {
         "id": 671277,
@@ -2841,15 +2841,15 @@
       }
     ],
     "catcher_framing": -0.12621019207610296,
-    "lineup_quality": 0.30944472468657563,
+    "lineup_quality": 0.3137158468256695,
     "rotation_xwoba": 0.3406834697555411,
     "bullpen_xwoba": 0.343350333670803,
     "pitching_xwoba": 0.34161687212588276,
     "n_hitters": 15,
     "n_pitchers": 13,
-    "runs_scored_pg": 4.217789870952231,
+    "runs_scored_pg": 4.285062457436308,
     "runs_allowed_pg": 5.20748577564207,
-    "expected_wpct": 0.40474366303649056
+    "expected_wpct": 0.41173913314494853
   },
   "121": {
     "team_id": 121,
@@ -3056,9 +3056,9 @@
     "pitching_xwoba": 0.29492928521358586,
     "n_hitters": 15,
     "n_pitchers": 17,
-    "runs_scored_pg": 4.737743192737652,
+    "runs_scored_pg": 4.730591475948019,
     "runs_allowed_pg": 4.377002134023257,
-    "expected_wpct": 0.5361692735523579
+    "expected_wpct": 0.535481694774521
   },
   "133": {
     "team_id": 133,
@@ -3104,7 +3104,7 @@
         "id": 672016,
         "name": "Denzel Clarke",
         "quality": 0.15278988009588862,
-        "xwoba": 0.2536137736210955
+        "xwoba": 0.2661979500287709
       },
       {
         "id": 671732,
@@ -3259,15 +3259,15 @@
       }
     ],
     "catcher_framing": -0.018599579357687683,
-    "lineup_quality": 0.31684112232138684,
+    "lineup_quality": 0.3182393641444619,
     "rotation_xwoba": 0.3059159244928466,
     "bullpen_xwoba": 0.30119797190508835,
     "pitching_xwoba": 0.30426464108713125,
     "n_hitters": 16,
     "n_pitchers": 18,
-    "runs_scored_pg": 4.346672099738816,
+    "runs_scored_pg": 4.363884746716266,
     "runs_allowed_pg": 4.510888639386498,
-    "expected_wpct": 0.4830407365246914
+    "expected_wpct": 0.4848469740129592
   },
   "134": {
     "team_id": 134,
@@ -3465,9 +3465,9 @@
     "pitching_xwoba": 0.295448040310905,
     "n_hitters": 14,
     "n_pitchers": 12,
-    "runs_scored_pg": 4.467282324257933,
+    "runs_scored_pg": 4.4601306074683,
     "runs_allowed_pg": 4.365813355107605,
-    "expected_wpct": 0.5105098505027357
+    "expected_wpct": 0.509777149108889
   },
   "135": {
     "team_id": 135,
@@ -3737,9 +3737,9 @@
     "pitching_xwoba": 0.2941511548956166,
     "n_hitters": 16,
     "n_pitchers": 26,
-    "runs_scored_pg": 4.622137082620437,
+    "runs_scored_pg": 4.614985365830803,
     "runs_allowed_pg": 4.3295939830794605,
-    "expected_wpct": 0.5298772695408326
+    "expected_wpct": 0.5291713132725803
   },
   "136": {
     "team_id": 136,
@@ -3791,7 +3791,7 @@
         "id": 645302,
         "name": "Victor Robles",
         "quality": 0.07525335541651326,
-        "xwoba": 0.23655573819163292
+        "xwoba": 0.2702867707692308
       },
       {
         "id": 608701,
@@ -3904,15 +3904,15 @@
       }
     ],
     "catcher_framing": 0.06783291224459276,
-    "lineup_quality": 0.32522966775252077,
+    "lineup_quality": 0.3289775602611427,
     "rotation_xwoba": 0.30503509206056,
     "bullpen_xwoba": 0.2802018558048418,
     "pitching_xwoba": 0.29634345937105866,
     "n_hitters": 16,
     "n_pitchers": 12,
-    "runs_scored_pg": 4.492842503876325,
+    "runs_scored_pg": 4.5509978140494285,
     "runs_allowed_pg": 4.3361282390529645,
-    "expected_wpct": 0.5162372480211094
+    "expected_wpct": 0.5221124033338045
   },
   "137": {
     "team_id": 137,
@@ -3970,7 +3970,7 @@
         "id": 805811,
         "name": "Bryce Eldridge",
         "quality": 0.6456387651584394,
-        "xwoba": 0.36204052833485667
+        "xwoba": 0.3237024977419485
       }
     ],
     "rotation": [
@@ -4149,15 +4149,15 @@
       }
     ],
     "catcher_framing": 0.1946385429866285,
-    "lineup_quality": 0.3222962794774491,
+    "lineup_quality": 0.3180364983004593,
     "rotation_xwoba": 0.30396545589923846,
     "bullpen_xwoba": 0.27157350936812363,
     "pitching_xwoba": 0.2926282746133483,
     "n_hitters": 17,
     "n_pitchers": 21,
-    "runs_scored_pg": 4.441728213183201,
+    "runs_scored_pg": 4.36034980938452,
     "runs_allowed_pg": 4.217498751584495,
-    "expected_wpct": 0.5236813626221162
+    "expected_wpct": 0.5152346290329088
   },
   "138": {
     "team_id": 138,
@@ -4364,9 +4364,9 @@
     "pitching_xwoba": 0.3191210201743032,
     "n_hitters": 14,
     "n_pitchers": 16,
-    "runs_scored_pg": 4.088811503987266,
+    "runs_scored_pg": 4.081659787197632,
     "runs_allowed_pg": 4.734139417358044,
-    "expected_wpct": 0.4333543294472872
+    "expected_wpct": 0.4325678162336768
   },
   "139": {
     "team_id": 139,
@@ -4609,9 +4609,9 @@
     "pitching_xwoba": 0.30215528397183444,
     "n_hitters": 17,
     "n_pitchers": 19,
-    "runs_scored_pg": 4.25862032906925,
+    "runs_scored_pg": 4.251468612279616,
     "runs_allowed_pg": 4.453748236687405,
-    "expected_wpct": 0.4795151067345342
+    "expected_wpct": 0.478747497635678
   },
   "140": {
     "team_id": 140,
@@ -4809,9 +4809,9 @@
     "pitching_xwoba": 0.3116641984519302,
     "n_hitters": 16,
     "n_pitchers": 15,
-    "runs_scored_pg": 4.4934170752583835,
+    "runs_scored_pg": 4.486265358468749,
     "runs_allowed_pg": 4.60508711674872,
-    "expected_wpct": 0.4887711171159449
+    "expected_wpct": 0.4880427725220281
   },
   "141": {
     "team_id": 141,
@@ -5036,9 +5036,9 @@
     "pitching_xwoba": 0.307626511178707,
     "n_hitters": 14,
     "n_pitchers": 19,
-    "runs_scored_pg": 4.662180060802704,
+    "runs_scored_pg": 4.655028344013071,
     "runs_allowed_pg": 4.512547630759541,
-    "expected_wpct": 0.5149198068753083
+    "expected_wpct": 0.5142180660771576
   },
   "142": {
     "team_id": 142,
@@ -5078,7 +5078,7 @@
         "id": 668885,
         "name": "Austin Martin",
         "quality": 0.5694464476973174,
-        "xwoba": 0.34527821849340984
+        "xwoba": 0.3424017877365359
       },
       {
         "id": 621439,
@@ -5248,15 +5248,15 @@
       }
     ],
     "catcher_framing": -0.012001728107833044,
-    "lineup_quality": 0.32570847657285057,
+    "lineup_quality": 0.32538887315542014,
     "rotation_xwoba": 0.3141328165932503,
     "bullpen_xwoba": 0.3026986554451961,
     "pitching_xwoba": 0.3101308601914313,
     "n_hitters": 19,
     "n_pitchers": 18,
-    "runs_scored_pg": 4.501185747570571,
+    "runs_scored_pg": 4.488464941232213,
     "runs_allowed_pg": 4.61030342049774,
-    "expected_wpct": 0.48904334314732356
+    "expected_wpct": 0.48774926948411745
   },
   "143": {
     "team_id": 143,
@@ -5472,9 +5472,9 @@
     "pitching_xwoba": 0.28998307706793036,
     "n_hitters": 12,
     "n_pitchers": 16,
-    "runs_scored_pg": 4.579888262167176,
+    "runs_scored_pg": 4.572736545377543,
     "runs_allowed_pg": 4.266236779541412,
-    "expected_wpct": 0.532410674671898
+    "expected_wpct": 0.5316986465854403
   },
   "144": {
     "team_id": 144,
@@ -5699,9 +5699,9 @@
     "pitching_xwoba": 0.30571267553179227,
     "n_hitters": 14,
     "n_pitchers": 20,
-    "runs_scored_pg": 4.5134144234944555,
+    "runs_scored_pg": 4.506262706704822,
     "runs_allowed_pg": 4.536382608845649,
-    "expected_wpct": 0.49767776188446056
+    "expected_wpct": 0.4969522777800461
   },
   "145": {
     "team_id": 145,
@@ -5917,9 +5917,9 @@
     "pitching_xwoba": 0.3221548966505425,
     "n_hitters": 14,
     "n_pitchers": 18,
-    "runs_scored_pg": 4.2612107226238205,
+    "runs_scored_pg": 4.254059005834188,
     "runs_allowed_pg": 4.829824276249628,
-    "expected_wpct": 0.44294463037802284
+    "expected_wpct": 0.442186289636375
   },
   "146": {
     "team_id": 146,
@@ -5971,7 +5971,7 @@
         "id": 683357,
         "name": "Owen Caissie",
         "quality": 0.05520195242467971,
-        "xwoba": 0.23214442953342954
+        "xwoba": 0.303814497987013
       },
       {
         "id": 689414,
@@ -6147,15 +6147,15 @@
       }
     ],
     "catcher_framing": -0.0023215473363872537,
-    "lineup_quality": 0.315276189032233,
+    "lineup_quality": 0.32323952997152006,
     "rotation_xwoba": 0.3169897707144389,
     "bullpen_xwoba": 0.2960963713225041,
     "pitching_xwoba": 0.3096770809272617,
     "n_hitters": 16,
     "n_pitchers": 22,
-    "runs_scored_pg": 4.31940313717531,
+    "runs_scored_pg": 4.451012636252754,
     "runs_allowed_pg": 4.598282239991719,
-    "expected_wpct": 0.471407476608034
+    "expected_wpct": 0.4851122378419715
   },
   "147": {
     "team_id": 147,
@@ -6189,7 +6189,7 @@
         "id": 665828,
         "name": "Oswaldo Cabrera",
         "quality": 0.2918244338306325,
-        "xwoba": 0.28420137544273916
+        "xwoba": 0.2962128390200709
       },
       {
         "id": 641355,
@@ -6347,15 +6347,15 @@
       }
     ],
     "catcher_framing": 0.10621558643022554,
-    "lineup_quality": 0.3500782500655706,
+    "lineup_quality": 0.3514128571297186,
     "rotation_xwoba": 0.29869509495553037,
     "bullpen_xwoba": 0.30503216799799593,
     "pitching_xwoba": 0.3009130705203933,
     "n_hitters": 16,
     "n_pitchers": 16,
-    "runs_scored_pg": 4.925829050681218,
+    "runs_scored_pg": 4.9419328619843625,
     "runs_allowed_pg": 4.399441076801226,
-    "expected_wpct": 0.5515208906294014
+    "expected_wpct": 0.5529978234779559
   },
   "158": {
     "team_id": 158,
@@ -6401,7 +6401,7 @@
         "id": 669003,
         "name": "Garrett Mitchell",
         "quality": 0.308554701809247,
-        "xwoba": 0.28788203439803434
+        "xwoba": 0.3044239934152334
       },
       {
         "id": 686217,
@@ -6601,14 +6601,14 @@
       }
     ],
     "catcher_framing": 0.0435855518255196,
-    "lineup_quality": 0.31292152713025545,
+    "lineup_quality": 0.3147595225766109,
     "rotation_xwoba": 0.28362454306062496,
     "bullpen_xwoba": 0.2802706966585113,
     "pitching_xwoba": 0.2824506968198852,
     "n_hitters": 20,
     "n_pitchers": 23,
-    "runs_scored_pg": 4.278373153533352,
+    "runs_scored_pg": 4.303248507396461,
     "runs_allowed_pg": 4.104351979776874,
-    "expected_wpct": 0.5189885342336243
+    "expected_wpct": 0.5216364480376332
   }
 }
