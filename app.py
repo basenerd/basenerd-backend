@@ -1344,6 +1344,30 @@ def gamecast_json(game_pk: int):
             return ""
         return f"{ab}-{h} • HR {hr} • RBI {rbi} • BB {bb} • K {k}"
 
+    def _game_summary(bat: dict):
+        """Compact game summary like '3-4, 1 HR, 2 RBI' or '0-3, BB'"""
+        if not isinstance(bat, dict) or not bat:
+            return ""
+        ab = bat.get("atBats")
+        h = bat.get("hits")
+        hr = _i(bat.get("homeRuns"), 0)
+        rbi = _i(bat.get("rbi"), 0)
+        bb = _i(bat.get("baseOnBalls"), 0)
+        k = _i(bat.get("strikeOuts"), 0)
+        if ab is None and h is None:
+            return ""
+        base = f"{h or 0}-{ab or 0}"
+        tags = []
+        if hr and hr > 0:
+            tags.append("HR" if hr == 1 else f"{hr} HR")
+        if rbi and rbi > 0:
+            tags.append(f"{rbi} RBI")
+        if bb and bb > 0:
+            tags.append("BB" if bb == 1 else f"{bb} BB")
+        if k and k > 0:
+            tags.append("K" if k == 1 else f"{k} K")
+        return base + (", " + ", ".join(tags) if tags else "")
+
     def _pitcher_line(pit: dict):
         # IP, H, R, ER, BB, K
         if not isinstance(pit, dict) or not pit:
@@ -1416,6 +1440,7 @@ def gamecast_json(game_pk: int):
                 "headshot": get_player_headshot_url(pid, 84) if pid else "",
                 "pos": pos,
                 "batLine": _batter_line(bat),
+                "gameSummary": _game_summary(bat),
                 "battingOrder": bo,
                 "pas": pa_log.get(pid, []),
             })
@@ -1610,8 +1635,30 @@ def gamecast_json(game_pk: int):
 
     # Due up (next 3 hitters) — only during between-innings
     due_up = []
+    due_up_team = ""
     if between_innings:
+        # Which team bats next?
+        if inning_state_lc == "middle":
+            due_team_key = "home"
+        elif inning_state_lc == "end":
+            due_team_key = "away"
+        else:
+            due_team_key = "home" if half == "Top" else "away"
+
+        # Team name
+        due_up_team = _safe(game_data, "teams", due_team_key, "teamName", default="") or \
+                      _safe(game_data, "teams", due_team_key, "name", default="") or ""
+
+        # Build pid -> lineup player map (from already-built lineups)
+        due_lineup = away_lineup if due_team_key == "away" else home_lineup
+        pid_to_player = {}
+        for p in due_lineup:
+            pid = p.get("id")
+            if pid:
+                pid_to_player[int(pid)] = p
+
         try:
+            # Get the next 3 from linescore.offense (batter/onDeck/inHole)
             off = linescore.get("offense") or {}
             for k in ("batter", "onDeck", "inHole"):
                 o = off.get(k)
@@ -1619,13 +1666,25 @@ def gamecast_json(game_pk: int):
                     continue
                 pid = _i(o.get("id"), None) or _i(_safe(o, "person", "id"), None)
                 nm = (o.get("fullName") or _safe(o, "person", "fullName", default="") or "").strip()
-                if pid or nm:
-                    due_up.append({
-                        "id": pid,
-                        "name": nm,
-                        "shortName": _short_name(nm),
-                        "headshot": get_player_headshot_url(pid, 84) if pid else "",
-                    })
+                if not pid and not nm:
+                    continue
+
+                # Enrich from lineup data (spot, game summary)
+                lineup_p = pid_to_player.get(pid) if pid else None
+                spot = None
+                game_summary = ""
+                if lineup_p:
+                    spot = lineup_p.get("spot")
+                    game_summary = lineup_p.get("gameSummary") or lineup_p.get("batLine") or ""
+
+                due_up.append({
+                    "id": pid,
+                    "name": nm,
+                    "shortName": _short_name(nm),
+                    "headshot": get_player_headshot_url(pid, 84) if pid else "",
+                    "spot": spot,
+                    "gameSummary": game_summary,
+                })
         except Exception:
             due_up = []
 
@@ -1808,6 +1867,7 @@ def gamecast_json(game_pk: int):
         "betweenInnings": between_innings,
         "inningSummary": inning_summary,
         "dueUp": due_up,
+        "dueUpTeam": due_up_team,
         "feed": feed_events,
     })
 

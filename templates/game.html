@@ -2159,7 +2159,7 @@ function __gc_handle_dueup_takeover(data){
 
   // When between innings starts: show sticky takeover
   if(between){
-     // If a BIP ended the inning, let the BIP takeover breathe for ~10s before showing Due Up
+     // If a BIP ended the inning, let the BIP takeover breathe before showing Due Up
     if(__gc_dueup_delay_until && Date.now() < __gc_dueup_delay_until){
         return;
     }
@@ -2167,41 +2167,51 @@ function __gc_handle_dueup_takeover(data){
       __gc_last_between_key = key;
 
       const due = (data?.dueUp || []);
-      
-      // 1) Inning summary FIRST
+      const teamName = data?.dueUpTeam || "";
+
+      // 1) Inning summary section
       const sumHTML = __gc_render_inning_summary(data?.inningSummary);
-      
-      // 2) Due up rows with headshot, spot, short name, and game line
-      const row = (p) => {
-        const hs = p?.headshot ? `<img src="${p.headshot}" style="width:34px;height:34px;border-radius:999px;border:1px solid rgba(226,232,240,.9);object-fit:cover;background:#fff;" onerror="this.style.display='none'">` : ``;
-        const spot = (p?.spot != null && p?.spot !== "") ? `${p.spot}.` : "";
+
+      // 2) Due up section: "Due up for the {Team}:" with numbered rows
+      const row = (p, idx) => {
+        const hs = p?.headshot
+          ? `<img src="${p.headshot}" style="width:34px;height:34px;border-radius:999px;border:1px solid rgba(226,232,240,.9);object-fit:cover;background:#fff;" onerror="this.style.display='none'">`
+          : ``;
+        const spot = (p?.spot != null && p?.spot !== "") ? p.spot : (idx + 1);
         const nm = (p?.shortName || fmtShortName(p?.name) || "—");
-        const line = (p?.batLine || "").trim(); // e.g. "2-3, HR"
+        const line = (p?.gameSummary || "").trim();
         const lineHTML = line ? `<span class="mono" style="opacity:.75;">(${line})</span>` : "";
-      
+
         return `
           <div style="display:flex; align-items:center; gap:10px; padding:8px 10px;
                       border:1px solid rgba(226,232,240,.9); border-radius:12px; background:#fff; margin-top:8px;">
             ${hs}
             <div style="min-width:0;">
               <div style="font-weight:1000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                <span class="mono" style="opacity:.75; margin-right:6px;">${spot}</span>${nm}
+                <span class="mono" style="opacity:.75; margin-right:4px;">${spot}.</span>${nm}
                 <span style="margin-left:8px;">${lineHTML}</span>
               </div>
             </div>
           </div>
         `;
       };
-      
+
+      const dueLabel = teamName
+        ? `Due up for the ${teamName}:`
+        : `Due up:`;
+
       const dueHTML = due.length
-        ? `<div style="margin-top:10px;">${due.slice(0,3).map(row).join("")}</div>`
-        : `<div class="mono" style="opacity:.75; margin-top:10px;">Due up not available.</div>`;
-      
+        ? `<div style="margin-top:14px;">
+             <div class="mono" style="font-weight:900; margin-bottom:2px;">${dueLabel}</div>
+             ${due.slice(0,3).map(row).join("")}
+           </div>`
+        : `<div class="mono" style="opacity:.75; margin-top:14px;">Due up not available.</div>`;
+
       __gc_show_takeover(
-        "Due Up",
-        "Next inning hitters",
-        `${sumHTML}${dueHTML}`,   // summary FIRST
-        null,                    // sticky
+        "Inning Summary",
+        "",
+        `${sumHTML}${dueHTML}`,
+        null,    // sticky
         "dueup"
       );
     }
@@ -2368,6 +2378,8 @@ async function __gc_show_bip_takeover(bip, endsInning){
   // If the BIP ended the inning, allow due-up takeover only after ~10 seconds
   if(endsInning){
     __gc_dueup_delay_until = Date.now() + 10000;
+    // Reset the between-innings key so due-up re-triggers after the delay expires
+    __gc_last_between_key = "";
   }else{
     __gc_dueup_delay_until = 0;
   }
@@ -2938,8 +2950,9 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
       window.__gc_last_batter_id_at_fetch = data?.batter?.id ?? null;
       console.log("[GameCast] payload:", data);
       updateHeroFromGamecast(data);
-      __gc_handle_dueup_takeover(data);
-   
+      // NOTE: dueup takeover is called AFTER the BIP check below (not here)
+      // to avoid a race where dueup flashes before BIP when a BIP ends the inning.
+
       if(!data || data.ok === false){
         const msg = data && data.reason ? data.reason : "No live data available";
         const lastPlayEl = document.getElementById("gc-lastplay");
@@ -2964,6 +2977,10 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
         const endsInning = !!data.betweenInnings;
         __gc_maybe_show_bip_takeover(data.bip, endsInning);
       }
+
+      // 3) Due-up takeover (AFTER BIP so BIP takes priority on inning-ending plays)
+      __gc_handle_dueup_takeover(data);
+
       const innEl = document.getElementById("gc-inning");
       if(innEl){
         const dh = data.displayHalf || data.half;
