@@ -2570,11 +2570,17 @@ def playoff_odds():
     projection = None
     meta = None
 
+    all_teams = []
     if os.path.exists(results_path):
         with open(results_path, "r") as f:
             raw = _json.load(f)
         meta = raw.pop("_meta", {})
         projection = raw
+        # Collect all teams sorted by projected wins for the overall view
+        for div_teams in projection.values():
+            if isinstance(div_teams, list):
+                all_teams.extend(div_teams)
+        all_teams.sort(key=lambda t: t.get("avg_wins", 0), reverse=True)
     else:
         error = f"No projection data found for {season}. Run the season simulator first."
 
@@ -2584,6 +2590,7 @@ def playoff_odds():
         season=season,
         seasons=[2026, 2025],
         projection=projection,
+        all_teams=all_teams,
         meta=meta,
         error=error,
     )

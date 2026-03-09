@@ -8,14 +8,16 @@
       <div class="card-subtitle">Season {{ season }} Projections</div>
     </div>
 
-    <form method="get" action="/playoff-odds" style="display:flex; gap:8px; align-items:center;">
-      <select name="season">
-        {% for y in seasons %}
-          <option value="{{ y }}" {% if y == season %}selected{% endif %}>{{ y }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit">Go</button>
-    </form>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <form method="get" action="/playoff-odds" style="display:flex; gap:8px; align-items:center;">
+        <select name="season">
+          {% for y in seasons %}
+            <option value="{{ y }}" {% if y == season %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit">Go</button>
+      </form>
+    </div>
   </div>
 
   {% if meta %}
@@ -42,6 +44,28 @@
     font-size: 12px;
     opacity: 0.6;
     font-weight: 600;
+  }
+
+  /* View toggle tabs */
+  .po-tabs{
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px 0;
+  }
+  .po-tab{
+    padding: 6px 14px;
+    border-radius: 8px 8px 0 0;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    opacity: 0.5;
+    color: inherit;
+  }
+  .po-tab.active{
+    opacity: 1;
+    background: var(--card-bg, rgba(255,255,255,0.06));
   }
 
   /* Probability badge (colored) */
@@ -93,11 +117,26 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* Division separator in overall view */
+  .po-table tr.div-separator td{
+    padding-top: 12px;
+    border-top: none;
+  }
+  .div-label{
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    opacity: 0.4;
+    letter-spacing: 0.5px;
+    padding-bottom: 2px;
+  }
+
   /* Responsive */
   @media (max-width: 640px){
     .po-table .hide-mobile{ display: none; }
     .po-table th, .po-table td{ padding: 5px 3px; font-size: 11px; }
     .prob-badge{ min-width: 36px; font-size: 11px; padding: 2px 4px; }
+    .po-tab{ padding: 5px 10px; font-size: 12px; }
   }
 </style>
 
@@ -105,6 +144,7 @@
 
   {% set al_divs = ["AL East", "AL Central", "AL West"] %}
   {% set nl_divs = ["NL East", "NL Central", "NL West"] %}
+  {% set all_divs = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West"] %}
 
   {% macro prob_color(pct) %}
     {%- if pct >= 0.90 -%}
@@ -126,90 +166,101 @@
     <span class="prob-badge" style="background: {{ prob_color(pct) }};">
       {%- if pct >= 0.01 -%}
         {{ "%.0f"|format(pct * 100) }}%
-      {%- elif pct > 0 -%}
-        <1%
       {%- else -%}
-        —
+        <1%
       {%- endif -%}
     </span>
   {% endmacro %}
 
-  {% macro division_table(div_name, teams) %}
-    <div class="subcard">
-      <div class="subcard-title">{{ div_name }}</div>
-      <div class="po-scroll">
-        <table class="table po-table">
-          <thead>
-            <tr>
-              <th>Team</th>
-              <th class="num">Record</th>
-              <th class="num">Proj W</th>
-              <th class="num hide-mobile">Range</th>
-              <th class="num">Playoff</th>
-              <th class="num">Win Div</th>
-              <th class="num hide-mobile">WC</th>
-              <th class="num">DS</th>
-              <th class="num">CS</th>
-              <th class="num">WS</th>
-              <th class="num">Champ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for t in teams %}
-              <tr>
-                <td class="teamcell">
-                  <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/{{ t.team_id }}.svg" alt="{{ t.abbrev }} logo">
-                  <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
-                </td>
-                <td class="num record-cell">{{ t.current_wins }}-{{ t.current_losses }}</td>
-                <td class="num win-proj">{{ "%.0f"|format(t.avg_wins) }}</td>
-                <td class="num win-proj hide-mobile">
-                  <span class="win-range">{{ "%.0f"|format(t.p10_wins) }}-{{ "%.0f"|format(t.p90_wins) }}</span>
-                </td>
-                <td class="num">{{ prob_cell(t.playoff_pct) }}</td>
-                <td class="num">{{ prob_cell(t.division_pct) }}</td>
-                <td class="num hide-mobile">{{ prob_cell(t.wild_card_pct) }}</td>
-                <td class="num">{{ prob_cell(t.ds_pct|default(0)) }}</td>
-                <td class="num">{{ prob_cell(t.cs_pct|default(0)) }}</td>
-                <td class="num">{{ prob_cell(t.ws_pct|default(0)) }}</td>
-                <td class="num">{{ prob_cell(t.win_ws_pct|default(0)) }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
+  {% macro team_row(t) %}
+    <tr>
+      <td class="teamcell">
+        <img class="teamlogo" src="https://www.mlbstatic.com/team-logos/{{ t.team_id }}.svg" alt="{{ t.abbrev }} logo">
+        <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
+      </td>
+      <td class="num record-cell">{{ t.current_wins }}-{{ t.current_losses }}</td>
+      <td class="num win-proj">{{ "%.0f"|format(t.avg_wins) }}-{{ "%.0f"|format(t.avg_losses) }}</td>
+      <td class="num win-proj hide-mobile">
+        <span class="win-range">{{ "%.0f"|format(t.p10_wins) }}-{{ "%.0f"|format(t.p90_wins) }}</span>
+      </td>
+      <td class="num">{{ prob_cell(t.playoff_pct) }}</td>
+      <td class="num">{{ prob_cell(t.division_pct) }}</td>
+      <td class="num hide-mobile">{{ prob_cell(t.wild_card_pct) }}</td>
+      <td class="num">{{ prob_cell(t.ds_pct|default(0)) }}</td>
+      <td class="num">{{ prob_cell(t.cs_pct|default(0)) }}</td>
+      <td class="num">{{ prob_cell(t.ws_pct|default(0)) }}</td>
+      <td class="num">{{ prob_cell(t.win_ws_pct|default(0)) }}</td>
+    </tr>
   {% endmacro %}
 
-  <div class="grid-2">
+  {% macro table_header() %}
+    <thead>
+      <tr>
+        <th>Team</th>
+        <th class="num">Record</th>
+        <th class="num">Proj W-L</th>
+        <th class="num hide-mobile">Range</th>
+        <th class="num">Playoff</th>
+        <th class="num">Win Div</th>
+        <th class="num hide-mobile">WC</th>
+        <th class="num">DS</th>
+        <th class="num">CS</th>
+        <th class="num">WS</th>
+        <th class="num">Champ</th>
+      </tr>
+    </thead>
+  {% endmacro %}
 
-    <!-- American League -->
-    <div class="card">
-      <div class="card-header">
-        <div><div class="card-title">American League</div></div>
-      </div>
-
-      {% for div in al_divs %}
-        {% if projection[div] is defined %}
-          {{ division_table(div, projection[div]) }}
-        {% endif %}
-      {% endfor %}
+  <!-- Overall View -->
+  <div class="card" id="po-overall">
+    <div class="po-tabs">
+      <button class="po-tab active" onclick="poShowView('overall')">Overall</button>
+      <button class="po-tab" onclick="poShowView('division')">By Division</button>
     </div>
-
-    <!-- National League -->
-    <div class="card">
-      <div class="card-header">
-        <div><div class="card-title">National League</div></div>
-      </div>
-
-      {% for div in nl_divs %}
-        {% if projection[div] is defined %}
-          {{ division_table(div, projection[div]) }}
-        {% endif %}
-      {% endfor %}
+    <div class="po-scroll">
+      <table class="table po-table">
+        {{ table_header() }}
+        <tbody>
+          {% for t in all_teams %}
+            {{ team_row(t) }}
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-
   </div>
+
+  <!-- Division View -->
+  <div class="card" id="po-division" style="display:none;">
+    <div class="po-tabs">
+      <button class="po-tab" onclick="poShowView('overall')">Overall</button>
+      <button class="po-tab active" onclick="poShowView('division')">By Division</button>
+    </div>
+
+    {% for div in all_divs %}
+      {% if projection[div] is defined %}
+        <div class="subcard">
+          <div class="subcard-title">{{ div }}</div>
+          <div class="po-scroll">
+            <table class="table po-table">
+              {{ table_header() }}
+              <tbody>
+                {% for t in projection[div] %}
+                  {{ team_row(t) }}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <script>
+    function poShowView(view){
+      document.getElementById('po-overall').style.display = view === 'overall' ? '' : 'none';
+      document.getElementById('po-division').style.display = view === 'division' ? '' : 'none';
+    }
+  </script>
 
 {% endif %}
 
