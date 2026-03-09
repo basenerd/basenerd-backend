@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Article Preview — Monte Carlo Expected Winner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+<div class="wrap">
+<div class="card">
+<div class="card-header">
+  <div>
+    <div class="article-title">Who Should Have Won? A Monte Carlo Approach to Expected Game Outcomes</div>
+    <div class="card-subtitle">2026-03-09 &bull; Nick Labella</div>
+  </div>
+  <div><a class="small" href="#">&larr; All Articles</a></div>
+</div>
+<div class="card-body">
+<div class="article-content">
+
+<div class="article-hero">
+  <div class="article-hero-label">Basenerd Research</div>
+  <h1 class="article-hero-title">Who Should Have<br>Won the Game?</h1>
+  <div class="article-hero-subtitle">Using Monte Carlo Simulation to Separate Skill from Luck</div>
+</div>
+
+<p>Baseball is a game of small samples. A bloop single finds grass. A 108-mph line drive is hit right at someone. Over a full season, these things even out. Over a single game, they can determine the winner.</p>
+<p>The Analytics tab on every Basenerd game page answers a simple question: <strong>based on the quality of contact in this game, which team should have won?</strong> The tool behind that answer is a Monte Carlo simulation that replays every ball in play hundreds of times, using Statcast&rsquo;s expected batting average (xBA) and expected slugging (xSLG) instead of actual outcomes.</p>
+
+<h2>What Is a Monte Carlo Simulation?</h2>
+<p>A Monte Carlo simulation is a technique for understanding uncertainty by running the same scenario thousands of times with randomized inputs and observing the distribution of results.</p>
+<p>The name comes from the famous casino in Monaco &ndash; the idea is that if you &ldquo;roll the dice&rdquo; enough times, the average outcome converges on the true expected value. In finance, Monte Carlo methods price options. In physics, they model particle interactions. In baseball, they tell us what <em>should</em> have happened.</p>
+
+<div class="article-callout">
+<strong>The core idea:</strong> Instead of asking &ldquo;what happened?&rdquo; we ask &ldquo;if we replayed this exact game 1,000 times with the same quality of contact, what would happen on average?&rdquo;
+</div>
+
+<p>The key insight is that a single game is just one sample from a distribution. A team can hit the ball hard all night and lose. Monte Carlo simulation lets us see the full distribution of outcomes that quality of contact should have produced.</p>
+
+<h2>How the Basenerd Simulation Works</h2>
+<p>Our simulator replays every plate appearance from the actual game. For each PA, it classifies the event into one of several categories and handles each differently:</p>
+
+<h3>Deterministic Events</h3>
+<p>Some outcomes aren&rsquo;t random &ndash; they happen the same way every time you replay the game:</p>
+<ul>
+<li><strong>Home runs</strong> &ndash; the ball left the yard, period. Every simulation counts the same HR with the same runners scoring.</li>
+<li><strong>Strikeouts</strong> &ndash; the batter didn&rsquo;t put the ball in play. No contact quality to re-evaluate.</li>
+<li><strong>Walks and HBPs</strong> &ndash; the pitcher missed the zone (or hit the batter). Runners advance via force rules identically each time.</li>
+</ul>
+<p>These events are &ldquo;locked in&rdquo; across all simulations. They&rsquo;re not subject to re-randomization because there&rsquo;s no batted-ball luck involved.</p>
+
+<h3>Stochastic Events: Balls in Play</h3>
+<p>This is where the simulation does its work. Every ball in play has Statcast data attached to it: exit velocity, launch angle, spray angle, and crucially, <strong>xBA</strong> and <strong>xSLG</strong> &ndash; the expected batting average and expected slugging percentage based on how hard and at what angle the ball was hit.</p>
+
+<figure class="article-figure article-figure-wide">
+<img src="mc-flow-diagram.png" alt="Monte Carlo simulation flow diagram">
+<figcaption>For each ball in play, the simulator converts xBA/xSLG into an outcome distribution, samples a result, then advances runners using a real advancement probability matrix built from Statcast data.</figcaption>
+</figure>
+
+<p>For each ball in play, we:</p>
+
+<p><strong>1. Convert xBA/xSLG into an outcome probability distribution</strong></p>
+<p>The xBA tells us the probability that the ball in play becomes a hit. The xSLG, combined with xBA, tells us the <em>expected power</em> of that hit. From these two numbers, we derive the probability of each outcome:</p>
+<ul>
+<li><strong>P(out)</strong> = 1 &minus; xBA</li>
+<li><strong>P(hit)</strong> = xBA, distributed among singles, doubles, triples, and home runs based on the ratio of xSLG to xBA</li>
+</ul>
+<p>For example, a 102-mph line drive at 18&deg; launch angle might have an xBA of .720 and xSLG of 1.300. That translates to roughly: 28% out, 42% single, 19% double, 2% triple, 9% homer. A weak grounder with xBA of .150 and xSLG of .160 would be: 85% out, 14.5% single, 0.5% double.</p>
+
+<div class="article-callout">
+<strong>Why xBA/xSLG instead of actual outcomes?</strong> Because a 102-mph line drive at a fielder is still a 102-mph line drive. The batter did his job. xBA captures the quality of contact independent of where fielders happened to be standing.
+</div>
+
+<p><strong>2. Sample a random outcome from that distribution</strong></p>
+<p>This is the &ldquo;Monte Carlo&rdquo; step. Each simulation randomly draws an outcome &ndash; out, single, double, triple, or HR &ndash; weighted by the probabilities above. A ball with .720 xBA will be a hit in about 72% of simulations and an out in about 28%.</p>
+
+<p><strong>3. Advance runners using a real advancement matrix</strong></p>
+<p>Once we know the outcome (say, a single), we need to figure out what happens to any baserunners. Do they advance one base? Two? Score?</p>
+<p>We don&rsquo;t guess. We use an <strong>advancement probability matrix</strong> built from historical Statcast data stored in our database. This matrix maps every combination of:</p>
+<ul>
+<li>Event type (single, double, ground ball out, fly ball out, etc.)</li>
+<li>Base state (which bases are occupied, encoded as a bitmask: 1=first, 2=second, 4=third)</li>
+<li>Number of outs</li>
+<li>Spray direction (pull, center, opposite field)</li>
+</ul>
+<p>&hellip;to a probability distribution over outcomes (new base state, runs scored, outs added). For example, &ldquo;single with runner on second, 1 out, ball hit to center field&rdquo; has a specific probability of the runner scoring vs. holding at third, derived from thousands of real plays.</p>
+
+<figure class="article-figure article-figure-wide">
+<img src="mc-advancement-example.png" alt="Runner advancement probability example">
+<figcaption>Example: with a runner on 2nd and 0 outs, a single to center scores the runner about 60% of the time. The advancement matrix captures these probabilities for every scenario.</figcaption>
+</figure>
+
+<p><strong>4. Track runs, hits, and score across all simulations</strong></p>
+<p>Each simulation produces a final score. After hundreds of simulations, we have a distribution of outcomes.</p>
+
+<h2>From Simulations to Win Probability</h2>
+<p>After running 600&ndash;1,500 simulations (more for final games, fewer for in-progress ones), we aggregate:</p>
+<ul>
+<li><strong>Win probability</strong>: The percentage of simulations each team wins. If the away team wins 580 out of 1,000 sims, their expected win probability is 58%.</li>
+<li><strong>Expected score</strong>: The average runs scored by each team across all simulations.</li>
+<li><strong>Expected linescore</strong>: Average expected runs per inning, so you can see which innings &ldquo;should&rdquo; have been bigger or smaller.</li>
+<li><strong>Expected box score</strong>: Per-player expected hits and total bases, based on each batter&rsquo;s actual xBA/xSLG on their balls in play.</li>
+</ul>
+
+<figure class="article-figure article-figure-wide">
+<img src="mc-win-gauge.png" alt="Win odds gauge visualization">
+<figcaption>The Win Odds gauge on the Analytics tab shows the Monte Carlo win probability. The needle position and arc lengths reflect each team&rsquo;s expected win percentage.</figcaption>
+</figure>
+
+<h2>What the Analytics Tab Shows You</h2>
+<p>When you open the Analytics tab on any game page, you&rsquo;ll see several components powered by this simulation:</p>
+
+<h3>Win Odds Gauge</h3>
+<p>The semicircular gauge at the top shows each team&rsquo;s Monte Carlo win probability. If the needle sits at 65% away, it means the away team &ndash; based purely on the quality of contact in the game &ndash; &ldquo;should&rdquo; have won 65% of the time. When the actual winner matches the expected winner, the game played out as expected. When they diverge, luck played a significant role.</p>
+
+<h3>Expected vs. Actual Linescore</h3>
+<p>This table shows the actual runs scored per inning alongside the Monte Carlo expected runs. A big gap in any inning highlights where luck (or unluck) was concentrated. Maybe the team scored 4 runs in the third on a bunch of bloop hits (xR would be lower), or maybe they went scoreless despite three hard-hit balls (xR would be higher).</p>
+
+<h3>Expected Runs Per Inning Chart</h3>
+<p>A line chart comparing expected runs per inning for both teams. This visualization makes it easy to spot the key innings where the game&rsquo;s outcome diverged from what the contact quality suggested.</p>
+
+<h3>Expected Box Scores</h3>
+<p>Per-batter expected hits (xH) and expected total bases (xTB), derived from each player&rsquo;s actual balls in play. A hitter who went 0-for-4 but hit three balls with xBA &gt; .500 will show up here as &ldquo;expected 1.5+ hits&rdquo; &ndash; he got unlucky. A hitter who went 3-for-4 on soft contact will show expected hits well below 3.</p>
+
+<h3>Batted Ball Spray Maps</h3>
+<p>Side-by-side spray charts for both teams showing every ball in play, color-coded by result. Hover over any dot to see exit velocity, launch angle, distance, xBA, and xSLG. These maps give you the raw data behind the simulation &ndash; you can visually see the hard-hit balls that found gloves and the weak ones that found holes.</p>
+
+<h2>A Worked Example</h2>
+<p>Imagine a game where the final score is 3&ndash;2, home team wins. But the Monte Carlo says the away team should have won 61% of the time with an expected score of 4.1&ndash;3.3. What happened?</p>
+<p>Looking at the expected linescore, you might see:</p>
+<ul>
+<li><strong>5th inning</strong>: Away team&rsquo;s expected runs = 1.82, actual = 0. Three balls in play with xBA &gt; .400 were caught &ndash; two line drives at fielders and a deep fly ball tracked down at the wall.</li>
+<li><strong>7th inning</strong>: Home team&rsquo;s expected runs = 0.35, actual = 2. Two bloop singles (xBA .190 and .220) fell in, then an error extended the inning.</li>
+</ul>
+<p>The away team hit the ball harder, put the ball in play with higher expected outcomes, but lost. Over a 162-game season, these things even out. In this single game, the home team caught the breaks.</p>
+
+<h2>Why This Matters</h2>
+<p><strong>For fans:</strong> It adds a layer of understanding beyond the box score. &ldquo;We hit the ball hard and lost&rdquo; isn&rsquo;t just a feeling anymore &ndash; it&rsquo;s quantifiable.</p>
+<p><strong>For analysts:</strong> It separates process from results. A team that consistently has positive expected score differentials (xR &gt; actual R against them, xR &lt; actual R for them) is likely due for regression. A team overperforming its contact quality is riding luck.</p>
+<p><strong>For evaluating pitchers and hitters:</strong> A pitcher who allows a lot of hard contact but posts a low ERA is living on borrowed time. A hitter producing high xBA/xSLG but low actual results is getting unlucky and likely to bounce back.</p>
+
+<div class="article-callout article-callout-highlight">
+<strong>The simulation doesn&rsquo;t account for everything.</strong> It doesn&rsquo;t model baserunning decisions, defensive positioning, pitch sequencing, or clutch performance. It answers a narrower question: given the quality of contact in this game, what was the expected outcome? That narrow question turns out to be extremely useful.
+</div>
+
+<h2>Under the Hood: Technical Details</h2>
+<p>For those interested in the implementation details:</p>
+<ul>
+<li><strong>Simulation count</strong>: 600 sims for in-progress games (speed matters), 1,500 for final games (accuracy matters). Results are cached to avoid re-computation.</li>
+<li><strong>Base state encoding</strong>: Runners are represented as a 3-bit integer (bitmask). Bit 0 = runner on first, bit 1 = runner on second, bit 2 = runner on third. So bases loaded = 7 (binary 111), runner on second only = 2 (binary 010).</li>
+<li><strong>Advancement matrix source</strong>: Built from the <code>advancement_probs</code> table in our PostgreSQL database, which contains probabilities derived from historical Statcast play-by-play data covering every combination of event type, base state, outs, and spray direction.</li>
+<li><strong>Spray direction bucketing</strong>: Balls in play are classified into pull (spray angle &lt; &minus;15&deg;), center (&minus;15&deg; to +15&deg;), and opposite field (&gt; +15&deg;). This matters because runner advancement probabilities differ significantly by spray direction &ndash; a single to right field (pull for a righty) advances runners differently than a single to left.</li>
+<li><strong>Tie handling</strong>: Since extra innings aren&rsquo;t modeled in the replay (we only simulate the actual innings played), ties are split 50/50 as half-wins. These are rare since the simulation samples from real plate appearances that almost always produce distinct scores.</li>
+<li><strong>Random seed</strong>: Each game uses a fixed seed (42) for reproducibility. The same game will always produce the same Monte Carlo result, which makes the analytics cacheable and comparable.</li>
+</ul>
+
+<h2>Methodology</h2>
+<p>The Monte Carlo simulation replays every plate appearance from the MLB Stats API game feed. Home runs, strikeouts, walks, and HBPs are treated as deterministic. Balls in play are re-simulated using Statcast xBA and xSLG to derive per-PA outcome probabilities.</p>
+<p>Runner advancement uses a probability matrix built from historical Statcast data, indexed by event type, base state, outs, and spray direction. The simulation runs 600&ndash;1,500 iterations per game, producing win probabilities, expected scores, expected linescores, and per-batter expected box scores.</p>
+<p>All code and data behind this analysis are part of the Basenerd analytics platform.</p>
+
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>
