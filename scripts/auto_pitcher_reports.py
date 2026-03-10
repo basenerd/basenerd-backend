@@ -194,9 +194,23 @@ def main():
                         help="YYYY-MM-DD, 'today', or 'yesterday' (default: today)")
     args = parser.parse_args()
 
-    date_str = resolve_date(args.date)
-    log.info("=== Checking %s ===", date_str)
-    total = process_date(date_str)
+    if args.date:
+        # Explicit date — only check that one
+        dates = [resolve_date(args.date)]
+    else:
+        # Check both today and yesterday (ET). Games played on the evening
+        # of March 9 are on the March 9 schedule, but the cron may run
+        # after midnight ET (March 10). Need both to catch everything.
+        from zoneinfo import ZoneInfo
+        now_et = datetime.now(ZoneInfo("America/New_York"))
+        today = now_et.strftime("%Y-%m-%d")
+        yesterday = (now_et - timedelta(days=1)).strftime("%Y-%m-%d")
+        dates = [today, yesterday]
+
+    total = 0
+    for date_str in dates:
+        log.info("=== Checking %s ===", date_str)
+        total += process_date(date_str)
 
     if total:
         log.info("Done — generated %d report(s)", total)
