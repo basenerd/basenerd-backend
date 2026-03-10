@@ -5,3 +5,11 @@ services:
     buildCommand: "pip install -r requirements.txt"
     startCommand: "gunicorn app:app"
     plan: free
+
+  - type: cron
+    name: pitcher-reports
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    schedule: "*/30 * * * *"  # Every 30 minutes
+    command: "python scripts/auto_pitcher_reports.py"
+    plan: free
