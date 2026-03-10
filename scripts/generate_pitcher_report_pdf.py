@@ -396,6 +396,19 @@ def _score_models(pitches: List[dict]) -> List[dict]:
     # Score Control+
     if CTRL_MODEL.exists() and CTRL_META.exists():
         try:
+            # Shim for sklearn version mismatch: control model (trained on 1.0.2)
+            # references sklearn.ensemble._hist_gradient_boosting.loss.LeastSquares
+            # which was removed in sklearn >=1.2. Register a compatibility module.
+            import importlib
+            try:
+                importlib.import_module("sklearn.ensemble._hist_gradient_boosting.loss")
+            except ModuleNotFoundError:
+                import types
+                from sklearn._loss.loss import HalfSquaredError
+                shim = types.ModuleType("sklearn.ensemble._hist_gradient_boosting.loss")
+                shim.LeastSquares = HalfSquaredError
+                sys.modules["sklearn.ensemble._hist_gradient_boosting.loss"] = shim
+
             import warnings as _w
             with _w.catch_warnings():
                 _w.simplefilter("ignore")
