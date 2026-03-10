@@ -1,11 +1,12 @@
 """
 Matchup prediction service.
 
-Loads the XGBoost matchup model + precomputed profiles (batter, pitcher, park)
-and predicts plate appearance outcome probabilities for a batter-vs-pitcher matchup.
+Loads the XGBoost matchup model + pitch selection model + precomputed profiles
+and predicts:
+1. PA outcome probabilities (K, OUT, BB, 1B, 2B, 3B, HR, etc.)
+2. Expected pitch usage from the pitcher
 
-Returns 9-class probabilities: 1B, 2B, 3B, BB, HBP, HR, IBB, K, OUT
-plus derived summary stats (hit%, k%, bb%, etc.).
+Uses pitcher's arsenal + batter's per-pitch-type performance for richer predictions.
 """
 
 import os
@@ -21,16 +22,35 @@ log = logging.getLogger(__name__)
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _MODEL_PATH = os.path.join(_ROOT, "models", "matchup_model.joblib")
 _META_PATH = os.path.join(_ROOT, "models", "matchup_model_meta.json")
+_PITCH_SEL_PATH = os.path.join(_ROOT, "models", "pitch_selection_model.joblib")
+_PITCH_SEL_META_PATH = os.path.join(_ROOT, "models", "pitch_selection_meta.json")
 _DATA_DIR = os.path.join(_ROOT, "data")
 
 # Lazy-loaded globals
 _model = None
 _meta = None
-_batter_profiles = None   # DataFrame
-_pitcher_arsenal = None    # DataFrame
-_park_factors = None       # DataFrame
+_pitch_sel = None      # dict with model, label_encoder, etc.
+_pitch_sel_meta = None
+_batter_profiles = None
+_batter_pitch_types = None
+_pitcher_arsenal = None
+_park_factors = None
 
 CLASSES = ["1B", "2B", "3B", "BB", "HBP", "HR", "IBB", "K", "OUT"]
+
+PITCH_CATEGORY = {
+    "FF": "fastball", "SI": "fastball", "FC": "fastball",
+    "SL": "breaking", "CU": "breaking", "KC": "breaking", "ST": "breaking", "SV": "breaking",
+    "CH": "offspeed", "FS": "offspeed", "KN": "offspeed",
+}
+
+# Friendly pitch type names
+PITCH_NAMES = {
+    "FF": "4-Seam", "SI": "Sinker", "FC": "Cutter",
+    "SL": "Slider", "CU": "Curveball", "CH": "Changeup",
+    "FS": "Splitter", "KC": "Knuckle Curve", "ST": "Sweeper",
+    "SV": "Slurve", "KN": "Knuckleball",
+}
 
 # League-average fallbacks (2021-2025 approx)
 _LEAGUE_AVG_BATTER = {
@@ -49,6 +69,12 @@ _LEAGUE_AVG_BATTER_PLAT = {
     "bat_plat_xwoba": 0.315,
 }
 
+_LEAGUE_AVG_BVPT = {
+    "bvpt_whiff_rate": 0.245, "bvpt_chase_rate": 0.295,
+    "bvpt_zone_contact_rate": 0.82, "bvpt_hard_hit_rate": 0.35,
+    "bvpt_xwoba": 0.315,
+}
+
 _LEAGUE_AVG_PITCHER = {
     "p_avg_stuff_plus": 100.0, "p_avg_control_plus": 100.0,
     "p_avg_velo": 93.5, "p_whiff_rate": 0.245, "p_chase_rate": 0.295,
@@ -59,7 +85,8 @@ _LEAGUE_AVG_PITCHER = {
 
 def _load():
     """Lazy-load model, metadata, and profile DataFrames."""
-    global _model, _meta, _batter_profiles, _pitcher_arsenal, _park_factors
+    global _model, _meta, _pitch_sel, _pitch_sel_meta
+    global _batter_profiles, _batter_pitch_types, _pitcher_arsenal, _park_factors
 
     if _model is not None:
         return
@@ -74,29 +101,29 @@ def _load():
         _model = None
         return
 
+    # Pitch selection model (optional — enhances output but not required)
     try:
-        bp = os.path.join(_DATA_DIR, "batter_profiles.parquet")
-        _batter_profiles = pd.read_parquet(bp)
-        log.info("Batter profiles: %d rows", len(_batter_profiles))
+        _pitch_sel = joblib.load(_PITCH_SEL_PATH)
+        with open(_PITCH_SEL_META_PATH) as f:
+            _pitch_sel_meta = json.load(f)
+        log.info("Pitch selection model loaded")
     except Exception as e:
-        log.warning("Could not load batter profiles: %s", e)
-        _batter_profiles = pd.DataFrame()
+        log.info("Pitch selection model not available: %s", e)
+        _pitch_sel = None
 
-    try:
-        pa = os.path.join(_DATA_DIR, "pitcher_arsenal.parquet")
-        _pitcher_arsenal = pd.read_parquet(pa)
-        log.info("Pitcher arsenal: %d rows", len(_pitcher_arsenal))
-    except Exception as e:
-        log.warning("Could not load pitcher arsenal: %s", e)
-        _pitcher_arsenal = pd.DataFrame()
-
-    try:
-        pf = os.path.join(_DATA_DIR, "park_factors.parquet")
-        _park_factors = pd.read_parquet(pf)
-        log.info("Park factors: %d rows", len(_park_factors))
-    except Exception as e:
-        log.warning("Could not load park factors: %s", e)
-        _park_factors = pd.DataFrame()
+    for name, path, attr in [
+        ("Batter profiles", "batter_profiles.parquet", "_batter_profiles"),
+        ("Batter pitch-type profiles", "batter_pitch_type_profiles.parquet", "_batter_pitch_types"),
+        ("Pitcher arsenal", "pitcher_arsenal.parquet", "_pitcher_arsenal"),
+        ("Park factors", "park_factors.parquet", "_park_factors"),
+    ]:
+        try:
+            df = pd.read_parquet(os.path.join(_DATA_DIR, path))
+            globals()[attr] = df
+            log.info("%s: %d rows", name, len(df))
+        except Exception as e:
+            log.warning("Could not load %s: %s", name, e)
+            globals()[attr] = pd.DataFrame()
 
 
 def _get_batter_features(batter_id, season, p_throws):
@@ -104,7 +131,6 @@ def _get_batter_features(batter_id, season, p_throws):
     if _batter_profiles is None or _batter_profiles.empty:
         return {**_LEAGUE_AVG_BATTER, **_LEAGUE_AVG_BATTER_PLAT}
 
-    # Try exact season, then fall back to most recent
     bp = _batter_profiles
     mask_all = (bp["batter"] == batter_id) & (bp["vs_hand"] == "ALL")
 
@@ -122,7 +148,7 @@ def _get_batter_features(batter_id, season, p_throws):
             val = r.get(col)
             overall[k] = float(val) if pd.notna(val) else default
 
-    # Platoon split (vs pitcher's throwing hand)
+    # Platoon split
     plat_hand = p_throws if p_throws in ("L", "R") else "R"
     mask_plat = (bp["batter"] == batter_id) & (bp["vs_hand"] == plat_hand)
     row_plat = bp[mask_plat & (bp["season"] == season)]
@@ -142,10 +168,64 @@ def _get_batter_features(batter_id, season, p_throws):
     return {**overall, **plat}
 
 
+def _get_batter_pitch_type_features(batter_id, season, pitcher_usage):
+    """
+    Look up batter-vs-pitch-type category stats and compute pitch-weighted composites.
+
+    pitcher_usage: dict like {"fastball": 0.55, "breaking": 0.30, "offspeed": 0.15}
+    """
+    features = {}
+    stats = ["whiff_rate", "chase_rate", "zone_contact_rate", "hard_hit_rate", "xwoba"]
+
+    if _batter_pitch_types is None or _batter_pitch_types.empty:
+        # Fill all with league average
+        for cat in ["fastball", "breaking", "offspeed"]:
+            for stat in stats:
+                features[f"bvpt_{stat}_{cat}"] = _LEAGUE_AVG_BVPT[f"bvpt_{stat}"]
+        for stat in stats:
+            features[f"bvpt_w_{stat}"] = _LEAGUE_AVG_BVPT[f"bvpt_{stat}"]
+        return features
+
+    bpt = _batter_pitch_types
+    for cat in ["fastball", "breaking", "offspeed"]:
+        cat_key = f"CAT_{cat}"
+        mask = (bpt["batter"] == batter_id) & (bpt["pitch_type"] == cat_key)
+        row = bpt[mask & (bpt["season"] == season)]
+        if row.empty:
+            row = bpt[mask].sort_values("season", ascending=False).head(1)
+
+        for stat in stats:
+            if row.empty:
+                features[f"bvpt_{stat}_{cat}"] = _LEAGUE_AVG_BVPT[f"bvpt_{stat}"]
+            else:
+                val = row.iloc[0].get(stat)
+                features[f"bvpt_{stat}_{cat}"] = float(val) if pd.notna(val) else _LEAGUE_AVG_BVPT[f"bvpt_{stat}"]
+
+    # Pitch-weighted composites
+    for stat in stats:
+        weighted = 0.0
+        total_w = 0.0
+        for cat in ["fastball", "breaking", "offspeed"]:
+            w = pitcher_usage.get(cat, 0.33)
+            v = features[f"bvpt_{stat}_{cat}"]
+            weighted += v * w
+            total_w += w
+        features[f"bvpt_w_{stat}"] = weighted / total_w if total_w > 0 else _LEAGUE_AVG_BVPT[f"bvpt_{stat}"]
+
+    return features
+
+
 def _get_pitcher_features(pitcher_id, season):
-    """Look up pitcher aggregate features. Falls back to league average."""
+    """Look up pitcher aggregate + arsenal features."""
     if _pitcher_arsenal is None or _pitcher_arsenal.empty:
-        return dict(_LEAGUE_AVG_PITCHER)
+        result = dict(_LEAGUE_AVG_PITCHER)
+        result.update({
+            "p_usage_fastball": 0.55, "p_usage_breaking": 0.30, "p_usage_offspeed": 0.15,
+            "p_pitch1_usage": 0.40, "p_pitch1_velo": 93.5, "p_pitch1_whiff": 0.20, "p_pitch1_stuff": 100.0,
+            "p_pitch2_usage": 0.25, "p_pitch2_velo": 85.0, "p_pitch2_whiff": 0.30, "p_pitch2_stuff": 100.0,
+            "p_pitch3_usage": 0.15, "p_pitch3_velo": 84.0, "p_pitch3_whiff": 0.25, "p_pitch3_stuff": 100.0,
+        })
+        return result, {"fastball": 0.55, "breaking": 0.30, "offspeed": 0.15}, []
 
     pa = _pitcher_arsenal
     mask = (pa["pitcher"] == pitcher_id) & (pa["stand"] == "ALL")
@@ -154,16 +234,23 @@ def _get_pitcher_features(pitcher_id, season):
     if df_season.empty:
         df_season = pa[mask].sort_values("season", ascending=False)
         if df_season.empty:
-            return dict(_LEAGUE_AVG_PITCHER)
-        # Use most recent season
+            result = dict(_LEAGUE_AVG_PITCHER)
+            result.update({
+                "p_usage_fastball": 0.55, "p_usage_breaking": 0.30, "p_usage_offspeed": 0.15,
+                "p_pitch1_usage": 0.40, "p_pitch1_velo": 93.5, "p_pitch1_whiff": 0.20, "p_pitch1_stuff": 100.0,
+                "p_pitch2_usage": 0.25, "p_pitch2_velo": 85.0, "p_pitch2_whiff": 0.30, "p_pitch2_stuff": 100.0,
+                "p_pitch3_usage": 0.15, "p_pitch3_velo": 84.0, "p_pitch3_whiff": 0.25, "p_pitch3_stuff": 100.0,
+            })
+            return result, {"fastball": 0.55, "breaking": 0.30, "offspeed": 0.15}, []
         latest = df_season["season"].iloc[0]
         df_season = df_season[df_season["season"] == latest]
 
-    # Weighted aggregation across pitch types
     n = df_season["n"].values.astype(float)
     total = n.sum()
     if total == 0:
-        return dict(_LEAGUE_AVG_PITCHER)
+        result = dict(_LEAGUE_AVG_PITCHER)
+        result.update({"p_usage_fastball": 0.55, "p_usage_breaking": 0.30, "p_usage_offspeed": 0.15})
+        return result, {"fastball": 0.55, "breaking": 0.30, "offspeed": 0.15}, []
 
     def _wavg(col):
         vals = pd.to_numeric(df_season[col], errors="coerce")
@@ -188,7 +275,46 @@ def _get_pitcher_features(pitcher_id, season):
     result["p_num_pitches"] = int(df_season["pitch_type"].nunique()) if "pitch_type" in df_season.columns else 5
     result["p_total_thrown"] = int(total)
 
-    return result
+    # Category usage
+    cat_usage = {"fastball": 0.0, "breaking": 0.0, "offspeed": 0.0}
+    for _, row in df_season.iterrows():
+        pt = row.get("pitch_type", "")
+        cat = PITCH_CATEGORY.get(pt)
+        if cat:
+            cat_usage[cat] += float(row["n"]) / total
+    result["p_usage_fastball"] = cat_usage["fastball"]
+    result["p_usage_breaking"] = cat_usage["breaking"]
+    result["p_usage_offspeed"] = cat_usage["offspeed"]
+
+    # Top 3 pitches by usage
+    top3 = df_season.nlargest(3, "n")
+    arsenal_list = []
+    for rank, (_, row) in enumerate(top3.iterrows(), 1):
+        usage = float(row["n"]) / total
+        velo = float(row["avg_velo"]) if pd.notna(row.get("avg_velo")) else 93.5
+        whiff = float(row["whiff_rate"]) if pd.notna(row.get("whiff_rate")) else 0.245
+        stuff = float(row["avg_stuff_plus"]) if pd.notna(row.get("avg_stuff_plus")) else 100.0
+        result[f"p_pitch{rank}_usage"] = usage
+        result[f"p_pitch{rank}_velo"] = velo
+        result[f"p_pitch{rank}_whiff"] = whiff
+        result[f"p_pitch{rank}_stuff"] = stuff
+        arsenal_list.append({
+            "pitch_type": row.get("pitch_type", "??"),
+            "name": PITCH_NAMES.get(row.get("pitch_type", ""), row.get("pitch_type", "")),
+            "usage": round(usage, 3),
+            "velo": round(velo, 1),
+            "whiff": round(whiff, 3),
+            "stuff": round(stuff, 0),
+        })
+
+    # Fill missing ranks
+    for rank in range(len(top3) + 1, 4):
+        result[f"p_pitch{rank}_usage"] = 0.0
+        result[f"p_pitch{rank}_velo"] = 0.0
+        result[f"p_pitch{rank}_whiff"] = 0.0
+        result[f"p_pitch{rank}_stuff"] = 0.0
+
+    return result, cat_usage, arsenal_list
 
 
 def _get_park_features(venue, season):
@@ -211,6 +337,19 @@ def _get_park_features(venue, season):
     }
 
 
+def _get_pitch_usage(pitcher_id, season, stand, arsenal_list):
+    """
+    Get expected pitch usage from the pitcher's arsenal.
+    Returns list of {pitch_type, name, usage, velo, whiff, stuff} sorted by usage.
+    """
+    if not arsenal_list:
+        return []
+
+    # If we have the pitch selection model, we could refine usage by count/context.
+    # For now, return the baseline arsenal usage (already context-free).
+    return arsenal_list
+
+
 def predict_matchup(
     batter_id,
     pitcher_id,
@@ -230,7 +369,8 @@ def predict_matchup(
 
     Returns dict with:
       - probs: {1B, 2B, 3B, BB, HBP, HR, IBB, K, OUT} probabilities
-      - summary: {k_pct, bb_pct, hit_pct, hr_pct, obp, xba_approx}
+      - summary: {k_pct, bb_pct, hit_pct, hr_pct, obp, xba, xslg}
+      - arsenal: [{pitch_type, name, usage, velo, whiff, stuff}, ...]
       - ok: True
     """
     _load()
@@ -241,11 +381,15 @@ def predict_matchup(
     # Assemble feature vector
     features = {}
 
-    # Batter features
+    # Batter overall + platoon features
     features.update(_get_batter_features(batter_id, season, p_throws))
 
-    # Pitcher features
-    features.update(_get_pitcher_features(pitcher_id, season))
+    # Pitcher features (also returns category usage and arsenal list)
+    pitcher_feats, cat_usage, arsenal_list = _get_pitcher_features(pitcher_id, season)
+    features.update(pitcher_feats)
+
+    # Batter vs pitch-type features (weighted by this pitcher's usage)
+    features.update(_get_batter_pitch_type_features(batter_id, season, cat_usage))
 
     # Park factors
     if venue:
@@ -280,12 +424,9 @@ def predict_matchup(
     # Derived summary stats
     hit_pct = prob_dict["1B"] + prob_dict["2B"] + prob_dict["3B"] + prob_dict["HR"]
     on_base_pct = hit_pct + prob_dict["BB"] + prob_dict["HBP"] + prob_dict["IBB"]
-    xba = prob_dict["1B"] + prob_dict["2B"] + prob_dict["3B"] + prob_dict["HR"]
-    # Approximate at-bats exclude BB, HBP, IBB
     ab_pct = 1.0 - prob_dict["BB"] - prob_dict["HBP"] - prob_dict["IBB"]
     xba_adj = hit_pct / ab_pct if ab_pct > 0 else 0
 
-    # Expected total bases
     tb = (prob_dict["1B"] * 1 + prob_dict["2B"] * 2 +
           prob_dict["3B"] * 3 + prob_dict["HR"] * 4)
     xslg = tb / ab_pct if ab_pct > 0 else 0
@@ -300,8 +441,12 @@ def predict_matchup(
         "xslg": round(xslg, 3),
     }
 
+    # Get arsenal/pitch usage for this matchup
+    arsenal = _get_pitch_usage(pitcher_id, season, stand, arsenal_list)
+
     return {
         "ok": True,
         "probs": prob_dict,
         "summary": summary,
+        "arsenal": arsenal,
     }
