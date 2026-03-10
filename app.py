@@ -49,6 +49,7 @@ from services.pitching_report import (
     pitching_gamelog,
     pitching_scatter,
 )
+from services.matchup_predict import predict_matchup
 from services.articles import load_articles, get_article
 from services.articles import get_markdown_page
 from services.postseason import get_postseason_series, build_playoff_bracket
@@ -559,6 +560,45 @@ def gamecast_json(game_pk: int):
         return jsonify(payload), 200
     except Exception as e:
         return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
+
+@app.get("/game/<int:game_pk>/matchup_probs.json")
+def matchup_probs_json(game_pk: int):
+    """Return matchup outcome probabilities for the current batter vs pitcher."""
+    try:
+        feed = get_game_feed(game_pk)
+        gc = normalize_gamecast(feed)
+        if not gc.get("ok"):
+            return jsonify({"ok": False, "reason": gc.get("reason", "no_data")}), 200
+
+        batter = gc.get("batter") or {}
+        pitcher = gc.get("pitcher") or {}
+        batter_id = batter.get("id")
+        pitcher_id = pitcher.get("id")
+
+        if not batter_id or not pitcher_id:
+            return jsonify({"ok": False, "reason": "no_matchup"}), 200
+
+        runners = gc.get("runners") or {}
+        result = predict_matchup(
+            batter_id=int(batter_id),
+            pitcher_id=int(pitcher_id),
+            stand=batter.get("stand") or "R",
+            p_throws=pitcher.get("throws") or "R",
+            venue=gc.get("venue"),
+            season=2025,
+            inning=gc.get("inning") or 1,
+            outs=gc.get("outs") or 0,
+            runner_1b=1 if runners.get("first") else 0,
+            runner_2b=1 if runners.get("second") else 0,
+            runner_3b=1 if runners.get("third") else 0,
+            n_thru_order=gc.get("nThruOrder") or 1,
+        )
+        result["batterId"] = batter_id
+        result["pitcherId"] = pitcher_id
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
+
 @app.get("/random-player/play")
 def random_player_play():
     mode = request.args.get("mode")

@@ -235,6 +235,88 @@
     text-overflow:ellipsis;
   }
 
+  /* ---- Matchup Probabilities ---- */
+  #gc-matchup-probs{
+    margin-top:10px;
+    border:1px solid rgba(148,163,184,.22);
+    border-radius:12px;
+    padding:10px 12px 8px;
+    background: rgba(15,23,42,.015);
+  }
+  #gc-matchup-probs .mp-title{
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    opacity:.6;
+    margin-bottom:8px;
+  }
+  #gc-matchup-probs .mp-bars{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+  }
+  #gc-matchup-probs .mp-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  #gc-matchup-probs .mp-label{
+    font-size:11px;
+    font-weight:600;
+    width:32px;
+    text-align:right;
+    flex:0 0 auto;
+    opacity:.8;
+  }
+  #gc-matchup-probs .mp-track{
+    flex:1;
+    height:16px;
+    background:rgba(148,163,184,.10);
+    border-radius:4px;
+    overflow:hidden;
+    position:relative;
+  }
+  #gc-matchup-probs .mp-fill{
+    height:100%;
+    border-radius:4px;
+    transition: width .4s ease;
+  }
+  #gc-matchup-probs .mp-val{
+    font-family: IBM Plex Mono, ui-monospace, Menlo, monospace;
+    font-size:11px;
+    font-weight:600;
+    width:40px;
+    text-align:right;
+    flex:0 0 auto;
+  }
+  #gc-matchup-probs .mp-summary{
+    display:flex;
+    justify-content:space-between;
+    margin-top:8px;
+    padding-top:6px;
+    border-top:1px solid rgba(148,163,184,.15);
+    flex-wrap:wrap;
+    gap:4px 0;
+  }
+  #gc-matchup-probs .mp-stat{
+    text-align:center;
+    flex:1;
+    min-width:48px;
+  }
+  #gc-matchup-probs .mp-stat-val{
+    font-family: IBM Plex Mono, ui-monospace, Menlo, monospace;
+    font-size:14px;
+    font-weight:700;
+  }
+  #gc-matchup-probs .mp-stat-lbl{
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.3px;
+    opacity:.6;
+    margin-top:1px;
+  }
+
   #tab-gamecast .gc-midgrid{
     display:grid;
     grid-template-columns: 1fr 1fr;
@@ -1033,7 +1115,14 @@
                   <div class="gc-person" id="gc-batter"></div>
                   <div class="gc-person" id="gc-pitcher"></div>
                 </div>
-      
+
+                <!-- Matchup Outcome Probabilities -->
+                <div id="gc-matchup-probs" style="display:none;">
+                  <div class="mp-title">Predicted PA Outcomes</div>
+                  <div class="mp-bars" id="gc-mp-bars"></div>
+                  <div class="mp-summary" id="gc-mp-summary"></div>
+                </div>
+
                 <!-- MID: Zone + Bases row, then full-width Pitches table -->
                 <div class="gc-midgrid" style="margin-top:14px;">
       
@@ -2921,6 +3010,96 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
 
   return false;
 }
+  // ---- Matchup Outcome Probabilities ----
+  let __gc_mp_last_key = null;
+  let __gc_mp_inflight = false;
+
+  function __gc_maybe_fetch_matchup(data){
+    if(!GAME_PK) return;
+    const bid = data?.batter?.id;
+    const pid = data?.pitcher?.id;
+    if(!bid || !pid) return;
+
+    // Only re-fetch when batter or pitcher changes
+    const mpKey = `${bid}|${pid}`;
+    if(mpKey === __gc_mp_last_key) return;
+    __gc_mp_last_key = mpKey;
+
+    if(__gc_mp_inflight) return;
+    __gc_mp_inflight = true;
+
+    fetch(`/game/${GAME_PK}/matchup_probs.json`, { cache: "no-store" })
+      .then(r => r.json())
+      .then(d => {
+        __gc_mp_inflight = false;
+        if(d && d.ok) __gc_render_matchup_probs(d);
+        else document.getElementById("gc-matchup-probs").style.display = "none";
+      })
+      .catch(() => {
+        __gc_mp_inflight = false;
+      });
+  }
+
+  function __gc_render_matchup_probs(d){
+    const container = document.getElementById("gc-matchup-probs");
+    const barsEl = document.getElementById("gc-mp-bars");
+    const summaryEl = document.getElementById("gc-mp-summary");
+    if(!container || !barsEl || !summaryEl) return;
+
+    const probs = d.probs || {};
+    const summary = d.summary || {};
+
+    // Bar chart rows — group into meaningful categories
+    const rows = [
+      { label: "K",   val: probs.K   || 0, color: "#ef4444" },
+      { label: "OUT", val: probs.OUT || 0, color: "#94a3b8" },
+      { label: "BB",  val: (probs.BB || 0) + (probs.IBB || 0) + (probs.HBP || 0), color: "#3b82f6" },
+      { label: "1B",  val: probs["1B"] || 0, color: "#22c55e" },
+      { label: "2B",  val: probs["2B"] || 0, color: "#eab308" },
+      { label: "3B",  val: probs["3B"] || 0, color: "#f97316" },
+      { label: "HR",  val: probs.HR  || 0, color: "#a855f7" },
+    ];
+
+    // Find max for scaling
+    const maxVal = Math.max(...rows.map(r => r.val), 0.01);
+
+    let barsHtml = "";
+    for(const r of rows){
+      const pct = (r.val * 100).toFixed(1);
+      const barW = ((r.val / maxVal) * 100).toFixed(1);
+      barsHtml += `
+        <div class="mp-row">
+          <div class="mp-label">${r.label}</div>
+          <div class="mp-track">
+            <div class="mp-fill" style="width:${barW}%; background:${r.color};"></div>
+          </div>
+          <div class="mp-val" style="color:${r.color};">${pct}%</div>
+        </div>`;
+    }
+    barsEl.innerHTML = barsHtml;
+
+    // Summary stats row
+    const stats = [
+      { lbl: "xAVG", val: summary.xba != null ? summary.xba.toFixed(3).replace(/^0/,"") : "—" },
+      { lbl: "xSLG", val: summary.xslg != null ? summary.xslg.toFixed(3).replace(/^0/,"") : "—" },
+      { lbl: "xOBP", val: summary.obp != null ? summary.obp.toFixed(3).replace(/^0/,"") : "—" },
+      { lbl: "K%",   val: summary.k_pct != null ? (summary.k_pct * 100).toFixed(1) + "%" : "—" },
+      { lbl: "BB%",  val: summary.bb_pct != null ? (summary.bb_pct * 100).toFixed(1) + "%" : "—" },
+    ];
+
+    let sumHtml = "";
+    for(const s of stats){
+      sumHtml += `
+        <div class="mp-stat">
+          <div class="mp-stat-val">${s.val}</div>
+          <div class="mp-stat-lbl">${s.lbl}</div>
+        </div>`;
+    }
+    summaryEl.innerHTML = sumHtml;
+
+    container.style.display = "block";
+  }
+
   // FIXED: single async, no syntax error
   async function fetchGameCast(){
     if(!GC_URL) return;
@@ -2987,6 +3166,9 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
 
       renderPerson(document.getElementById("gc-batter"), "At Bat", data.batter);
       renderPerson(document.getElementById("gc-pitcher"), "Pitching", data.pitcher);
+
+      // Fetch matchup probabilities when batter changes
+      __gc_maybe_fetch_matchup(data);
 
       renderLineup("away", document.getElementById("gc-lineup-away"), data.lineups?.away);
       renderLineup("home", document.getElementById("gc-lineup-home"), data.lineups?.home);

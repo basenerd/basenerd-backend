@@ -1209,6 +1209,10 @@ def normalize_gamecast(feed: dict) -> dict:
     status = game_data.get("status") or {}
     state = (status.get("abstractGameState") or "").lower()  # "live", "final", etc.
 
+    # Home team abbreviation (for park factor lookup)
+    _gc_teams = game_data.get("teams") or {}
+    _gc_home_abbrev = ((_gc_teams.get("home") or {}).get("abbreviation") or "").upper() or None
+
     linescore = live_data.get("linescore") or {}
     teams_ls = linescore.get("teams") or {}
     offense = linescore.get("offense") or {}
@@ -1287,6 +1291,10 @@ def normalize_gamecast(feed: dict) -> dict:
     batter_id = batter_obj.get("id")
     pitcher_id = pitcher_obj.get("id")
 
+    # Extract platoon info from matchup
+    _stand = ((matchup.get("batSide") or {}).get("code") or "").upper() or None
+    _p_throws = ((matchup.get("pitchHand") or {}).get("code") or "").upper() or None
+
     batter = {
         "id": batter_id,
         "name": batter_obj.get("fullName") or batter_obj.get("name"),
@@ -1294,6 +1302,7 @@ def normalize_gamecast(feed: dict) -> dict:
         "headshot": _headshot(batter_id),
         "pos": "",
         "line": "",
+        "stand": _stand,
     }
     pitcher = {
         "id": pitcher_id,
@@ -1302,6 +1311,7 @@ def normalize_gamecast(feed: dict) -> dict:
         "headshot": _headshot(pitcher_id),
         "pos": "",
         "line": "",
+        "throws": _p_throws,
     }
 
     # -------------------------
@@ -1773,7 +1783,26 @@ def normalize_gamecast(feed: dict) -> dict:
     if state != "live" and not inning:
         return {"ok": False, "reason": f"state={state or 'unknown'}"}
 
-    
+    # -------------------------
+    # Times through order for current pitcher (for matchup model)
+    # -------------------------
+    n_thru_order = 1
+    if pitcher_id and all_plays:
+        _seen_batters = set()
+        _unique_count = 0
+        for p in all_plays:
+            _mp = p.get("matchup") or {}
+            if ((_mp.get("pitcher") or {}).get("id")) != pitcher_id:
+                continue
+            _bid = (_mp.get("batter") or {}).get("id")
+            if _bid:
+                if _bid in _seen_batters:
+                    pass  # already counted
+                else:
+                    _seen_batters.add(_bid)
+                    _unique_count += 1
+        n_thru_order = max(1, (_unique_count // 9) + 1)
+
     # -------------------------
     # Expected runs (rest of half-inning)
     # -------------------------
@@ -1803,6 +1832,8 @@ def normalize_gamecast(feed: dict) -> dict:
             "batter": batter,
             "pitcher": pitcher,
             "runners": runners,
+            "venue": _gc_home_abbrev,
+            "nThruOrder": n_thru_order,
             "inningSummary": inning_summary,
             "pitches": pitches_out,
             "lineups": lineups,
