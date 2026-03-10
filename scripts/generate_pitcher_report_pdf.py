@@ -401,11 +401,20 @@ def _score_models(pitches: List[dict]) -> List[dict]:
         try:
             # Shim for sklearn version mismatch: control model (trained on 1.0.2)
             # references sklearn.ensemble._hist_gradient_boosting.loss.LeastSquares
-            # which was removed in sklearn >=1.2. Register a compatibility module.
+            # which was removed in sklearn >=1.2. Patch the module so joblib.load
+            # can find LeastSquares regardless of sklearn version.
             import importlib
             try:
-                importlib.import_module("sklearn.ensemble._hist_gradient_boosting.loss")
+                _loss_mod = importlib.import_module("sklearn.ensemble._hist_gradient_boosting.loss")
+                if not hasattr(_loss_mod, "LeastSquares"):
+                    # Module exists but LeastSquares was removed — patch it in
+                    try:
+                        from sklearn._loss.loss import HalfSquaredError as _Loss
+                    except ImportError:
+                        from sklearn._loss import HalfSquaredError as _Loss
+                    _loss_mod.LeastSquares = _Loss
             except ModuleNotFoundError:
+                # Module doesn't exist at all — create a shim
                 import types
                 try:
                     from sklearn._loss.loss import HalfSquaredError as _Loss
