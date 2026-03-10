@@ -169,11 +169,19 @@ def process_date(date_str: str) -> int:
     return total
 
 
+def _today_et() -> str:
+    """Current date in US Eastern time (MLB game day)."""
+    from zoneinfo import ZoneInfo
+    return datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+
+
 def resolve_date(date_arg: str | None) -> str:
     if not date_arg or date_arg.lower() == "today":
-        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        return _today_et()
     if date_arg.lower() == "yesterday":
-        return (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+        from zoneinfo import ZoneInfo
+        d = datetime.now(ZoneInfo("America/New_York")) - timedelta(days=1)
+        return d.strftime("%Y-%m-%d")
     return date_arg
 
 
@@ -183,12 +191,23 @@ def main():
                         help="YYYY-MM-DD, 'today', or 'yesterday' (default: today)")
     args = parser.parse_args()
 
-    date_str = resolve_date(args.date)
-    log.info("=== Auto pitcher reports for %s ===", date_str)
+    if args.date:
+        # Explicit date — only check that one
+        dates = [resolve_date(args.date)]
+    else:
+        # Default: check both today and yesterday (ET) to catch late west coast games
+        today = _today_et()
+        from zoneinfo import ZoneInfo
+        yesterday = (datetime.now(ZoneInfo("America/New_York")) - timedelta(days=1)).strftime("%Y-%m-%d")
+        dates = [today, yesterday]
 
-    count = process_date(date_str)
-    if count:
-        log.info("Done — generated %d report(s)", count)
+    total = 0
+    for date_str in dates:
+        log.info("=== Checking %s ===", date_str)
+        total += process_date(date_str)
+
+    if total:
+        log.info("Done — generated %d report(s)", total)
     else:
         log.info("Done — no new reports to generate.")
 
