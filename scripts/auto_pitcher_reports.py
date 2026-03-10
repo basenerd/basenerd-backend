@@ -29,6 +29,9 @@ import requests
 
 # ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
+SCRIPTS_DIR = ROOT / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
+
 REPORTS_DIR = ROOT / "reports"
 MLB_API = "https://statsapi.mlb.com/api/v1"
 
@@ -89,7 +92,7 @@ def fetch_schedule(date_str: str) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 def generate_reports_for_game(game_pk: int) -> int:
     """Generate reports for all pitchers in a game. Returns count of successes."""
-    from scripts.generate_pitcher_report_pdf import (
+    from generate_pitcher_report_pdf import (
         _fetch_live_feed,
         _extract_game_info,
         generate_report,
