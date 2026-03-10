@@ -194,20 +194,9 @@ def main():
                         help="YYYY-MM-DD, 'today', or 'yesterday' (default: today)")
     args = parser.parse_args()
 
-    if args.date:
-        # Explicit date — only check that one
-        dates = [resolve_date(args.date)]
-    else:
-        # Default: check both today and yesterday (ET) to catch late west coast games
-        today = _today_et()
-        from zoneinfo import ZoneInfo
-        yesterday = (datetime.now(ZoneInfo("America/New_York")) - timedelta(days=1)).strftime("%Y-%m-%d")
-        dates = [today, yesterday]
-
-    total = 0
-    for date_str in dates:
-        log.info("=== Checking %s ===", date_str)
-        total += process_date(date_str)
+    date_str = resolve_date(args.date)
+    log.info("=== Checking %s ===", date_str)
+    total = process_date(date_str)
 
     if total:
         log.info("Done — generated %d report(s)", total)

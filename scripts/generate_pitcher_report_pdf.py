@@ -343,7 +343,10 @@ def _predict_control(ctrl_pipe, X_df, num_feats, cat_feats):
     if not hasattr(model, "_preprocessor"):
         model._preprocessor = None
     if not hasattr(model._loss, "link"):
-        from sklearn._loss.loss import HalfSquaredError
+        try:
+            from sklearn._loss.loss import HalfSquaredError
+        except ImportError:
+            from sklearn.ensemble._hist_gradient_boosting.loss import LeastSquares as HalfSquaredError
         model._loss = HalfSquaredError()
 
     num_data = X_df[num_feats].values.astype(np.float64)
@@ -404,9 +407,12 @@ def _score_models(pitches: List[dict]) -> List[dict]:
                 importlib.import_module("sklearn.ensemble._hist_gradient_boosting.loss")
             except ModuleNotFoundError:
                 import types
-                from sklearn._loss.loss import HalfSquaredError
+                try:
+                    from sklearn._loss.loss import HalfSquaredError as _Loss
+                except ImportError:
+                    from sklearn._loss import HalfSquaredError as _Loss
                 shim = types.ModuleType("sklearn.ensemble._hist_gradient_boosting.loss")
-                shim.LeastSquares = HalfSquaredError
+                shim.LeastSquares = _Loss
                 sys.modules["sklearn.ensemble._hist_gradient_boosting.loss"] = shim
 
             import warnings as _w
