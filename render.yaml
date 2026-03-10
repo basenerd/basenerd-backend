@@ -8,8 +8,7 @@ services:
 
   - type: cron
     name: pitcher-reports
-    runtime: python
-    buildCommand: "pip install -r requirements.txt"
+    runtime: docker
     schedule: "*/30 * * * *"  # Every 30 minutes
-    command: "python scripts/auto_pitcher_reports.py"
+    dockerCommand: "python scripts/auto_pitcher_reports.py"
     plan: free
