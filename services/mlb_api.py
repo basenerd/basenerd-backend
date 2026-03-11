@@ -1389,6 +1389,7 @@ def normalize_gamecast(feed: dict) -> dict:
 
     status = game_data.get("status") or {}
     state = (status.get("abstractGameState") or "").lower()  # "live", "final", etc.
+    detailed_state = (status.get("detailedState") or "").strip()  # "In Progress", "Warmup", etc.
 
     # Home team abbreviation (for park factor lookup)
     _gc_teams = game_data.get("teams") or {}
@@ -2000,6 +2001,7 @@ def normalize_gamecast(feed: dict) -> dict:
     return {
             "ok": True,
             "state": state,
+            "detailedState": detailed_state,
             "inning": inning,
             "half": half,
             "displayHalf": display_half,

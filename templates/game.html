@@ -9,7 +9,8 @@
    ----------------------------- #}
 {% set status_lc = (game.statusPill|string)|lower %}
 {% set is_final = ('final' in status_lc) or ('game over' in status_lc) or ('completed' in status_lc) %}
-{% set is_live = (not is_final) and (('in progress' in status_lc) or ('live' in status_lc) or ('warmup' in status_lc) or ('game delayed' in status_lc)) %}
+{% set is_warmup = (not is_final) and ('warmup' in status_lc) %}
+{% set is_live = (not is_final) and (not is_warmup) and (('in progress' in status_lc) or ('live' in status_lc) or ('game delayed' in status_lc)) %}
 {% set is_pregame = (not is_final) and (not is_live) %}
 
 {% macro dash(v) -%}
@@ -1263,12 +1264,18 @@
       const pill = document.getElementById("hero-live-pill");
       const inn = document.getElementById("hero-live-inning");
       if(pill && inn){
-        pill.style.display = "inline-flex";
-        const dh = data.displayHalf || data.half || "";
-        let heroHalf;
-        if(dh === "Mid" || dh === "End") heroHalf = dh;
-        else heroHalf = dh.startsWith("Top") ? "Top" : (dh.startsWith("Bottom") ? "Bot" : "");
-        inn.textContent = data.inning ? `${heroHalf} ${data.inning}`.trim() : "—";
+        const ds = (data.detailedState || "").toLowerCase();
+        if(ds.includes("warmup") || ds.includes("pre-game")){
+          pill.style.display = "inline-flex";
+          inn.textContent = "Warmup";
+        } else {
+          pill.style.display = "inline-flex";
+          const dh = data.displayHalf || data.half || "";
+          let heroHalf;
+          if(dh === "Mid" || dh === "End") heroHalf = dh;
+          else heroHalf = dh.startsWith("Top") ? "Top" : (dh.startsWith("Bottom") ? "Bot" : "");
+          inn.textContent = data.inning ? `${heroHalf} ${data.inning}`.trim() : "—";
+        }
       }
 
       // mini bases/outs
@@ -1346,6 +1353,10 @@
   {% if is_live %}
     <button class="tab-btn active" data-tab="gamecast">GameCast</button>
     <button class="tab-btn" data-tab="overview">Overview</button>
+  {% elif is_warmup %}
+    <button class="tab-btn active" data-tab="preview">Preview</button>
+    <button class="tab-btn" data-tab="gamecast" style="display:none" id="gc-tab-btn">GameCast</button>
+    <button class="tab-btn" data-tab="overview">Overview</button>
   {% elif is_pregame %}
     <button class="tab-btn active" data-tab="preview">Preview</button>
     <button class="tab-btn" data-tab="overview">Overview</button>
@@ -1359,8 +1370,8 @@
 </div>
 
 <!-- GAMECAST -->
-{% if is_live %}
-<div class="tab-panel active" id="tab-gamecast">
+{% if is_live or is_warmup %}
+<div class="tab-panel {% if is_live %}active{% endif %}" id="tab-gamecast">
   <div id="gc-sub-toast"></div>
 
   <div class="card" style="margin-top:14px;">
@@ -3039,8 +3050,10 @@ async function __gc_show_bip_takeover(bip, endsInning){
     __gc_show_takeover("Due Up", "Between innings", body, 4200);
   }
   const IS_LIVE = {{ is_live | tojson }};
+  const IS_WARMUP = {{ is_warmup | tojson }};
   let gcTimer = null;
   let gcLastKey = "";
+  let __gc_warmup_transitioned = false;
    
 // Default tab (GameCast first), now SAFE because GC_URL/gcTimer exist
 if(gcBtn && gcPanel){
@@ -3056,6 +3069,11 @@ if(gcBtn && gcPanel){
    
   // Auto-start when GameCast panel is the initial active tab for live games
   if(IS_LIVE){
+    startGameCast();
+  }
+
+  // During warmup, poll in background to detect transition to In Progress
+  if(IS_WARMUP && !IS_LIVE){
     startGameCast();
   }
 
@@ -3689,6 +3707,22 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
       console.log("[GameCast] payload:", data);
       updateHeroFromGamecast(data);
 
+      // Warmup → In Progress transition: auto-switch from preview to gamecast
+      if(IS_WARMUP && !__gc_warmup_transitioned && data?.detailedState){
+        const ds = data.detailedState.toLowerCase();
+        if(ds.includes("in progress") && !ds.includes("warmup")){
+          __gc_warmup_transitioned = true;
+          console.log("[GameCast] Warmup → In Progress, switching to GameCast tab");
+          // Switch tabs
+          document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+          document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+          const gcTabBtn = document.querySelector('[data-tab="gamecast"]');
+          const gcTabPanel = document.getElementById("tab-gamecast");
+          if(gcTabBtn){ gcTabBtn.style.display = ""; gcTabBtn.classList.add("active"); }
+          if(gcTabPanel) gcTabPanel.classList.add("active");
+        }
+      }
+
       if(!data || data.ok === false){
         const msg = data && data.reason ? data.reason : "No live data available";
         const lastPlayEl = document.getElementById("gc-lastplay");
@@ -3726,8 +3760,13 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
 
       const innEl = document.getElementById("gc-inning");
       if(innEl){
-        const dh = data.displayHalf || data.half;
-        innEl.textContent = (dh && data.inning) ? `${dh} ${data.inning}` : "—";
+        const ds = (data.detailedState || "").toLowerCase();
+        if(ds.includes("warmup") || ds.includes("pre-game")){
+          innEl.textContent = "Warmup";
+        } else {
+          const dh = data.displayHalf || data.half;
+          innEl.textContent = (dh && data.inning) ? `${dh} ${data.inning}` : "—";
+        }
       }
 
       const awayRuns = document.getElementById("gc-away-runs");
