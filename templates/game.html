@@ -44,9 +44,6 @@
   #tab-gamecast .gc-grid-wrap{
     overflow-x:auto;
   }
-  #tab-gamecast .gc-grid{
-    min-width: 1120px;
-  }
 
   #tab-gamecast .gc-center{
     min-width:0;
@@ -521,9 +518,35 @@
 
 
 
+  /* Tablet: stack lineups below center */
+  @media (max-width: 1100px){
+    #tab-gamecast .gc-grid{
+      grid-template-columns: 1fr 1fr;
+    }
+    #tab-gamecast .gc-center{
+      grid-column: 1 / -1;
+      order: -1;
+    }
+  }
+
+  /* Mobile: single column */
   @media (max-width: 650px){
-    /* keep as scroll instead of stacking home lineup below */
+    #tab-gamecast .gc-grid{
+      grid-template-columns: 1fr;
+    }
+    #tab-gamecast .gc-center{
+      grid-column: 1;
+      order: -1;
+    }
     #tab-gamecast .gc-midgrid{ grid-template-columns: 1fr; }
+    #tab-gamecast .gc-matchup{
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    #gc-matchup-probs .mp-arsenal-meta{
+      width: auto;
+      font-size: 9px;
+    }
   }
 
   /* ==========================================================
@@ -3090,24 +3113,32 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
     // Only re-fetch when batter or pitcher changes
     const mpKey = `${bid}|${pid}`;
     if(mpKey === __gc_mp_last_key) return;
+
+    // If a fetch is already in-flight, don't set the key yet — retry next poll
+    if(__gc_mp_inflight) return;
+
     __gc_mp_last_key = mpKey;
+    __gc_mp_inflight = true;
 
     // Stash names for the card header
     const bName = data?.batter?.name || "Batter";
     const pName = data?.pitcher?.name || "Pitcher";
-
-    if(__gc_mp_inflight) return;
-    __gc_mp_inflight = true;
 
     fetch(`/game/${GAME_PK}/matchup_probs.json`, { cache: "no-store" })
       .then(r => r.json())
       .then(d => {
         __gc_mp_inflight = false;
         if(d && d.ok) __gc_render_matchup_probs(d, bName, pName);
-        else document.getElementById("gc-matchup-probs").style.display = "none";
+        else {
+          // Allow retry on next poll by clearing the key
+          __gc_mp_last_key = null;
+          document.getElementById("gc-matchup-probs").style.display = "none";
+        }
       })
       .catch(() => {
         __gc_mp_inflight = false;
+        // Allow retry on next poll by clearing the key
+        __gc_mp_last_key = null;
       });
   }
 

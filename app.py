@@ -581,16 +581,33 @@ def matchup_probs_json(game_pk: int):
 
         runners = gc.get("runners") or {}
 
-        # Extract pitcher's fastball velo tonight for Bayesian adjustment
+        # Extract pitcher's game-total fastball velo and pitch count from live feed
         pitcher_velo_tonight = None
         pitcher_pitch_count = None
-        pitches_list = gc.get("pitches") or []
-        if pitches_list:
-            pitcher_pitch_count = len(pitches_list)
-            fb_velos = [p["velo"] for p in pitches_list
-                        if p.get("velo") and p.get("type") in ("FF", "SI", "FC")]
+        try:
+            all_plays = (feed.get("liveData") or {}).get("plays", {}).get("allPlays") or []
+            fb_codes = {"FF", "SI", "FC"}
+            fb_velos = []
+            total_pitches = 0
+            for play in all_plays:
+                matchup = play.get("matchup") or {}
+                if matchup.get("pitcher", {}).get("id") != pitcher_id:
+                    continue
+                for ev in (play.get("playEvents") or []):
+                    if not ev.get("isPitch"):
+                        continue
+                    total_pitches += 1
+                    pt_code = ((ev.get("details") or {}).get("type") or {}).get("code") or ""
+                    if pt_code in fb_codes:
+                        spd = (ev.get("pitchData") or {}).get("startSpeed")
+                        if spd:
+                            fb_velos.append(float(spd))
+            if total_pitches > 0:
+                pitcher_pitch_count = total_pitches
             if fb_velos:
                 pitcher_velo_tonight = sum(fb_velos) / len(fb_velos)
+        except Exception:
+            pass  # velo/fatigue adjustments are optional
 
         # Determine season from game feed
         _gd = feed.get("gameData", {}) if feed else {}
