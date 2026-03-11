@@ -915,6 +915,172 @@ def filter_40man_by_letter(letter: str, season: int = None) -> List[dict]:
         return [p for p in players if last_initial(p) == "#"]
     return [p for p in players if last_initial(p) == L]
     
+# ----------------------------
+# All-players directory (since 1990)
+# ----------------------------
+
+_ALL_PLAYERS_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "players_cache")
+
+def _get_season_players(season: int) -> List[dict]:
+    """Fetch all MLB players for a single season, with file cache for past years."""
+    os.makedirs(_ALL_PLAYERS_CACHE_DIR, exist_ok=True)
+    cache_file = os.path.join(_ALL_PLAYERS_CACHE_DIR, f"{season}.json")
+
+    current_year = datetime.now().year
+    # Past years are immutable — use file cache
+    if season < current_year and os.path.exists(cache_file):
+        try:
+            with open(cache_file, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+
+    # Current year: check in-memory cache first
+    mem_key = f"season_players:{season}"
+    cached = _get_cached(mem_key)
+    if cached is not None:
+        return cached
+
+    url = f"{BASE}/sports/1/players"
+    params = {
+        "season": season,
+        "fields": "people,id,fullName,firstName,lastName,primaryPosition,abbreviation,currentTeam,id,abbreviation,active",
+    }
+    try:
+        r = requests.get(url, params=params, timeout=30)
+        r.raise_for_status()
+        people = r.json().get("people", []) or []
+    except Exception:
+        return []
+
+    out = []
+    for p in people:
+        pid = p.get("id")
+        if not pid:
+            continue
+        pos_obj = p.get("primaryPosition") or {}
+        team_obj = p.get("currentTeam") or {}
+        out.append({
+            "id": int(pid),
+            "fullName": p.get("fullName") or "",
+            "firstName": p.get("firstName") or "",
+            "lastName": p.get("lastName") or "",
+            "pos": pos_obj.get("abbreviation") or "",
+            "team": team_obj.get("abbreviation") or "",
+            "active": bool(p.get("active", False)),
+        })
+
+    # File-cache past years permanently
+    if season < current_year and out:
+        try:
+            with open(cache_file, "w") as f:
+                json.dump(out, f)
+        except Exception:
+            pass
+
+    # In-memory cache current year for 6 hours
+    if season == current_year:
+        _set_cached(mem_key, out, ttl=60 * 60 * 6)
+
+    return out
+
+
+def get_all_players_directory(active_ids: list = None) -> List[dict]:
+    """
+    Build a directory of all MLB players since 1990.
+    Returns list of {id, fullName, firstName, lastName, pos, team, active}.
+    Uses aggressive caching per season.
+    """
+    mem_key = "all_players_directory"
+    cached = _get_cached(mem_key)
+    if cached is not None:
+        return cached
+
+    current_year = datetime.now().year
+    seen = {}  # id -> player dict (latest appearance wins)
+
+    for season in range(current_year, 1989, -1):
+        players = _get_season_players(season)
+        for p in players:
+            pid = p["id"]
+            if pid not in seen:
+                seen[pid] = p
+
+    active_set = set(active_ids or [])
+    out = []
+    for p in seen.values():
+        entry = dict(p)
+        # Mark active based on active_players.json if provided, else API field
+        if active_set:
+            entry["active"] = (entry["id"] in active_set)
+        entry["_k"] = _norm_txt(f"{entry['fullName']} {entry['lastName']} {entry['firstName']} {entry['team']} {entry['pos']}")
+        out.append(entry)
+
+    def _sort_key(p: dict):
+        ln = (p.get("lastName") or "").strip()
+        fn = (p.get("firstName") or "").strip()
+        if not ln:
+            full = (p.get("fullName") or "").strip()
+            ln = full.split()[-1] if full else ""
+        return (_norm_txt(ln), _norm_txt(fn))
+
+    out.sort(key=_sort_key)
+    _set_cached(mem_key, out, ttl=60 * 60 * 12)  # 12-hour cache
+    return out
+
+
+def filter_all_players_by_letter(letter: str, active_only: bool = False, active_ids: list = None) -> List[dict]:
+    """Filter full player directory by last name initial, with optional active filter."""
+    players = get_all_players_directory(active_ids=active_ids)
+    L = (letter or "A").upper()
+
+    def last_initial(p: dict) -> str:
+        ln = (p.get("lastName") or "").strip()
+        if not ln:
+            full = (p.get("fullName") or "").strip()
+            ln = full.split()[-1] if full else ""
+        ln_norm = _norm_txt(ln)
+        ch = (ln_norm[:1] or "")
+        if ch and ch[0].isalpha():
+            return ch[0].upper()
+        return "#"
+
+    filtered = [p for p in players if last_initial(p) == ("#" if L == "#" else L)]
+    if active_only:
+        filtered = [p for p in filtered if p.get("active")]
+    return filtered
+
+
+def suggest_all_players(query: str, active_only: bool = False, active_ids: list = None, limit: int = 10) -> List[dict]:
+    """Search all players directory with fuzzy matching."""
+    q = _norm_txt(query or "")
+    if not q:
+        return []
+
+    players = get_all_players_directory(active_ids=active_ids)
+    scored = []
+    for p in players:
+        if active_only and not p.get("active"):
+            continue
+        kn = p.get("_k") or ""
+        s = _fuzzy_score(q, kn)
+        if s > 0.55:
+            scored.append((s, p))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top = [p for _, p in scored[:max(1, int(limit))]]
+
+    out = []
+    for p in top:
+        label = f"{p.get('fullName','')} \u2022 {p.get('pos','')} \u2022 {p.get('team','')}"
+        out.append({
+            "id": p["id"],
+            "label": label,
+            "url": f"/player/{p['id']}",
+        })
+    return out
+
+
 def get_player_role(player: dict) -> str:
     """
     Returns: "pitching" or "hitting" (or "two-way")
@@ -1173,6 +1339,21 @@ def get_player_full(pid: int) -> dict:
     """
     url = f"{BASE}/people/{pid}"
     params = {"hydrate": "stats(group=[hitting,pitching],type=[yearByYear])"}
+    r = requests.get(url, params=params, timeout=30)
+    r.raise_for_status()
+    people = r.json().get("people", []) or []
+    if not people:
+        raise ValueError("No player returned")
+    return people[0]
+
+
+def get_player_full_by_game_type(pid: int, game_type: str = "R") -> dict:
+    """
+    Fetch player yearByYear stats for a specific game type.
+    game_type: R=Regular, S=Spring Training, P=Postseason
+    """
+    url = f"{BASE}/people/{pid}"
+    params = {"hydrate": f"stats(group=[hitting,pitching],type=[yearByYear],gameType={game_type})"}
     r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
     people = r.json().get("people", []) or []
@@ -3372,11 +3553,12 @@ def get_stats_leaderboard(
     order: str = "desc",
     team_id: Optional[int] = None,
     position: Optional[str] = None,
-    league_id: Optional[int] = None, 
+    league_id: Optional[int] = None,
     player_pool: str = "ALL",  # "ALL" or "QUALIFIED"
     limit: int = 50,
     offset: int = 0,
     game_type: str = "R",
+    sport_id: int = 1,
 ) -> Dict[str, Any]:
     """
     Generic leaderboard pull via /api/v1/stats.
@@ -3421,7 +3603,7 @@ def get_stats_leaderboard(
         # safe-ish defaults
         sort_stat = "ops" if group == "hitting" else ("era" if group == "pitching" else ("fielding" if group == "fielding" else "stolenBases"))
 
-    cache_key = f"leaders:{group}:{season}:{sort_stat}:{order}:{team_id}:{position}:{league_id}:{player_pool}:{limit}:{offset}:{game_type}"
+    cache_key = f"leaders:{group}:{season}:{sort_stat}:{order}:{team_id}:{position}:{league_id}:{player_pool}:{limit}:{offset}:{game_type}:{sport_id}"
     cached = _get_cached(cache_key)
     if cached is not None:
         return cached
@@ -3432,7 +3614,7 @@ def get_stats_leaderboard(
         "group": group,
         "season": season,
         "gameType": game_type,
-        "sportIds": 1,
+        "sportIds": sport_id,
         "limit": limit,
         "offset": offset,
         "sortStat": sort_stat,

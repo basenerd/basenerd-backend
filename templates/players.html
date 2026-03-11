@@ -6,11 +6,19 @@
   <div class="card-header">
     <div>
       <div class="card-title">Players</div>
-      <div class="card-subtitle">All players currently on a 40-man roster</div>
+      <div class="card-subtitle">All MLB players since 1990</div>
     </div>
   </div>
 
   <div class="card-body">
+
+    <!-- Active filter toggle -->
+    <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+        <input type="checkbox" id="activeToggle" {{ 'checked' if active_only else '' }}>
+        <span style="font-weight:700;">Active players only</span>
+      </label>
+    </div>
 
     <!-- Search (with suggestions) -->
     <div style="position:relative; max-width:520px; margin-bottom:12px;">
@@ -33,7 +41,7 @@
     <div style="display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 12px;">
       {% for ch in letters %}
         {% set active = (ch == letter) %}
-        <a href="{{ url_for('players', letter=ch) }}"
+        <a href="{{ url_for('players', letter=ch, **({'active': '1'} if active_only else {})) }}"
            class="pill mono"
            style="text-decoration:none; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18);
                   background: {{ 'rgba(255,255,255,.12)' if active else 'transparent' }};
@@ -46,15 +54,15 @@
     <!-- Prev / Next -->
     <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
       <a class="pill mono" style="text-decoration:none; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18);"
-         href="{{ url_for('players', letter=prev_letter) }}">← Prev</a>
+         href="{{ url_for('players', letter=prev_letter, **({'active': '1'} if active_only else {})) }}">← Prev</a>
 
       <a class="pill mono" style="text-decoration:none; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18);"
-         href="{{ url_for('players', letter=next_letter) }}">Next →</a>
+         href="{{ url_for('players', letter=next_letter, **({'active': '1'} if active_only else {})) }}">Next →</a>
     </div>
     <div class="mono" style="opacity:.85;"><b>{{ letter }}</b></div>
     {% if q %}
       <div class="mono" style="margin:10px 0; opacity:.85;">
-        Search: <b>{{ q }}</b> — showing matches in the active 40-man pool.
+        Search: <b>{{ q }}</b>{% if active_only %} — active players only{% endif %}
       </div>
     {% endif %}
 
@@ -143,8 +151,13 @@
     });
   }
 
+  function isActiveOnly() {
+    return document.getElementById("activeToggle").checked;
+  }
+
   async function fetchSuggest(q) {
-    const res = await fetch(`/players/suggest?q=${encodeURIComponent(q)}`, { headers: { "Accept": "application/json" }});
+    const activeParam = isActiveOnly() ? "&active=1" : "";
+    const res = await fetch(`/players/suggest?q=${encodeURIComponent(q)}${activeParam}`, { headers: { "Accept": "application/json" }});
     if (!res.ok) return [];
     return await res.json();
   }
@@ -181,7 +194,8 @@
         window.location.href = activeItems[activeIndex].url;
       } else {
         const q = (input.value || "").trim();
-        if (q) window.location.href = `/players?letter={{ letter }}&q=${encodeURIComponent(q)}`;
+        const activeParam = isActiveOnly() ? "&active=1" : "";
+        if (q) window.location.href = `/players?letter={{ letter }}&q=${encodeURIComponent(q)}${activeParam}`;
       }
     } else if (e.key === "Escape") {
       hide();
@@ -190,6 +204,17 @@
 
   document.addEventListener("click", (e) => {
     if (!box.contains(e.target) && e.target !== input) hide();
+  });
+
+  // Active toggle: reload page with active param
+  document.getElementById("activeToggle").addEventListener("change", () => {
+    const url = new URL(window.location.href);
+    if (isActiveOnly()) {
+      url.searchParams.set("active", "1");
+    } else {
+      url.searchParams.delete("active");
+    }
+    window.location.href = url.toString();
   });
 })();
 </script>

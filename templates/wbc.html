@@ -40,6 +40,8 @@
        href="/wbc?tab=standings">Standings</a>
     <a class="wbc-tab {% if tab == 'teams' %}active{% endif %}"
        href="/wbc?tab=teams">Teams</a>
+    <a class="wbc-tab {% if tab == 'stats' %}active{% endif %}"
+       href="/wbc?tab=stats">Stats</a>
   </div>
 
   {% if error %}
@@ -277,6 +279,140 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endfor %}
   </div>
 {% endif %}
+
+{% endif %}
+
+<!-- ============================================================ -->
+<!-- STATS TAB                                                     -->
+<!-- ============================================================ -->
+{% if tab == 'stats' %}
+
+<div class="card" style="margin-top:14px;">
+  <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <div>
+      <div class="card-title">WBC {{ year }} Stats</div>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <select id="wbc-group" class="select">
+        <option value="batting" selected>Batting</option>
+        <option value="pitching">Pitching</option>
+      </select>
+      <select id="wbc-pool" class="select">
+        <option value="ALL" selected>All Players</option>
+        <option value="QUALIFIED">Qualified Only</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table" style="width:max-content; min-width:100%;">
+        <thead id="wbc-thead"></thead>
+        <tbody id="wbc-tbody">
+          <tr><td class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pager" style="margin-top:8px;">
+      <button id="wbc-prev" class="btn">Prev</button>
+      <button id="wbc-next" class="btn">Next</button>
+      <span id="wbc-range" class="range-pill">—</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const el = (id) => document.getElementById(id);
+
+  const STAT_LABELS = {
+    gamesPlayed:"G", plateAppearances:"PA", atBats:"AB", hits:"H", runs:"R",
+    rbi:"RBI", homeRuns:"HR", doubles:"2B", triples:"3B", totalBases:"TB",
+    stolenBases:"SB", baseOnBalls:"BB", strikeOuts:"SO",
+    avg:"AVG", obp:"OBP", slg:"SLG", ops:"OPS",
+    wins:"W", losses:"L", saves:"SV", holds:"HLD", era:"ERA", whip:"WHIP",
+    inningsPitched:"IP", gamesStarted:"GS", gamesPitched:"G",
+    strikeoutsPer9Inn:"K/9", walksPer9Inn:"BB/9"
+  };
+
+  const defaultCols = {
+    batting: ["gamesPlayed","plateAppearances","avg","obp","slg","ops","homeRuns","rbi","runs","hits","stolenBases"],
+    pitching: ["wins","losses","era","whip","inningsPitched","strikeOuts","baseOnBalls","hits","homeRuns"]
+  };
+
+  let page = 1;
+
+  function fmt(v) { return (v === null || v === undefined || v === "") ? "—" : String(v); }
+
+  async function load() {
+    const group = el("wbc-group").value;
+    const pool = el("wbc-pool").value;
+    const apiGroup = group === "pitching" ? "pitching" : "hitting";
+    const cols = defaultCols[group] || defaultCols.batting;
+    const sortStat = group === "pitching" ? "era" : "ops";
+    const order = group === "pitching" ? "asc" : "desc";
+
+    el("wbc-tbody").innerHTML = `<tr><td class="muted">Loading…</td></tr>`;
+
+    const p = new URLSearchParams();
+    p.set("group", group);
+    p.set("season", "{{ year }}");
+    p.set("game_type", "W");
+    p.set("sport_id", "51");
+    p.set("pool", pool);
+    p.set("sort", sortStat);
+    p.set("order", order);
+    p.set("page", String(page));
+    p.set("cols", cols.join(","));
+
+    const res = await fetch(`/stats_json?${p.toString()}`);
+    const data = await res.json();
+    const rows = data.rows || [];
+
+    // Header
+    let hdr = `<tr><th>#</th><th>Player</th>`;
+    cols.forEach(k => { hdr += `<th class="num">${STAT_LABELS[k] || k}</th>`; });
+    hdr += `</tr>`;
+    el("wbc-thead").innerHTML = hdr;
+
+    // Body
+    if (!rows.length) {
+      el("wbc-tbody").innerHTML = `<tr><td colspan="${2+cols.length}" class="muted">No results.</td></tr>`;
+    } else {
+      const start = data.rankStart || ((page-1)*50+1);
+      let html = "";
+      rows.forEach((r, idx) => {
+        const stat = r.stat || {};
+        const pid = r.playerId;
+        const name = r.name || "—";
+        const headshot = r.headshot || "";
+        const teamLogo = r.teamLogo || "";
+        html += `<tr>
+          <td class="num">${start+idx}</td>
+          <td>
+            <div class="player-chip">
+              ${headshot ? `<img class="mini-headshot" src="${headshot}" alt="">` : ``}
+              ${teamLogo ? `<img class="mini-teamlogo" src="${teamLogo}" alt="">` : ``}
+              <a class="pname teamlink" href="${pid ? `/player/${pid}` : '#'}">${name}</a>
+            </div>
+          </td>
+          ${cols.map(k => `<td class="num">${fmt(stat[k])}</td>`).join("")}
+        </tr>`;
+      });
+      el("wbc-tbody").innerHTML = html;
+    }
+
+    el("wbc-range").textContent = data.rangeLabel || "—";
+    el("wbc-prev").onclick = () => { page = Math.max(1, page - 1); load(); };
+    el("wbc-next").onclick = () => { page = page + 1; load(); };
+  }
+
+  el("wbc-group").addEventListener("change", () => { page = 1; load(); });
+  el("wbc-pool").addEventListener("change", () => { page = 1; load(); });
+  load();
+})();
+</script>
 
 {% endif %}
 

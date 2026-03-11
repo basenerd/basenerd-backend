@@ -804,6 +804,120 @@
       </div>
     </div>
   {% endif %}
+
+  {# --- Spring Training --- #}
+  {% set _st_hg = (st_hitting_groups if st_hitting_groups is defined else []) %}
+  {% set _st_pg = (st_pitching_groups if st_pitching_groups is defined else []) %}
+  {% if (_st_hg|length) > 0 or (_st_pg|length) > 0 %}
+  <details class="card" style="margin-top:14px;">
+    <summary class="card-header" style="cursor:pointer;">
+      <div class="card-title">Spring Training</div>
+    </summary>
+    <div style="overflow:auto;">
+    {% if (_st_hg|length) > 0 %}
+      <div class="card-subtitle" style="padding:10px 12px 4px; font-weight:800;">Hitting</div>
+      <table class="table" style="width:100%; min-width:900px;">
+        <thead><tr>
+          <th>Year</th><th>Team</th><th>G</th><th>PA</th><th>AB</th><th>H</th><th>HR</th><th>RBI</th><th>SB</th><th>AVG</th><th>OBP</th><th>SLG</th><th>OPS</th>
+        </tr></thead>
+        <tbody>
+        {% for g in _st_hg %}
+          {% set r = g.total %}
+          {% if r %}{% set s = r.stat %}
+          <tr>
+            <td>{{ g.year }}</td>
+            <td>{{ r.team }}</td>
+            <td>{{ s.gamesPlayed or "—" }}</td><td>{{ s.plateAppearances or "—" }}</td><td>{{ s.atBats or "—" }}</td><td>{{ s.hits or "—" }}</td>
+            <td>{{ s.homeRuns or "—" }}</td><td>{{ s.rbi or "—" }}</td><td>{{ s.stolenBases or "—" }}</td>
+            <td>{{ s.avg or "—" }}</td><td>{{ s.obp or "—" }}</td><td>{{ s.slg or "—" }}</td><td>{{ s.ops or "—" }}</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+    {% if (_st_pg|length) > 0 %}
+      <div class="card-subtitle" style="padding:10px 12px 4px; font-weight:800;">Pitching</div>
+      <table class="table" style="width:100%; min-width:900px;">
+        <thead><tr>
+          <th>Year</th><th>Team</th><th>G</th><th>GS</th><th>IP</th><th>W</th><th>L</th><th>SV</th><th>SO</th><th>ERA</th><th>WHIP</th>
+        </tr></thead>
+        <tbody>
+        {% for g in _st_pg %}
+          {% set r = g.total %}
+          {% if r %}{% set s = r.stat %}
+          <tr>
+            <td>{{ g.year }}</td>
+            <td>{{ r.team }}</td>
+            <td>{{ s.gamesPitched or "—" }}</td><td>{{ s.gamesStarted or "—" }}</td><td>{{ s.inningsPitched or "—" }}</td>
+            <td>{{ s.wins or "—" }}</td><td>{{ s.losses or "—" }}</td><td>{{ s.saves or "—" }}</td><td>{{ s.strikeOuts or "—" }}</td>
+            <td>{{ s.era or "—" }}</td><td>{{ s.whip or "—" }}</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+    </div>
+  </details>
+  {% endif %}
+
+  {# --- Postseason --- #}
+  {% set _ps_hg = (ps_hitting_groups if ps_hitting_groups is defined else []) %}
+  {% set _ps_pg = (ps_pitching_groups if ps_pitching_groups is defined else []) %}
+  {% if (_ps_hg|length) > 0 or (_ps_pg|length) > 0 %}
+  <details class="card" style="margin-top:14px;">
+    <summary class="card-header" style="cursor:pointer;">
+      <div class="card-title">Postseason</div>
+    </summary>
+    <div style="overflow:auto;">
+    {% if (_ps_hg|length) > 0 %}
+      <div class="card-subtitle" style="padding:10px 12px 4px; font-weight:800;">Hitting</div>
+      <table class="table" style="width:100%; min-width:900px;">
+        <thead><tr>
+          <th>Year</th><th>Team</th><th>G</th><th>PA</th><th>AB</th><th>H</th><th>HR</th><th>RBI</th><th>SB</th><th>AVG</th><th>OBP</th><th>SLG</th><th>OPS</th>
+        </tr></thead>
+        <tbody>
+        {% for g in _ps_hg %}
+          {% set r = g.total %}
+          {% if r %}{% set s = r.stat %}
+          <tr>
+            <td>{{ g.year }}</td>
+            <td>{{ r.team }}</td>
+            <td>{{ s.gamesPlayed or "—" }}</td><td>{{ s.plateAppearances or "—" }}</td><td>{{ s.atBats or "—" }}</td><td>{{ s.hits or "—" }}</td>
+            <td>{{ s.homeRuns or "—" }}</td><td>{{ s.rbi or "—" }}</td><td>{{ s.stolenBases or "—" }}</td>
+            <td>{{ s.avg or "—" }}</td><td>{{ s.obp or "—" }}</td><td>{{ s.slg or "—" }}</td><td>{{ s.ops or "—" }}</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+    {% if (_ps_pg|length) > 0 %}
+      <div class="card-subtitle" style="padding:10px 12px 4px; font-weight:800;">Pitching</div>
+      <table class="table" style="width:100%; min-width:900px;">
+        <thead><tr>
+          <th>Year</th><th>Team</th><th>G</th><th>GS</th><th>IP</th><th>W</th><th>L</th><th>SV</th><th>SO</th><th>ERA</th><th>WHIP</th>
+        </tr></thead>
+        <tbody>
+        {% for g in _ps_pg %}
+          {% set r = g.total %}
+          {% if r %}{% set s = r.stat %}
+          <tr>
+            <td>{{ g.year }}</td>
+            <td>{{ r.team }}</td>
+            <td>{{ s.gamesPitched or "—" }}</td><td>{{ s.gamesStarted or "—" }}</td><td>{{ s.inningsPitched or "—" }}</td>
+            <td>{{ s.wins or "—" }}</td><td>{{ s.losses or "—" }}</td><td>{{ s.saves or "—" }}</td><td>{{ s.strikeOuts or "—" }}</td>
+            <td>{{ s.era or "—" }}</td><td>{{ s.whip or "—" }}</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+    </div>
+  </details>
+  {% endif %}
 </div>
 
 <!-- =======================

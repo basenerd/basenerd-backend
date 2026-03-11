@@ -28,6 +28,12 @@
         {% endfor %}
       </select>
 
+      <select id="game_type" class="select">
+        <option value="R" {{ 'selected' if game_type=='R' else '' }}>Regular Season</option>
+        <option value="S" {{ 'selected' if game_type=='S' else '' }}>Spring Training</option>
+        <option value="P" {{ 'selected' if game_type=='P' else '' }}>Postseason</option>
+      </select>
+
       <select id="league_id" class="select">
         {% for lg in leagues %}
           <option value="{{ lg.id }}">{{ lg.label }}</option>
@@ -271,7 +277,8 @@
     const team = el("team_id").value || "";
     const pos = el("position").value || "";
     const pool = el("pool").value || "";
-    return `bn_stats:${g}:${season}:lg=${lg}:team=${team}:pos=${pos}:pool=${pool}`;
+    const gt = el("game_type").value || "R";
+    return `bn_stats:${g}:${season}:lg=${lg}:team=${team}:pos=${pos}:pool=${pool}:gt=${gt}`;
   }
 
   function loadPersisted(){
@@ -332,6 +339,7 @@
     if (team_id) p.set("team_id", team_id);
     if (position) p.set("position", position);
     p.set("pool", pool);
+    p.set("game_type", el("game_type").value || "R");
 
     p.set("page", String(pageNum || 1));
 
@@ -801,7 +809,7 @@
     load();
   });
 
-  ["season","league_id","team_id","position","pool"].forEach(id => {
+  ["season","league_id","team_id","position","pool","game_type"].forEach(id => {
     el(id).addEventListener("change", () => {
       page = 1;
       loadPersisted();

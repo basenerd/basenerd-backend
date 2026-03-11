@@ -38,9 +38,11 @@ from services.mlb_api import (
     get_teams,
     get_team,
     get_40man_roster_grouped,
-    get_40man_directory, 
-    filter_40man_by_letter, 
+    get_40man_directory,
+    filter_40man_by_letter,
     suggest_40man_players,
+    filter_all_players_by_letter,
+    suggest_all_players,
     )
 from services.pitching_report import (
     list_pitching_games,
@@ -319,6 +321,10 @@ def stats_page():
         {"id": 104, "label": "NL"},
     ]
 
+    game_type = (request.args.get("game_type") or "R").strip().upper()
+    if game_type not in ("R", "S", "P"):
+        game_type = "R"
+
     return render_template(
         "stats.html",
         title="Stats • Basenerd",
@@ -327,7 +333,8 @@ def stats_page():
         api_group=api_group,  # hitting/pitching/fielding/running
         teams=teams,
         positions=positions,
-        leagues=leagues
+        leagues=leagues,
+        game_type=game_type,
     )
 
 
@@ -362,6 +369,14 @@ def stats_json():
 
     # Default QUALIFIED (per your request)
     pool = (request.args.get("pool") or "QUALIFIED").strip().upper()
+
+    game_type = (request.args.get("game_type") or "R").strip().upper()
+    if game_type not in ("R", "S", "P", "W"):
+        game_type = "R"
+
+    sport_id = request.args.get("sport_id", default=1, type=int)
+    if sport_id not in (1, 51):
+        sport_id = 1
 
     sort_stat = (request.args.get("sort") or "").strip()
     order = (request.args.get("order") or "desc").strip().lower()
@@ -476,7 +491,8 @@ def stats_json():
             player_pool=pool,
             limit=CHUNK,
             offset=raw_offset,
-            game_type="R",
+            game_type=game_type,
+            sport_id=sport_id,
         )
 
         rows = (data.get("rows") or [])
@@ -2196,22 +2212,23 @@ def team_transactions_json(team_id):
 
 @app.get("/players")
 def players():
-    season = datetime.now().year
-
     letter = (request.args.get("letter") or "A").upper()
     letters = [chr(c) for c in range(ord("A"), ord("Z")+1)] + ["#"]
     if letter not in letters:
         letter = "A"
 
     q = (request.args.get("q") or "").strip()
+    active_only = request.args.get("active", "").strip().lower() in ("1", "true", "yes")
 
     if q:
-        matches = suggest_40man_players(q, season=season, limit=200)
-        directory = get_40man_directory(season=season)
+        players = suggest_all_players(q, active_only=active_only, active_ids=ACTIVE_PLAYER_IDS, limit=200)
+        # suggest returns {id, label, url} — convert to full player dicts
+        from services.mlb_api import get_all_players_directory
+        directory = get_all_players_directory(active_ids=ACTIVE_PLAYER_IDS)
         by_id = {p["id"]: p for p in directory}
-        players = [by_id.get(m["id"]) for m in matches if by_id.get(m["id"])]
+        players = [by_id.get(m["id"]) for m in players if by_id.get(m["id"])]
     else:
-        players = filter_40man_by_letter(letter, season=season)
+        players = filter_all_players_by_letter(letter, active_only=active_only, active_ids=ACTIVE_PLAYER_IDS)
 
     alpha = [chr(c) for c in range(ord("A"), ord("Z")+1)]
     if letter == "#":
@@ -2230,13 +2247,14 @@ def players():
         prev_letter=prev_letter,
         next_letter=next_letter,
         players=players,
+        active_only=active_only,
     )
     
 @app.get("/players/suggest")
 def players_suggest():
-    season = datetime.now().year
     q = (request.args.get("q") or "").strip()
-    return jsonify(suggest_40man_players(q, season=season, limit=10))
+    active_only = request.args.get("active", "").strip().lower() in ("1", "true", "yes")
+    return jsonify(suggest_all_players(q, active_only=active_only, active_ids=ACTIVE_PLAYER_IDS, limit=10))
     
 from datetime import datetime
 from services.mlb_api import (
@@ -2345,6 +2363,31 @@ def player(player_id: int):
     else:
         hitting_groups = group_year_by_year(yby, "hitting")
         pitching_groups = group_year_by_year(yby, "pitching")
+
+    # Spring training & postseason year-by-year
+    st_hitting_groups = []
+    st_pitching_groups = []
+    ps_hitting_groups = []
+    ps_pitching_groups = []
+    try:
+        from services.mlb_api import get_player_full_by_game_type
+        st_full = get_player_full_by_game_type(player_id, "S")
+        st_yby = extract_year_by_year_rows(st_full)
+        if role != "pitching":
+            st_hitting_groups = group_year_by_year(st_yby, "hitting")
+        if role != "hitting":
+            st_pitching_groups = group_year_by_year(st_yby, "pitching")
+    except Exception:
+        pass
+    try:
+        ps_full = get_player_full_by_game_type(player_id, "P")
+        ps_yby = extract_year_by_year_rows(ps_full)
+        if role != "pitching":
+            ps_hitting_groups = group_year_by_year(ps_yby, "hitting")
+        if role != "hitting":
+            ps_pitching_groups = group_year_by_year(ps_yby, "pitching")
+    except Exception:
+        pass
 
     # -------------------------
     # Season snapshot (derived from yby rows)
@@ -2639,6 +2682,12 @@ def player(player_id: int):
         accolades=accolades,
         award_year_map=award_year_map,
 
+        # spring training & postseason year-by-year
+        st_hitting_groups=st_hitting_groups,
+        st_pitching_groups=st_pitching_groups,
+        ps_hitting_groups=ps_hitting_groups,
+        ps_pitching_groups=ps_pitching_groups,
+
         # game logs
         years=years,
         log_year=log_year,
@@ -2872,7 +2921,7 @@ def wbc():
     year = 2026
 
     tab = (request.args.get("tab") or "games").strip().lower()
-    if tab not in ("games", "standings", "teams"):
+    if tab not in ("games", "standings", "teams", "stats"):
         tab = "games"
 
     error = None
@@ -2912,6 +2961,15 @@ def wbc():
             tab=tab,
             year=year,
             groups=groups,
+            error=error,
+        )
+
+    elif tab == "stats":
+        return render_template(
+            "wbc.html",
+            title="WBC 2026 • Basenerd",
+            tab=tab,
+            year=year,
             error=error,
         )
 
