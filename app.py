@@ -592,13 +592,17 @@ def matchup_probs_json(game_pk: int):
             if fb_velos:
                 pitcher_velo_tonight = sum(fb_velos) / len(fb_velos)
 
+        # Determine season from game feed
+        _gd = feed.get("gameData", {}) if feed else {}
+        _season = int(_gd.get("game", {}).get("season", 2025) or 2025)
+
         result = predict_matchup_live(
             batter_id=int(batter_id),
             pitcher_id=int(pitcher_id),
             stand=batter.get("stand") or "R",
             p_throws=pitcher.get("throws") or "R",
             venue=gc.get("venue"),
-            season=2025,
+            season=_season,
             inning=gc.get("inning") or 1,
             outs=gc.get("outs") or 0,
             runner_1b=1 if runners.get("first") else 0,
