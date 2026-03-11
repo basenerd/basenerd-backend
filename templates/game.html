@@ -504,6 +504,17 @@
 
 
 
+  /* Strike zone: scale down to fit if container is narrow, stay centered */
+  #tab-gamecast .gc-zone-wrap{
+    display:flex;
+    justify-content:center;
+    overflow:hidden;
+  }
+  #tab-gamecast .gc-zone-visual{
+    flex-shrink:0;
+    transform-origin:center top;
+  }
+
   /* Medium: current at-bat full-width on top, lineups side-by-side below */
   @media (max-width: 960px){
     #tab-gamecast .gc-grid{
@@ -1218,12 +1229,12 @@
                     <div class="card-header">
                       <div class="card-title">Zone</div>
                   </div>
-                  <div style="padding:12px; display:flex; justify-content:center;">
+                  <div class="gc-zone-wrap" style="padding:12px;">
                    {% set sky_color = '#5398d9' if game.dayNight == 'day' else '#1a365d' %}
                    {% set grass_color = '#426a3a' if game.dayNight == 'day' else '#1c3017' %}
-                   <div style="
+                   <div class="gc-zone-visual" style="
                        position: relative;
-                       width: 220px; 
+                       width: 220px;
                        height: 260px;
                        background: 
                            linear-gradient(to bottom, {{ sky_color }} 0%, {{ sky_color }} 15%, rgba(15,23,42,0) 40%),
@@ -2748,6 +2759,27 @@ if(gcBtn && gcPanel){
   if(IS_LIVE){
     startGameCast();
   }
+
+  // Scale strike zone visual to fit its container, keep it centered
+  (function(){
+    const vis = document.querySelector(".gc-zone-visual");
+    if(!vis) return;
+    const NATIVE_W = 220;
+    function fitZone(){
+      const wrap = vis.parentElement;
+      if(!wrap) return;
+      const avail = wrap.clientWidth - 24; // minus padding
+      if(avail < NATIVE_W){
+        vis.style.transform = `scale(${avail / NATIVE_W})`;
+        vis.style.marginBottom = `-${260 - (260 * avail / NATIVE_W)}px`;
+      } else {
+        vis.style.transform = "";
+        vis.style.marginBottom = "";
+      }
+    }
+    fitZone();
+    window.addEventListener("resize", fitZone);
+  })();
 
   function setDots(el, n, onClass){
     if(!el) return;
