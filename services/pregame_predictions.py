@@ -119,6 +119,8 @@ def _extract_lineups_from_feed(feed):
     away_name = away_team.get("teamName") or away_team.get("name") or ""
     home_abbrev = (home_team.get("abbreviation") or "").upper()
     away_abbrev = (away_team.get("abbreviation") or "").upper()
+    home_team_id = home_team.get("id")
+    away_team_id = away_team.get("id")
 
     venue_info = game_data.get("venue") or {}
     venue_name = venue_info.get("name") or ""
@@ -226,6 +228,8 @@ def _extract_lineups_from_feed(feed):
         "away_name": away_name,
         "home_abbrev": home_abbrev,
         "away_abbrev": away_abbrev,
+        "home_team_id": home_team_id,
+        "away_team_id": away_team_id,
         "game_date": game_date,
         "game_time": f"{game_time} {am_pm}".strip(),
         "game_dt_iso": game_dt_iso,
@@ -441,5 +445,24 @@ def get_pregame_predictions(game_pk, season=2026):
         lineup_data["away_pitcher"],
         "home",
     )
+
+    # Bullpen availability
+    try:
+        from services.bullpen_availability import get_bullpen_availability
+        game_date = lineup_data.get("game_date") or ""
+        home_tid = lineup_data.get("home_team_id")
+        away_tid = lineup_data.get("away_team_id")
+        if home_tid:
+            result["home_bullpen"] = get_bullpen_availability(
+                home_tid, game_date, lineup_data.get("home_abbrev", "")
+            )
+        if away_tid:
+            result["away_bullpen"] = get_bullpen_availability(
+                away_tid, game_date, lineup_data.get("away_abbrev", "")
+            )
+    except Exception as e:
+        log.warning("Bullpen availability failed: %s", e)
+        result["home_bullpen"] = []
+        result["away_bullpen"] = []
 
     return result

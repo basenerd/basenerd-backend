@@ -800,6 +800,79 @@
 
   .pv-loading{ text-align:center; padding:40px 20px; opacity:0.5; }
 
+  /* ---- Bullpen Availability ---- */
+  .pv-bullpen-section{
+    margin-top:24px;
+  }
+  .pv-bullpen-header{
+    font-size:1rem; font-weight:800; margin:0 0 12px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .pv-bullpen-header .pv-bp-team{
+    font-size:0.7rem; opacity:0.5; text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .pv-bullpen-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap:8px;
+  }
+  .pv-bp-card{
+    display:flex; align-items:center; gap:10px;
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+    border-radius:10px; padding:10px 12px;
+    transition: border-color 0.2s;
+  }
+  .pv-bp-card:hover{ border-color:rgba(255,255,255,0.15); }
+  .pv-bp-card.status-available{ border-left:3px solid #51cf66; }
+  .pv-bp-card.status-limited{ border-left:3px solid #ffd43b; }
+  .pv-bp-card.status-unlikely{ border-left:3px solid #ff922b; }
+  .pv-bp-card.status-unavailable{ border-left:3px solid #ff6b6b; }
+
+  .pv-bp-avatar{
+    width:40px; height:40px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.08); object-fit:cover; flex-shrink:0;
+  }
+  .pv-bp-info{ flex:1; min-width:0; }
+  .pv-bp-name{ font-weight:700; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pv-bp-note{ font-size:0.7rem; opacity:0.5; margin-top:1px; }
+
+  .pv-bp-right{ text-align:right; flex-shrink:0; }
+  .pv-bp-badge{
+    display:inline-block; padding:2px 8px; border-radius:6px;
+    font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px;
+  }
+  .pv-bp-badge.available{ background:rgba(81,207,102,0.15); color:#51cf66; }
+  .pv-bp-badge.limited{ background:rgba(255,212,59,0.15); color:#ffd43b; }
+  .pv-bp-badge.unlikely{ background:rgba(255,146,43,0.15); color:#ff922b; }
+  .pv-bp-badge.unavailable{ background:rgba(255,107,107,0.15); color:#ff6b6b; }
+
+  .pv-bp-workload{
+    margin-top:4px; height:4px; width:60px; border-radius:2px;
+    background:rgba(255,255,255,0.08); overflow:hidden; margin-left:auto;
+  }
+  .pv-bp-workload-fill{ height:100%; border-radius:2px; transition: width 0.3s; }
+
+  .pv-bp-pitches{
+    font-size:0.68rem; opacity:0.45; margin-top:2px;
+  }
+
+  .pv-bp-appearances{
+    display:flex; gap:3px; margin-top:4px;
+  }
+  .pv-bp-app-dot{
+    width:18px; height:18px; border-radius:4px; display:flex; align-items:center; justify-content:center;
+    font-size:0.58rem; font-weight:700; color:#fff;
+  }
+
+  .pv-bp-legend{
+    display:flex; gap:14px; flex-wrap:wrap; margin-bottom:10px;
+    font-size:0.7rem; opacity:0.6;
+  }
+  .pv-bp-legend-item{ display:flex; align-items:center; gap:4px; }
+  .pv-bp-legend-swatch{
+    width:10px; height:10px; border-radius:3px;
+  }
+
   @media(max-width:640px){
     .pv-table{ font-size:0.75rem; }
     .pv-table th, .pv-table td{ padding:5px 3px; }
@@ -808,6 +881,9 @@
     .pv-pitcher img{ width:44px; height:44px; }
     .pv-weather{ gap:10px; padding:10px 12px; }
     .pv-wx-item .val{ font-size:1rem; }
+    .pv-bullpen-grid{ grid-template-columns: 1fr; }
+    .pv-bp-card{ padding:8px 10px; }
+    .pv-bp-avatar{ width:32px; height:32px; }
   }
 
 </style>
@@ -1457,6 +1533,7 @@
         <div id="pv-weather"></div>
         <div id="pv-away"></div>
         <div id="pv-home"></div>
+        <div id="pv-bullpen"></div>
       </div>
       <div id="pv-no-lineups" style="display:none; text-align:center; padding:30px 20px;">
         <div style="font-weight:700; font-size:1rem; margin-bottom:6px;">Lineups Not Yet Posted</div>
@@ -4693,6 +4770,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
     document.getElementById('pv-away').innerHTML = renderSide(d.away, d.away_name, d.away_abbrev, 'away', d.is_spring);
     document.getElementById('pv-home').innerHTML = renderSide(d.home, d.home_name, d.home_abbrev, 'home', d.is_spring);
 
+    // Bullpen availability
+    const bpHtml = renderBullpen(d.away_bullpen, d.away_name, d.away_abbrev, d.home_bullpen, d.home_name, d.home_abbrev);
+    document.getElementById('pv-bullpen').innerHTML = bpHtml;
+
     // Expandable rows
     document.querySelectorAll('.pv-row').forEach(row=>{
       row.addEventListener('click', ()=>{
@@ -4739,6 +4820,79 @@ document.addEventListener("DOMContentLoaded", ()=>{
     if(g.startsWith('B')) return 'pv-grade-b';
     if(g.startsWith('C')) return 'pv-grade-c';
     return 'pv-grade-d';
+  }
+
+  function workloadColor(pct){
+    if(pct >= 70) return '#ff6b6b';
+    if(pct >= 40) return '#ff922b';
+    if(pct >= 15) return '#ffd43b';
+    return '#51cf66';
+  }
+
+  function appDotColor(pitches){
+    if(pitches >= 30) return '#ff6b6b';
+    if(pitches >= 20) return '#ff922b';
+    if(pitches >= 10) return '#ffd43b';
+    return '#51cf66';
+  }
+
+  function renderBullpenSide(bp, teamName, abbrev){
+    if(!bp || !bp.length) return '';
+    let html = `<div class="pv-bullpen-header">
+      <span class="pv-bp-team">${abbrev}</span> ${teamName} Bullpen
+    </div>`;
+    html += '<div class="pv-bullpen-grid">';
+    bp.forEach(p=>{
+      const st = p.status || 'available';
+      html += `<div class="pv-bp-card status-${st}">`;
+      if(p.headshot) html += `<img class="pv-bp-avatar" src="${p.headshot}" alt="">`;
+      else html += `<div class="pv-bp-avatar" style="background:rgba(255,255,255,0.06);"></div>`;
+      html += `<div class="pv-bp-info">
+        <div class="pv-bp-name">${p.name}</div>
+        <div class="pv-bp-note">${p.note || ''}</div>`;
+      // Appearance dots
+      if(p.appearances && p.appearances.length){
+        html += '<div class="pv-bp-appearances">';
+        p.appearances.forEach(a=>{
+          html += `<div class="pv-bp-app-dot" style="background:${appDotColor(a.pitches)}" title="${a.days_ago}d ago: ${a.pitches}P">${a.pitches}</div>`;
+        });
+        html += '</div>';
+      }
+      html += `</div>`;
+      html += `<div class="pv-bp-right">
+        <div class="pv-bp-badge ${st}">${st}</div>
+        <div class="pv-bp-workload">
+          <div class="pv-bp-workload-fill" style="width:${p.workload || 0}%;background:${workloadColor(p.workload || 0)}"></div>
+        </div>
+        <div class="pv-bp-pitches">${p.total_pitches_4d || 0}P / 4d</div>
+      </div>`;
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function renderBullpen(awayBp, awayName, awayAbbrev, homeBp, homeName, homeAbbrev){
+    if((!awayBp || !awayBp.length) && (!homeBp || !homeBp.length)) return '';
+
+    let html = '<div class="pv-bullpen-section">';
+
+    // Legend
+    html += `<div class="pv-bp-legend">
+      <div class="pv-bp-legend-item"><div class="pv-bp-legend-swatch" style="background:#51cf66"></div> Available</div>
+      <div class="pv-bp-legend-item"><div class="pv-bp-legend-swatch" style="background:#ffd43b"></div> Limited</div>
+      <div class="pv-bp-legend-item"><div class="pv-bp-legend-swatch" style="background:#ff922b"></div> Unlikely</div>
+      <div class="pv-bp-legend-item"><div class="pv-bp-legend-swatch" style="background:#ff6b6b"></div> Unavailable</div>
+    </div>`;
+
+    html += renderBullpenSide(awayBp, awayName, awayAbbrev);
+    if(awayBp && awayBp.length && homeBp && homeBp.length){
+      html += '<div style="margin-top:20px;"></div>';
+    }
+    html += renderBullpenSide(homeBp, homeName, homeAbbrev);
+
+    html += '</div>';
+    return html;
   }
 
   function renderSide(side, teamName, abbrev, sideKey, isSpring){
