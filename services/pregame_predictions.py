@@ -298,10 +298,10 @@ def get_pregame_predictions(game_pk, season=2026):
             }
 
         batters = []
-        total_k = 0
-        total_hr = 0
-        total_hit = 0
-        total_bb = 0
+        total_exp_k = 0
+        total_exp_hr = 0
+        total_exp_h = 0
+        total_exp_bb = 0
 
         for batter in lineup:
             # Estimate inning based on lineup spot
@@ -394,10 +394,11 @@ def get_pregame_predictions(game_pk, season=2026):
                 }
                 batters.append(batter_result)
 
-                total_k += probs.get("K", 0)
-                total_hr += probs.get("HR", 0)
-                total_hit += summary.get("hit_pct", 0)
-                total_bb += probs.get("BB", 0) + probs.get("IBB", 0)
+                if statline:
+                    total_exp_k += statline.get("k", 0)
+                    total_exp_hr += statline.get("hr", 0)
+                    total_exp_h += statline.get("h", 0)
+                    total_exp_bb += statline.get("bb", 0)
             else:
                 batters.append({
                     "id": batter["id"],
@@ -416,12 +417,10 @@ def get_pregame_predictions(game_pk, season=2026):
 
         n = len(batters) or 1
         totals = {
-            "exp_k": round(total_k, 1),
-            "exp_hr": round(total_hr, 2),
-            "exp_hits": round(total_hit * n, 1),  # approximate
-            "exp_bb": round(total_bb, 1),
-            "avg_k_pct": round(total_k / n, 3),
-            "avg_hr_pct": round(total_hr / n, 3),
+            "exp_k": round(total_exp_k, 1),
+            "exp_hr": round(total_exp_hr, 2),
+            "exp_hits": round(total_exp_h, 1),
+            "exp_bb": round(total_exp_bb, 1),
         }
 
         # Pitcher expected statline
