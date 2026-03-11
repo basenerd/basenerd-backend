@@ -4424,6 +4424,25 @@ document.addEventListener("DOMContentLoaded", ()=>{
         }
       }
 
+      // If stuff+/control+ are missing (PBP fallback), merge from season averages
+      const needsModel = mix.length && mix.every(r => r.stuff_plus == null && r.control_plus == null);
+      if(needsModel){
+        try {
+          const seasonRpt = await fetch(`/player/${pitcherId}/pitching_report.json?season=${PR_SEASON}`).then(r=>r.json());
+          if(seasonRpt.ok && seasonRpt.mix){
+            const lookup = {};
+            for(const m of seasonRpt.mix) lookup[m.pitch_type] = m;
+            for(const m of mix){
+              const s = lookup[m.pitch_type];
+              if(s){
+                if(m.stuff_plus == null) m.stuff_plus = s.stuff_plus;
+                if(m.control_plus == null) m.control_plus = s.control_plus;
+              }
+            }
+          }
+        } catch(e){ /* season lookup is best-effort */ }
+      }
+
       renderMix(`pr-${side}-mix-body`, mix);
       renderZone(`pr-${side}-zone-l`, pitches, "L");
       renderZone(`pr-${side}-zone-r`, pitches, "R");
