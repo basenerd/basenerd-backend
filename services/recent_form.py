@@ -76,7 +76,8 @@ def _query_batter_form(batter_id, start_date, end_date):
       AND game_date BETWEEN %s AND %s
       AND game_type = 'R'
     """
-    with psycopg.connect(_db_url()) as conn:
+    with psycopg.connect(_db_url(), connect_timeout=5) as conn:
+        conn.execute("SET statement_timeout = '3000'")  # 3s query timeout
         with conn.cursor() as cur:
             cur.execute(sql, (batter_id, start_date, end_date))
             row = cur.fetchone()
@@ -112,7 +113,8 @@ def _query_pitcher_form(pitcher_id, start_date, end_date):
       AND game_date BETWEEN %s AND %s
       AND game_type = 'R'
     """
-    with psycopg.connect(_db_url()) as conn:
+    with psycopg.connect(_db_url(), connect_timeout=5) as conn:
+        conn.execute("SET statement_timeout = '3000'")  # 3s query timeout
         with conn.cursor() as cur:
             cur.execute(sql, (pitcher_id, start_date, end_date))
             row = cur.fetchone()
@@ -128,6 +130,27 @@ def _safe_div(a, b):
     return None
 
 
+_recent_form_cache = {}  # (type, player_id, ref_date) -> (timestamp, result)
+_RECENT_FORM_TTL = 120   # cache for 2 minutes
+
+def _cached_form(cache_key):
+    import time
+    entry = _recent_form_cache.get(cache_key)
+    if entry and (time.time() - entry[0]) < _RECENT_FORM_TTL:
+        return entry[1]
+    return None
+
+def _set_cache(cache_key, val):
+    import time
+    _recent_form_cache[cache_key] = (time.time(), val)
+    # Evict old entries if cache gets too large
+    if len(_recent_form_cache) > 200:
+        cutoff = time.time() - _RECENT_FORM_TTL
+        stale = [k for k, v in _recent_form_cache.items() if v[0] < cutoff]
+        for k in stale:
+            _recent_form_cache.pop(k, None)
+
+
 def get_batter_recent_form(batter_id, reference_date=None, window_days=14):
     """
     Get rolling 14-day batter stats.
@@ -137,6 +160,11 @@ def get_batter_recent_form(batter_id, reference_date=None, window_days=14):
         reference_date = date.today()
     elif isinstance(reference_date, str):
         reference_date = date.fromisoformat(reference_date)
+
+    cache_key = ("bat", batter_id, str(reference_date))
+    cached = _cached_form(cache_key)
+    if cached is not None:
+        return cached
 
     end_date = reference_date - timedelta(days=1)  # exclude today (game in progress)
     start_date = end_date - timedelta(days=window_days - 1)
@@ -159,6 +187,7 @@ def get_batter_recent_form(batter_id, reference_date=None, window_days=14):
         "bat_r14_whiff_rate": _safe_div(raw["whiffs"], raw["swings"]) if raw.get("swings") else LEAGUE_AVG_BATTER_R14["bat_r14_whiff_rate"],
         "bat_r14_chase_rate": _safe_div(raw["chases"], raw["chase_opps"]) if raw.get("chase_opps") else LEAGUE_AVG_BATTER_R14["bat_r14_chase_rate"],
     }
+    _set_cache(cache_key, result)
     return result
 
 
@@ -171,6 +200,11 @@ def get_pitcher_recent_form(pitcher_id, reference_date=None, window_days=14):
         reference_date = date.today()
     elif isinstance(reference_date, str):
         reference_date = date.fromisoformat(reference_date)
+
+    cache_key = ("pit", pitcher_id, str(reference_date))
+    cached = _cached_form(cache_key)
+    if cached is not None:
+        return cached
 
     end_date = reference_date - timedelta(days=1)
     start_date = end_date - timedelta(days=window_days - 1)
@@ -192,6 +226,7 @@ def get_pitcher_recent_form(pitcher_id, reference_date=None, window_days=14):
         "p_r14_whiff_rate": _safe_div(raw["whiffs"], raw["swings"]) if raw.get("swings") else LEAGUE_AVG_PITCHER_R14["p_r14_whiff_rate"],
         "p_r14_chase_rate": _safe_div(raw["chases"], raw["chase_opps"]) if raw.get("chase_opps") else LEAGUE_AVG_PITCHER_R14["p_r14_chase_rate"],
     }
+    _set_cache(cache_key, result)
     return result
 
 

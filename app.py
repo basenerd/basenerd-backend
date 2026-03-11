@@ -665,6 +665,8 @@ def matchup_probs_json(game_pk: int):
 
         _season = int((game_data.get("game") or {}).get("season", 2025) or 2025)
 
+        import time as _t
+        _t0 = _t.time()
         result = predict_matchup_live(
             batter_id=int(batter_id),
             pitcher_id=int(pitcher_id),
@@ -681,12 +683,15 @@ def matchup_probs_json(game_pk: int):
             pitcher_velo_tonight=pitcher_velo_tonight,
             pitcher_pitch_count=pitcher_pitch_count,
         )
+        _elapsed = round((_t.time() - _t0) * 1000)
+        print(f"[matchup_probs] batter={batter_id} pitcher={pitcher_id} ok={result.get('ok')} time={_elapsed}ms")
         result["batterId"] = batter_id
         result["pitcherId"] = pitcher_id
         return jsonify(result), 200
     except Exception as e:
         import traceback
         traceback.print_exc()
+        print(f"[matchup_probs] EXCEPTION for batter={batter_id} pitcher={pitcher_id}: {e}")
         return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
 
 @app.get("/game/<int:game_pk>/pitcher/<int:pitcher_id>/live_scores.json")
