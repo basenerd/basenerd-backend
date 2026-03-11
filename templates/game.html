@@ -35,14 +35,12 @@
     display:grid;
     gap:14px;
     align-items:start;
-
-    /* 3 columns: away | center | home */
-    grid-template-columns: minmax(260px,320px) minmax(520px,1fr) minmax(260px,320px);
-    align-items: start;
+    /* 3 columns when there's room, stacks automatically */
+    grid-template-columns: minmax(240px,320px) minmax(0,1fr) minmax(240px,320px);
   }
 
   #tab-gamecast .gc-grid-wrap{
-    overflow-x:auto;
+    overflow-x:visible;
   }
 
   #tab-gamecast .gc-center{
@@ -518,7 +516,7 @@
 
 
 
-  /* Tablet: stack lineups below center */
+  /* When 3 columns don't fit: current at-bat on top, lineups side-by-side below */
   @media (max-width: 1100px){
     #tab-gamecast .gc-grid{
       grid-template-columns: 1fr 1fr;
@@ -529,7 +527,7 @@
     }
   }
 
-  /* Mobile: single column */
+  /* Narrow screens: everything stacks, current at-bat first */
   @media (max-width: 650px){
     #tab-gamecast .gc-grid{
       grid-template-columns: 1fr;
