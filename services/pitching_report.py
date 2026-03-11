@@ -8,11 +8,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import psycopg
 
 
-# --- Fixed zone (matches your previous fixed zone request) ---
+# --- Fixed zone (MLB plate = 17 inches = ±8.5in = ±0.7083ft) ---
 ZONE_TOP = 3.3942716630565757
 ZONE_BOT = 1.594602333802632
-ZONE_LEFT = -0.83
-ZONE_RIGHT = 0.83
+ZONE_LEFT = -17 / 24   # -0.7083 ft
+ZONE_RIGHT = 17 / 24   #  0.7083 ft
 
 # --- Heatmap grid settings (in Statcast plate_x/plate_z units: feet) ---
 X_MIN = -2.0

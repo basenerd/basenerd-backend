@@ -3431,10 +3431,12 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
 
     svg.innerHTML = "";
 
+    // MLB plate width = 17 inches = ±8.5 inches = ±0.7083 feet from center
+    const plateHalf = 17 / 24;  // 0.7083 ft
     const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
-    rect.setAttribute("x", xScale(-0.83));
+    rect.setAttribute("x", xScale(-plateHalf));
     rect.setAttribute("y", yScale(zoneTop));
-    rect.setAttribute("width", xScale(0.83) - xScale(-0.83));
+    rect.setAttribute("width", xScale(plateHalf) - xScale(-plateHalf));
     rect.setAttribute("height", yScale(zoneBot) - yScale(zoneTop));
     rect.setAttribute("fill", "rgba(15,23,42,.03)");
     rect.setAttribute("stroke", "rgba(226,232,240,.9)");
@@ -4237,12 +4239,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // Zone SVG helpers — viewBox "0 0 220 240"
   // x: -2.5 to 2.5 ft → 0 to 220px (44 px/ft)
   // z: 0 to 5 ft → 240 to 0px (48 px/ft, flipped)
-  const ZW=220, ZH=240, ZXS=44, ZZS=48;
+  // MLB plate = 17 inches = ±8.5 in = ±0.7083 ft from center
+  const ZW=220, ZH=240, ZXS=44, ZZS=48, Z_PLATE_HALF=17/24;
   function zx(x){ return (x+2.5)*ZXS; }
   function zz(z){ return ZH - z*ZZS; }
-  const ZL=zx(-0.83).toFixed(1), ZR=zx(0.83).toFixed(1);
+  const ZL=zx(-Z_PLATE_HALF).toFixed(1), ZR=zx(Z_PLATE_HALF).toFixed(1);
   const ZT=zz(3.5).toFixed(1),   ZB=zz(1.5).toFixed(1);
-  const ZRW=(zx(0.83)-zx(-0.83)).toFixed(1);
+  const ZRW=(zx(Z_PLATE_HALF)-zx(-Z_PLATE_HALF)).toFixed(1);
   const ZRH=(zz(1.5)-zz(3.5)).toFixed(1);
 
   function renderZone(svgId, pitches, stand){
@@ -4335,9 +4338,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
         const c = p.call;
         if(SWING_CALLS.has(c)) swings++;
         if(WHIFF_CALLS.has(c)) whiffs++;
-        // Zone approximation: px in [-0.83,0.83] and pz in [1.5,3.5]
+        // Zone approximation: px in plate (±8.5in = ±0.7083ft) and pz in [1.5,3.5]
         if(p.px!=null && p.pz!=null){
-          const iz = (p.px >= -0.83 && p.px <= 0.83 && p.pz >= 1.5 && p.pz <= 3.5);
+          const _ph = 17/24;  // 0.7083 ft
+          const iz = (p.px >= -_ph && p.px <= _ph && p.pz >= 1.5 && p.pz <= 3.5);
           if(iz) inZone++;
           else { ooz++; if(SWING_CALLS.has(c)) oozSwings++; }
         }

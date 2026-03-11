@@ -740,7 +740,7 @@ def _draw_location_chart(c, x, y, w, h, scatter_data, stand_filter, title):
 
     x_min, x_max = -2.0, 2.0
     z_min, z_max = 0.5, 4.5
-    zone_left, zone_right = -0.83, 0.83
+    zone_left, zone_right = -17/24, 17/24  # MLB plate = 17 inches = ±0.7083 ft
     zone_bot, zone_top = 1.59, 3.39
 
     def to_px(plate_x, plate_z):
