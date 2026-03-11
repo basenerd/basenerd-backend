@@ -57,6 +57,13 @@ def _batter_expected_statline(probs, summary, est_pa):
     }
 
 
+def _outs_to_ip(outs):
+    """Convert total outs to baseball IP notation (e.g. 17 outs → '5.2')."""
+    full = int(outs) // 3
+    remainder = int(outs) % 3
+    return f"{full}.{remainder}"
+
+
 def _pitcher_expected_statline(batters, is_spring):
     """Compute expected pitcher statline by aggregating batter predictions."""
     valid = [b for b in batters if b.get("probs")]
@@ -70,18 +77,20 @@ def _pitcher_expected_statline(batters, is_spring):
     avg_hit = sum(b["summary"].get("hit_pct", 0) for b in valid) / n
     avg_hr = sum(b["probs"].get("HR", 0) for b in valid) / n
 
-    # Estimated batters faced: spring starters ~12-16, regular ~25
-    est_bf = 14 if is_spring else 25
+    # Estimated batters faced:
+    # Regular season starter avg ~24 BF, ~5.1 IP (2024 MLB avg)
+    # Spring training starter ~12 BF, ~2.2 IP (short outings)
+    est_bf = 12 if is_spring else 24
     est_outs = est_bf * avg_out
-    est_ip = est_outs / 3
+    ip_str = _outs_to_ip(round(est_outs))
 
-    # ER estimate: calibrated so league-avg pitcher ≈ 4.00 ERA
-    # HR worth ~1.4 runs, singles/doubles ~0.25 run contribution, walks ~0.12
+    # ER estimate: calibrated so league-avg starter ≈ 4.00-4.30 ERA
+    # HR worth ~1.4 runs, other hits ~0.25 run contribution, walks ~0.12
     er_per_bf = avg_hr * 1.4 + (avg_hit - avg_hr) * 0.25 + avg_bb * 0.12
     est_er = est_bf * er_per_bf
 
     return {
-        "ip": round(est_ip, 1),
+        "ip": ip_str,
         "k": round(est_bf * avg_k, 1),
         "bb": round(est_bf * avg_bb, 1),
         "h": round(est_bf * avg_hit, 1),
