@@ -1255,6 +1255,21 @@
 </div>
 
 <script>
+  // MLB team primary colors (hex)
+  window.TEAM_COLORS = {
+    ARI:'#A71930', ATL:'#CE1141', BAL:'#DF4601', BOS:'#BD3039', CHC:'#0E3386',
+    CWS:'#27251F', CIN:'#C6011F', CLE:'#00385D', COL:'#333366', DET:'#0C2340',
+    HOU:'#EB6E1F', KC:'#004687', LAA:'#BA0021', LAD:'#005A9C', MIA:'#00A3E0',
+    MIL:'#FFC52F', MIN:'#002B5C', NYM:'#FF5910', NYY:'#003087', OAK:'#003831',
+    PHI:'#E81828', PIT:'#FDB827', SD:'#2F241D', SF:'#FD5A1E', SEA:'#0C2C56',
+    STL:'#C41E3A', TB:'#092C5C', TEX:'#003278', TOR:'#134A8E', WSH:'#AB0003',
+    // Spring training / alternates
+    ATH:'#003831', WSN:'#AB0003',
+  };
+  window.getTeamColor = function(abbrev, fallback){
+    return window.TEAM_COLORS[(abbrev||'').toUpperCase()] || fallback || '#888';
+  };
+
   // Hook GameCast JSON to the hero (no new endpoints)
   // Requires your existing GAME_PK/GC_URL/IS_LIVE vars + polling to be active.
 
@@ -4217,6 +4232,12 @@ function __render_winodds(sim, awayAbbrev, homeAbbrev){
   const hm = Number(sim.homeWinPct || 0);
   const arcLen = 377; // π × 120
 
+  // Apply team colors
+  const awayColor = getTeamColor(awayAbbrev, '#3b82f6');
+  const homeColor = getTeamColor(homeAbbrev, '#ef4444');
+  if(awayArc) awayArc.setAttribute("stroke", awayColor);
+  if(homeArc) homeArc.setAttribute("stroke", homeColor);
+
   sub.textContent = `After ${sim.sims || "—"} sims`;
   if(awayPctEl) awayPctEl.textContent = `${awayAbbrev} ${(aw*100).toFixed(1)}%`;
   if(homePctEl) homePctEl.textContent = `${homeAbbrev} ${(hm*100).toFixed(1)}%`;
@@ -4480,6 +4501,9 @@ function __render_expected_runs_chart(sim, awayAbbrev, homeAbbrev){
   if(!card || !svg) return;
   if(!sim || !sim.expectedLinescore) return;
 
+  const awayColor = getTeamColor(awayAbbrev, '#3b82f6');
+  const homeColor = getTeamColor(homeAbbrev, '#ef4444');
+
   const innA = sim.expectedLinescore.away || [];
   const innH = sim.expectedLinescore.home || [];
   const n = Math.max(innA.length, innH.length, 9);
@@ -4528,28 +4552,28 @@ function __render_expected_runs_chart(sim, awayAbbrev, homeAbbrev){
 
   const awayLabel = awayLogo
     ? `<image href="${awayLogo}" x="${lastAx+6}" y="${lastAy - logoSize/2}" width="${logoSize}" height="${logoSize}"/>`
-    : `<text x="${lastAx+6}" y="${lastAy+4}" font-size="11" fill="rgba(59,130,246,.9)" font-family="monospace">${awayAbbrev||"Away"}</text>`;
+    : `<text x="${lastAx+6}" y="${lastAy+4}" font-size="11" fill="${awayColor}" font-family="monospace">${awayAbbrev||"Away"}</text>`;
   const homeLabel = homeLogo
     ? `<image href="${homeLogo}" x="${lastHx+6}" y="${lastHy - logoSize/2}" width="${logoSize}" height="${logoSize}"/>`
-    : `<text x="${lastHx+6}" y="${lastHy+4}" font-size="11" fill="rgba(239,68,68,.9)" font-family="monospace">${homeAbbrev||"Home"}</text>`;
+    : `<text x="${lastHx+6}" y="${lastHy+4}" font-size="11" fill="${homeColor}" font-family="monospace">${homeAbbrev||"Home"}</text>`;
 
   // Legend at top
   const legendAway = awayLogo
     ? `<image href="${awayLogo}" x="${ml+6}" y="${8}" width="16" height="16"/><text x="${ml+26}" y="${19}" font-size="11" fill="rgba(255,255,255,.8)" font-family="monospace">${awayAbbrev||"Away"} (xR cumulative)</text>`
-    : `<rect x="${ml+6}" y="${12}" width="14" height="3" fill="rgba(59,130,246,.85)" rx="1"/><text x="${ml+24}" y="${19}" font-size="11" fill="rgba(255,255,255,.8)" font-family="monospace">${awayAbbrev||"Away"} (xR cumulative)</text>`;
+    : `<rect x="${ml+6}" y="${12}" width="14" height="3" fill="${awayColor}" rx="1"/><text x="${ml+24}" y="${19}" font-size="11" fill="rgba(255,255,255,.8)" font-family="monospace">${awayAbbrev||"Away"} (xR cumulative)</text>`;
   const legendHome = homeLogo
     ? `<image href="${homeLogo}" x="${ml+160}" y="${8}" width="16" height="16"/><text x="${ml+180}" y="${19}" font-size="11" fill="rgba(255,255,255,.8)" font-family="monospace">${homeAbbrev||"Home"} (xR cumulative)</text>`
-    : `<rect x="${ml+160}" y="${12}" width="14" height="3" fill="rgba(239,68,68,.85)" rx="1"/><text x="${ml+178}" y="${19}" font-size="11" fill="rgba(255,255,255,.8)" font-family="monospace">${homeAbbrev||"Home"} (xR cumulative)</text>`;
+    : `<rect x="${ml+160}" y="${12}" width="14" height="3" fill="${homeColor}" rx="1"/><text x="${ml+178}" y="${19}" font-size="11" fill="rgba(255,255,255,.8)" font-family="monospace">${homeAbbrev||"Home"} (xR cumulative)</text>`;
 
   svg.innerHTML = `
     ${legendAway}${legendHome}
     ${grid}${yLbl}${xLbl}
     <line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ph}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
     <line x1="${ml}" y1="${mt+ph}" x2="${W-mr}" y2="${mt+ph}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
-    <polyline points="${pts(cumA)}" fill="none" stroke="rgba(59,130,246,.85)" stroke-width="2.2" stroke-linejoin="round"/>
-    ${dots(cumA,"rgba(59,130,246,.95)")}
-    <polyline points="${pts(cumH)}" fill="none" stroke="rgba(239,68,68,.85)" stroke-width="2.2" stroke-linejoin="round"/>
-    ${dots(cumH,"rgba(239,68,68,.95)")}
+    <polyline points="${pts(cumA)}" fill="none" stroke="${awayColor}" stroke-width="2.2" stroke-linejoin="round" opacity="0.85"/>
+    ${dots(cumA, awayColor)}
+    <polyline points="${pts(cumH)}" fill="none" stroke="${homeColor}" stroke-width="2.2" stroke-linejoin="round" opacity="0.85"/>
+    ${dots(cumH, homeColor)}
   `;
   card.style.display = "block";
 }
@@ -5092,6 +5116,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
     const awayAbbrev = d.away_abbrev || 'AWAY';
     const homeAbbrev = d.home_abbrev || 'HOME';
+    const awayColor = getTeamColor(awayAbbrev, '#3b82f6');
+    const homeColor = getTeamColor(homeAbbrev, '#ef4444');
     const es = sim.expectedScore || {};
 
     el.innerHTML = `<div class="pv-sim-card">
@@ -5100,22 +5126,22 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
       <svg viewBox="0 0 300 170" style="width:100%; max-width:340px; display:block; margin:0 auto; overflow:visible;">
         <path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="22" stroke-linecap="round"/>
-        <path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="rgba(59,130,246,.85)" stroke-width="22" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="${awayOffset}"/>
-        <path d="M270 150 A120 120 0 0 0 30 150" fill="none" stroke="rgba(239,68,68,.85)" stroke-width="22" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="${homeOffset}"/>
+        <path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="${awayColor}" stroke-width="22" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="${awayOffset}" opacity="0.85"/>
+        <path d="M270 150 A120 120 0 0 0 30 150" fill="none" stroke="${homeColor}" stroke-width="22" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="${homeOffset}" opacity="0.85"/>
         <line x1="150" y1="150" x2="150" y2="36" stroke="rgba(255,255,255,.9)" stroke-width="2.5" stroke-linecap="round" transform="rotate(${angle.toFixed(1)} 150 150)"/>
         <circle cx="150" cy="150" r="5" fill="rgba(255,255,255,.9)"/>
-        <text x="24" y="172" font-size="12" fill="rgba(148,163,184,.9)" font-family="monospace" text-anchor="middle">${awayAbbrev} ${(aw*100).toFixed(1)}%</text>
-        <text x="276" y="172" font-size="12" fill="rgba(148,163,184,.9)" font-family="monospace" text-anchor="middle">${homeAbbrev} ${(hm*100).toFixed(1)}%</text>
+        <text x="24" y="172" font-size="12" fill="${awayColor}" font-family="monospace" text-anchor="middle">${awayAbbrev} ${(aw*100).toFixed(1)}%</text>
+        <text x="276" y="172" font-size="12" fill="${homeColor}" font-family="monospace" text-anchor="middle">${homeAbbrev} ${(hm*100).toFixed(1)}%</text>
       </svg>
 
       <div class="pv-sim-score">
         <div class="pv-sim-team">
-          <div class="pv-sim-abbrev">${awayAbbrev}</div>
+          <div class="pv-sim-abbrev" style="color:${awayColor}">${awayAbbrev}</div>
           <div class="pv-sim-runs">${es.away != null ? es.away : '-'}</div>
         </div>
         <div class="pv-sim-dash">-</div>
         <div class="pv-sim-team">
-          <div class="pv-sim-abbrev">${homeAbbrev}</div>
+          <div class="pv-sim-abbrev" style="color:${homeColor}">${homeAbbrev}</div>
           <div class="pv-sim-runs">${es.home != null ? es.home : '-'}</div>
         </div>
       </div>
