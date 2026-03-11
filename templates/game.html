@@ -233,42 +233,30 @@
   /* ---- Matchup Probabilities ---- */
   #gc-matchup-probs .mp-bars{
     display:flex;
-    flex-direction:column;
-    gap:5px;
-  }
-  #gc-matchup-probs .mp-row{
-    display:flex;
-    align-items:center;
+    flex-wrap:wrap;
     gap:6px;
   }
-  #gc-matchup-probs .mp-label{
-    font-size:11px;
-    font-weight:600;
-    width:32px;
-    text-align:right;
-    flex:0 0 auto;
-    opacity:.8;
+  #gc-matchup-probs .mp-cell{
+    flex:1 1 0;
+    min-width:52px;
+    text-align:center;
+    padding:6px 4px;
+    border-radius:8px;
+    border:1px solid rgba(148,163,184,.15);
+    background:rgba(15,23,42,.02);
   }
-  #gc-matchup-probs .mp-track{
-    flex:1;
-    height:16px;
-    background:rgba(148,163,184,.10);
-    border-radius:4px;
-    overflow:hidden;
-    position:relative;
+  #gc-matchup-probs .mp-cell-label{
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.3px;
+    opacity:.7;
   }
-  #gc-matchup-probs .mp-fill{
-    height:100%;
-    border-radius:4px;
-    transition: width .4s ease;
-  }
-  #gc-matchup-probs .mp-val{
+  #gc-matchup-probs .mp-cell-val{
     font-family: IBM Plex Mono, ui-monospace, Menlo, monospace;
-    font-size:11px;
-    font-weight:600;
-    width:40px;
-    text-align:right;
-    flex:0 0 auto;
+    font-size:13px;
+    font-weight:700;
+    margin-top:1px;
   }
   #gc-matchup-probs .mp-summary{
     display:flex;
@@ -3153,7 +3141,7 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
     const probs = d.probs || {};
     const summary = d.summary || {};
 
-    // Bar chart rows — group into meaningful categories
+    // Outcome cells — one row across
     const rows = [
       { label: "K",   val: probs.K   || 0, color: "#ef4444" },
       { label: "OUT", val: probs.OUT || 0, color: "#94a3b8" },
@@ -3164,20 +3152,13 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
       { label: "HR",  val: probs.HR  || 0, color: "#a855f7" },
     ];
 
-    // Find max for scaling
-    const maxVal = Math.max(...rows.map(r => r.val), 0.01);
-
     let barsHtml = "";
     for(const r of rows){
       const pct = (r.val * 100).toFixed(1);
-      const barW = ((r.val / maxVal) * 100).toFixed(1);
       barsHtml += `
-        <div class="mp-row">
-          <div class="mp-label">${r.label}</div>
-          <div class="mp-track">
-            <div class="mp-fill" style="width:${barW}%; background:${r.color};"></div>
-          </div>
-          <div class="mp-val" style="color:${r.color};">${pct}%</div>
+        <div class="mp-cell">
+          <div class="mp-cell-label">${r.label}</div>
+          <div class="mp-cell-val" style="color:${r.color};">${pct}%</div>
         </div>`;
     }
     barsEl.innerHTML = barsHtml;
