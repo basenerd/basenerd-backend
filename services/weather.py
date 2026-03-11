@@ -47,6 +47,7 @@ def fetch_game_weather(venue_id, game_datetime_str):
             "temp_f": 72,
             "wind_mph": 0,
             "wind_dir": 0,
+            "bearing": venue.get("bearing", 180),
             "impact": {"hr_factor": 1.0, "xbh_factor": 1.0, "label": "Dome (controlled)"},
         }
 
@@ -107,6 +108,7 @@ def fetch_game_weather(venue_id, game_datetime_str):
             "temp_f": round(temp_f),
             "wind_mph": round(wind_mph),
             "wind_dir": round(wind_dir),
+            "bearing": venue.get("bearing", 180),
             "impact": impact,
         }
         _cache[cache_key] = result
@@ -180,5 +182,6 @@ def _fallback(venue):
         "temp_f": 72,
         "wind_mph": 0,
         "wind_dir": 0,
+        "bearing": venue.get("bearing", 180),
         "impact": impact,
     }

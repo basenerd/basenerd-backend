@@ -775,6 +775,17 @@
   .pv-wx-impact.hitter{ background:rgba(81,207,102,0.15); color:#51cf66; }
   .pv-wx-impact.pitcher{ background:rgba(255,107,107,0.15); color:#ff6b6b; }
   .pv-wx-impact.neutral{ background:rgba(255,255,255,0.06); color:#aaa; }
+  .pv-wind-diagram{
+    position:relative; width:100px; height:100px; flex-shrink:0;
+  }
+  .pv-wind-diagram img{
+    width:100%; height:100%; object-fit:contain; opacity:0.25;
+    filter:invert(1) brightness(0.7);
+  }
+  .pv-wind-arrow{
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    pointer-events:none;
+  }
 
   .pv-side{ margin-bottom:20px; }
   .pv-side-title{
@@ -942,6 +953,7 @@
     .pv-pitcher img{ width:44px; height:44px; }
     .pv-weather{ gap:10px; padding:10px 12px; }
     .pv-wx-item .val{ font-size:1rem; }
+    .pv-wind-diagram{ width:80px; height:80px; }
     .pv-bullpen-grid{ grid-template-columns: 1fr; }
     .pv-bp-card{ padding:8px 10px; }
     .pv-bp-avatar{ width:32px; height:32px; }
@@ -4960,6 +4972,47 @@ document.addEventListener("DOMContentLoaded", ()=>{
     const windLabel = w.dome ? '' : dirs[Math.round(w.wind_dir / 22.5) % 16];
 
     let html = '<div class="pv-weather">';
+
+    // Stadium SVG with wind arrow (outdoor only)
+    if(!w.dome && w.wind_mph > 0){
+      const stadiumUrl = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
+      // Arrow rotation: SVG has CF at top (0°). bearing = compass deg HP→CF.
+      // wind_dir = compass deg where wind comes FROM. Arrow points where wind goes TO.
+      const windToward = (w.wind_dir + 180) % 360;
+      const bearing = w.bearing || 180;
+      const arrowDeg = windToward - bearing; // rotation in SVG space (0°=toward CF)
+      // Arrow length scales with wind speed (min 20%, max 80% of radius)
+      const r = Math.min(40, Math.max(12, w.wind_mph * 1.8));
+      const cx = 50, cy = 50; // center of 100×100 viewBox
+      // Arrow tip from center outward in direction arrowDeg (0°=up in SVG)
+      const rad = arrowDeg * Math.PI / 180;
+      const tipX = cx + r * Math.sin(rad);
+      const tipY = cy - r * Math.cos(rad);
+      const tailX = cx - r * 0.35 * Math.sin(rad);
+      const tailY = cy + r * 0.35 * Math.cos(rad);
+      // Arrowhead wings
+      const headLen = Math.min(10, r * 0.35);
+      const wingAngle = 25 * Math.PI / 180;
+      const w1x = tipX - headLen * Math.sin(rad + wingAngle);
+      const w1y = tipY + headLen * Math.cos(rad + wingAngle);
+      const w2x = tipX - headLen * Math.sin(rad - wingAngle);
+      const w2y = tipY + headLen * Math.cos(rad - wingAngle);
+      // Color based on wind speed
+      let arrowColor = '#4dabf7'; // light blue default
+      if(w.wind_mph >= 15) arrowColor = '#ff922b';
+      else if(w.wind_mph >= 10) arrowColor = '#ffd43b';
+
+      html += `<div class="pv-wind-diagram">
+        <img src="${stadiumUrl}" alt="Stadium">
+        <svg class="pv-wind-arrow" viewBox="0 0 100 100">
+          <line x1="${tailX.toFixed(1)}" y1="${tailY.toFixed(1)}" x2="${tipX.toFixed(1)}" y2="${tipY.toFixed(1)}"
+                stroke="${arrowColor}" stroke-width="3" stroke-linecap="round"/>
+          <polygon points="${tipX.toFixed(1)},${tipY.toFixed(1)} ${w1x.toFixed(1)},${w1y.toFixed(1)} ${w2x.toFixed(1)},${w2y.toFixed(1)}"
+                   fill="${arrowColor}"/>
+        </svg>
+      </div>`;
+    }
+
     if(w.dome){
       html += '<div class="pv-wx-item"><div class="val">Dome</div><div class="lbl">Retractable roof closed</div></div>';
     } else {
