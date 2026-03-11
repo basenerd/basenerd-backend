@@ -41,19 +41,32 @@ def _batter_expected_statline(probs, summary, est_pa):
     if not probs or not summary:
         return None
     est_ab = est_pa * (1 - probs.get("BB", 0) - probs.get("HBP", 0) - probs.get("IBB", 0))
+    hit_pct = summary.get("hit_pct", 0)
+    hr_pct = probs.get("HR", 0)
+    bb_pct = probs.get("BB", 0) + probs.get("IBB", 0)
+    k_pct = probs.get("K", 0)
+    obp = summary.get("obp", 0)
+    xslg = summary.get("xslg", 0)
+
     return {
         "pa": round(est_pa, 1),
         "ab": round(est_ab, 1),
-        "h": round(est_pa * summary.get("hit_pct", 0), 1),
-        "hr": round(est_pa * probs.get("HR", 0), 2),
+        "h": round(est_pa * hit_pct, 2),
+        "hr": round(est_pa * hr_pct, 2),
         "rbi": round(est_pa * (
-            probs.get("HR", 0) * 1.5
+            hr_pct * 1.5
             + probs.get("2B", 0) * 0.5
             + probs.get("3B", 0) * 0.8
             + probs.get("1B", 0) * 0.15
-        ), 1),
-        "bb": round(est_pa * (probs.get("BB", 0) + probs.get("IBB", 0)), 1),
-        "k": round(est_pa * probs.get("K", 0), 1),
+        ), 2),
+        "bb": round(est_pa * bb_pct, 2),
+        "k": round(est_pa * k_pct, 2),
+        # Rates for display (more differentiated than tiny expected counts)
+        "avg": round(hit_pct / (1 - bb_pct - probs.get("HBP", 0)) if (1 - bb_pct - probs.get("HBP", 0)) > 0 else 0, 3),
+        "obp": round(obp, 3),
+        "xslg": round(xslg, 3),
+        "k_rate": round(k_pct, 3),
+        "bb_rate": round(bb_pct, 3),
     }
 
 

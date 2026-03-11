@@ -5336,11 +5336,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
       <th style="width:28px">#</th>
       <th>Batter</th>
       <th class="num">Grade</th>
-      <th class="num pv-col-exp">AB</th>
-      <th class="num pv-col-exp">H</th>
-      <th class="num pv-col-exp">HR</th>
-      <th class="num pv-col-exp">BB</th>
-      <th class="num pv-col-exp">K</th>
+      <th class="num pv-col-exp">AVG</th>
+      <th class="num pv-col-exp">OBP</th>
+      <th class="num pv-col-exp">xSLG</th>
+      <th class="num pv-col-exp">K%</th>
+      <th class="num pv-col-exp">BB%</th>
       <th class="num">Form</th>
     </tr></thead><tbody>`;
 
@@ -5363,11 +5363,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
       html += `<div><span class="pv-batter-name">${b.name}</span> <span class="pv-batter-meta">${b.stand} ${b.pos}</span></div>`;
       html += `</div></td>`;
       html += `<td class="num"><span class="pv-grade ${gradeClass(grade)}">${grade}</span></td>`;
-      html += `<td class="num pv-col-exp">${sl.ab != null ? sl.ab : '-'}</td>`;
-      html += `<td class="num pv-col-exp">${sl.h != null ? sl.h : '-'}</td>`;
-      html += `<td class="num pv-col-exp">${sl.hr != null ? sl.hr : '-'}</td>`;
-      html += `<td class="num pv-col-exp">${sl.bb != null ? sl.bb : '-'}</td>`;
-      html += `<td class="num pv-col-exp">${sl.k != null ? sl.k : '-'}</td>`;
+      const _f3 = v => v != null ? v.toFixed(3).replace(/^0/,'') : '-';
+      const _pct = v => v != null ? (v*100).toFixed(1)+'%' : '-';
+      html += `<td class="num pv-col-exp">${_f3(sl.avg)}</td>`;
+      html += `<td class="num pv-col-exp">${_f3(sl.obp)}</td>`;
+      html += `<td class="num pv-col-exp">${_f3(sl.xslg)}</td>`;
+      html += `<td class="num pv-col-exp">${_pct(sl.k_rate)}</td>`;
+      html += `<td class="num pv-col-exp">${_pct(sl.bb_rate)}</td>`;
       html += `<td class="num">${formHtml}</td>`;
       html += `</tr>`;
 
@@ -5400,10 +5402,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
     // Totals
     html += '<div class="pv-totals">';
-    html += `<div class="pv-total"><div class="tv">${totals.exp_k||0}</div><div class="tl">Exp K</div></div>`;
-    html += `<div class="pv-total"><div class="tv">${(totals.exp_hr||0).toFixed(2)}</div><div class="tl">Exp HR</div></div>`;
-    html += `<div class="pv-total"><div class="tv">${totals.exp_hits||0}</div><div class="tl">Exp Hits</div></div>`;
-    html += `<div class="pv-total"><div class="tv">${totals.exp_bb||0}</div><div class="tl">Exp BB</div></div>`;
+    html += `<div class="pv-total"><div class="tv">${(totals.exp_hits||0).toFixed(1)}</div><div class="tl">Exp Hits</div></div>`;
+    html += `<div class="pv-total"><div class="tv">${(totals.exp_hr||0).toFixed(1)}</div><div class="tl">Exp HR</div></div>`;
+    html += `<div class="pv-total"><div class="tv">${(totals.exp_bb||0).toFixed(1)}</div><div class="tl">Exp BB</div></div>`;
+    html += `<div class="pv-total"><div class="tv">${(totals.exp_k||0).toFixed(1)}</div><div class="tl">Exp K</div></div>`;
     html += '</div>';
 
     html += '</div>';
