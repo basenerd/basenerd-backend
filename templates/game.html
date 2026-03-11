@@ -5339,8 +5339,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
       <th class="num pv-col-exp">AVG</th>
       <th class="num pv-col-exp">OBP</th>
       <th class="num pv-col-exp">xSLG</th>
-      <th class="num pv-col-exp">K%</th>
-      <th class="num pv-col-exp">BB%</th>
+      <th class="num">H</th>
+      <th class="num">HR</th>
+      <th class="num">BB</th>
+      <th class="num">K</th>
       <th class="num">Form</th>
     </tr></thead><tbody>`;
 
@@ -5364,17 +5366,18 @@ document.addEventListener("DOMContentLoaded", ()=>{
       html += `</div></td>`;
       html += `<td class="num"><span class="pv-grade ${gradeClass(grade)}">${grade}</span></td>`;
       const _f3 = v => v != null ? v.toFixed(3).replace(/^0/,'') : '-';
-      const _pct = v => v != null ? (v*100).toFixed(1)+'%' : '-';
       html += `<td class="num pv-col-exp">${_f3(sl.avg)}</td>`;
       html += `<td class="num pv-col-exp">${_f3(sl.obp)}</td>`;
       html += `<td class="num pv-col-exp">${_f3(sl.xslg)}</td>`;
-      html += `<td class="num pv-col-exp">${_pct(sl.k_rate)}</td>`;
-      html += `<td class="num pv-col-exp">${_pct(sl.bb_rate)}</td>`;
+      html += `<td class="num">${sl.h != null ? sl.h : '-'}</td>`;
+      html += `<td class="num">${sl.hr != null ? sl.hr : '-'}</td>`;
+      html += `<td class="num">${sl.bb != null ? sl.bb : '-'}</td>`;
+      html += `<td class="num">${sl.k != null ? sl.k : '-'}</td>`;
       html += `<td class="num">${formHtml}</td>`;
       html += `</tr>`;
 
       // Expandable row with probability bars + detailed statline
-      html += `<tr class="pv-expand" id="${eid}"><td colspan="9"><div class="pv-prob-bars">`;
+      html += `<tr class="pv-expand" id="${eid}"><td colspan="11"><div class="pv-prob-bars">`;
       OUTCOMES.forEach(o=>{
         const pct = (probs[o]||0)*100;
         const barH = Math.max(2, pct/50*36);
