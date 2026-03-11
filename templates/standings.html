@@ -23,6 +23,8 @@
   </div>
 
   <div class="standings-tabs">
+    <a class="standings-tab {% if view == 'spring' %}active{% endif %}"
+       href="/standings?season={{ season }}&view=spring">Spring Training</a>
     <a class="standings-tab {% if (view or 'division') == 'division' %}active{% endif %}"
        href="/standings?season={{ season }}&view=division">Regular Season</a>
     <a class="standings-tab {% if (view or 'division') == 'wildcard' %}active{% endif %}"
@@ -541,7 +543,71 @@
   {% endif %}
 {% endmacro %}
 
-{% if (view or 'division') == 'playoffs' %}
+{% macro spring_table(league_name, teams) %}
+  <div class="card">
+    <div class="card-header">
+      <div><div class="card-title">{{ league_name }}</div></div>
+    </div>
+    <div class="subcard">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="num" style="width:32px;">#</th>
+              <th>Team</th>
+              <th class="num">W</th>
+              <th class="num">L</th>
+              <th class="num">T</th>
+              <th class="num pctcol">Pct</th>
+              <th class="num">GB</th>
+              <th class="num">Streak</th>
+              <th class="num">Run Diff</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in teams %}
+              {% set p = (t.pct|float if t.pct is not none else none) %}
+              {% set rd = (t.run_diff|int(0)) %}
+              <tr>
+                <td class="num" style="opacity:0.5;">{{ t.rank }}</td>
+                <td class="teamcell">
+                  {% if t.logo_url %}
+                    <img class="teamlogo" src="{{ t.logo_url }}" alt="{{ t.abbrev }} logo">
+                  {% endif %}
+                  <a class="teamlink" href="/team/{{ t.team_id }}">{{ t.abbrev }}</a>
+                </td>
+                <td class="num">{{ t.w }}</td>
+                <td class="num">{{ t.l }}</td>
+                <td class="num">{{ t.t if t.t else "0" }}</td>
+                <td class="num pctcol">{{ pct_badge(p) }}</td>
+                <td class="num">{{ t.gb if t.gb and t.gb != "-" else "—" }}</td>
+                <td class="num">{{ streak_cell(t.streak) }}</td>
+                <td class="num">
+                  {% if rd > 0 %}
+                    <span class="rundiff-pos">+{{ rd }}</span>
+                  {% elif rd < 0 %}
+                    <span class="rundiff-neg">{{ rd }}</span>
+                  {% else %}
+                    <span>{{ rd }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endmacro %}
+
+{% if view == 'spring' %}
+
+  <div class="grid-2">
+    {{ spring_table("Cactus League", cactus_teams) }}
+    {{ spring_table("Grapefruit League", grapefruit_teams) }}
+  </div>
+
+{% elif (view or 'division') == 'playoffs' %}
 
   <div class="card bracket-wrap">
     <div class="card-header">

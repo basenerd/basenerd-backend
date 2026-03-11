@@ -1,5 +1,8 @@
 # services/standings_db.py
+from __future__ import annotations
 import os
+import urllib.request
+import json
 import psycopg
 
 
@@ -145,3 +148,57 @@ def build_divs(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     nl_divs.sort(key=div_sort_key)
 
     return al_divs, nl_divs
+
+
+def fetch_spring_standings(season: int) -> tuple[list[dict], list[dict]]:
+    """Fetch spring training standings from MLB Stats API.
+    Returns (cactus_teams, grapefruit_teams) sorted by springLeagueRank.
+    """
+    url = (
+        f"https://statsapi.mlb.com/api/v1/standings"
+        f"?leagueId=114,115&season={season}&standingsTypes=springTraining"
+    )
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read())
+
+    def _parse_record(rec):
+        teams = []
+        for tr in rec.get("teamRecords", []):
+            team = tr.get("team", {})
+            tid = team.get("id", 0)
+            streak_obj = tr.get("streak", {})
+            lr = tr.get("leagueRecord", {})
+            teams.append({
+                "team_id": tid,
+                "abbrev": team.get("abbreviation", ""),
+                "team_name": team.get("name", ""),
+                "w": tr.get("wins", 0),
+                "l": tr.get("losses", 0),
+                "t": lr.get("ties", 0),
+                "pct": _as_float(tr.get("winningPercentage"), None),
+                "gb": tr.get("gamesBack", "—"),
+                "streak": streak_obj.get("streakCode", "—"),
+                "run_diff": tr.get("runDifferential", 0),
+                "rs": tr.get("runsScored", 0),
+                "ra": tr.get("runsAllowed", 0),
+                "rank": _as_int(tr.get("springLeagueRank"), 99),
+                "logo_url": f"https://www.mlbstatic.com/team-logos/{tid}.svg",
+            })
+        teams.sort(key=lambda x: x["rank"])
+        return teams
+
+    records = data.get("records", [])
+
+    # API returns Cactus League (leagueId=114) first, Grapefruit (115) second.
+    # Identify by checking for known Cactus teams (AZ=109, SF=137, LAD=119).
+    cactus_ids = {109, 137, 119}
+    cactus, grapefruit = [], []
+    for rec in records:
+        team_ids = {tr.get("team", {}).get("id", 0) for tr in rec.get("teamRecords", [])}
+        if team_ids & cactus_ids:
+            cactus = _parse_record(rec)
+        else:
+            grapefruit = _parse_record(rec)
+
+    return cactus, grapefruit

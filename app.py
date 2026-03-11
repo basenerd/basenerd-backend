@@ -2795,8 +2795,11 @@ def standings():
     season = request.args.get("season", default=default_season, type=int)
     seasons = list(range(2021, default_season + 1))
 
-    view = (request.args.get("view", "division") or "division").lower()
-    if view not in ("division", "wildcard", "playoffs"):
+    # Default to spring training view during March before Opening Day
+    is_spring = (now.month == 3 and now.day < 25) or (now.month == 2 and now.day >= 15)
+    default_view = "spring" if (is_spring and season == current_year) else "division"
+    view = (request.args.get("view", default_view) or default_view).lower()
+    if view not in ("division", "wildcard", "playoffs", "spring"):
         view = "division"
 
     # helper: build the little “chip” dict the template expects
@@ -2895,6 +2898,17 @@ def standings():
     except Exception as e:
         error = f"Standings DB query failed: {e}"
 
+    # Spring training standings (live from MLB API)
+    cactus_teams, grapefruit_teams = [], []
+    if view == "spring":
+        try:
+            from services.standings_db import fetch_spring_standings
+            cactus_teams, grapefruit_teams = fetch_spring_standings(season)
+            if not cactus_teams and not grapefruit_teams:
+                error = f"No spring training standings found for {season}."
+        except Exception as e:
+            error = f"Spring training standings failed: {e}"
+
     return render_template(
         "standings.html",
         title="Standings",
@@ -2909,6 +2923,8 @@ def standings():
         nl_wc=nl_wc,
         playoff_picture=playoff_picture,
         is_current_season=(season == default_season),
+        cactus_teams=cactus_teams,
+        grapefruit_teams=grapefruit_teams,
         error=error,
     )
 
