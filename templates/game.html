@@ -230,6 +230,67 @@
     overflow:hidden;
     text-overflow:ellipsis;
   }
+  #tab-gamecast .gc-hand-badge{
+    display:inline-block;
+    font-size:10px;
+    font-weight:700;
+    padding:1px 5px;
+    border-radius:6px;
+    background:rgba(59,130,246,.12);
+    color:rgba(59,130,246,1);
+    vertical-align:middle;
+    margin-left:4px;
+  }
+  #tab-gamecast .gc-stat-badge{
+    display:inline-block;
+    font-size:11px;
+    font-weight:700;
+    padding:1px 6px;
+    border-radius:6px;
+    background:rgba(15,23,42,.06);
+  }
+  /* Lineup indicator pills */
+  #tab-gamecast .gc-lineup-pill{
+    display:inline-block;
+    font-size:9px;
+    font-weight:700;
+    padding:1px 5px;
+    border-radius:5px;
+    margin-left:4px;
+    vertical-align:middle;
+    line-height:1.4;
+  }
+  #tab-gamecast .gc-pill-od{
+    background:rgba(234,179,8,.15);
+    color:rgba(161,98,7,1);
+  }
+  #tab-gamecast .gc-pill-base{
+    background:rgba(34,197,94,.12);
+    color:rgba(22,163,74,1);
+  }
+  /* Substitution toast */
+  #gc-sub-toast{
+    position:fixed;
+    bottom:24px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:9999;
+    background:rgba(15,23,42,.92);
+    color:#fff;
+    padding:12px 20px;
+    border-radius:14px;
+    font-size:14px;
+    font-weight:600;
+    box-shadow:0 4px 20px rgba(0,0,0,.25);
+    opacity:0;
+    transition:opacity .3s ease;
+    pointer-events:none;
+    max-width:90vw;
+    text-align:center;
+  }
+  #gc-sub-toast.show{
+    opacity:1;
+  }
 
   /* ---- Matchup Probabilities ---- */
   #gc-matchup-probs .mp-bars{
@@ -1287,6 +1348,7 @@
 <!-- GAMECAST -->
 {% if is_live %}
 <div class="tab-panel active" id="tab-gamecast">
+  <div id="gc-sub-toast"></div>
 
   <div class="card" style="margin-top:14px;">
     <div class="card-header">
@@ -3019,15 +3081,32 @@ if(gcBtn && gcPanel){
     const hs = (obj && obj.headshot) ? obj.headshot : "";
     const line = (obj && obj.line) ? obj.line : "";
     const pos = (obj && obj.pos) ? obj.pos : "";
+
+    // Handedness badge
+    let handBadge = "";
+    if(role === "At Bat" && obj?.stand){
+      handBadge = `<span class="gc-hand-badge mono">${obj.stand}</span>`;
+    } else if(role === "Pitching" && obj?.throws){
+      handBadge = `<span class="gc-hand-badge mono">${obj.throws}HP</span>`;
+    }
+
+    // Compact game stats
+    let statBadge = "";
+    if(role === "At Bat" && obj?.summary){
+      statBadge = `<span class="gc-stat-badge mono">${obj.summary}</span>`;
+    } else if(role === "Pitching" && obj?.pitchCount != null){
+      statBadge = `<span class="gc-stat-badge mono">P: ${obj.pitchCount}</span>`;
+    }
+
     el.innerHTML = `
       <div class="gc-person-top">
         <img class="gc-person-hs" src="${hs}" alt="" onerror="this.style.visibility='hidden'">
         <div style="min-width:0;">
-          <div class="gc-person-role mono">${role}${pos ? (" • " + pos) : ""}</div>
+          <div class="gc-person-role mono">${role}${pos ? (" • " + pos) : ""} ${handBadge}</div>
           <div class="gc-person-name">${name}</div>
         </div>
       </div>
-      <div class="gc-person-line mono">${line || ""}</div>
+      <div class="gc-person-line mono">${statBadge}${line ? (statBadge ? " • " : "") + line : ""}</div>
     `;
   }
 
@@ -3061,6 +3140,38 @@ if(gcBtn && gcPanel){
   }
   return `${parts[0][0]}. ${parts[parts.length-1]}`;
 }
+  // ---- Substitution toast ----
+  let __gc_sub_toast_timer = null;
+  let __gc_last_sub_count = 0;
+
+  function __gc_show_sub_toast(msg){
+    const el = document.getElementById("gc-sub-toast");
+    if(!el) return;
+    el.textContent = msg;
+    el.classList.add("show");
+    if(__gc_sub_toast_timer) clearTimeout(__gc_sub_toast_timer);
+    __gc_sub_toast_timer = setTimeout(()=>{
+      el.classList.remove("show");
+      __gc_sub_toast_timer = null;
+    }, 7000);
+  }
+
+  function __gc_check_subs(feedArr){
+    if(!feedArr || !feedArr.length) return;
+    // Count substitution events
+    const subs = feedArr.filter(e => e.type === "substitution");
+    if(subs.length > __gc_last_sub_count){
+      // Show toast for each new sub (most recent first)
+      const newSubs = subs.slice(__gc_last_sub_count);
+      // Show the most recent one
+      const latest = newSubs[newSubs.length - 1];
+      if(latest?.description){
+        __gc_show_sub_toast(latest.description);
+      }
+    }
+    __gc_last_sub_count = subs.length;
+  }
+
   // ---- Render live event feed ----
   let __gc_last_feed_len = 0;
   function renderFeed(feedArr){
@@ -3122,9 +3233,19 @@ if(gcBtn && gcPanel){
   }
 
   // Updated: player rows expandable (NOT entire lineup card)
-  function renderLineup(side, el, players){
+  function renderLineup(side, el, players, gcData){
     if(!el) return;
     el.innerHTML = "";
+
+    // Build indicator maps
+    const batterId = gcData?.currentBatterId ?? null;
+    const onDeckId = gcData?.onDeckId ?? null;
+    const runners = gcData?.runners || {};
+    const runnerBaseMap = {};
+    if(runners.first?.id) runnerBaseMap[runners.first.id] = "1st";
+    if(runners.second?.id) runnerBaseMap[runners.second.id] = "2nd";
+    if(runners.third?.id) runnerBaseMap[runners.third.id] = "3rd";
+
     (players || []).forEach((p, idx)=>{
       const hs = p.headshot || "";
       const nm = p.shortName || fmtShortName(p.name);
@@ -3132,6 +3253,20 @@ if(gcBtn && gcPanel){
       const line = p.batLine || "";
       const pas = p.pas || [];
       const spot = (p.spot != null) ? (p.spot + ".") : "";
+
+      // Indicator pills
+      const pid = p.id;
+      let indicators = "";
+      if(pid && pid === batterId){
+        indicators += `<span style="margin-left:4px; font-size:13px;" title="At Bat">\u26BE</span>`;
+      }
+      if(pid && pid === onDeckId){
+        indicators += `<span class="gc-lineup-pill gc-pill-od" title="On Deck">OD</span>`;
+      }
+      const baseLabel = pid ? runnerBaseMap[pid] : null;
+      if(baseLabel){
+        indicators += `<span class="gc-lineup-pill gc-pill-base">${baseLabel}</span>`;
+      }
 
       const wrap = document.createElement("div");
       wrap.className = "gc-player";
@@ -3142,7 +3277,7 @@ if(gcBtn && gcPanel){
         <div class="mono" style="width:22px; opacity:.65;">${spot}</div>
         <img class="gc-headshot" src="${hs}" alt="" onerror="this.style.visibility='hidden'">
         <div class="gc-row-main">
-          <div class="gc-name">${nm} <span class="gc-pos mono">${pos || "—"}</span></div>
+          <div class="gc-name">${nm} <span class="gc-pos mono">${pos || "—"}</span>${indicators}</div>
           <div class="gc-statline mono">${line || ""}</div>
         </div>
       `;
@@ -3572,9 +3707,10 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
       renderPerson(document.getElementById("gc-batter"), "At Bat", data.batter);
       renderPerson(document.getElementById("gc-pitcher"), "Pitching", data.pitcher);
 
-      renderLineup("away", document.getElementById("gc-lineup-away"), data.lineups?.away);
-      renderLineup("home", document.getElementById("gc-lineup-home"), data.lineups?.home);
+      renderLineup("away", document.getElementById("gc-lineup-away"), data.lineups?.away, data);
+      renderLineup("home", document.getElementById("gc-lineup-home"), data.lineups?.home, data);
 
+      __gc_check_subs(data.feed);
       renderFeed(data.feed);
 
       renderField(document.getElementById("gc-field"), data.defense);

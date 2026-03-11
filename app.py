@@ -1687,6 +1687,19 @@ def gamecast_json(game_pk: int):
     batter_line = _batter_line((batter_stats.get("batting") or {}))
     pitcher_line = _pitcher_line((pitcher_stats.get("pitching") or {}))
 
+    # Handedness
+    batter_stand = ((_safe(matchup, "batSide", "code", default="") or "").upper()) or None
+    pitcher_throws = ((_safe(matchup, "pitchHand", "code", default="") or "").upper()) or None
+
+    # Compact batter summary (e.g. "1-3") and pitcher pitch count (e.g. "P: 24")
+    _bat = batter_stats.get("batting") or {}
+    batter_summary = ""
+    if _bat.get("hits") is not None and _bat.get("atBats") is not None:
+        batter_summary = f"{_bat['hits']}-{_bat['atBats']}"
+
+    _pit = pitcher_stats.get("pitching") or {}
+    pitcher_pitch_count = _i(_pit.get("numberOfPitches"), None)
+
     # -------------------------
     # Current PA pitch list (for zone + pitches table) incl outcome flags
     # -------------------------
@@ -2006,6 +2019,8 @@ def gamecast_json(game_pk: int):
             "pos": batter_stats.get("pos"),
             "headshot": get_player_headshot_url(batter_id, 120) if batter_id else "",
             "line": batter_line,
+            "stand": batter_stand,
+            "summary": batter_summary,
         },
         "pitcher": {
             "id": pitcher_id,
@@ -2013,8 +2028,12 @@ def gamecast_json(game_pk: int):
             "pos": pitcher_stats.get("pos"),
             "headshot": get_player_headshot_url(pitcher_id, 120) if pitcher_id else "",
             "line": pitcher_line,
+            "throws": pitcher_throws,
+            "pitchCount": pitcher_pitch_count,
         },
 
+        "currentBatterId": batter_id,
+        "onDeckId": _i(_safe(offense, "onDeck", "id"), None) or _i(_safe(offense, "onDeck", "person", "id"), None),
         "runners": runners,
         "pitches": pitches_out,
 
