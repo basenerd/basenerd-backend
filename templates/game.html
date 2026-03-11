@@ -781,6 +781,7 @@
   .pv-wind-diagram img{
     width:100%; height:100%; object-fit:contain; opacity:0.25;
     filter:invert(1) brightness(0.7);
+    transform:scaleY(-1);
   }
   .pv-wind-arrow{
     position:absolute; top:0; left:0; width:100%; height:100%;
@@ -4976,7 +4977,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
     // Stadium SVG with wind arrow (outdoor only)
     if(!w.dome && w.wind_mph > 0){
       const stadiumUrl = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
-      // Arrow rotation: SVG has CF at top (0°). bearing = compass deg HP→CF.
+      // Arrow rotation: stadium img is rotated 180° so HP is at bottom, CF at top.
+      // In overlay SVG, 0° = up = toward CF. bearing = compass deg HP→CF.
       // wind_dir = compass deg where wind comes FROM. Arrow points where wind goes TO.
       const windToward = (w.wind_dir + 180) % 360;
       const bearing = w.bearing || 180;
