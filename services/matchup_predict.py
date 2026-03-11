@@ -12,6 +12,7 @@ Uses pitcher's arsenal + batter's per-pitch-type performance for richer predicti
 import os
 import json
 import logging
+from datetime import date
 
 import joblib
 import numpy as np
@@ -80,6 +81,18 @@ _LEAGUE_AVG_PITCHER = {
     "p_avg_velo": 93.5, "p_whiff_rate": 0.245, "p_chase_rate": 0.295,
     "p_zone_rate": 0.45, "p_xwoba": 0.315,
     "p_num_pitches": 5, "p_total_thrown": 2500,
+}
+
+_LEAGUE_AVG_BATTER_R14 = {
+    "bat_r14_k_pct": 0.225, "bat_r14_bb_pct": 0.082,
+    "bat_r14_xwoba": 0.315, "bat_r14_barrel_rate": 0.07,
+    "bat_r14_whiff_rate": 0.245, "bat_r14_chase_rate": 0.295,
+}
+
+_LEAGUE_AVG_PITCHER_R14 = {
+    "p_r14_k_pct": 0.225, "p_r14_bb_pct": 0.082,
+    "p_r14_xwoba": 0.315, "p_r14_whiff_rate": 0.245,
+    "p_r14_chase_rate": 0.295,
 }
 
 
@@ -397,6 +410,16 @@ def predict_matchup(
     else:
         features.update({"park_run_factor": 1.0, "park_hr_factor": 1.0})
 
+    # Recent form (rolling 14-day)
+    try:
+        from services.recent_form import get_batter_recent_form, get_pitcher_recent_form
+        features.update(get_batter_recent_form(batter_id))
+        features.update(get_pitcher_recent_form(pitcher_id))
+    except Exception as e:
+        log.info("Recent form unavailable: %s — using league avg", e)
+        features.update(_LEAGUE_AVG_BATTER_R14)
+        features.update(_LEAGUE_AVG_PITCHER_R14)
+
     # Context
     features["inning"] = inning
     features["outs_when_up"] = outs
@@ -450,3 +473,122 @@ def predict_matchup(
         "summary": summary,
         "arsenal": arsenal,
     }
+
+
+def predict_matchup_live(
+    batter_id,
+    pitcher_id,
+    stand="R",
+    p_throws="R",
+    venue=None,
+    season=2025,
+    inning=1,
+    outs=0,
+    runner_1b=0,
+    runner_2b=0,
+    runner_3b=0,
+    n_thru_order=1,
+    pitcher_velo_tonight=None,
+    pitcher_pitch_count=None,
+):
+    """
+    Predict PA outcome with Bayesian in-game adjustments.
+
+    Gets base prediction from XGBoost, then applies multiplicative adjustments
+    based on observed pitcher performance tonight (velo delta, fatigue).
+
+    Returns same structure as predict_matchup plus:
+      - adjustments: dict showing what shifted and by how much
+      - pregame_probs: baseline prediction (inning 1, no runners, 1st TTO)
+    """
+    # Get live prediction (already uses real context: inning, runners, TTO)
+    result = predict_matchup(
+        batter_id, pitcher_id, stand, p_throws, venue, season,
+        inning, outs, runner_1b, runner_2b, runner_3b, n_thru_order,
+    )
+
+    if not result.get("ok"):
+        return result
+
+    # Get pregame baseline for comparison
+    pregame = predict_matchup(
+        batter_id, pitcher_id, stand, p_throws, venue, season,
+        inning=1, outs=0, runner_1b=0, runner_2b=0, runner_3b=0, n_thru_order=1,
+    )
+    result["pregame_probs"] = pregame.get("probs", {})
+
+    # Apply Bayesian adjustments
+    adjustments = {}
+    adj_factors = {cls: 1.0 for cls in CLASSES}
+
+    # Velocity adjustment
+    _load()
+    if pitcher_velo_tonight is not None and _pitcher_arsenal is not None:
+        pa = _pitcher_arsenal
+        mask = (pa["pitcher"] == pitcher_id) & (pa["stand"] == "ALL")
+        season_data = pa[mask & (pa["season"] == season)]
+        if season_data.empty:
+            season_data = pa[mask].sort_values("season", ascending=False)
+
+        if not season_data.empty:
+            n = season_data["n"].values.astype(float)
+            total = n.sum()
+            if total > 0:
+                velos = pd.to_numeric(season_data["avg_velo"], errors="coerce")
+                valid = velos.notna()
+                if valid.any():
+                    expected_velo = float(np.average(velos[valid], weights=n[valid]))
+                    velo_delta = pitcher_velo_tonight - expected_velo
+
+                    if abs(velo_delta) > 0.3:  # Only adjust if meaningful difference
+                        # Each 1 mph above expected -> K prob +2.5%, HR prob -1.5%
+                        adj_factors["K"] *= (1.0 + velo_delta * 0.025)
+                        adj_factors["HR"] *= (1.0 - velo_delta * 0.015)
+                        adj_factors["BB"] *= (1.0 - velo_delta * 0.01)
+                        adjustments["velo"] = {
+                            "tonight": round(pitcher_velo_tonight, 1),
+                            "expected": round(expected_velo, 1),
+                            "delta": round(velo_delta, 1),
+                        }
+
+    # Pitch count / fatigue adjustment
+    if pitcher_pitch_count is not None and pitcher_pitch_count > 75:
+        fatigue_factor = min((pitcher_pitch_count - 75) / 25.0, 1.0)
+        adj_factors["K"] *= (1.0 - fatigue_factor * 0.08)
+        adj_factors["BB"] *= (1.0 + fatigue_factor * 0.06)
+        adj_factors["HR"] *= (1.0 + fatigue_factor * 0.04)
+        adj_factors["1B"] *= (1.0 + fatigue_factor * 0.02)
+        adjustments["fatigue"] = {
+            "pitch_count": pitcher_pitch_count,
+            "factor": round(fatigue_factor, 2),
+        }
+
+    # Apply adjustments and renormalize
+    if adjustments:
+        probs = result["probs"]
+        adjusted = {cls: probs[cls] * adj_factors.get(cls, 1.0) for cls in CLASSES}
+        total = sum(adjusted.values())
+        if total > 0:
+            adjusted = {cls: round(v / total, 4) for cls, v in adjusted.items()}
+        result["probs"] = adjusted
+
+        # Recompute summary with adjusted probs
+        hit_pct = adjusted["1B"] + adjusted["2B"] + adjusted["3B"] + adjusted["HR"]
+        on_base_pct = hit_pct + adjusted["BB"] + adjusted["HBP"] + adjusted["IBB"]
+        ab_pct = 1.0 - adjusted["BB"] - adjusted["HBP"] - adjusted["IBB"]
+        xba = hit_pct / ab_pct if ab_pct > 0 else 0
+        tb = adjusted["1B"] + adjusted["2B"] * 2 + adjusted["3B"] * 3 + adjusted["HR"] * 4
+        xslg = tb / ab_pct if ab_pct > 0 else 0
+
+        result["summary"] = {
+            "k_pct": round(adjusted["K"], 3),
+            "bb_pct": round(adjusted["BB"] + adjusted["IBB"], 3),
+            "hit_pct": round(hit_pct, 3),
+            "hr_pct": round(adjusted["HR"], 3),
+            "obp": round(on_base_pct, 3),
+            "xba": round(xba, 3),
+            "xslg": round(xslg, 3),
+        }
+
+    result["adjustments"] = adjustments
+    return result

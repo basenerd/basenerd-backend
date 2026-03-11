@@ -49,7 +49,8 @@ from services.pitching_report import (
     pitching_gamelog,
     pitching_scatter,
 )
-from services.matchup_predict import predict_matchup
+from services.matchup_predict import predict_matchup, predict_matchup_live
+from services.pregame_predictions import get_pregame_predictions
 from services.articles import load_articles, get_article
 from services.articles import get_markdown_page
 from services.postseason import get_postseason_series, build_playoff_bracket
@@ -579,7 +580,19 @@ def matchup_probs_json(game_pk: int):
             return jsonify({"ok": False, "reason": "no_matchup"}), 200
 
         runners = gc.get("runners") or {}
-        result = predict_matchup(
+
+        # Extract pitcher's fastball velo tonight for Bayesian adjustment
+        pitcher_velo_tonight = None
+        pitcher_pitch_count = None
+        pitches_list = gc.get("pitches") or []
+        if pitches_list:
+            pitcher_pitch_count = len(pitches_list)
+            fb_velos = [p["velo"] for p in pitches_list
+                        if p.get("velo") and p.get("type") in ("FF", "SI", "FC")]
+            if fb_velos:
+                pitcher_velo_tonight = sum(fb_velos) / len(fb_velos)
+
+        result = predict_matchup_live(
             batter_id=int(batter_id),
             pitcher_id=int(pitcher_id),
             stand=batter.get("stand") or "R",
@@ -592,10 +605,26 @@ def matchup_probs_json(game_pk: int):
             runner_2b=1 if runners.get("second") else 0,
             runner_3b=1 if runners.get("third") else 0,
             n_thru_order=gc.get("nThruOrder") or 1,
+            pitcher_velo_tonight=pitcher_velo_tonight,
+            pitcher_pitch_count=pitcher_pitch_count,
         )
         result["batterId"] = batter_id
         result["pitcherId"] = pitcher_id
         return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
+
+@app.get("/game/<int:game_pk>/pregame")
+def pregame_page(game_pk):
+    """Pregame lineup predictions page."""
+    return render_template("pregame.html", game_pk=game_pk)
+
+@app.get("/game/<int:game_pk>/pregame.json")
+def pregame_json(game_pk):
+    """JSON API for pregame lineup predictions."""
+    try:
+        data = get_pregame_predictions(game_pk, season=2025)
+        return jsonify(data), 200
     except Exception as e:
         return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
 

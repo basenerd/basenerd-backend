@@ -134,15 +134,31 @@ def train_pitch_selection_model():
     df["target"] = le_target.fit_transform(df["pitch_type"])
     class_names = le_target.classes_.tolist()
 
-    X = df[available_features].copy()
-    y = df["target"]
+    # Free the full dataframe columns we no longer need
+    keep_cols = available_features + ["target", "season"]
+    df = df[keep_cols].copy()
+
+    # Use float32 to reduce memory
+    for col in available_features:
+        df[col] = pd.to_numeric(df[col], errors="coerce").astype("float32")
 
     # Time-based split
     train_mask = df["season"] <= 2024
     test_mask = df["season"] == 2025
 
-    X_train, X_test = X[train_mask], X[test_mask]
-    y_train, y_test = y[train_mask], y[test_mask]
+    # Sample training data to fit in memory (keep all test data)
+    train_df = df[train_mask]
+    if len(train_df) > 1_500_000:
+        train_df = train_df.sample(n=1_500_000, random_state=42)
+        print(f"  Sampled training data to {len(train_df):,} pitches")
+    test_df = df[test_mask]
+    del df
+
+    X_train = train_df[available_features]
+    y_train = train_df["target"]
+    X_test = test_df[available_features]
+    y_test = test_df["target"]
+    del train_df, test_df
 
     print(f"\n  Train: {len(X_train):,} pitches")
     print(f"  Test:  {len(X_test):,} pitches")
@@ -163,6 +179,7 @@ def train_pitch_selection_model():
         early_stopping_rounds=15,
         n_jobs=-1,
         random_state=42,
+        tree_method="hist",
     )
 
     model.fit(

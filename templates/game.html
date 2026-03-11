@@ -362,6 +362,32 @@
     text-align:right;
     flex:0 0 auto;
   }
+  #gc-matchup-probs .mp-adjustments{
+    margin-top:6px;
+    padding-top:4px;
+    border-top:1px solid rgba(148,163,184,.1);
+    font-size:10px;
+    color:#888;
+  }
+  #gc-matchup-probs .mp-adj-item{
+    display:inline-block;
+    margin-right:10px;
+    padding:2px 6px;
+    background:rgba(255,255,255,.04);
+    border-radius:3px;
+  }
+  #gc-matchup-probs .mp-adj-up{ color:#51cf66; }
+  #gc-matchup-probs .mp-adj-down{ color:#ff6b6b; }
+  #gc-matchup-probs .mp-pregame-link{
+    display:block;
+    text-align:center;
+    margin-top:8px;
+    font-size:11px;
+    color:#4dabf7;
+    text-decoration:none;
+    opacity:.7;
+  }
+  #gc-matchup-probs .mp-pregame-link:hover{ opacity:1; }
 
   #tab-gamecast .gc-midgrid{
     display:grid;
@@ -3166,6 +3192,42 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
       arsenalEl.style.display = "block";
     } else if(arsenalEl){
       arsenalEl.style.display = "none";
+    }
+
+    // Bayesian adjustments
+    let adjEl = document.getElementById("gc-mp-adjustments");
+    if(!adjEl){
+      adjEl = document.createElement("div");
+      adjEl.id = "gc-mp-adjustments";
+      adjEl.className = "mp-adjustments";
+      container.appendChild(adjEl);
+    }
+    const adj = d.adjustments || {};
+    if(Object.keys(adj).length > 0){
+      let adjHtml = "";
+      if(adj.velo){
+        const cls = adj.velo.delta > 0 ? "mp-adj-up" : "mp-adj-down";
+        const arrow = adj.velo.delta > 0 ? "\u25B2" : "\u25BC";
+        adjHtml += `<span class="mp-adj-item ${cls}">${arrow} Velo: ${adj.velo.tonight} mph (exp ${adj.velo.expected})</span>`;
+      }
+      if(adj.fatigue){
+        adjHtml += `<span class="mp-adj-item mp-adj-down">${adj.fatigue.pitch_count} pitches</span>`;
+      }
+      adjEl.innerHTML = adjHtml;
+      adjEl.style.display = adjHtml ? "block" : "none";
+    } else {
+      adjEl.style.display = "none";
+    }
+
+    // Pregame link
+    let pgLink = document.getElementById("gc-mp-pregame-link");
+    if(!pgLink){
+      pgLink = document.createElement("a");
+      pgLink.id = "gc-mp-pregame-link";
+      pgLink.className = "mp-pregame-link";
+      pgLink.href = `/game/${GAME_PK}/pregame`;
+      pgLink.textContent = "View Full Pregame Predictions \u2192";
+      container.appendChild(pgLink);
     }
 
     container.style.display = "block";

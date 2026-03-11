@@ -88,7 +88,18 @@
     "n_thruorder_pitcher",
     "runner_on_1b",
     "runner_on_2b",
-    "runner_on_3b"
+    "runner_on_3b",
+    "bat_r14_k_pct",
+    "bat_r14_bb_pct",
+    "bat_r14_xwoba",
+    "bat_r14_barrel_rate",
+    "bat_r14_whiff_rate",
+    "bat_r14_chase_rate",
+    "p_r14_k_pct",
+    "p_r14_bb_pct",
+    "p_r14_xwoba",
+    "p_r14_whiff_rate",
+    "p_r14_chase_rate"
   ],
   "categorical_features": [
     "stand",
@@ -101,10 +112,10 @@
     2024
   ],
   "test_season": 2025,
-  "test_log_loss": 1.4419255609896802,
-  "n_train": 730089,
+  "test_log_loss": 1.4446923337613964,
+  "n_train": 300000,
   "n_test": 182840,
-  "n_estimators_used": 436,
+  "n_estimators_used": 241,
   "label_encoding": {
     "1B": 0,
     "2B": 1,

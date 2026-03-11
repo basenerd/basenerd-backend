@@ -321,6 +321,32 @@ def build_matchup_training():
         result = result.merge(top3_pivot, on=["pitcher", "season"], how="left")
         print(f"  Added top-3 pitch features")
 
+    # --- NEW: Recent form features (rolling 14-day) ---
+    batter_form_path = os.path.join(OUTPUT_DIR, "recent_form_batter.parquet")
+    pitcher_form_path = os.path.join(OUTPUT_DIR, "recent_form_pitcher.parquet")
+
+    if os.path.exists(batter_form_path):
+        print("Joining batter recent form (14-day rolling)...")
+        bat_form = pd.read_parquet(batter_form_path)
+        bat_form["game_date"] = pd.to_datetime(bat_form["game_date"])
+        result["game_date"] = pd.to_datetime(result["game_date"])
+        result = result.merge(bat_form, on=["batter", "game_date"], how="left")
+        non_null = result["bat_r14_k_pct"].notna().sum()
+        print(f"  {non_null:,} PAs with batter recent form ({non_null/len(result)*100:.1f}%)")
+    else:
+        print("  recent_form_batter.parquet not found — skipping")
+
+    if os.path.exists(pitcher_form_path):
+        print("Joining pitcher recent form (14-day rolling)...")
+        pit_form = pd.read_parquet(pitcher_form_path)
+        pit_form["game_date"] = pd.to_datetime(pit_form["game_date"])
+        result["game_date"] = pd.to_datetime(result["game_date"])
+        result = result.merge(pit_form, on=["pitcher", "game_date"], how="left")
+        non_null = result["p_r14_k_pct"].notna().sum()
+        print(f"  {non_null:,} PAs with pitcher recent form ({non_null/len(result)*100:.1f}%)")
+    else:
+        print("  recent_form_pitcher.parquet not found — skipping")
+
     result = result.sort_values(["season", "game_date", "game_pk"]).reset_index(drop=True)
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)

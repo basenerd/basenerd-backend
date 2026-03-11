@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .pg-container { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+  .pg-header { text-align: center; margin-bottom: 24px; }
+  .pg-header h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .pg-header .pg-meta { color: #888; font-size: 0.85rem; }
+  .pg-header .pg-venue { font-size: 0.9rem; color: #aaa; margin-top: 2px; }
+  .pg-park-factor { display: inline-block; background: #1a1a2e; border: 1px solid #333;
+    border-radius: 6px; padding: 4px 12px; margin-top: 8px; font-size: 0.8rem; color: #ccc; }
+  .pg-park-factor span { color: #f0c040; font-weight: 600; }
+
+  .pg-matchup { background: #141428; border: 1px solid #222; border-radius: 10px;
+    padding: 20px; margin-bottom: 28px; }
+  .pg-matchup-title { font-size: 1.2rem; font-weight: 600; margin: 0 0 16px;
+    display: flex; align-items: center; gap: 8px; }
+  .pg-matchup-title .side-label { font-size: 0.75rem; color: #888;
+    text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Pitcher card */
+  .pg-pitcher { display: flex; gap: 16px; align-items: center;
+    background: #1a1a2e; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+  .pg-pitcher img { width: 64px; height: 64px; border-radius: 50%;
+    border: 2px solid #333; object-fit: cover; }
+  .pg-pitcher-info h3 { margin: 0; font-size: 1rem; }
+  .pg-pitcher-info .pg-pitcher-meta { color: #999; font-size: 0.8rem; }
+
+  /* Arsenal mini bars */
+  .pg-arsenal { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .pg-arsenal-chip { background: #222; border-radius: 4px; padding: 2px 8px;
+    font-size: 0.72rem; color: #ccc; white-space: nowrap; }
+  .pg-arsenal-chip .usage { color: #f0c040; font-weight: 600; }
+
+  /* Batter table */
+  .pg-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .pg-table th { text-align: left; padding: 8px 6px; border-bottom: 2px solid #333;
+    color: #888; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.3px; }
+  .pg-table td { padding: 8px 6px; border-bottom: 1px solid #1a1a2e; }
+  .pg-table tr:hover { background: #1a1a2e; }
+
+  .pg-batter-cell { display: flex; align-items: center; gap: 8px; }
+  .pg-batter-cell img { width: 32px; height: 32px; border-radius: 50%; }
+  .pg-batter-name { font-weight: 600; white-space: nowrap; }
+  .pg-batter-hand { color: #888; font-size: 0.75rem; }
+  .pg-batter-pos { color: #666; font-size: 0.72rem; }
+
+  /* Highlight cells */
+  .pg-hr-hot { color: #ff6b6b; font-weight: 700; }
+  .pg-k-hot { color: #ffa94d; font-weight: 700; }
+  .pg-hit-hot { color: #51cf66; font-weight: 700; }
+
+  /* Form badge */
+  .pg-form { display: inline-block; font-size: 0.7rem; padding: 1px 6px;
+    border-radius: 3px; font-weight: 600; }
+  .pg-form.hot { background: #2d4a2d; color: #51cf66; }
+  .pg-form.cold { background: #4a2d2d; color: #ff6b6b; }
+  .pg-form.neutral { display: none; }
+
+  /* Expandable row */
+  .pg-expand { display: none; }
+  .pg-expand.open { display: table-row; }
+  .pg-expand td { padding: 12px 8px; background: #111; }
+  .pg-prob-bars { display: flex; gap: 4px; flex-wrap: wrap; }
+  .pg-prob-bar { display: flex; flex-direction: column; align-items: center; min-width: 55px; }
+  .pg-prob-bar-fill { height: 40px; width: 36px; border-radius: 4px 4px 0 0;
+    background: #333; position: relative; overflow: hidden; }
+  .pg-prob-bar-inner { position: absolute; bottom: 0; width: 100%; border-radius: 4px 4px 0 0; }
+  .pg-prob-bar-label { font-size: 0.7rem; color: #888; margin-top: 2px; }
+  .pg-prob-bar-pct { font-size: 0.75rem; font-weight: 600; margin-top: 1px; }
+
+  /* Totals row */
+  .pg-totals { background: #1a1a2e; border-radius: 8px; padding: 12px 16px;
+    margin-top: 12px; display: flex; gap: 20px; flex-wrap: wrap; }
+  .pg-total-item { text-align: center; }
+  .pg-total-item .label { font-size: 0.7rem; color: #888; text-transform: uppercase; }
+  .pg-total-item .value { font-size: 1.1rem; font-weight: 700; color: #f0c040; }
+
+  /* Loading / no lineups */
+  .pg-loading { text-align: center; padding: 60px 20px; color: #888; }
+  .pg-no-lineups { text-align: center; padding: 40px 20px; }
+  .pg-no-lineups h3 { color: #ccc; margin-bottom: 8px; }
+  .pg-no-lineups p { color: #888; font-size: 0.9rem; }
+
+  /* Clickable rows */
+  .pg-table tr.pg-batter-row { cursor: pointer; }
+
+  @media (max-width: 640px) {
+    .pg-container { padding: 12px 8px; }
+    .pg-header h1 { font-size: 1.2rem; }
+    .pg-pitcher { flex-direction: column; text-align: center; }
+    .pg-pitcher img { width: 48px; height: 48px; }
+    .pg-table { font-size: 0.78rem; }
+    .pg-table th, .pg-table td { padding: 6px 4px; }
+    .pg-batter-cell img { width: 24px; height: 24px; }
+    .pg-totals { gap: 12px; }
+    .pg-total-item .value { font-size: 0.95rem; }
+    .pg-matchup { padding: 12px; }
+    /* Hide OBP column on mobile */
+    .pg-col-obp { display: none; }
+  }
+</style>
+
+<div class="pg-container">
+  <div class="pg-header">
+    <h1 id="pg-title">Pregame Matchup Predictions</h1>
+    <div class="pg-meta" id="pg-meta"></div>
+    <div class="pg-venue" id="pg-venue"></div>
+    <div class="pg-park-factor" id="pg-park" style="display:none"></div>
+  </div>
+
+  <div id="pg-loading" class="pg-loading">Loading predictions...</div>
+  <div id="pg-content" style="display:none">
+    <div id="pg-away-section"></div>
+    <div id="pg-home-section"></div>
+  </div>
+  <div id="pg-no-lineups" class="pg-no-lineups" style="display:none">
+    <h3>Lineups Not Yet Posted</h3>
+    <p>Check back closer to game time. Lineups are typically posted 1-3 hours before first pitch.</p>
+    <p id="pg-no-lineup-pitchers"></p>
+  </div>
+</div>
+
+<script>
+const GAME_PK = {{ game_pk }};
+const BAR_COLORS = {
+  K: '#ff6b6b', OUT: '#868e96', BB: '#4dabf7', '1B': '#51cf66',
+  '2B': '#ffd43b', '3B': '#ff922b', HR: '#e64980', HBP: '#845ef7', IBB: '#4dabf7'
+};
+const SHOW_OUTCOMES = ['K', 'OUT', 'BB', '1B', '2B', '3B', 'HR'];
+
+function fetchPregame() {
+  fetch(`/game/${GAME_PK}/pregame.json`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('pg-loading').style.display = 'none';
+      if (!data.ok) {
+        document.getElementById('pg-no-lineups').style.display = 'block';
+        return;
+      }
+      renderPregame(data);
+    })
+    .catch(err => {
+      document.getElementById('pg-loading').textContent = 'Failed to load predictions.';
+    });
+}
+
+function renderPregame(d) {
+  // Header
+  document.getElementById('pg-title').textContent =
+    `${d.away_abbrev} @ ${d.home_abbrev} — Pregame Predictions`;
+  document.getElementById('pg-meta').textContent =
+    `${d.game_date} — ${d.game_time}`;
+  document.getElementById('pg-venue').textContent =
+    d.venue_name || '';
+
+  if (!d.lineups_posted) {
+    document.getElementById('pg-no-lineups').style.display = 'block';
+    let pitcherText = '';
+    if (d.away && d.away.pitcher) pitcherText += `${d.away_abbrev}: ${d.away.pitcher.name}`;
+    if (d.home && d.home.pitcher) pitcherText += ` vs ${d.home_abbrev}: ${d.home.pitcher.name}`;
+    document.getElementById('pg-no-lineup-pitchers').textContent = pitcherText;
+    return;
+  }
+
+  document.getElementById('pg-content').style.display = 'block';
+
+  // Render both sides
+  document.getElementById('pg-away-section').innerHTML =
+    renderSide(d.away, d.away_name, d.away_abbrev, 'away');
+  document.getElementById('pg-home-section').innerHTML =
+    renderSide(d.home, d.home_name, d.home_abbrev, 'home');
+
+  // Attach click handlers for expandable rows
+  document.querySelectorAll('.pg-batter-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const expandId = row.dataset.expandId;
+      const expandRow = document.getElementById(expandId);
+      if (expandRow) expandRow.classList.toggle('open');
+    });
+  });
+}
+
+function renderSide(side, teamName, teamAbbrev, sideKey) {
+  if (!side || !side.pitcher) return '';
+  const p = side.pitcher;
+  const batters = side.batters || [];
+  const totals = side.totals || {};
+
+  let html = `<div class="pg-matchup">`;
+  html += `<div class="pg-matchup-title">
+    <span class="side-label">${sideKey === 'away' ? 'Away' : 'Home'}</span>
+    ${teamName} vs ${p.name}
+  </div>`;
+
+  // Pitcher card
+  html += `<div class="pg-pitcher">`;
+  if (p.headshot) html += `<img src="${p.headshot}" alt="${p.name}">`;
+  html += `<div class="pg-pitcher-info">
+    <h3>${p.name}</h3>
+    <div class="pg-pitcher-meta">${p.throws}HP</div>`;
+
+  // Show arsenal from first batter's prediction
+  if (batters.length > 0 && batters[0].arsenal && batters[0].arsenal.length > 0) {
+    html += `<div class="pg-arsenal">`;
+    batters[0].arsenal.forEach(a => {
+      html += `<span class="pg-arsenal-chip">${a.name} <span class="usage">${(a.usage*100).toFixed(0)}%</span> ${a.velo.toFixed(1)}</span>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div></div>`;
+
+  // Batter table
+  html += `<table class="pg-table">
+    <thead><tr>
+      <th>#</th><th>Batter</th><th>HR%</th><th>K%</th><th>Hit%</th>
+      <th class="pg-col-obp">OBP</th><th>Form</th>
+    </tr></thead><tbody>`;
+
+  batters.forEach((b, i) => {
+    const s = b.summary || {};
+    const probs = b.probs || {};
+    const expandId = `${sideKey}-expand-${i}`;
+    const hrPct = (probs.HR || 0) * 100;
+    const kPct = (probs.K || 0) * 100;
+    const hitPct = (s.hit_pct || 0) * 100;
+    const obp = s.obp || 0;
+
+    const hrClass = hrPct >= 5 ? 'pg-hr-hot' : '';
+    const kClass = kPct >= 30 ? 'pg-k-hot' : '';
+    const hitClass = hitPct >= 30 ? 'pg-hit-hot' : '';
+
+    const form = b.form || {};
+    let formHtml = '';
+    if (form.label === 'hot') {
+      formHtml = `<span class="pg-form hot">\u25B2 ${form.xwoba_14d ? form.xwoba_14d.toFixed(3) : ''}</span>`;
+    } else if (form.label === 'cold') {
+      formHtml = `<span class="pg-form cold">\u25BC ${form.xwoba_14d ? form.xwoba_14d.toFixed(3) : ''}</span>`;
+    } else {
+      formHtml = `<span class="pg-form neutral"></span>`;
+    }
+
+    html += `<tr class="pg-batter-row" data-expand-id="${expandId}">
+      <td>${b.spot}</td>
+      <td><div class="pg-batter-cell">`;
+    if (b.headshot) html += `<img src="${b.headshot}" alt="">`;
+    html += `<div>
+        <span class="pg-batter-name">${b.name}</span>
+        <span class="pg-batter-hand">${b.stand}</span>
+        <span class="pg-batter-pos">${b.pos}</span>
+      </div></div></td>
+      <td class="${hrClass}">${hrPct.toFixed(1)}%</td>
+      <td class="${kClass}">${kPct.toFixed(1)}%</td>
+      <td class="${hitClass}">${hitPct.toFixed(1)}%</td>
+      <td class="pg-col-obp">${obp.toFixed(3)}</td>
+      <td>${formHtml}</td>
+    </tr>`;
+
+    // Expandable detail row
+    html += `<tr class="pg-expand" id="${expandId}"><td colspan="7">
+      <div class="pg-prob-bars">`;
+    SHOW_OUTCOMES.forEach(outcome => {
+      const pct = (probs[outcome] || 0) * 100;
+      const barH = Math.max(2, pct / 50 * 40);
+      html += `<div class="pg-prob-bar">
+        <div class="pg-prob-bar-fill">
+          <div class="pg-prob-bar-inner" style="height:${barH}px;background:${BAR_COLORS[outcome]}"></div>
+        </div>
+        <div class="pg-prob-bar-label">${outcome}</div>
+        <div class="pg-prob-bar-pct">${pct.toFixed(1)}%</div>
+      </div>`;
+    });
+    html += `</div></td></tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  // Totals
+  html += `<div class="pg-totals">
+    <div class="pg-total-item"><div class="label">Exp K</div><div class="value">${totals.exp_k || 0}</div></div>
+    <div class="pg-total-item"><div class="label">Exp HR</div><div class="value">${(totals.exp_hr || 0).toFixed(2)}</div></div>
+    <div class="pg-total-item"><div class="label">Exp Hits</div><div class="value">${totals.exp_hits || 0}</div></div>
+    <div class="pg-total-item"><div class="label">Exp BB</div><div class="value">${totals.exp_bb || 0}</div></div>
+  </div>`;
+
+  html += `</div>`;
+  return html;
+}
+
+fetchPregame();
+</script>
+{% endblock %}

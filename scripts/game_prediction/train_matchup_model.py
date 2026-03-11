@@ -74,6 +74,11 @@ NUMERIC_FEATURES = [
     # Context
     "inning", "outs_when_up", "n_thruorder_pitcher",
     "runner_on_1b", "runner_on_2b", "runner_on_3b",
+    # Recent form (rolling 14-day)
+    "bat_r14_k_pct", "bat_r14_bb_pct", "bat_r14_xwoba",
+    "bat_r14_barrel_rate", "bat_r14_whiff_rate", "bat_r14_chase_rate",
+    "p_r14_k_pct", "p_r14_bb_pct", "p_r14_xwoba",
+    "p_r14_whiff_rate", "p_r14_chase_rate",
 ]
 
 CATEGORICAL_FEATURES = [
@@ -102,25 +107,31 @@ def train_matchup_model():
     class_names = le.classes_.tolist()
     print(f"  Classes: {class_names}")
 
-    # Prepare feature matrix
-    X = df[all_features].copy()
-
-    # Convert all numeric columns to float (psycopg returns Decimal)
+    # Convert features to float32 in-place to save memory, then drop unused cols
     for col in available_num:
-        X[col] = pd.to_numeric(X[col], errors="coerce").astype("float64")
-
-    # Encode categoricals
+        df[col] = pd.to_numeric(df[col], errors="coerce").astype("float32")
     for col in available_cat:
-        X[col] = X[col].astype("category").cat.codes
+        df[col] = df[col].astype("category").cat.codes.astype("float32")
 
-    y = df["target"]
+    # Keep only what we need
+    keep = all_features + ["target", "season"]
+    df = df[keep].copy()
 
-    # Train/test split (time-based: train on 2021-2024, test on 2025)
+    # Split
     train_mask = df["season"] <= 2024
     test_mask = df["season"] == 2025
 
-    X_train, X_test = X[train_mask], X[test_mask]
-    y_train, y_test = y[train_mask], y[test_mask]
+    X_train = df.loc[train_mask, all_features]
+    y_train = df.loc[train_mask, "target"]
+    X_test = df.loc[test_mask, all_features]
+    y_test = df.loc[test_mask, "target"]
+    del df
+
+    # Sample training data to avoid OOM during XGBoost tree building
+    if len(X_train) > 300_000:
+        sample_idx = X_train.sample(n=300_000, random_state=42).index
+        X_train = X_train.loc[sample_idx]
+        y_train = y_train.loc[sample_idx]
 
     print(f"\n  Train: {len(X_train):,} PAs (2021-2024)")
     print(f"  Test:  {len(X_test):,} PAs (2025)")
@@ -130,17 +141,17 @@ def train_matchup_model():
     model = xgb.XGBClassifier(
         objective="multi:softprob",
         num_class=len(class_names),
-        n_estimators=500,
-        max_depth=5,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
+        n_estimators=300,
+        max_depth=4,
+        learning_rate=0.08,
+        subsample=0.7,
+        colsample_bytree=0.6,
         min_child_weight=100,
         reg_alpha=0.1,
         reg_lambda=1.0,
         eval_metric="mlogloss",
         early_stopping_rounds=10,
-        n_jobs=-1,
+        n_jobs=2,
         random_state=42,
         tree_method="hist",  # faster histogram-based method
     )
@@ -169,7 +180,9 @@ def train_matchup_model():
 
     # Predicted vs actual outcome rates
     print(f"\nOutcome rate comparison (test set):")
-    actual_rates = df[test_mask]["outcome"].value_counts(normalize=True).sort_index()
+    # Compute actual rates from y_test (encoded) by inverting label encoding
+    actual_counts = pd.Series(y_test.values).value_counts(normalize=True).sort_index()
+    actual_rates = pd.Series([actual_counts.get(i, 0) for i in range(len(class_names))], index=class_names)
     pred_rates = pd.Series(y_pred_proba.mean(axis=0), index=class_names).sort_index()
     comparison = pd.DataFrame({"actual": actual_rates, "predicted": pred_rates})
     print(comparison.to_string())
