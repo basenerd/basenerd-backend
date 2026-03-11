@@ -3304,6 +3304,11 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
       // even when no other data has changed.
       __gc_handle_dueup_takeover(data);
 
+      // Matchup predictions run EVERY poll (has its own dedup via __gc_mp_last_key).
+      // Must be outside the key-dedup block so retries work when the endpoint
+      // is slow (model cold-start) or fails (between innings).
+      __gc_maybe_fetch_matchup(data);
+
       const key = [
         data.inning, data.displayHalf || data.half, data.balls, data.strikes, data.outs,
         data.score?.away, data.score?.home,
@@ -3344,9 +3349,6 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
 
       renderPerson(document.getElementById("gc-batter"), "At Bat", data.batter);
       renderPerson(document.getElementById("gc-pitcher"), "Pitching", data.pitcher);
-
-      // Fetch matchup probabilities when batter changes
-      __gc_maybe_fetch_matchup(data);
 
       renderLineup("away", document.getElementById("gc-lineup-away"), data.lineups?.away);
       renderLineup("home", document.getElementById("gc-lineup-home"), data.lineups?.home);

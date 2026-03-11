@@ -564,34 +564,72 @@ def gamecast_json(game_pk: int):
 
 @app.get("/game/<int:game_pk>/matchup_probs.json")
 def matchup_probs_json(game_pk: int):
-    """Return matchup outcome probabilities for the current batter vs pitcher."""
+    """Return matchup outcome probabilities for the current batter vs pitcher.
+
+    Reads directly from the MLB live feed (bypasses normalize_gamecast)
+    so it works regardless of game state (live, between-innings, warmup).
+    """
     try:
         feed = get_game_feed(game_pk)
-        gc = normalize_gamecast(feed)
-        if not gc.get("ok"):
-            return jsonify({"ok": False, "reason": gc.get("reason", "no_data")}), 200
+        if not feed or feed.get("scheduleOnly"):
+            return jsonify({"ok": False, "reason": "no_feed"}), 200
 
-        batter = gc.get("batter") or {}
-        pitcher = gc.get("pitcher") or {}
-        batter_id = batter.get("id")
-        pitcher_id = pitcher.get("id")
+        live_data = feed.get("liveData") or {}
+        game_data = feed.get("gameData") or {}
+        plays = live_data.get("plays") or {}
+        current_play = plays.get("currentPlay") or {}
+        matchup = current_play.get("matchup") or {}
+        linescore = live_data.get("linescore") or {}
 
+        batter_id = (matchup.get("batter") or {}).get("id")
+        pitcher_id = (matchup.get("pitcher") or {}).get("id")
         if not batter_id or not pitcher_id:
             return jsonify({"ok": False, "reason": "no_matchup"}), 200
 
-        runners = gc.get("runners") or {}
+        stand = ((matchup.get("batSide") or {}).get("code") or "R").upper()
+        p_throws = ((matchup.get("pitchHand") or {}).get("code") or "R").upper()
 
-        # Extract pitcher's game-total fastball velo and pitch count from live feed
+        # Venue (home team abbreviation for park factors)
+        teams = game_data.get("teams") or {}
+        venue = ((teams.get("home") or {}).get("abbreviation") or "").upper() or None
+
+        # Game context
+        inning = linescore.get("currentInning") or 1
+        outs = linescore.get("outs") or (current_play.get("count") or {}).get("outs") or 0
+
+        # Runners
+        offense = linescore.get("offense") or {}
+        runner_1b = 1 if offense.get("first") else 0
+        runner_2b = 1 if offense.get("second") else 0
+        runner_3b = 1 if offense.get("third") else 0
+
+        # Times through order for current pitcher
+        n_thru_order = 1
+        all_plays = plays.get("allPlays") or []
+        try:
+            seen_batters = set()
+            for p in all_plays:
+                pm = p.get("matchup") or {}
+                if (pm.get("pitcher") or {}).get("id") != pitcher_id:
+                    continue
+                bid = (pm.get("batter") or {}).get("id")
+                if bid:
+                    seen_batters.add(bid)
+            if seen_batters:
+                n_thru_order = max(1, len(seen_batters) // 9 + 1)
+        except Exception:
+            pass
+
+        # Pitcher's game-total fastball velo and pitch count
         pitcher_velo_tonight = None
         pitcher_pitch_count = None
         try:
-            all_plays = (feed.get("liveData") or {}).get("plays", {}).get("allPlays") or []
             fb_codes = {"FF", "SI", "FC"}
             fb_velos = []
             total_pitches = 0
             for play in all_plays:
-                matchup = play.get("matchup") or {}
-                if matchup.get("pitcher", {}).get("id") != pitcher_id:
+                pm = play.get("matchup") or {}
+                if (pm.get("pitcher") or {}).get("id") != pitcher_id:
                     continue
                 for ev in (play.get("playEvents") or []):
                     if not ev.get("isPitch"):
@@ -607,25 +645,23 @@ def matchup_probs_json(game_pk: int):
             if fb_velos:
                 pitcher_velo_tonight = sum(fb_velos) / len(fb_velos)
         except Exception:
-            pass  # velo/fatigue adjustments are optional
+            pass
 
-        # Determine season from game feed
-        _gd = feed.get("gameData", {}) if feed else {}
-        _season = int(_gd.get("game", {}).get("season", 2025) or 2025)
+        _season = int((game_data.get("game") or {}).get("season", 2025) or 2025)
 
         result = predict_matchup_live(
             batter_id=int(batter_id),
             pitcher_id=int(pitcher_id),
-            stand=batter.get("stand") or "R",
-            p_throws=pitcher.get("throws") or "R",
-            venue=gc.get("venue"),
+            stand=stand,
+            p_throws=p_throws,
+            venue=venue,
             season=_season,
-            inning=gc.get("inning") or 1,
-            outs=gc.get("outs") or 0,
-            runner_1b=1 if runners.get("first") else 0,
-            runner_2b=1 if runners.get("second") else 0,
-            runner_3b=1 if runners.get("third") else 0,
-            n_thru_order=gc.get("nThruOrder") or 1,
+            inning=inning,
+            outs=outs,
+            runner_1b=runner_1b,
+            runner_2b=runner_2b,
+            runner_3b=runner_3b,
+            n_thru_order=n_thru_order,
             pitcher_velo_tonight=pitcher_velo_tonight,
             pitcher_pitch_count=pitcher_pitch_count,
         )
@@ -633,6 +669,8 @@ def matchup_probs_json(game_pk: int):
         result["pitcherId"] = pitcher_id
         return jsonify(result), 200
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
 
 @app.get("/game/<int:game_pk>/pregame")
