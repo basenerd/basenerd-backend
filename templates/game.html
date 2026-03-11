@@ -504,14 +504,15 @@
 
 
 
-  /* Strike zone: scale down to fit if container is narrow, stay centered */
+  /* Strike zone: always centered, scales down if container is narrow */
   #tab-gamecast .gc-zone-wrap{
     display:flex;
     justify-content:center;
-    overflow:hidden;
+    align-items:flex-start;
   }
   #tab-gamecast .gc-zone-visual{
     flex-shrink:0;
+    margin:0 auto;
     transform-origin:center top;
   }
 
@@ -1229,7 +1230,7 @@
                     <div class="card-header">
                       <div class="card-title">Zone</div>
                   </div>
-                  <div class="gc-zone-wrap" style="padding:12px;">
+                  <div class="gc-zone-wrap" style="padding:12px; display:flex; justify-content:center;">
                    {% set sky_color = '#5398d9' if game.dayNight == 'day' else '#1a365d' %}
                    {% set grass_color = '#426a3a' if game.dayNight == 'day' else '#1c3017' %}
                    <div class="gc-zone-visual" style="
