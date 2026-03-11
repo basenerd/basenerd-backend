@@ -10,6 +10,7 @@
 {% set status_lc = (game.statusPill|string)|lower %}
 {% set is_final = ('final' in status_lc) or ('game over' in status_lc) or ('completed' in status_lc) %}
 {% set is_live = (not is_final) and (('in progress' in status_lc) or ('live' in status_lc) or ('warmup' in status_lc) or ('game delayed' in status_lc)) %}
+{% set is_pregame = (not is_final) and (not is_live) %}
 
 {% macro dash(v) -%}
   {%- if v is none or v == '' or v == 'None' or v == '-' -%}-{% else %}{{ v }}{% endif -%}
@@ -698,6 +699,117 @@
     max-width:360px;
   }
 
+  /* ---- Preview Tab ---- */
+  .pv-weather{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+    border-radius:12px; padding:12px 16px; margin-bottom:16px;
+  }
+  .pv-wx-item{ text-align:center; min-width:60px; }
+  .pv-wx-item .val{ font-size:1.3rem; font-weight:800; }
+  .pv-wx-item .lbl{ font-size:0.7rem; opacity:0.6; text-transform:uppercase; }
+  .pv-wx-impact{
+    margin-left:auto; padding:4px 12px; border-radius:8px; font-size:0.8rem; font-weight:700;
+  }
+  .pv-wx-impact.hitter{ background:rgba(81,207,102,0.15); color:#51cf66; }
+  .pv-wx-impact.pitcher{ background:rgba(255,107,107,0.15); color:#ff6b6b; }
+  .pv-wx-impact.neutral{ background:rgba(255,255,255,0.06); color:#aaa; }
+
+  .pv-side{ margin-bottom:20px; }
+  .pv-side-title{
+    font-size:1.1rem; font-weight:800; margin:0 0 10px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .pv-side-label{ font-size:0.7rem; opacity:0.5; text-transform:uppercase; letter-spacing:0.5px; }
+
+  .pv-pitcher{
+    display:flex; gap:14px; align-items:center;
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+    border-radius:10px; padding:12px; margin-bottom:12px;
+  }
+  .pv-pitcher img{ width:56px; height:56px; border-radius:50%; border:2px solid rgba(255,255,255,0.1); object-fit:cover; }
+  .pv-pitcher-info h3{ margin:0; font-size:0.95rem; }
+  .pv-pitcher-meta{ font-size:0.78rem; opacity:0.6; }
+  .pv-pitcher-statline{
+    display:flex; gap:12px; margin-top:6px; font-size:0.78rem;
+  }
+  .pv-pitcher-statline .stat-val{ font-weight:700; }
+  .pv-pitcher-statline .stat-lbl{ opacity:0.5; font-size:0.68rem; }
+
+  .pv-arsenal{ display:flex; gap:5px; flex-wrap:wrap; margin-top:6px; }
+  .pv-arsenal-chip{
+    background:rgba(255,255,255,0.06); border-radius:4px; padding:2px 7px;
+    font-size:0.7rem; white-space:nowrap;
+  }
+  .pv-arsenal-chip .usage{ color:#f0c040; font-weight:700; }
+
+  .pv-table{ width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .pv-table th{
+    text-align:left; padding:7px 5px; border-bottom:2px solid rgba(255,255,255,0.1);
+    font-size:0.7rem; text-transform:uppercase; letter-spacing:0.3px; opacity:0.6;
+  }
+  .pv-table th.num{ text-align:right; }
+  .pv-table td{ padding:7px 5px; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .pv-table td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .pv-table tr.pv-row:hover{ background:rgba(255,255,255,0.03); cursor:pointer; }
+
+  .pv-batter-cell{ display:flex; align-items:center; gap:7px; }
+  .pv-batter-cell img{ width:28px; height:28px; border-radius:50%; }
+  .pv-batter-name{ font-weight:700; white-space:nowrap; }
+  .pv-batter-meta{ font-size:0.7rem; opacity:0.5; }
+
+  .pv-grade{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:28px; height:22px; padding:0 6px; border-radius:6px;
+    font-size:0.75rem; font-weight:900;
+  }
+  .pv-grade-a{ background:rgba(81,207,102,0.18); color:#51cf66; }
+  .pv-grade-b{ background:rgba(77,171,247,0.18); color:#4dabf7; }
+  .pv-grade-c{ background:rgba(255,255,255,0.08); color:#aaa; }
+  .pv-grade-d{ background:rgba(255,107,107,0.15); color:#ff6b6b; }
+
+  .pv-form{ display:inline-block; font-size:0.68rem; padding:1px 5px; border-radius:3px; font-weight:700; }
+  .pv-form-hot{ background:rgba(81,207,102,0.15); color:#51cf66; }
+  .pv-form-cold{ background:rgba(255,107,107,0.15); color:#ff6b6b; }
+
+  .pv-expand{ display:none; }
+  .pv-expand.open{ display:table-row; }
+  .pv-expand td{ padding:10px 8px; background:rgba(0,0,0,0.2); }
+  .pv-prob-bars{ display:flex; gap:4px; flex-wrap:wrap; }
+  .pv-prob-bar{ display:flex; flex-direction:column; align-items:center; min-width:50px; }
+  .pv-prob-bar-fill{ height:36px; width:32px; border-radius:4px 4px 0 0; background:rgba(255,255,255,0.06); position:relative; overflow:hidden; }
+  .pv-prob-bar-inner{ position:absolute; bottom:0; width:100%; border-radius:4px 4px 0 0; }
+  .pv-prob-bar-lbl{ font-size:0.68rem; opacity:0.5; margin-top:2px; }
+  .pv-prob-bar-pct{ font-size:0.72rem; font-weight:700; }
+
+  .pv-statline{
+    display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; padding-top:8px;
+    border-top:1px solid rgba(255,255,255,0.06);
+  }
+  .pv-statline-item{ text-align:center; min-width:36px; }
+  .pv-statline-item .sv{ font-weight:700; font-size:0.82rem; }
+  .pv-statline-item .sl{ font-size:0.62rem; opacity:0.4; text-transform:uppercase; }
+
+  .pv-totals{
+    display:flex; gap:16px; flex-wrap:wrap; margin-top:10px; padding:10px 14px;
+    background:rgba(255,255,255,0.03); border-radius:8px;
+  }
+  .pv-totals .pv-total{ text-align:center; }
+  .pv-totals .pv-total .tv{ font-size:1.05rem; font-weight:800; color:#f0c040; }
+  .pv-totals .pv-total .tl{ font-size:0.65rem; opacity:0.5; text-transform:uppercase; }
+
+  .pv-loading{ text-align:center; padding:40px 20px; opacity:0.5; }
+
+  @media(max-width:640px){
+    .pv-table{ font-size:0.75rem; }
+    .pv-table th, .pv-table td{ padding:5px 3px; }
+    .pv-col-exp{ display:none; }
+    .pv-pitcher{ flex-direction:column; text-align:center; }
+    .pv-pitcher img{ width:44px; height:44px; }
+    .pv-weather{ gap:10px; padding:10px 12px; }
+    .pv-wx-item .val{ font-size:1rem; }
+  }
+
 </style>
 
 {# Convert IP string like "7.2" into outs (23) for simple scoring #}
@@ -1084,6 +1196,9 @@
   {% if is_live %}
     <button class="tab-btn active" data-tab="gamecast">GameCast</button>
     <button class="tab-btn" data-tab="overview">Overview</button>
+  {% elif is_pregame %}
+    <button class="tab-btn active" data-tab="preview">Preview</button>
+    <button class="tab-btn" data-tab="overview">Overview</button>
   {% else %}
     <button class="tab-btn active" data-tab="overview">Overview</button>
   {% endif %}
@@ -1329,8 +1444,32 @@
 </div>
 {% endif %}
 
+<!-- PREVIEW -->
+{% if is_pregame %}
+<div class="tab-panel active" id="tab-preview">
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div><div class="card-title">Game Preview</div></div>
+    </div>
+    <div style="padding:14px;">
+      <div id="pv-loading" class="pv-loading">Loading predictions...</div>
+      <div id="pv-content" style="display:none">
+        <div id="pv-weather"></div>
+        <div id="pv-away"></div>
+        <div id="pv-home"></div>
+      </div>
+      <div id="pv-no-lineups" style="display:none; text-align:center; padding:30px 20px;">
+        <div style="font-weight:700; font-size:1rem; margin-bottom:6px;">Lineups Not Yet Posted</div>
+        <div style="opacity:0.5; font-size:0.85rem;">Check back closer to game time.</div>
+        <div id="pv-probables" style="margin-top:12px; opacity:0.7;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- OVERVIEW -->
-<div class="tab-panel {% if not is_live %}active{% endif %}" id="tab-overview">
+<div class="tab-panel {% if not is_live and not is_pregame %}active{% endif %}" id="tab-overview">
 
 
   {# -----------------------------
@@ -2265,12 +2404,17 @@
 
   const gcBtn = document.querySelector('.tab-btn[data-tab="gamecast"]');
   const gcPanel = document.getElementById("tab-gamecast");
+  const pvBtn = document.querySelector('.tab-btn[data-tab="preview"]');
+  const pvPanel = document.getElementById("tab-preview");
   const ovBtn = document.querySelector('.tab-btn[data-tab="overview"]');
   const ovPanel = document.getElementById("tab-overview");
 
   if(gcBtn && gcPanel){
     gcBtn.classList.add("active");
     gcPanel.classList.add("active");
+  }else if(pvBtn && pvPanel){
+    pvBtn.classList.add("active");
+    pvPanel.classList.add("active");
   }else{
     if(ovBtn) ovBtn.classList.add("active");
     if(ovPanel) ovPanel.classList.add("active");
@@ -4496,6 +4640,231 @@ document.addEventListener("DOMContentLoaded", ()=>{
     }
   });
 })();
+
+// -------------------------------------------------------
+// Preview Tab
+// -------------------------------------------------------
+{% if is_pregame %}
+(function(){
+  const PK = {{ game_pk | tojson }};
+  const BAR_COLORS = {
+    K:'#ff6b6b', OUT:'#868e96', BB:'#4dabf7', '1B':'#51cf66',
+    '2B':'#ffd43b', '3B':'#ff922b', HR:'#e64980'
+  };
+  const OUTCOMES = ['K','OUT','BB','1B','2B','3B','HR'];
+  let _pvLoaded = false;
+
+  function loadPreview(){
+    if(_pvLoaded) return;
+    _pvLoaded = true;
+    fetch(`/game/${PK}/pregame.json`)
+      .then(r=>r.json())
+      .then(renderPreview)
+      .catch(()=>{
+        document.getElementById('pv-loading').textContent = 'Failed to load predictions.';
+      });
+  }
+
+  function renderPreview(d){
+    document.getElementById('pv-loading').style.display = 'none';
+    if(!d.ok){
+      document.getElementById('pv-no-lineups').style.display = 'block';
+      return;
+    }
+    if(!d.lineups_posted){
+      document.getElementById('pv-no-lineups').style.display = 'block';
+      let txt = '';
+      if(d.away && d.away.pitcher) txt += d.away_abbrev + ': ' + d.away.pitcher.name;
+      if(d.home && d.home.pitcher) txt += ' vs ' + d.home_abbrev + ': ' + d.home.pitcher.name;
+      document.getElementById('pv-probables').textContent = txt;
+      return;
+    }
+
+    document.getElementById('pv-content').style.display = 'block';
+
+    // Weather
+    if(d.weather && !d.weather.dome && d.weather.condition !== 'Unknown'){
+      document.getElementById('pv-weather').innerHTML = renderWeather(d.weather);
+    } else if(d.weather && d.weather.dome){
+      document.getElementById('pv-weather').innerHTML = renderWeather(d.weather);
+    }
+
+    // Sides
+    document.getElementById('pv-away').innerHTML = renderSide(d.away, d.away_name, d.away_abbrev, 'away', d.is_spring);
+    document.getElementById('pv-home').innerHTML = renderSide(d.home, d.home_name, d.home_abbrev, 'home', d.is_spring);
+
+    // Expandable rows
+    document.querySelectorAll('.pv-row').forEach(row=>{
+      row.addEventListener('click', ()=>{
+        const eid = row.dataset.expandId;
+        const er = document.getElementById(eid);
+        if(er) er.classList.toggle('open');
+      });
+    });
+  }
+
+  function renderWeather(w){
+    const imp = w.impact || {};
+    let impClass = 'neutral';
+    if(imp.label && imp.label.toLowerCase().includes('hitter')) impClass = 'hitter';
+    else if(imp.label && imp.label.toLowerCase().includes('pitcher')) impClass = 'pitcher';
+
+    // Wind direction label
+    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    const windLabel = w.dome ? '' : dirs[Math.round(w.wind_dir / 22.5) % 16];
+
+    let html = '<div class="pv-weather">';
+    if(w.dome){
+      html += '<div class="pv-wx-item"><div class="val">Dome</div><div class="lbl">Retractable roof closed</div></div>';
+    } else {
+      html += `<div class="pv-wx-item"><div class="val">${w.temp_f}°</div><div class="lbl">Temp</div></div>`;
+      html += `<div class="pv-wx-item"><div class="val">${w.wind_mph}<span style="font-size:0.7rem;opacity:0.5"> mph</span></div><div class="lbl">Wind ${windLabel}</div></div>`;
+      html += `<div class="pv-wx-item"><div class="val">${w.condition}</div><div class="lbl">Conditions</div></div>`;
+    }
+    if(imp.label){
+      html += `<div class="pv-wx-impact ${impClass}">${imp.label}`;
+      if(!w.dome && imp.hr_factor && imp.hr_factor !== 1.0){
+        const pct = ((imp.hr_factor - 1) * 100).toFixed(0);
+        const sign = pct >= 0 ? '+' : '';
+        html += ` <span style="font-size:0.72rem; opacity:0.7;">(${sign}${pct}% HR)</span>`;
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function gradeClass(g){
+    if(g.startsWith('A')) return 'pv-grade-a';
+    if(g.startsWith('B')) return 'pv-grade-b';
+    if(g.startsWith('C')) return 'pv-grade-c';
+    return 'pv-grade-d';
+  }
+
+  function renderSide(side, teamName, abbrev, sideKey, isSpring){
+    if(!side || !side.pitcher) return '';
+    const p = side.pitcher;
+    const batters = side.batters || [];
+    const totals = side.totals || {};
+    const pStat = side.pitcher_statline;
+
+    let html = `<div class="pv-side">`;
+    html += `<div class="pv-side-title"><span class="pv-side-label">${sideKey==='away'?'Away':'Home'}</span> ${teamName} vs ${p.name}</div>`;
+
+    // Pitcher card
+    html += '<div class="pv-pitcher">';
+    if(p.headshot) html += `<img src="${p.headshot}" alt="${p.name}">`;
+    html += '<div class="pv-pitcher-info">';
+    html += `<h3>${p.name}</h3>`;
+    html += `<div class="pv-pitcher-meta">${p.throws}HP${isSpring ? ' · Spring Training' : ''}</div>`;
+
+    // Pitcher expected statline
+    if(pStat){
+      html += '<div class="pv-pitcher-statline">';
+      html += `<div><span class="stat-val">${pStat.ip}</span> <span class="stat-lbl">IP</span></div>`;
+      html += `<div><span class="stat-val">${pStat.k}</span> <span class="stat-lbl">K</span></div>`;
+      html += `<div><span class="stat-val">${pStat.bb}</span> <span class="stat-lbl">BB</span></div>`;
+      html += `<div><span class="stat-val">${pStat.h}</span> <span class="stat-lbl">H</span></div>`;
+      html += `<div><span class="stat-val">${pStat.er}</span> <span class="stat-lbl">ER</span></div>`;
+      html += '</div>';
+    }
+
+    // Arsenal from first batter's prediction
+    if(batters.length && batters[0].arsenal && batters[0].arsenal.length){
+      html += '<div class="pv-arsenal">';
+      batters[0].arsenal.forEach(a=>{
+        html += `<span class="pv-arsenal-chip">${a.name} <span class="usage">${(a.usage*100).toFixed(0)}%</span> ${a.velo.toFixed(1)}</span>`;
+      });
+      html += '</div>';
+    }
+    html += '</div></div>';
+
+    // Batter table
+    html += `<table class="pv-table"><thead><tr>
+      <th style="width:28px">#</th>
+      <th>Batter</th>
+      <th class="num">Grade</th>
+      <th class="num pv-col-exp">AB</th>
+      <th class="num pv-col-exp">H</th>
+      <th class="num pv-col-exp">HR</th>
+      <th class="num pv-col-exp">BB</th>
+      <th class="num pv-col-exp">K</th>
+      <th class="num">Form</th>
+    </tr></thead><tbody>`;
+
+    batters.forEach((b, i)=>{
+      const s = b.summary || {};
+      const probs = b.probs || {};
+      const grade = b.grade || 'C';
+      const sl = b.statline || {};
+      const form = b.form || {};
+      const eid = `pv-${sideKey}-exp-${i}`;
+
+      let formHtml = '';
+      if(form.label === 'hot') formHtml = `<span class="pv-form pv-form-hot">\u25B2</span>`;
+      else if(form.label === 'cold') formHtml = `<span class="pv-form pv-form-cold">\u25BC</span>`;
+
+      html += `<tr class="pv-row" data-expand-id="${eid}">
+        <td>${b.spot}</td>
+        <td><div class="pv-batter-cell">`;
+      if(b.headshot) html += `<img src="${b.headshot}" alt="">`;
+      html += `<div><span class="pv-batter-name">${b.name}</span> <span class="pv-batter-meta">${b.stand} ${b.pos}</span></div>`;
+      html += `</div></td>`;
+      html += `<td class="num"><span class="pv-grade ${gradeClass(grade)}">${grade}</span></td>`;
+      html += `<td class="num pv-col-exp">${sl.ab != null ? sl.ab : '-'}</td>`;
+      html += `<td class="num pv-col-exp">${sl.h != null ? sl.h : '-'}</td>`;
+      html += `<td class="num pv-col-exp">${sl.hr != null ? sl.hr : '-'}</td>`;
+      html += `<td class="num pv-col-exp">${sl.bb != null ? sl.bb : '-'}</td>`;
+      html += `<td class="num pv-col-exp">${sl.k != null ? sl.k : '-'}</td>`;
+      html += `<td class="num">${formHtml}</td>`;
+      html += `</tr>`;
+
+      // Expandable row with probability bars + detailed statline
+      html += `<tr class="pv-expand" id="${eid}"><td colspan="9"><div class="pv-prob-bars">`;
+      OUTCOMES.forEach(o=>{
+        const pct = (probs[o]||0)*100;
+        const barH = Math.max(2, pct/50*36);
+        html += `<div class="pv-prob-bar">
+          <div class="pv-prob-bar-fill"><div class="pv-prob-bar-inner" style="height:${barH}px;background:${BAR_COLORS[o]}"></div></div>
+          <div class="pv-prob-bar-lbl">${o}</div>
+          <div class="pv-prob-bar-pct">${pct.toFixed(1)}%</div>
+        </div>`;
+      });
+      html += '</div>';
+
+      // Detailed statline in expand
+      if(sl.pa){
+        html += '<div class="pv-statline">';
+        [['PA',sl.pa],['AB',sl.ab],['H',sl.h],['HR',sl.hr],['RBI',sl.rbi],['BB',sl.bb],['K',sl.k]].forEach(([l,v])=>{
+          html += `<div class="pv-statline-item"><div class="sv">${v}</div><div class="sl">${l}</div></div>`;
+        });
+        html += '</div>';
+      }
+
+      html += '</td></tr>';
+    });
+
+    html += '</tbody></table>';
+
+    // Totals
+    html += '<div class="pv-totals">';
+    html += `<div class="pv-total"><div class="tv">${totals.exp_k||0}</div><div class="tl">Exp K</div></div>`;
+    html += `<div class="pv-total"><div class="tv">${(totals.exp_hr||0).toFixed(2)}</div><div class="tl">Exp HR</div></div>`;
+    html += `<div class="pv-total"><div class="tv">${totals.exp_hits||0}</div><div class="tl">Exp Hits</div></div>`;
+    html += `<div class="pv-total"><div class="tv">${totals.exp_bb||0}</div><div class="tl">Exp BB</div></div>`;
+    html += '</div>';
+
+    html += '</div>';
+    return html;
+  }
+
+  // Auto-load if preview tab is active
+  if(pvPanel && pvPanel.classList.contains('active')) loadPreview();
+
+  // Also load on tab click
+  document.querySelector('.tab-btn[data-tab="preview"]')?.addEventListener('click', loadPreview);
+})();
+{% endif %}
 </script>
 
 {% endblock %}

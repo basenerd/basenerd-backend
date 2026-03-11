@@ -14,6 +14,80 @@ log = logging.getLogger(__name__)
 # Pitch hand codes from MLB API
 _HAND_CODE = {"L": "L", "R": "R", "S": "S"}
 
+# --- Matchup grading ---
+_GRADE_SCALE = ["F", "D-", "D", "D+", "C-", "C", "C+", "B-", "B", "B+", "A-", "A", "A+"]
+
+
+def _matchup_grade(summary):
+    """Grade the batter's favorability in this matchup (A+ = great for batter)."""
+    if not summary:
+        return "C"
+    # Composite score: weight OBP/xSLG heavily, penalize K rate
+    score = (
+        summary.get("obp", 0.300) * 2.0
+        + summary.get("xslg", 0.380) * 1.5
+        + summary.get("hit_pct", 0.230) * 1.0
+        - summary.get("k_pct", 0.225) * 1.5
+    )
+    # League avg composite ≈ 0.600 + 0.570 + 0.230 - 0.338 = 1.062
+    # Range roughly 0.65 (terrible) to 1.50 (elite)
+    normalized = (score - 0.65) / (1.50 - 0.65)
+    idx = int(round(max(0, min(12, normalized * 12))))
+    return _GRADE_SCALE[idx]
+
+
+def _batter_expected_statline(probs, summary, est_pa):
+    """Compute expected statline for a batter given their PA count."""
+    if not probs or not summary:
+        return None
+    est_ab = est_pa * (1 - probs.get("BB", 0) - probs.get("HBP", 0) - probs.get("IBB", 0))
+    return {
+        "pa": round(est_pa, 1),
+        "ab": round(est_ab, 1),
+        "h": round(est_pa * summary.get("hit_pct", 0), 1),
+        "hr": round(est_pa * probs.get("HR", 0), 2),
+        "rbi": round(est_pa * (
+            probs.get("HR", 0) * 1.5
+            + probs.get("2B", 0) * 0.5
+            + probs.get("3B", 0) * 0.8
+            + probs.get("1B", 0) * 0.15
+        ), 1),
+        "bb": round(est_pa * (probs.get("BB", 0) + probs.get("IBB", 0)), 1),
+        "k": round(est_pa * probs.get("K", 0), 1),
+    }
+
+
+def _pitcher_expected_statline(batters, is_spring):
+    """Compute expected pitcher statline by aggregating batter predictions."""
+    valid = [b for b in batters if b.get("probs")]
+    if not valid:
+        return None
+
+    n = len(valid)
+    avg_out = sum(b["probs"].get("OUT", 0) + b["probs"].get("K", 0) for b in valid) / n
+    avg_k = sum(b["probs"].get("K", 0) for b in valid) / n
+    avg_bb = sum(b["probs"].get("BB", 0) + b["probs"].get("IBB", 0) + b["probs"].get("HBP", 0) for b in valid) / n
+    avg_hit = sum(b["summary"].get("hit_pct", 0) for b in valid) / n
+    avg_hr = sum(b["probs"].get("HR", 0) for b in valid) / n
+
+    # Estimated batters faced: spring starters ~12-16, regular ~25
+    est_bf = 14 if is_spring else 25
+    est_outs = est_bf * avg_out
+    est_ip = est_outs / 3
+
+    # ER estimate: calibrated so league-avg pitcher ≈ 4.00 ERA
+    # HR worth ~1.4 runs, singles/doubles ~0.25 run contribution, walks ~0.12
+    er_per_bf = avg_hr * 1.4 + (avg_hit - avg_hr) * 0.25 + avg_bb * 0.12
+    est_er = est_bf * er_per_bf
+
+    return {
+        "ip": round(est_ip, 1),
+        "k": round(est_bf * avg_k, 1),
+        "bb": round(est_bf * avg_bb, 1),
+        "h": round(est_bf * avg_hit, 1),
+        "er": round(est_er, 1),
+    }
+
 
 def _extract_lineups_from_feed(feed):
     """
@@ -39,12 +113,18 @@ def _extract_lineups_from_feed(feed):
 
     venue_info = game_data.get("venue") or {}
     venue_name = venue_info.get("name") or ""
+    venue_id = venue_info.get("id")
 
     # Game date/time
     game_datetime = game_data.get("datetime") or {}
     game_date = game_datetime.get("officialDate") or ""
     game_time = game_datetime.get("time") or ""
     am_pm = game_datetime.get("ampm") or ""
+    game_dt_iso = game_datetime.get("dateTime") or ""
+
+    # Game type: R=regular, S=spring, P/F/D/L/W=postseason
+    game_info = game_data.get("game") or {}
+    game_type = (game_info.get("type") or "R").upper()
 
     # Player data (has batSide, pitchHand for all players)
     all_players = game_data.get("players") or {}
@@ -132,17 +212,20 @@ def _extract_lineups_from_feed(feed):
         "home_pitcher": home_pitcher,
         "venue": venue_abbrev,
         "venue_name": venue_name,
+        "venue_id": venue_id,
         "home_name": home_name,
         "away_name": away_name,
         "home_abbrev": home_abbrev,
         "away_abbrev": away_abbrev,
         "game_date": game_date,
         "game_time": f"{game_time} {am_pm}".strip(),
+        "game_dt_iso": game_dt_iso,
+        "game_type": game_type,
         "lineups_posted": bool(away_lineup and home_lineup),
     }
 
 
-def get_pregame_predictions(game_pk, season=2025):
+def get_pregame_predictions(game_pk, season=2026):
     """
     For a given game, predict PA outcomes for every batter vs the opposing starter.
 
@@ -153,6 +236,8 @@ def get_pregame_predictions(game_pk, season=2025):
 
     if not lineup_data:
         return {"ok": False, "reason": "no_feed"}
+
+    is_spring = lineup_data["game_type"] == "S"
 
     result = {
         "ok": True,
@@ -166,7 +251,28 @@ def get_pregame_predictions(game_pk, season=2025):
         "game_date": lineup_data["game_date"],
         "game_time": lineup_data["game_time"],
         "lineups_posted": lineup_data["lineups_posted"],
+        "is_spring": is_spring,
     }
+
+    # Weather
+    try:
+        from services.weather import fetch_game_weather
+        venue_id = lineup_data.get("venue_id")
+        game_dt = lineup_data.get("game_dt_iso")
+        if venue_id:
+            result["weather"] = fetch_game_weather(venue_id, game_dt)
+        else:
+            result["weather"] = None
+    except Exception as e:
+        log.warning("Weather fetch failed: %s", e)
+        result["weather"] = None
+
+    # Weather HR/XBH factors for adjusting predictions
+    wx_hr_factor = 1.0
+    wx_xbh_factor = 1.0
+    if result.get("weather") and result["weather"].get("impact"):
+        wx_hr_factor = result["weather"]["impact"].get("hr_factor", 1.0)
+        wx_xbh_factor = result["weather"]["impact"].get("xbh_factor", 1.0)
 
     def _predict_lineup(lineup, pitcher, side_label):
         """Run predictions for a lineup vs a pitcher."""
@@ -175,6 +281,7 @@ def get_pregame_predictions(game_pk, season=2025):
                 "pitcher": pitcher,
                 "batters": [],
                 "totals": {},
+                "pitcher_statline": None,
             }
 
         batters = []
@@ -203,8 +310,39 @@ def get_pregame_predictions(game_pk, season=2025):
             )
 
             if pred.get("ok"):
-                probs = pred["probs"]
-                summary = pred["summary"]
+                probs = dict(pred["probs"])  # copy so we can adjust
+                summary = dict(pred["summary"])
+
+                # Apply weather adjustments to HR and XBH
+                if wx_hr_factor != 1.0:
+                    old_hr = probs.get("HR", 0)
+                    new_hr = old_hr * wx_hr_factor
+                    delta = new_hr - old_hr
+                    probs["HR"] = new_hr
+                    # Redistribute: reduce OUT prob by the delta
+                    probs["OUT"] = max(0, probs.get("OUT", 0) - delta)
+                    summary["hr_pct"] = new_hr
+
+                if wx_xbh_factor != 1.0:
+                    for key in ("2B", "3B"):
+                        old = probs.get(key, 0)
+                        new_val = old * wx_xbh_factor
+                        delta = new_val - old
+                        probs[key] = new_val
+                        probs["OUT"] = max(0, probs.get("OUT", 0) - delta)
+
+                    # Recalculate hit_pct and obp
+                    summary["hit_pct"] = probs.get("1B", 0) + probs.get("2B", 0) + probs.get("3B", 0) + probs.get("HR", 0)
+                    summary["obp"] = summary["hit_pct"] + probs.get("BB", 0) + probs.get("HBP", 0) + probs.get("IBB", 0)
+
+                # Matchup grade
+                grade = _matchup_grade(summary)
+
+                # Expected PA: top of lineup gets more, bottom less
+                # Regular season ~4.0 avg, spring training ~2.4 avg
+                base_pa = 4.2 if batter["spot"] <= 5 else 3.8
+                est_pa = base_pa * (0.6 if is_spring else 1.0)
+                statline = _batter_expected_statline(probs, summary, est_pa)
 
                 # Determine hot/cold from recent form
                 try:
@@ -223,7 +361,6 @@ def get_pregame_predictions(game_pk, season=2025):
                 except Exception:
                     form_label = "neutral"
                     form_xwoba = None
-                    rf = {}
 
                 batter_result = {
                     "id": batter["id"],
@@ -235,6 +372,8 @@ def get_pregame_predictions(game_pk, season=2025):
                     "probs": probs,
                     "summary": summary,
                     "arsenal": pred.get("arsenal", []),
+                    "grade": grade,
+                    "statline": statline,
                     "form": {
                         "label": form_label,
                         "xwoba_14d": form_xwoba,
@@ -257,6 +396,8 @@ def get_pregame_predictions(game_pk, season=2025):
                     "probs": {},
                     "summary": {},
                     "arsenal": [],
+                    "grade": "C",
+                    "statline": None,
                     "form": {"label": "neutral", "xwoba_14d": None},
                 })
 
@@ -270,10 +411,14 @@ def get_pregame_predictions(game_pk, season=2025):
             "avg_hr_pct": round(total_hr / n, 3),
         }
 
+        # Pitcher expected statline
+        pitcher_statline = _pitcher_expected_statline(batters, is_spring)
+
         return {
             "pitcher": pitcher,
             "batters": batters,
             "totals": totals,
+            "pitcher_statline": pitcher_statline,
         }
 
     # Away batters vs Home pitcher, Home batters vs Away pitcher

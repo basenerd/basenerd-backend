@@ -711,7 +711,9 @@ def pregame_page(game_pk):
 def pregame_json(game_pk):
     """JSON API for pregame lineup predictions."""
     try:
-        data = get_pregame_predictions(game_pk, season=2025)
+        from datetime import datetime
+        season = request.args.get("season", default=datetime.utcnow().year, type=int)
+        data = get_pregame_predictions(game_pk, season=season)
         return jsonify(data), 200
     except Exception as e:
         return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
