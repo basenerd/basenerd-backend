@@ -717,10 +717,17 @@ def pregame_json(game_pk):
     """JSON API for pregame lineup predictions."""
     try:
         from datetime import datetime
+        import time as _t
         season = request.args.get("season", default=datetime.utcnow().year, type=int)
+        _t0 = _t.time()
         data = get_pregame_predictions(game_pk, season=season)
+        _elapsed = round((_t.time() - _t0) * 1000)
+        print(f"[pregame] game={game_pk} ok={data.get('ok')} lineups={data.get('lineups_posted')} time={_elapsed}ms")
         return jsonify(data), 200
     except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"[pregame] EXCEPTION game={game_pk}: {e}")
         return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
 
 @app.get("/random-player/play")

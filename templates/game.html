@@ -3034,6 +3034,8 @@ if(gcBtn && gcPanel){
   gcBtn.classList.add("active");
   gcPanel.classList.add("active");
   startGameCast();
+}else if(pvBtn && pvPanel){
+  // Pregame: preview tab is already active from the first init block — don't override
 }else{
   if(ovBtn) ovBtn.classList.add("active");
   if(ovPanel) ovPanel.classList.add("active");
@@ -4899,7 +4901,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
     fetch(`/game/${PK}/pregame.json`)
       .then(r=>r.json())
       .then(renderPreview)
-      .catch(()=>{
+      .catch((err)=>{
+        console.error('[Preview] Failed to load predictions:', err);
         document.getElementById('pv-loading').textContent = 'Failed to load predictions.';
       });
   }
@@ -5175,7 +5178,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
   }
 
   // Auto-load if preview tab is active
-  if(pvPanel && pvPanel.classList.contains('active')) loadPreview();
+  const _pvPanel = document.getElementById("tab-preview");
+  if(_pvPanel && _pvPanel.classList.contains('active')) loadPreview();
 
   // Also load on tab click
   document.querySelector('.tab-btn[data-tab="preview"]')?.addEventListener('click', loadPreview);

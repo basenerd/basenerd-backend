@@ -523,7 +523,7 @@ def predict_matchup_live(
 
     # Velocity adjustment
     _load()
-    if pitcher_velo_tonight is not None and _pitcher_arsenal is not None:
+    if pitcher_velo_tonight is not None and _pitcher_arsenal is not None and not _pitcher_arsenal.empty:
         pa = _pitcher_arsenal
         mask = (pa["pitcher"] == pitcher_id) & (pa["stand"] == "ALL")
         season_data = pa[mask & (pa["season"] == season)]
