@@ -777,10 +777,10 @@
   .pv-wx-impact.pitcher{ background:rgba(255,107,107,0.15); color:#ff6b6b; }
   .pv-wx-impact.neutral{ background:rgba(255,255,255,0.06); color:#aaa; }
   .pv-wind-diagram{
-    position:relative; width:100px; height:100px; flex-shrink:0;
+    position:relative; width:120px; height:120px; flex-shrink:0;
   }
   .pv-wind-diagram img{
-    width:100%; height:100%; object-fit:contain; opacity:0.25;
+    width:100%; height:100%; object-fit:contain; opacity:0.22;
     filter:invert(1) brightness(0.7);
     transform:scaleY(-1);
   }
@@ -788,6 +788,34 @@
     position:absolute; top:0; left:0; width:100%; height:100%;
     pointer-events:none;
   }
+  .pv-venue-label{
+    text-align:center; margin-top:2px; font-size:0.65rem; line-height:1.2;
+  }
+  .pv-venue-name{ font-weight:700; opacity:0.85; }
+  .pv-venue-loc{ opacity:0.5; }
+  .pv-pitching-matchup{
+    display:flex; align-items:center; justify-content:center; gap:20px;
+    padding:14px 16px; margin-bottom:16px;
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+    border-radius:12px;
+  }
+  .pv-pm-side{ display:flex; flex-direction:column; align-items:center; text-align:center; min-width:80px; }
+  .pv-pm-img{ width:56px; height:56px; border-radius:50%; object-fit:cover; background:rgba(255,255,255,0.05); }
+  .pv-pm-name{ font-weight:700; font-size:0.82rem; margin-top:4px; }
+  .pv-pm-hand{ font-size:0.7rem; opacity:0.6; }
+  .pv-pm-stat{ font-size:0.7rem; opacity:0.7; margin-top:2px; }
+  .pv-pm-vs{ font-size:1.1rem; font-weight:900; opacity:0.4; }
+  .pv-sim-card{
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+    border-radius:12px; padding:14px 16px; margin-bottom:16px; text-align:center;
+  }
+  .pv-sim-score{
+    display:flex; align-items:center; justify-content:center; gap:16px; margin-top:10px;
+  }
+  .pv-sim-team{ text-align:center; }
+  .pv-sim-abbrev{ font-size:0.75rem; font-weight:700; opacity:0.7; text-transform:uppercase; }
+  .pv-sim-runs{ font-size:2rem; font-weight:900; }
+  .pv-sim-dash{ font-size:1.5rem; opacity:0.3; font-weight:300; }
 
   .pv-side{ margin-bottom:20px; }
   .pv-side-title{
@@ -955,7 +983,10 @@
     .pv-pitcher img{ width:44px; height:44px; }
     .pv-weather{ gap:10px; padding:10px 12px; }
     .pv-wx-item .val{ font-size:1rem; }
-    .pv-wind-diagram{ width:80px; height:80px; }
+    .pv-wind-diagram{ width:90px; height:90px; }
+    .pv-pitching-matchup{ gap:12px; padding:10px 12px; }
+    .pv-pm-img{ width:44px; height:44px; }
+    .pv-pm-name{ font-size:0.75rem; }
     .pv-bullpen-grid{ grid-template-columns: 1fr; }
     .pv-bp-card{ padding:8px 10px; }
     .pv-bp-avatar{ width:32px; height:32px; }
@@ -1617,6 +1648,8 @@
       <div id="pv-loading" class="pv-loading">Loading predictions...</div>
       <div id="pv-content" style="display:none">
         <div id="pv-weather"></div>
+        <div id="pv-matchup"></div>
+        <div id="pv-sim"></div>
         <div id="pv-away"></div>
         <div id="pv-home"></div>
         <div id="pv-bullpen"></div>
@@ -4977,11 +5010,15 @@ document.addEventListener("DOMContentLoaded", ()=>{
     document.getElementById('pv-content').style.display = 'block';
 
     // Weather
-    if(d.weather && !d.weather.dome && d.weather.condition !== 'Unknown'){
-      document.getElementById('pv-weather').innerHTML = renderWeather(d.weather);
-    } else if(d.weather && d.weather.dome){
-      document.getElementById('pv-weather').innerHTML = renderWeather(d.weather);
+    if(d.weather){
+      document.getElementById('pv-weather').innerHTML = renderWeather(d.weather, d.venue_name || '', d.venue_location || '');
     }
+
+    // Pitching matchup
+    renderPitchingMatchup(d);
+
+    // Simulation results (gauge + predicted score)
+    renderSimulation(d);
 
     // Sides
     document.getElementById('pv-away').innerHTML = renderSide(d.away, d.away_name, d.away_abbrev, 'away', d.is_spring);
@@ -5001,7 +5038,92 @@ document.addEventListener("DOMContentLoaded", ()=>{
     });
   }
 
-  function renderWeather(w){
+  function renderPitchingMatchup(d){
+    const el = document.getElementById('pv-matchup');
+    if(!el) return;
+    // d.away.pitcher = home team's pitcher (faces away lineup)
+    // d.home.pitcher = away team's pitcher (faces home lineup)
+    const awayStarter = d.home?.pitcher;  // away team's starting pitcher
+    const homeStarter = d.away?.pitcher;  // home team's starting pitcher
+    if(!awayStarter && !homeStarter){ el.style.display = 'none'; return; }
+
+    // Pitcher statlines: d.home.pitcher_statline is the AWAY pitcher's projected line
+    // d.away.pitcher_statline is the HOME pitcher's projected line
+    const awayStat = d.home?.pitcher_statline;
+    const homeStat = d.away?.pitcher_statline;
+
+    function _side(p, stat, abbrev){
+      if(!p) return '<div class="pv-pm-side"><div class="pv-pm-name">TBD</div></div>';
+      const hs = p.headshot || `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_120,q_auto:best/v1/people/${p.id}/headshot/67/current`;
+      const hand = p.throws ? (p.throws === 'L' ? 'LHP' : 'RHP') : '';
+      let statLine = '';
+      if(stat){
+        statLine = `<div class="pv-pm-stat">${stat.ip} IP, ${stat.k} K, ${stat.er} ER</div>`;
+      }
+      return `<div class="pv-pm-side">
+        <img class="pv-pm-img" src="${hs}" alt="${p.name}" onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_120,q_auto:best/v1/people/${p.id}/headshot/67/current'">
+        <div class="pv-pm-name">${abbrev} - ${p.name}</div>
+        <div class="pv-pm-hand">${hand}</div>
+        ${statLine}
+      </div>`;
+    }
+
+    el.innerHTML = `<div class="pv-pitching-matchup">
+      ${_side(awayStarter, awayStat, d.away_abbrev || 'AWAY')}
+      <div class="pv-pm-vs">vs</div>
+      ${_side(homeStarter, homeStat, d.home_abbrev || 'HOME')}
+    </div>`;
+  }
+
+  function renderSimulation(d){
+    const el = document.getElementById('pv-sim');
+    if(!el) return;
+    const sim = d.simulation;
+    if(!sim){ el.style.display = 'none'; return; }
+
+    const aw = sim.awayWinPct || 0;
+    const hm = sim.homeWinPct || 0;
+    const arcLen = 377; // π × 120
+
+    // Needle: 50% away → 0° (up), 100% away → -90° (left), 0% → +90° (right)
+    const angle = (0.5 - aw) * 180;
+    const awayOffset = (arcLen * (1 - aw)).toFixed(2);
+    const homeOffset = (arcLen * (1 - hm)).toFixed(2);
+
+    const awayAbbrev = d.away_abbrev || 'AWAY';
+    const homeAbbrev = d.home_abbrev || 'HOME';
+    const es = sim.expectedScore || {};
+
+    el.innerHTML = `<div class="pv-sim-card">
+      <div style="font-weight:800; font-size:0.9rem; margin-bottom:4px;">Predicted Outcome</div>
+      <div style="font-size:0.7rem; opacity:0.5; margin-bottom:10px;">${sim.sims.toLocaleString()} simulations</div>
+
+      <svg viewBox="0 0 300 170" style="width:100%; max-width:340px; display:block; margin:0 auto; overflow:visible;">
+        <path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="22" stroke-linecap="round"/>
+        <path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="rgba(59,130,246,.85)" stroke-width="22" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="${awayOffset}"/>
+        <path d="M270 150 A120 120 0 0 0 30 150" fill="none" stroke="rgba(239,68,68,.85)" stroke-width="22" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="${homeOffset}"/>
+        <line x1="150" y1="150" x2="150" y2="36" stroke="rgba(255,255,255,.9)" stroke-width="2.5" stroke-linecap="round" transform="rotate(${angle.toFixed(1)} 150 150)"/>
+        <circle cx="150" cy="150" r="5" fill="rgba(255,255,255,.9)"/>
+        <text x="24" y="172" font-size="12" fill="rgba(148,163,184,.9)" font-family="monospace" text-anchor="middle">${awayAbbrev} ${(aw*100).toFixed(1)}%</text>
+        <text x="276" y="172" font-size="12" fill="rgba(148,163,184,.9)" font-family="monospace" text-anchor="middle">${homeAbbrev} ${(hm*100).toFixed(1)}%</text>
+      </svg>
+
+      <div class="pv-sim-score">
+        <div class="pv-sim-team">
+          <div class="pv-sim-abbrev">${awayAbbrev}</div>
+          <div class="pv-sim-runs">${es.away != null ? es.away : '-'}</div>
+        </div>
+        <div class="pv-sim-dash">-</div>
+        <div class="pv-sim-team">
+          <div class="pv-sim-abbrev">${homeAbbrev}</div>
+          <div class="pv-sim-runs">${es.home != null ? es.home : '-'}</div>
+        </div>
+      </div>
+      <div style="font-size:0.7rem; opacity:0.45; margin-top:6px;">Projected Score</div>
+    </div>`;
+  }
+
+  function renderWeather(w, venueName, venueLocation){
     const imp = w.impact || {};
     let impClass = 'neutral';
     if(imp.label && imp.label.toLowerCase().includes('hitter')) impClass = 'hitter';
@@ -5013,44 +5135,61 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
     let html = '<div class="pv-weather">';
 
-    // Stadium SVG with wind arrow (outdoor only)
+    // Stadium SVG with wind arrow + venue label
+    const stadiumUrl = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
     if(!w.dome && w.wind_mph > 0){
-      const stadiumUrl = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
-      // Arrow rotation: stadium img is rotated 180° so HP is at bottom, CF at top.
-      // In overlay SVG, 0° = up = toward CF. bearing = compass deg HP→CF.
-      // wind_dir = compass deg where wind comes FROM. Arrow points where wind goes TO.
+      // Arrow direction: wind blows FROM wind_dir, arrow shows where wind GOES.
+      // SVG img is flipped (scaleY-1) so CF is at top, HP at bottom.
+      // In the overlay: 0°=up=toward CF. bearing = compass deg HP→CF.
       const windToward = (w.wind_dir + 180) % 360;
       const bearing = w.bearing || 180;
-      const arrowDeg = windToward - bearing; // rotation in SVG space (0°=toward CF)
-      // Arrow length scales with wind speed (min 20%, max 80% of radius)
-      const r = Math.min(40, Math.max(12, w.wind_mph * 1.8));
-      const cx = 50, cy = 50; // center of 100×100 viewBox
-      // Arrow tip from center outward in direction arrowDeg (0°=up in SVG)
+      const arrowDeg = windToward - bearing;
+      // Arrow from center outward — thick and long for visibility
+      const r = Math.min(44, Math.max(18, w.wind_mph * 2.2));
+      const cx = 50, cy = 50;
       const rad = arrowDeg * Math.PI / 180;
       const tipX = cx + r * Math.sin(rad);
       const tipY = cy - r * Math.cos(rad);
-      const tailX = cx - r * 0.35 * Math.sin(rad);
-      const tailY = cy + r * 0.35 * Math.cos(rad);
-      // Arrowhead wings
-      const headLen = Math.min(10, r * 0.35);
-      const wingAngle = 25 * Math.PI / 180;
+      const tailX = cx - r * 0.4 * Math.sin(rad);
+      const tailY = cy + r * 0.4 * Math.cos(rad);
+      // Fat arrowhead
+      const headLen = Math.min(14, r * 0.4);
+      const wingAngle = 30 * Math.PI / 180;
       const w1x = tipX - headLen * Math.sin(rad + wingAngle);
       const w1y = tipY + headLen * Math.cos(rad + wingAngle);
       const w2x = tipX - headLen * Math.sin(rad - wingAngle);
       const w2y = tipY + headLen * Math.cos(rad - wingAngle);
-      // Color based on wind speed
-      let arrowColor = '#4dabf7'; // light blue default
+      // Color by wind speed
+      let arrowColor = '#4dabf7';
       if(w.wind_mph >= 15) arrowColor = '#ff922b';
       else if(w.wind_mph >= 10) arrowColor = '#ffd43b';
 
-      html += `<div class="pv-wind-diagram">
-        <img src="${stadiumUrl}" alt="Stadium">
-        <svg class="pv-wind-arrow" viewBox="0 0 100 100">
-          <line x1="${tailX.toFixed(1)}" y1="${tailY.toFixed(1)}" x2="${tipX.toFixed(1)}" y2="${tipY.toFixed(1)}"
-                stroke="${arrowColor}" stroke-width="3" stroke-linecap="round"/>
-          <polygon points="${tipX.toFixed(1)},${tipY.toFixed(1)} ${w1x.toFixed(1)},${w1y.toFixed(1)} ${w2x.toFixed(1)},${w2y.toFixed(1)}"
-                   fill="${arrowColor}"/>
-        </svg>
+      html += `<div style="flex-shrink:0;">
+        <div class="pv-wind-diagram">
+          <img src="${stadiumUrl}" alt="Stadium">
+          <svg class="pv-wind-arrow" viewBox="0 0 100 100">
+            <line x1="${tailX.toFixed(1)}" y1="${tailY.toFixed(1)}" x2="${tipX.toFixed(1)}" y2="${tipY.toFixed(1)}"
+                  stroke="${arrowColor}" stroke-width="4.5" stroke-linecap="round" opacity="0.9"/>
+            <polygon points="${tipX.toFixed(1)},${tipY.toFixed(1)} ${w1x.toFixed(1)},${w1y.toFixed(1)} ${w2x.toFixed(1)},${w2y.toFixed(1)}"
+                     fill="${arrowColor}" opacity="0.9"/>
+            <text x="50" y="96" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="8" font-family="monospace">${w.wind_mph} mph ${windLabel}</text>
+          </svg>
+        </div>
+        <div class="pv-venue-label">
+          <div class="pv-venue-name">${venueName || ''}</div>
+          ${venueLocation ? `<div class="pv-venue-loc">${venueLocation}</div>` : ''}
+        </div>
+      </div>`;
+    } else {
+      // Dome or no wind — show stadium without arrow
+      html += `<div style="flex-shrink:0;">
+        <div class="pv-wind-diagram">
+          <img src="${stadiumUrl}" alt="Stadium">
+        </div>
+        <div class="pv-venue-label">
+          <div class="pv-venue-name">${venueName || ''}</div>
+          ${venueLocation ? `<div class="pv-venue-loc">${venueLocation}</div>` : ''}
+        </div>
       </div>`;
     }
 

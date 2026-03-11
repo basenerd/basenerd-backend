@@ -125,6 +125,10 @@ def _extract_lineups_from_feed(feed):
     venue_info = game_data.get("venue") or {}
     venue_name = venue_info.get("name") or ""
     venue_id = venue_info.get("id")
+    venue_loc = venue_info.get("location") or {}
+    venue_city = venue_loc.get("city") or ""
+    venue_state = venue_loc.get("stateAbbrev") or venue_loc.get("state") or ""
+    venue_location = f"{venue_city}, {venue_state}" if venue_city and venue_state else (venue_city or venue_state)
 
     # Game date/time
     game_datetime = game_data.get("datetime") or {}
@@ -224,6 +228,7 @@ def _extract_lineups_from_feed(feed):
         "venue": venue_abbrev,
         "venue_name": venue_name,
         "venue_id": venue_id,
+        "venue_location": venue_location,
         "home_name": home_name,
         "away_name": away_name,
         "home_abbrev": home_abbrev,
@@ -257,6 +262,7 @@ def get_pregame_predictions(game_pk, season=2026):
         "game_pk": game_pk,
         "venue": lineup_data["venue"],
         "venue_name": lineup_data["venue_name"],
+        "venue_location": lineup_data.get("venue_location", ""),
         "home_name": lineup_data["home_name"],
         "away_name": lineup_data["away_name"],
         "home_abbrev": lineup_data["home_abbrev"],
@@ -464,4 +470,180 @@ def get_pregame_predictions(game_pk, season=2026):
         result["home_bullpen"] = []
         result["away_bullpen"] = []
 
+    # Monte Carlo game simulation
+    try:
+        sim = _simulate_game(result)
+        result["simulation"] = sim
+    except Exception as e:
+        log.warning("Simulation failed: %s", e)
+        result["simulation"] = None
+
     return result
+
+
+def _simulate_game(pregame_data, sims=2000):
+    """
+    Run Monte Carlo simulation using per-batter outcome probabilities.
+
+    Simulates full 9-inning games, cycling through each lineup.
+    Returns win probabilities and expected score.
+    """
+    import random
+
+    away_batters = pregame_data.get("away", {}).get("batters", [])
+    home_batters = pregame_data.get("home", {}).get("batters", [])
+
+    if not away_batters or not home_batters:
+        return None
+
+    # Build probability arrays for each batter
+    outcomes = ["1B", "2B", "3B", "HR", "BB", "HBP", "K", "OUT"]
+
+    def _build_probs(batters):
+        """Build normalized probability arrays for lineup."""
+        lineup = []
+        for b in batters:
+            probs = b.get("probs", {})
+            if not probs:
+                # Fallback: league-average hitter
+                probs = {"1B": 0.15, "2B": 0.045, "3B": 0.004, "HR": 0.033,
+                         "BB": 0.08, "HBP": 0.01, "K": 0.22, "OUT": 0.458}
+            p = [probs.get(o, 0) for o in outcomes]
+            total = sum(p)
+            if total > 0:
+                p = [x / total for x in p]
+            else:
+                p = [0.15, 0.045, 0.004, 0.033, 0.08, 0.01, 0.22, 0.458]
+            lineup.append(p)
+        return lineup
+
+    away_probs = _build_probs(away_batters)
+    home_probs = _build_probs(home_batters)
+
+    away_wins = 0
+    home_wins = 0
+    away_total = 0.0
+    home_total = 0.0
+
+    for _ in range(sims):
+        away_runs, home_runs = _sim_one_game(away_probs, home_probs, outcomes)
+        away_total += away_runs
+        home_total += home_runs
+        if away_runs > home_runs:
+            away_wins += 1
+        elif home_runs > away_runs:
+            home_wins += 1
+        else:
+            # Tie: simulate extra innings (simplified coin flip weighted by quality)
+            if random.random() < 0.5:
+                away_wins += 1
+            else:
+                home_wins += 1
+
+    return {
+        "sims": sims,
+        "awayWinPct": round(away_wins / sims, 4),
+        "homeWinPct": round(home_wins / sims, 4),
+        "expectedScore": {
+            "away": round(away_total / sims, 1),
+            "home": round(home_total / sims, 1),
+        },
+    }
+
+
+def _sim_one_game(away_probs, home_probs, outcomes):
+    """Simulate a single 9-inning game. Returns (away_runs, home_runs)."""
+    import random
+
+    def _sim_half(lineup_probs, batter_idx):
+        """Simulate one half-inning. Returns (runs_scored, new_batter_idx)."""
+        outs = 0
+        runners = 0  # bitmask: 1=1B, 2=2B, 4=3B
+        runs = 0
+        idx = batter_idx
+
+        while outs < 3:
+            probs = lineup_probs[idx % len(lineup_probs)]
+            idx += 1
+
+            # Sample outcome
+            r = random.random()
+            cumulative = 0
+            outcome = "OUT"
+            for i, p in enumerate(probs):
+                cumulative += p
+                if r < cumulative:
+                    outcome = outcomes[i]
+                    break
+
+            if outcome == "K" or outcome == "OUT":
+                outs += 1
+            elif outcome == "BB" or outcome == "HBP":
+                # Force walk advancement
+                if runners & 1:
+                    if runners & 2:
+                        if runners & 4:
+                            runs += 1  # bases loaded, score from 3rd
+                        runners |= 4
+                    runners |= 2
+                runners |= 1
+            elif outcome == "1B":
+                # Runner on 3B scores, 2B scores (80%), 1B to 2B
+                if runners & 4:
+                    runs += 1
+                    runners &= ~4
+                if runners & 2:
+                    if random.random() < 0.80:
+                        runs += 1
+                        runners &= ~2
+                    else:
+                        runners |= 4
+                        runners &= ~2
+                if runners & 1:
+                    runners |= 2
+                runners |= 1
+            elif outcome == "2B":
+                # All runners score except runner on 1B goes to 3B (60% scores)
+                if runners & 4:
+                    runs += 1
+                    runners &= ~4
+                if runners & 2:
+                    runs += 1
+                    runners &= ~2
+                if runners & 1:
+                    if random.random() < 0.60:
+                        runs += 1
+                    else:
+                        runners |= 4
+                    runners &= ~1
+                runners |= 2
+            elif outcome == "3B":
+                # All runners score
+                runs += bin(runners).count('1')
+                runners = 4
+            elif outcome == "HR":
+                runs += bin(runners).count('1') + 1
+                runners = 0
+
+        return runs, idx
+
+    away_runs = 0
+    home_runs = 0
+    away_idx = 0
+    home_idx = 0
+
+    for inning in range(1, 10):
+        r, away_idx = _sim_half(away_probs, away_idx)
+        away_runs += r
+
+        # Bottom of 9th: skip if home team already ahead
+        if inning == 9 and home_runs > away_runs:
+            break
+        r, home_idx = _sim_half(home_probs, home_idx)
+        home_runs += r
+
+        # Walk-off
+        if inning >= 9 and home_runs > away_runs:
+            break
+
+    return away_runs, home_runs
