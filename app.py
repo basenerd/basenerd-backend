@@ -673,6 +673,19 @@ def matchup_probs_json(game_pk: int):
         traceback.print_exc()
         return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
 
+@app.get("/game/<int:game_pk>/pitcher/<int:pitcher_id>/live_scores.json")
+def pitcher_live_scores(game_pk: int, pitcher_id: int):
+    """Score stuff+/control+ for a pitcher from the MLB live feed."""
+    try:
+        from services.score_live import score_pitcher_live
+        feed = get_game_feed(game_pk)
+        if not feed:
+            return jsonify({"ok": False, "reason": "no_feed"}), 200
+        result = score_pitcher_live(feed, pitcher_id)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
+
 @app.get("/game/<int:game_pk>/pregame")
 def pregame_page(game_pk):
     """Pregame lineup predictions page."""

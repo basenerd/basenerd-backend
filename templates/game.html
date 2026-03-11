@@ -4424,14 +4424,14 @@ document.addEventListener("DOMContentLoaded", ()=>{
         }
       }
 
-      // If stuff+/control+ are missing (PBP fallback), merge from season averages
+      // If stuff+/control+ are missing (PBP fallback), score from live feed
       const needsModel = mix.length && mix.every(r => r.stuff_plus == null && r.control_plus == null);
       if(needsModel){
         try {
-          const seasonRpt = await fetch(`/player/${pitcherId}/pitching_report.json?season=${PR_SEASON}`).then(r=>r.json());
-          if(seasonRpt.ok && seasonRpt.mix){
+          const liveScores = await fetch(`/game/${PR_GAME_PK}/pitcher/${pitcherId}/live_scores.json`).then(r=>r.json());
+          if(liveScores.ok && liveScores.mix){
             const lookup = {};
-            for(const m of seasonRpt.mix) lookup[m.pitch_type] = m;
+            for(const m of liveScores.mix) lookup[m.pitch_type] = m;
             for(const m of mix){
               const s = lookup[m.pitch_type];
               if(s){
@@ -4440,7 +4440,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
               }
             }
           }
-        } catch(e){ /* season lookup is best-effort */ }
+        } catch(e){ /* live scoring is best-effort */ }
       }
 
       renderMix(`pr-${side}-mix-body`, mix);
