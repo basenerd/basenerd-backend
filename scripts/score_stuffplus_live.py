@@ -5,6 +5,7 @@ import json
 import math
 import sys
 import joblib
+import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine, text
@@ -42,6 +43,45 @@ def clip(v, lo, hi):
     if v is None:
         return None
     return max(lo, min(hi, v))
+
+
+_Y_PLATE = 17.0 / 12.0
+
+
+def compute_approach_angles(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute vertical and horizontal approach angles at the plate."""
+    y0 = df["release_pos_y"].values.astype(np.float64)
+    vy0 = df["vy0"].values.astype(np.float64)
+    ay = df["ay"].values.astype(np.float64)
+    vx0 = df["vx0"].values.astype(np.float64)
+    vz0 = df["vz0"].values.astype(np.float64)
+    ax = df["ax"].values.astype(np.float64)
+    az = df["az"].values.astype(np.float64)
+
+    a = 0.5 * ay
+    b = vy0
+    c = y0 - _Y_PLATE
+
+    discriminant = np.maximum(b**2 - 4.0 * a * c, 0.0)
+    sqrt_disc = np.sqrt(discriminant)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t1 = (-b + sqrt_disc) / (2.0 * a)
+        t2 = (-b - sqrt_disc) / (2.0 * a)
+
+    t = np.where((t2 > 0) & (t2 < t1), t2, t1)
+    t = np.where(t > 0, t, np.nan)
+
+    vy_plate = vy0 + ay * t
+    vz_plate = vz0 + az * t
+    vx_plate = vx0 + ax * t
+
+    abs_vy = np.abs(vy_plate)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        df["vert_approach_angle"] = np.degrees(np.arctan2(vz_plate, abs_vy))
+        df["horiz_approach_angle"] = np.degrees(np.arctan2(vx_plate, abs_vy))
+
+    return df
 
 
 def build_engine():
@@ -125,6 +165,11 @@ def main():
             if df.empty:
                 print("No rows to score.")
                 break
+
+            # Compute derived features if needed
+            derived = meta.get("derived_features", [])
+            if derived:
+                df = compute_approach_angles(df)
 
             X = df[feature_cols]
             preds = pipe.predict(X)

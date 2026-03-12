@@ -42,6 +42,47 @@ _STUFF_OHE_CATS = sorted([
     'KC', 'KN', 'PO', 'SC', 'SI', 'SL', 'ST', 'SV',
 ])
 
+_Y_PLATE = 17.0 / 12.0  # front of home plate in feet
+
+
+def _compute_approach_angles(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute vertical and horizontal approach angles at the plate."""
+    y0 = df["release_pos_y"].values.astype(np.float64)
+    vy0 = df["vy0"].values.astype(np.float64)
+    ay = df["ay"].values.astype(np.float64)
+    vx0 = df["vx0"].values.astype(np.float64)
+    vz0 = df["vz0"].values.astype(np.float64)
+    ax = df["ax"].values.astype(np.float64)
+    az = df["az"].values.astype(np.float64)
+
+    a = 0.5 * ay
+    b = vy0
+    c = y0 - _Y_PLATE
+
+    discriminant = np.maximum(b**2 - 4.0 * a * c, 0.0)
+    sqrt_disc = np.sqrt(discriminant)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t1 = (-b + sqrt_disc) / (2.0 * a)
+        t2 = (-b - sqrt_disc) / (2.0 * a)
+
+    t = np.where((t2 > 0) & (t2 < t1), t2, t1)
+    t = np.where(t > 0, t, np.nan)
+
+    vy_plate = vy0 + ay * t
+    vz_plate = vz0 + az * t
+    vx_plate = vx0 + ax * t
+
+    abs_vy = np.abs(vy_plate)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        vaa = np.degrees(np.arctan2(vz_plate, abs_vy))
+        haa = np.degrees(np.arctan2(vx_plate, abs_vy))
+
+    df = df.copy()
+    df["vert_approach_angle"] = vaa
+    df["horiz_approach_angle"] = haa
+    return df
+
 
 def _load_models():
     """Load models and metadata once."""
@@ -105,29 +146,53 @@ def _load_models():
 # Model prediction helpers (bypass broken sklearn pipelines)
 # ---------------------------------------------------------------------------
 
-def _predict_stuff(pipe, X_df, num_feats, cat_feats):
-    model = pipe.named_steps["model"]
-    for tree in model.estimators_:
-        if not hasattr(tree, "monotonic_cst"):
-            tree.monotonic_cst = None
+def _predict_stuff(pipe, X_df, num_feats, cat_feats, meta=None):
+    """Score stuff+, supporting both v2 (RF+OHE) and v3 (HGBM+Ordinal) models."""
+    model_type = (meta or {}).get("model_type", "")
 
-    num_data = X_df[num_feats].values.astype(np.float64)
-    for col_i in range(num_data.shape[1]):
-        col = num_data[:, col_i]
-        nans = np.isnan(col)
-        if nans.any():
-            med = np.nanmedian(col) if not nans.all() else 0.0
-            col[nans] = med
+    if model_type == "HistGradientBoostingRegressor":
+        # v3 model: HistGradientBoosting with OrdinalEncoder
+        # The pipeline should work directly, but if it doesn't, fall back
+        try:
+            return pipe.predict(X_df)
+        except Exception:
+            model = pipe.named_steps["model"]
+            if not hasattr(model, "_preprocessor"):
+                model._preprocessor = None
 
-    cats = _STUFF_OHE_CATS
-    cat_vals = X_df[cat_feats[0]].values
-    ohe_data = np.zeros((len(cat_vals), len(cats)))
-    for i, pt in enumerate(cat_vals):
-        if pt in cats:
-            ohe_data[i, cats.index(pt)] = 1.0
+            num_data = X_df[num_feats].values.astype(np.float64)
+            cat_vals = X_df[cat_feats[0]].values
+            all_types = sorted(_STUFF_OHE_CATS)
+            type_map = {pt: float(i) for i, pt in enumerate(all_types)}
+            cat_encoded = np.array(
+                [type_map.get(v, -1.0) for v in cat_vals]
+            ).reshape(-1, 1)
+            X_combined = np.hstack([num_data, cat_encoded])
+            return model._raw_predict(X_combined).ravel()
+    else:
+        # v2 model: RandomForest with OneHotEncoding (legacy)
+        model = pipe.named_steps["model"]
+        for tree in model.estimators_:
+            if not hasattr(tree, "monotonic_cst"):
+                tree.monotonic_cst = None
 
-    X_combined = np.hstack([num_data, ohe_data])
-    return model.predict(X_combined)
+        num_data = X_df[num_feats].values.astype(np.float64)
+        for col_i in range(num_data.shape[1]):
+            col = num_data[:, col_i]
+            nans = np.isnan(col)
+            if nans.any():
+                med = np.nanmedian(col) if not nans.all() else 0.0
+                col[nans] = med
+
+        cats = _STUFF_OHE_CATS
+        cat_vals = X_df[cat_feats[0]].values
+        ohe_data = np.zeros((len(cat_vals), len(cats)))
+        for i, pt in enumerate(cat_vals):
+            if pt in cats:
+                ohe_data[i, cats.index(pt)] = 1.0
+
+        X_combined = np.hstack([num_data, ohe_data])
+        return model.predict(X_combined)
 
 
 def _predict_control(pipe, X_df, num_feats, cat_feats):
@@ -267,10 +332,15 @@ def _score_pitches(pitches: List[dict]) -> List[dict]:
             clip_lo = float(meta.get("stuff_clip_min", 40.0))
             clip_hi = float(meta.get("stuff_clip_max", 160.0))
 
+            # Compute derived features if needed by the model
+            derived = meta.get("derived_features", [])
+            if derived and "vert_approach_angle" not in df.columns:
+                df = _compute_approach_angles(df)
+
             X = df[num_feats + cat_feats].copy()
             for c in num_feats:
                 X[c] = pd.to_numeric(X[c], errors="coerce")
-            preds = _predict_stuff(_stuff_pipe, X, num_feats, cat_feats)
+            preds = _predict_stuff(_stuff_pipe, X, num_feats, cat_feats, meta)
             goodness = -pd.Series(preds, index=X.index)
             sp = center + scale * (goodness / goodness_std)
             sp = sp.clip(clip_lo, clip_hi)
