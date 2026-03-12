@@ -1,0 +1,63 @@
+{
+  "model_version": "stuff_v5_per_type_hgbm",
+  "model_type": "HistGradientBoostingRegressor",
+  "pitch_type": "_global",
+  "train_year_range": [
+    2021,
+    2025
+  ],
+  "n_pitches": 3554021,
+  "num_features": [
+    "release_speed",
+    "release_spin_rate",
+    "release_extension",
+    "release_pos_x",
+    "release_pos_z",
+    "release_pos_y",
+    "pfx_x",
+    "pfx_z",
+    "vx0",
+    "vy0",
+    "vz0",
+    "ax",
+    "ay",
+    "az",
+    "sz_top",
+    "sz_bot",
+    "vert_approach_angle",
+    "horiz_approach_angle"
+  ],
+  "raw_num_features": [
+    "release_speed",
+    "release_spin_rate",
+    "release_extension",
+    "release_pos_x",
+    "release_pos_z",
+    "release_pos_y",
+    "pfx_x",
+    "pfx_z",
+    "vx0",
+    "vy0",
+    "vz0",
+    "ax",
+    "ay",
+    "az",
+    "sz_top",
+    "sz_bot"
+  ],
+  "derived_features": [
+    "vert_approach_angle",
+    "horiz_approach_angle"
+  ],
+  "cat_features": [
+    "pitch_type",
+    "p_throws"
+  ],
+  "goodness_std": 0.02023011004928742,
+  "stuff_center": 100.0,
+  "stuff_scale": 15.0,
+  "stuff_clip_min": 40.0,
+  "stuff_clip_max": 160.0,
+  "val_rmse": 0.21069883891802946,
+  "val_r2": 0.013077500599559366
+}

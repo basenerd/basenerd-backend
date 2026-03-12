@@ -23,16 +23,19 @@ except ImportError:
 # Model paths
 # ---------------------------------------------------------------------------
 _ROOT = Path(__file__).resolve().parent.parent
-_STUFF_MODEL = _ROOT / "models" / "stuff_model.pkl"
-_STUFF_META = _ROOT / "models" / "stuff_model_meta.json"
+_STUFF_REGISTRY = _ROOT / "models" / "stuff_models" / "registry.json"
+_STUFF_MODEL = _ROOT / "models" / "stuff_model.pkl"       # legacy fallback
+_STUFF_META = _ROOT / "models" / "stuff_model_meta.json"   # legacy fallback
 _CTRL_MODEL = _ROOT / "models" / "control_model.pkl"
 _CTRL_META = _ROOT / "models" / "control_model_meta.json"
 
 # ---------------------------------------------------------------------------
 # Lazy-loaded model singletons
 # ---------------------------------------------------------------------------
-_stuff_pipe = None
-_stuff_meta = None
+_stuff_registry = None     # per-type registry dict
+_stuff_type_pipes = None   # {pitch_type: {"pipe": ..., "meta": ..., "goodness_std": ...}}
+_stuff_pipe = None         # legacy single model
+_stuff_meta = None         # legacy single meta
 _ctrl_pipe = None
 _ctrl_meta = None
 _models_loaded = False
@@ -86,7 +89,8 @@ def _compute_approach_angles(df: pd.DataFrame) -> pd.DataFrame:
 
 def _load_models():
     """Load models and metadata once."""
-    global _stuff_pipe, _stuff_meta, _ctrl_pipe, _ctrl_meta, _models_loaded
+    global _stuff_registry, _stuff_type_pipes, _stuff_pipe, _stuff_meta
+    global _ctrl_pipe, _ctrl_meta, _models_loaded
     if _models_loaded:
         return
     _models_loaded = True
@@ -94,8 +98,52 @@ def _load_models():
     if joblib is None:
         return
 
-    # --- Stuff+ model ---
-    if _STUFF_MODEL.exists() and _STUFF_META.exists():
+    # --- Stuff+ models (v5 per-type or v4 single model fallback) ---
+    if _STUFF_REGISTRY.exists():
+        try:
+            with open(str(_STUFF_REGISTRY)) as f:
+                _stuff_registry = json.load(f)
+            models_dir = _STUFF_REGISTRY.parent
+            _stuff_type_pipes = {}
+
+            # Load per-type models
+            for pt, info in _stuff_registry.get("pitch_type_models", {}).items():
+                model_path = models_dir / info["model_file"]
+                meta_path = models_dir / info["meta_file"]
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    pipe = joblib.load(str(model_path))
+                with open(str(meta_path)) as f:
+                    meta = json.load(f)
+                _stuff_type_pipes[pt] = {
+                    "pipe": pipe,
+                    "meta": meta,
+                    "goodness_std": float(info["goodness_std"]),
+                }
+
+            # Load global fallback
+            fallback_key = _stuff_registry.get("fallback_model", "_global")
+            fb_model = models_dir / f"{fallback_key}.pkl"
+            fb_meta = models_dir / f"{fallback_key}_meta.json"
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                pipe = joblib.load(str(fb_model))
+            with open(str(fb_meta)) as f:
+                meta = json.load(f)
+            _stuff_type_pipes["_global"] = {
+                "pipe": pipe,
+                "meta": meta,
+                "goodness_std": float(
+                    _stuff_registry.get("global_goodness_std", 0.01)
+                ),
+            }
+            print(f"[score_live] Loaded {len(_stuff_type_pipes)-1} per-type stuff+ models + global fallback")
+        except Exception as e:
+            print(f"[score_live] Failed to load per-type stuff+ models: {e}")
+            _stuff_registry = None
+            _stuff_type_pipes = None
+    elif _STUFF_MODEL.exists() and _STUFF_META.exists():
+        # Legacy single-model fallback (v4 and earlier)
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
@@ -322,8 +370,51 @@ def _score_pitches(pitches: List[dict]) -> List[dict]:
 
     df = pd.DataFrame(pitches)
 
-    # --- Stuff+ ---
-    if _stuff_pipe is not None and _stuff_meta is not None:
+    # --- Stuff+ (per-type models v5) ---
+    if _stuff_type_pipes is not None and _stuff_registry is not None:
+        try:
+            reg = _stuff_registry
+            center = float(reg.get("stuff_center", 100.0))
+            scale = float(reg.get("stuff_scale", 15.0))
+            clip_lo = float(reg.get("stuff_clip_min", 40.0))
+            clip_hi = float(reg.get("stuff_clip_max", 160.0))
+
+            # Compute derived features if needed
+            derived = reg.get("derived_features", [])
+            if derived and "vert_approach_angle" not in df.columns:
+                df = _compute_approach_angles(df)
+
+            df["stuff_plus"] = np.nan
+
+            for pt, group in df.groupby("pitch_type"):
+                if pt in _stuff_type_pipes:
+                    model_info = _stuff_type_pipes[pt]
+                else:
+                    model_info = _stuff_type_pipes.get("_global")
+                    if model_info is None:
+                        continue
+
+                meta = model_info["meta"]
+                feature_cols = meta["num_features"] + meta["cat_features"]
+                goodness_std = model_info["goodness_std"] or 0.01
+
+                X = group[feature_cols].copy()
+                for c in meta["num_features"]:
+                    X[c] = pd.to_numeric(X[c], errors="coerce")
+                preds = _predict_stuff(
+                    model_info["pipe"], X,
+                    meta["num_features"], meta["cat_features"], meta
+                )
+                goodness = -pd.Series(preds, index=group.index)
+                sp = center + scale * (goodness / goodness_std)
+                sp = sp.clip(clip_lo, clip_hi)
+                df.loc[group.index, "stuff_plus"] = sp
+
+        except Exception as e:
+            print(f"[score_live] stuff+ scoring failed: {e}")
+
+    # --- Stuff+ (legacy single model v4 fallback) ---
+    elif _stuff_pipe is not None and _stuff_meta is not None:
         try:
             meta = _stuff_meta
             num_feats = meta["num_features"]
@@ -334,7 +425,6 @@ def _score_pitches(pitches: List[dict]) -> List[dict]:
             clip_lo = float(meta.get("stuff_clip_min", 40.0))
             clip_hi = float(meta.get("stuff_clip_max", 160.0))
 
-            # Compute derived features if needed by the model
             derived = meta.get("derived_features", [])
             if derived and "vert_approach_angle" not in df.columns:
                 df = _compute_approach_angles(df)

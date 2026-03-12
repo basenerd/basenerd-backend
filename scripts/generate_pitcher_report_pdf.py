@@ -40,8 +40,9 @@ sys.path.insert(0, str(ROOT))
 
 LOGO_PATH = ROOT / "static" / "basenerd-logo-official.png"
 REPORTS_DIR = ROOT / "reports"
-STUFF_MODEL = ROOT / "models" / "stuff_model.pkl"
-STUFF_META = ROOT / "models" / "stuff_model_meta.json"
+STUFF_REGISTRY = ROOT / "models" / "stuff_models" / "registry.json"
+STUFF_MODEL = ROOT / "models" / "stuff_model.pkl"       # legacy fallback
+STUFF_META = ROOT / "models" / "stuff_model_meta.json"   # legacy fallback
 CTRL_MODEL = ROOT / "models" / "control_model.pkl"
 CTRL_META = ROOT / "models" / "control_model_meta.json"
 
@@ -410,8 +411,75 @@ def _score_models(pitches: List[dict]) -> List[dict]:
 
     df = pd.DataFrame(pitches)
 
-    # Score Stuff+
-    if STUFF_MODEL.exists() and STUFF_META.exists():
+    # Score Stuff+ (per-type v5 or legacy single model)
+    stuff_scored = False
+    if STUFF_REGISTRY.exists():
+        try:
+            import warnings as _w
+            with open(str(STUFF_REGISTRY)) as f:
+                registry = json.load(f)
+            models_dir = STUFF_REGISTRY.parent
+            center = float(registry.get("stuff_center", 100.0))
+            scale = float(registry.get("stuff_scale", 15.0))
+            clip_lo = float(registry.get("stuff_clip_min", 40.0))
+            clip_hi = float(registry.get("stuff_clip_max", 160.0))
+
+            derived = registry.get("derived_features", [])
+            if derived and "vert_approach_angle" not in df.columns:
+                df = _compute_approach_angles(df)
+
+            df["stuff_plus"] = np.nan
+
+            # Load models on demand per pitch type
+            loaded_pipes = {}
+            for pt, group in df.groupby("pitch_type"):
+                if pt in registry.get("pitch_type_models", {}):
+                    info = registry["pitch_type_models"][pt]
+                    cache_key = pt
+                else:
+                    fallback_key = registry.get("fallback_model", "_global")
+                    info = {
+                        "model_file": f"{fallback_key}.pkl",
+                        "meta_file": f"{fallback_key}_meta.json",
+                        "goodness_std": registry.get("global_goodness_std", 0.01),
+                    }
+                    cache_key = "_global"
+
+                if cache_key not in loaded_pipes:
+                    model_path = models_dir / info["model_file"]
+                    meta_path = models_dir / info["meta_file"]
+                    with _w.catch_warnings():
+                        _w.simplefilter("ignore")
+                        pipe = joblib.load(str(model_path))
+                    with open(str(meta_path)) as f:
+                        meta = json.load(f)
+                    loaded_pipes[cache_key] = {
+                        "pipe": pipe, "meta": meta,
+                        "goodness_std": float(info["goodness_std"]),
+                    }
+
+                model_info = loaded_pipes[cache_key]
+                meta = model_info["meta"]
+                feature_cols = meta["num_features"] + meta["cat_features"]
+                goodness_std = model_info["goodness_std"] or 0.01
+
+                X = group[feature_cols].copy()
+                for c in meta["num_features"]:
+                    X[c] = pd.to_numeric(X[c], errors="coerce")
+                preds = _predict_stuff(
+                    model_info["pipe"], X,
+                    meta["num_features"], meta["cat_features"], meta
+                )
+                goodness = -pd.Series(preds, index=group.index)
+                sp = center + scale * (goodness / goodness_std)
+                sp = sp.clip(clip_lo, clip_hi)
+                df.loc[group.index, "stuff_plus"] = sp
+
+            stuff_scored = True
+        except Exception as e:
+            print(f"  Warning: per-type stuff+ scoring failed: {e}")
+
+    if not stuff_scored and STUFF_MODEL.exists() and STUFF_META.exists():
         try:
             import warnings as _w
             with _w.catch_warnings():
@@ -428,7 +496,6 @@ def _score_models(pitches: List[dict]) -> List[dict]:
             clip_lo = float(meta.get("stuff_clip_min", 40.0))
             clip_hi = float(meta.get("stuff_clip_max", 160.0))
 
-            # Compute derived features if needed by the model
             derived = meta.get("derived_features", [])
             if derived and "vert_approach_angle" not in df.columns:
                 df = _compute_approach_angles(df)

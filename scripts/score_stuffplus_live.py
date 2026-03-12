@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""Score Stuff+ on statcast_pitches_live using per-pitch-type models (v5).
+
+Loads the model registry from models/stuff_models/registry.json, routes each
+pitch to its pitch-type-specific model, and writes stuff_plus back to the DB.
+Falls back to the global model for unknown pitch types.
+"""
 import os
 import ssl
 import json
@@ -18,8 +24,9 @@ TABLE_NAME = os.environ.get("STUFF_TABLE", "statcast_pitches_live")
 DAYS_BACK = int(os.environ.get("STUFF_DAYS_BACK", "4"))
 BATCH_SIZE = int(os.environ.get("STUFF_BATCH_SIZE", "3000"))
 
-MODEL_PATH = os.environ.get("STUFF_MODEL_PATH", "models/stuff_model.pkl")
-META_PATH = os.environ.get("STUFF_META_PATH", "models/stuff_model_meta.json")
+REGISTRY_PATH = os.environ.get(
+    "STUFF_REGISTRY_PATH", "models/stuff_models/registry.json"
+)
 
 KEY_COLS = ["game_pk", "at_bat_number", "pitch_number"]
 
@@ -94,7 +101,6 @@ def build_engine():
     elif db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql+pg8000://", 1)
 
-    # ✅ SSL but do NOT verify cert (needed for Render/self-signed chains)
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
@@ -107,25 +113,89 @@ def build_engine():
     print("DB driver:", engine.url.drivername)
     return engine
 
+
+def load_models(registry_path):
+    """Load the model registry and all per-type models + global fallback."""
+    with open(registry_path, "r", encoding="utf-8") as f:
+        registry = json.load(f)
+
+    models_dir = os.path.dirname(registry_path)
+    pipes = {}
+
+    # Load per-type models
+    for pt, info in registry.get("pitch_type_models", {}).items():
+        model_path = os.path.join(models_dir, info["model_file"])
+        meta_path = os.path.join(models_dir, info["meta_file"])
+        pipes[pt] = {
+            "pipe": joblib.load(model_path),
+            "goodness_std": float(info["goodness_std"]),
+        }
+        with open(meta_path, "r", encoding="utf-8") as f:
+            pipes[pt]["meta"] = json.load(f)
+        print(f"  Loaded model for {pt}")
+
+    # Load global fallback
+    fallback_key = registry.get("fallback_model", "_global")
+    fallback_model_path = os.path.join(models_dir, f"{fallback_key}.pkl")
+    fallback_meta_path = os.path.join(models_dir, f"{fallback_key}_meta.json")
+    with open(fallback_meta_path, "r", encoding="utf-8") as f:
+        fallback_meta = json.load(f)
+    pipes["_global"] = {
+        "pipe": joblib.load(fallback_model_path),
+        "goodness_std": float(registry.get("global_goodness_std", 0.01)),
+        "meta": fallback_meta,
+    }
+    print("  Loaded global fallback model")
+
+    return registry, pipes
+
+
+def score_batch(df, registry, pipes):
+    """Score a batch of pitches, routing each to its pitch-type model."""
+    center = float(registry.get("stuff_center", 100.0))
+    scale = float(registry.get("stuff_scale", 15.0))
+    clip_min = float(registry.get("stuff_clip_min", 40.0))
+    clip_max = float(registry.get("stuff_clip_max", 160.0))
+    model_version = registry.get("model_version", "unknown")
+
+    # Compute derived features
+    derived = registry.get("derived_features", [])
+    if derived:
+        df = compute_approach_angles(df)
+
+    results = pd.Series(np.nan, index=df.index, name="stuff_plus")
+    raw_preds = pd.Series(np.nan, index=df.index, name="stuff_raw")
+
+    # Group by pitch type and score each group
+    for pt, group in df.groupby("pitch_type"):
+        if pt in pipes:
+            model_info = pipes[pt]
+        else:
+            model_info = pipes["_global"]
+
+        meta = model_info["meta"]
+        feature_cols = meta["num_features"] + meta["cat_features"]
+        goodness_std = model_info["goodness_std"] or 0.01
+
+        X = group[feature_cols]
+        preds = model_info["pipe"].predict(X)
+
+        goodness = -pd.Series(preds, index=group.index)
+        sp = center + scale * (goodness / goodness_std)
+        sp = sp.clip(clip_min, clip_max)
+
+        results.loc[group.index] = sp
+        raw_preds.loc[group.index] = preds
+
+    return raw_preds, results, model_version
+
+
 def main():
-    if not os.path.exists(MODEL_PATH):
-        raise RuntimeError(f"Model file not found at {MODEL_PATH}")
+    if not os.path.exists(REGISTRY_PATH):
+        raise RuntimeError(f"Registry not found at {REGISTRY_PATH}")
 
-    pipe = joblib.load(MODEL_PATH)
-
-    with open(META_PATH, "r", encoding="utf-8") as f:
-        meta = json.load(f)
-
-    num_features = meta["num_features"]
-    cat_features = meta["cat_features"]
-    feature_cols = num_features + cat_features
-
-    goodness_std = float(meta.get("goodness_std", 0.01)) or 0.01
-    stuff_center = float(meta.get("stuff_center", 100.0))
-    stuff_scale = float(meta.get("stuff_scale", 15.0))
-    clip_min = float(meta.get("stuff_clip_min", 40.0))
-    clip_max = float(meta.get("stuff_clip_max", 160.0))
-    model_version = meta.get("model_version", "unknown")
+    print("Loading models...")
+    registry, pipes = load_models(REGISTRY_PATH)
 
     engine = build_engine()
 
@@ -166,27 +236,18 @@ def main():
                 print("No rows to score.")
                 break
 
-            # Compute derived features if needed
-            derived = meta.get("derived_features", [])
-            if derived:
-                df = compute_approach_angles(df)
-
-            X = df[feature_cols]
-            preds = pipe.predict(X)
-
-            goodness = -pd.Series(preds)
-            stuff_plus = stuff_center + stuff_scale * (goodness / goodness_std)
-            stuff_plus = stuff_plus.apply(lambda v: clip(safe_float(v), clip_min, clip_max))
+            raw_preds, stuff_plus, model_version = score_batch(
+                df, registry, pipes
+            )
 
             payload = []
-
             for i, row in df.iterrows():
                 payload.append({
                     "game_pk": int(row["game_pk"]),
                     "at_bat_number": int(row["at_bat_number"]),
                     "pitch_number": int(row["pitch_number"]),
-                    "stuff_raw": safe_float(preds[i]),
-                    "stuff_plus": safe_float(stuff_plus.iloc[i]),
+                    "stuff_raw": safe_float(raw_preds.loc[i]),
+                    "stuff_plus": safe_float(stuff_plus.loc[i]),
                     "stuff_model_version": model_version,
                     "stuff_updated_at": utc_now(),
                 })
