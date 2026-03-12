@@ -269,30 +269,6 @@
     background:rgba(34,197,94,.12);
     color:rgba(22,163,74,1);
   }
-  /* Substitution toast */
-  #gc-sub-toast{
-    position:fixed;
-    bottom:24px;
-    left:50%;
-    transform:translateX(-50%);
-    z-index:9999;
-    background:rgba(15,23,42,.92);
-    color:#fff;
-    padding:12px 20px;
-    border-radius:14px;
-    font-size:14px;
-    font-weight:600;
-    box-shadow:0 4px 20px rgba(0,0,0,.25);
-    opacity:0;
-    transition:opacity .3s ease;
-    pointer-events:none;
-    max-width:90vw;
-    text-align:center;
-  }
-  #gc-sub-toast.show{
-    opacity:1;
-  }
-
   /* ---- Matchup Probabilities ---- */
   #gc-matchup-probs .mp-bars{
     display:flex;
@@ -1418,7 +1394,6 @@
 <!-- GAMECAST -->
 {% if is_live or is_warmup %}
 <div class="tab-panel {% if is_live %}active{% endif %}" id="tab-gamecast">
-  <div id="gc-sub-toast"></div>
 
   <div class="card" style="margin-top:14px;">
     <div class="card-header">
@@ -2838,6 +2813,8 @@ function __gc_hide_takeover(){
   __gc_takeover_sticky = false;
   if(__gc_takeover_timer) clearTimeout(__gc_takeover_timer);
   __gc_takeover_timer = null;
+  // Drain any queued action events after a takeover clears
+  if(typeof __gc_drain_action_queue === "function") setTimeout(__gc_drain_action_queue, 300);
 }
 
 function __gc_show_takeover(title, subtitle, bodyHTML, ms, kind){
@@ -3221,36 +3198,64 @@ if(gcBtn && gcPanel){
   }
   return `${parts[0][0]}. ${parts[parts.length-1]}`;
 }
-  // ---- Substitution toast ----
-  let __gc_sub_toast_timer = null;
-  let __gc_last_sub_count = 0;
+  // ---- Action event takeover (SB, CS, WP, PB, BK, SUB, PO, EJ, etc.) ----
+  let __gc_last_action_count = -1;  // -1 = first poll (seed count, don't fire)
+  let __gc_action_queue = [];
+  let __gc_action_showing = false;
 
-  function __gc_show_sub_toast(msg){
-    const el = document.getElementById("gc-sub-toast");
-    if(!el) return;
-    el.textContent = msg;
-    el.classList.add("show");
-    if(__gc_sub_toast_timer) clearTimeout(__gc_sub_toast_timer);
-    __gc_sub_toast_timer = setTimeout(()=>{
-      el.classList.remove("show");
-      __gc_sub_toast_timer = null;
-    }, 7000);
+  const __gc_action_types = new Set([
+    "stolen_base","caught_stealing","wild_pitch","passed_ball",
+    "balk","substitution","pickoff","ejection",
+  ]);
+
+  const __gc_action_meta = {
+    stolen_base:     { label: "Stolen Base",      badge: "SB",  color: "#16a34a", bg: "rgba(34,197,94,.12)",  icon: "💨" },
+    caught_stealing: { label: "Caught Stealing",   badge: "CS",  color: "#dc2626", bg: "rgba(239,68,68,.10)",  icon: "🚨" },
+    wild_pitch:      { label: "Wild Pitch",        badge: "WP",  color: "#b45309", bg: "rgba(251,191,36,.12)", icon: "⚾" },
+    passed_ball:     { label: "Passed Ball",       badge: "PB",  color: "#b45309", bg: "rgba(251,191,36,.12)", icon: "⚾" },
+    balk:            { label: "Balk",              badge: "BK",  color: "#b45309", bg: "rgba(251,191,36,.12)", icon: "⚠️" },
+    substitution:    { label: "Substitution",      badge: "SUB", color: "#4f46e5", bg: "rgba(99,102,241,.10)", icon: "🔄" },
+    pickoff:         { label: "Pickoff",           badge: "PO",  color: "#c2410c", bg: "rgba(251,146,60,.12)", icon: "👀" },
+    ejection:        { label: "Ejection",          badge: "EJ",  color: "#b91c1c", bg: "rgba(239,68,68,.12)",  icon: "👋" },
+  };
+
+  function __gc_show_action_takeover(item){
+    const meta = __gc_action_meta[item.type] || { label: item.event || "Action", badge: "—", color: "#94a3b8", bg: "rgba(148,163,184,.1)", icon: "" };
+    const body = `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0 4px;">
+        <div style="font-size:32px;line-height:1;">${meta.icon}</div>
+        <div style="background:${meta.bg};color:${meta.color};font-weight:700;font-size:13px;padding:4px 12px;border-radius:6px;letter-spacing:.5px;">${meta.badge}</div>
+        <div style="font-size:15px;color:rgba(255,255,255,.92);text-align:center;max-width:380px;line-height:1.45;">${item.description || item.event || "—"}</div>
+      </div>`;
+    __gc_action_showing = true;
+    __gc_show_takeover(meta.label, item.inning || "", body, 7000, "action");
+    setTimeout(()=>{ __gc_action_showing = false; __gc_drain_action_queue(); }, 7200);
   }
 
-  function __gc_check_subs(feedArr){
+  function __gc_drain_action_queue(){
+    if(__gc_action_showing) return;
+    if(!__gc_action_queue.length) return;
+    // Don't interrupt BIP or dueup takeovers
+    if(__gc_takeover_kind === "bip" || __gc_takeover_kind === "dueup") return;
+    __gc_show_action_takeover(__gc_action_queue.shift());
+  }
+
+  function __gc_check_action_events(feedArr){
     if(!feedArr || !feedArr.length) return;
-    // Count substitution events
-    const subs = feedArr.filter(e => e.type === "substitution");
-    if(subs.length > __gc_last_sub_count){
-      // Show toast for each new sub (most recent first)
-      const newSubs = subs.slice(__gc_last_sub_count);
-      // Show the most recent one
-      const latest = newSubs[newSubs.length - 1];
-      if(latest?.description){
-        __gc_show_sub_toast(latest.description);
-      }
+    const actions = feedArr.filter(e => __gc_action_types.has(e.type));
+    // First poll: seed the count without firing takeovers
+    if(__gc_last_action_count < 0){
+      __gc_last_action_count = actions.length;
+      return;
     }
-    __gc_last_sub_count = subs.length;
+    if(actions.length > __gc_last_action_count){
+      const newItems = actions.slice(__gc_last_action_count);
+      for(const item of newItems){
+        __gc_action_queue.push(item);
+      }
+      __gc_drain_action_queue();
+    }
+    __gc_last_action_count = actions.length;
   }
 
   // ---- Render live event feed ----
@@ -3838,7 +3843,7 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
       renderLineup("away", document.getElementById("gc-lineup-away"), data.lineups?.away, data);
       renderLineup("home", document.getElementById("gc-lineup-home"), data.lineups?.home, data);
 
-      __gc_check_subs(data.feed);
+      __gc_check_action_events(data.feed);
       renderFeed(data.feed);
 
       renderField(document.getElementById("gc-field"), data.defense);
