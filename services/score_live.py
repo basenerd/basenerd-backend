@@ -249,6 +249,7 @@ def _extract_pitches(feed, pitcher_id: int) -> List[dict]:
             continue
 
         stand = (matchup.get("batSide") or {}).get("code", "")
+        p_throws = (matchup.get("pitchHand") or {}).get("code", "")
 
         for ev in play.get("playEvents") or []:
             if not ev.get("isPitch"):
@@ -273,6 +274,7 @@ def _extract_pitches(feed, pitcher_id: int) -> List[dict]:
             pitches.append({
                 "pitch_type": pitch_type,
                 "pitch_name": pitch_name,
+                "p_throws": p_throws,
                 "stand": stand,
                 "call": call_desc,
                 # Stuff+ model features

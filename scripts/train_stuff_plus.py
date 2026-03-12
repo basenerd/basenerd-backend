@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Train Stuff+ model (v3).
+Train Stuff+ model (v4).
 
 Stuff+ measures physical pitch quality using release characteristics, movement,
 spin, trajectory, and approach angles to predict run value, scaled to mean=100,
@@ -8,7 +8,8 @@ std=15 (higher = better stuff).
 
 Features: release_speed, release_spin_rate, release_extension, release_pos_x,
           release_pos_z, release_pos_y, pfx_x, pfx_z, vx0, vy0, vz0, ax, ay, az,
-          sz_top, sz_bot, vert_approach_angle, horiz_approach_angle, pitch_type
+          sz_top, sz_bot, vert_approach_angle, horiz_approach_angle,
+          pitch_type, p_throws
 
 Target:   rv_resid = delta_run_exp - count/base_state context baseline
 """
@@ -45,10 +46,10 @@ RAW_NUM_FEATURES = [
 DERIVED_FEATURES = ["vert_approach_angle", "horiz_approach_angle"]
 
 NUM_FEATURES = RAW_NUM_FEATURES + DERIVED_FEATURES
-CAT_FEATURES = ["pitch_type"]
+CAT_FEATURES = ["pitch_type", "p_throws"]
 FEATURE_COLS = NUM_FEATURES + CAT_FEATURES
 
-MODEL_VERSION = "stuff_v3_angles_hgbm"
+MODEL_VERSION = "stuff_v4_angles_hand_hgbm"
 TRAIN_YEARS = (2021, 2025)
 SAMPLE_FRAC = 1.0
 RANDOM_STATE = 42
@@ -145,6 +146,7 @@ def fetch_training_data(conn) -> pd.DataFrame:
             sz_top,
             sz_bot,
             pitch_type,
+            p_throws,
             balls,
             strikes,
             outs_when_up,
@@ -282,9 +284,22 @@ def main():
     else:
         print("\n  (feature_importances_ not available in this sklearn version)")
 
-    # Compute goodness_std at the PITCHER-SEASON level
+    # Compute goodness_std at the PER-PITCH level so individual pitch scores
+    # have a sensible distribution (mean=100, std=15). Pitcher-season averages
+    # will naturally compress via the law of large numbers.
     all_preds = pipe.predict(X)
     goodness_all = -pd.Series(all_preds, index=X.index)
+    goodness_std = float(goodness_all.std())
+    print(f"\n  Per-pitch goodness_std: {goodness_std:.6f}")
+
+    # Sanity check per-pitch distribution
+    sp_all = STUFF_CENTER + STUFF_SCALE * (goodness_all / goodness_std)
+    sp_clipped = sp_all.clip(STUFF_CLIP_MIN, STUFF_CLIP_MAX)
+    pct_clipped = ((sp_all < STUFF_CLIP_MIN) | (sp_all > STUFF_CLIP_MAX)).mean() * 100
+    print(f"  Per-pitch Stuff+ — mean: {sp_clipped.mean():.1f}  std: {sp_clipped.std():.1f}  "
+          f"clipped: {pct_clipped:.1f}%")
+
+    # Also check pitcher-season level
     pitcher_season_key = df["pitcher"].astype(str) + "_" + df["game_year"].astype(str)
     pitcher_season_counts = pitcher_season_key.value_counts()
     qualified = pitcher_season_counts[pitcher_season_counts >= 200].index
@@ -293,13 +308,13 @@ def main():
         .mean()
         .loc[lambda s: s.index.isin(qualified)]
     )
-    goodness_std = float(pitcher_season_means.std())
-    print(f"\n  Pitcher-season goodness_std: {goodness_std:.6f}  (n={len(pitcher_season_means)} pitcher-seasons)")
+    pitcher_season_std = float(pitcher_season_means.std())
 
     stuff_pitcher = STUFF_CENTER + STUFF_SCALE * (pitcher_season_means / goodness_std)
     stuff_pitcher = stuff_pitcher.clip(STUFF_CLIP_MIN, STUFF_CLIP_MAX)
     print(f"  Pitcher-season Stuff+ — mean: {stuff_pitcher.mean():.1f}  std: {stuff_pitcher.std():.1f}  "
-          f"min: {stuff_pitcher.min():.1f}  max: {stuff_pitcher.max():.1f}")
+          f"min: {stuff_pitcher.min():.1f}  max: {stuff_pitcher.max():.1f}  "
+          f"(n={len(pitcher_season_means)} pitcher-seasons)")
 
     os.makedirs(os.path.dirname(args.out_model), exist_ok=True)
     joblib.dump(pipe, args.out_model)
@@ -318,6 +333,7 @@ def main():
         "context_keys": ["balls", "strikes", "outs_when_up", "base_state"],
         "context_baseline_map": baseline_map,
         "goodness_std": goodness_std,
+        "goodness_std_pitcher_season": pitcher_season_std,
         "stuff_center": STUFF_CENTER,
         "stuff_scale": STUFF_SCALE,
         "stuff_clip_min": STUFF_CLIP_MIN,
