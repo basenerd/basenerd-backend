@@ -4568,6 +4568,8 @@ function __render_expected_runs_chart(sim, awayAbbrev, homeAbbrev){
   svg.innerHTML = `
     ${legendAway}${legendHome}
     ${grid}${yLbl}${xLbl}
+    <text x="${ml + pw/2}" y="${H - 2}" font-size="11" fill="rgba(255,255,255,.55)" text-anchor="middle" font-family="monospace">Inning</text>
+    <text transform="rotate(-90)" x="${-(mt + ph/2)}" y="12" font-size="11" fill="rgba(255,255,255,.55)" text-anchor="middle" font-family="monospace">Expected Runs</text>
     <line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ph}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
     <line x1="${ml}" y1="${mt+ph}" x2="${W-mr}" y2="${mt+ph}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
     <polyline points="${pts(cumA)}" fill="none" stroke="${awayColor}" stroke-width="2.2" stroke-linejoin="round" opacity="0.85"/>
