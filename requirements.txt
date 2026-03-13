@@ -18,3 +18,4 @@ pybaseball
 
 reportlab>=4.0
 Pillow>=10.0
+matplotlib>=3.8

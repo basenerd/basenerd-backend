@@ -159,6 +159,10 @@ def hr_graphic_png():
         away_score=int(request.args["away_score"]) if "away_score" in request.args else None,
         home_score=int(request.args["home_score"]) if "home_score" in request.args else None,
         batter_team=request.args.get("batter_team"),
+        pitch_type=request.args.get("pitch_type"),
+        pitch_speed=float(request.args["pitch_speed"]) if "pitch_speed" in request.args else None,
+        plate_x=float(request.args["plate_x"]) if "plate_x" in request.args else None,
+        plate_z=float(request.args["plate_z"]) if "plate_z" in request.args else None,
     )
     return png, 200, {"Content-Type": "image/png"}
 

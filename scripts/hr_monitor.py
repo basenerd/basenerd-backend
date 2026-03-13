@@ -196,13 +196,27 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
         half = "Top" if is_top else "Bot"
         inning_text = f"{half} {inning}" if inning else ""
 
-        # Hit data — find the pitch event with hitData
+        # Hit data + pitch data — find the pitch event with hitData
         hit_data = {}
+        pitch_type = None
+        pitch_speed = None
+        plate_x = None
+        plate_z = None
         play_events = play.get("playEvents") or []
-        for pe in reversed(play_events):
-            hd = pe.get("hitData")
+        for pe_item in reversed(play_events):
+            hd = pe_item.get("hitData")
             if hd:
                 hit_data = hd
+                # Pitch info from the same event
+                details = pe_item.get("details") or {}
+                ptype = (details.get("type") or {}).get("description")
+                if ptype:
+                    pitch_type = ptype
+                pd = pe_item.get("pitchData") or {}
+                pitch_speed = pd.get("startSpeed")
+                coords = pd.get("coordinates") or {}
+                plate_x = coords.get("pX")
+                plate_z = coords.get("pZ")
                 break
 
         ev = hit_data.get("launchSpeed")
@@ -231,6 +245,10 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
             "away_score": away_score,
             "home_score": home_score,
             "description": result.get("description", ""),
+            "pitch_type": pitch_type,
+            "pitch_speed": float(pitch_speed) if pitch_speed is not None else None,
+            "plate_x": float(plate_x) if plate_x is not None else None,
+            "plate_z": float(plate_z) if plate_z is not None else None,
         })
 
     return hrs
@@ -256,6 +274,10 @@ def generate_graphic(hr: dict) -> bytes:
         away_score=hr["away_score"],
         home_score=hr["home_score"],
         batter_team=hr["batter_team"],
+        pitch_type=hr.get("pitch_type"),
+        pitch_speed=hr.get("pitch_speed"),
+        plate_x=hr.get("plate_x"),
+        plate_z=hr.get("plate_z"),
     )
 
 
@@ -468,6 +490,10 @@ def send_test_email():
         away_score=3,
         home_score=2,
         batter_team="BOS",
+        pitch_type="4-Seam Fastball",
+        pitch_speed=96.3,
+        plate_x=-0.25,
+        plate_z=2.8,
     )
     log.info("Test graphic generated (%d bytes)", len(png))
 

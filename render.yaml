@@ -12,3 +12,15 @@ services:
     schedule: "*/30 * * * *"  # Every 30 minutes
     dockerCommand: "python scripts/auto_pitcher_reports.py"
     plan: free
+
+  - type: worker
+    name: hr-monitor
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python scripts/hr_monitor.py --daemon"
+    plan: free
+    envVars:
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false

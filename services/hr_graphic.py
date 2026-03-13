@@ -140,6 +140,10 @@ def generate_hr_image(
     away_score: int = None,
     home_score: int = None,
     batter_team: str = None,
+    pitch_type: str = None,
+    pitch_speed: float = None,
+    plate_x: float = None,
+    plate_z: float = None,
 ) -> bytes:
     """Return PNG bytes of a shareable HR graphic."""
 
@@ -303,6 +307,53 @@ def generate_hr_image(
     ax_s.tick_params(colors=MUTED, labelsize=6)
     ax_s.set_xlabel("Distance (ft)", fontsize=7, color=MUTED, labelpad=2)
     ax_s.set_ylabel("Height (ft)", fontsize=7, color=MUTED, labelpad=2)
+
+    # ── strike zone (right side, between trajectory & parks) ──
+    if pitch_type and plate_x is not None and plate_z is not None:
+        ax_z = fig.add_axes([0.49, 0.22, 0.13, 0.26])
+        ax_z.set_facecolor("#0a1830")
+        ax_z.set_aspect("equal")
+
+        # Zone rectangle: 17 inches wide (±8.5in = ±0.708ft), ~1.5 to 3.5 ft high
+        zone_l, zone_r = -0.708, 0.708
+        zone_b, zone_t = 1.5, 3.5
+        from matplotlib.patches import Rectangle
+        zone_rect = Rectangle(
+            (zone_l, zone_b), zone_r - zone_l, zone_t - zone_b,
+            linewidth=1.5, edgecolor=WHITE, facecolor="none", alpha=0.5,
+            zorder=2,
+        )
+        ax_z.add_patch(zone_rect)
+
+        # Inner grid lines (3x3)
+        third_w = (zone_r - zone_l) / 3
+        third_h = (zone_t - zone_b) / 3
+        for i in range(1, 3):
+            ax_z.plot([zone_l + i * third_w, zone_l + i * third_w],
+                      [zone_b, zone_t], color=WHITE, lw=0.5, alpha=0.2, zorder=2)
+            ax_z.plot([zone_l, zone_r],
+                      [zone_b + i * third_h, zone_b + i * third_h],
+                      color=WHITE, lw=0.5, alpha=0.2, zorder=2)
+
+        # Pitch location dot
+        ax_z.plot(plate_x, plate_z, "o", color=TRAJ, ms=12, zorder=5,
+                  markeredgecolor=WHITE, markeredgewidth=1.5)
+
+        # Pitch type + speed label below zone
+        label_parts = []
+        if pitch_type:
+            label_parts.append(pitch_type)
+        if pitch_speed:
+            label_parts.append(f"{pitch_speed:.0f} mph")
+        label = "  |  ".join(label_parts)
+        ax_z.text(0, zone_b - 0.35, label, ha="center", va="top",
+                  fontsize=8, color=TEXT, fontweight="bold",
+                  path_effects=_shadow(3))
+
+        # Set limits with padding
+        ax_z.set_xlim(-1.5, 1.5)
+        ax_z.set_ylim(0.8, 4.2)
+        ax_z.axis("off")
 
     # ── PARKS HR count (hero element, right side) ──────────
     pc = parks["count"]
