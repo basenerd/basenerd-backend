@@ -358,50 +358,93 @@ def _today_et() -> str:
 
 
 def run_monitor(date_str: str):
-    """Long-running poller that checks for HRs every POLL_INTERVAL seconds."""
-    log.info("=" * 50)
-    log.info("HR Monitor started for %s", date_str)
-    log.info("Polling every %ds. Email: %s", POLL_INTERVAL, NOTIFY_EMAIL)
-    log.info("=" * 50)
+    """Single-date poller. Returns when all games for the date are done."""
+    log.info("Monitoring %s ...", date_str)
 
     consecutive_empty = 0
-    max_empty = 120  # stop after ~1 hour of no games
+    max_empty = 120  # ~1 hour of no live/upcoming games → move on
 
     while True:
         try:
             games = fetch_schedule(date_str)
             live_games = [g for g in games if g["status"] == "live"]
-            final_games = [g for g in games if g["status"] == "final"]
             preview_games = [g for g in games if g["status"] == "preview"]
 
             if not live_games and not preview_games:
                 consecutive_empty += 1
                 if consecutive_empty >= max_empty:
-                    log.info("No live or upcoming games for %s. Shutting down.", date_str)
-                    break
+                    log.info("No more games for %s. Done.", date_str)
+                    return
             else:
                 consecutive_empty = 0
 
             if live_games:
-                log.debug(
-                    "%d live, %d final, %d preview",
-                    len(live_games), len(final_games), len(preview_games),
-                )
                 new = poll_once(date_str)
                 if new:
                     log.info("Found %d new HR(s) this cycle", new)
-            elif preview_games:
-                log.debug("No live games yet, %d upcoming. Waiting...", len(preview_games))
 
         except KeyboardInterrupt:
-            log.info("Interrupted — shutting down.")
-            break
+            raise
         except Exception as e:
             log.error("Poll error: %s", e)
 
         time.sleep(POLL_INTERVAL)
 
-    log.info("HR Monitor finished. Total HRs tracked: %d", len(_seen_hrs))
+
+def run_daemon():
+    """Persistent service that runs forever, auto-tracking the current date.
+    Designed for deployment as a Render Background Worker."""
+    log.info("=" * 60)
+    log.info("HR Monitor DAEMON started")
+    log.info("Polling every %ds. Email: %s", POLL_INTERVAL, NOTIFY_EMAIL)
+    log.info("=" * 60)
+
+    while True:
+        try:
+            today = _today_et()
+            log.info("=== Date: %s ===", today)
+            _seen_hrs.clear()  # fresh day, fresh tracking
+
+            # Check if there are any games today
+            games = fetch_schedule(today)
+            if not games:
+                log.info("No games scheduled for %s. Sleeping 30 min.", today)
+                time.sleep(1800)
+                continue
+
+            live = [g for g in games if g["status"] == "live"]
+            preview = [g for g in games if g["status"] == "preview"]
+            final = [g for g in games if g["status"] == "final"]
+            log.info(
+                "%d games: %d live, %d preview, %d final",
+                len(games), len(live), len(preview), len(final),
+            )
+
+            if live or preview:
+                # Games are active or upcoming — poll until done
+                run_monitor(today)
+            else:
+                # All games already final (late start?)
+                # Still check for any HRs we haven't seen
+                poll_once(today)
+                log.info("All games final for %s. Sleeping 30 min.", today)
+                time.sleep(1800)
+                continue
+
+            # After games finish, check if date changed
+            if _today_et() == today:
+                # Same day, all games done — sleep until midnight-ish
+                log.info("All games done for %s. Sleeping 30 min.", today)
+                time.sleep(1800)
+
+        except KeyboardInterrupt:
+            log.info("Interrupted — shutting down.")
+            break
+        except Exception as e:
+            log.error("Daemon error: %s", e)
+            time.sleep(60)  # back off on errors
+
+    log.info("HR Monitor daemon stopped. Total HRs: %d", len(_seen_hrs))
 
 
 # ---------------------------------------------------------------------------
@@ -454,10 +497,16 @@ def main():
     parser = argparse.ArgumentParser(description="Live HR Monitor — generates graphics and emails them")
     parser.add_argument("--date", type=str, default=None, help="YYYY-MM-DD (default: today ET)")
     parser.add_argument("--test", action="store_true", help="Send a test email and exit")
+    parser.add_argument("--daemon", action="store_true",
+                        help="Run forever as a persistent service (for Render/hosting)")
     args = parser.parse_args()
 
     if args.test:
         send_test_email()
+        return
+
+    if args.daemon:
+        run_daemon()
         return
 
     date_str = args.date or _today_et()
