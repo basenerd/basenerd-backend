@@ -16,7 +16,7 @@ services:
   - type: worker
     name: hr-monitor
     runtime: python
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: "pip install -r requirements-worker.txt"
     startCommand: "python scripts/hr_monitor.py --daemon"
     plan: free
     envVars:
