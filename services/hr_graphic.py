@@ -144,6 +144,7 @@ def generate_hr_image(
     pitch_speed: float = None,
     plate_x: float = None,
     plate_z: float = None,
+    pitcher_name: str = None,
 ) -> bytes:
     """Return PNG bytes of a shareable HR graphic."""
 
@@ -350,9 +351,15 @@ def generate_hr_image(
                   fontsize=8, color=TEXT, fontweight="bold",
                   path_effects=_shadow(3))
 
+        # Pitcher name below pitch info
+        if pitcher_name:
+            ax_z.text(0, zone_b - 0.65, pitcher_name, ha="center", va="top",
+                      fontsize=7, color=TEXT2,
+                      path_effects=_shadow(3))
+
         # Set limits with padding
         ax_z.set_xlim(-1.5, 1.5)
-        ax_z.set_ylim(0.8, 4.2)
+        ax_z.set_ylim(0.5, 4.2)
         ax_z.axis("off")
 
     # ── PARKS HR count (hero element, right side) ──────────

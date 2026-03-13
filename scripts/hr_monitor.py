@@ -195,11 +195,13 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
         if key in _seen_hrs:
             continue
 
-        # Extract batter info
+        # Extract batter + pitcher info
         matchup = play.get("matchup") or {}
         batter = matchup.get("batter") or {}
         batter_name = batter.get("fullName", "Unknown")
         batter_side = matchup.get("batSide", {}).get("code", "")
+        pitcher = matchup.get("pitcher") or {}
+        pitcher_name = pitcher.get("fullName", "Unknown")
 
         # Determine batter's team
         about = play.get("about") or {}
@@ -272,6 +274,7 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
             "pitch_speed": float(pitch_speed) if pitch_speed is not None else None,
             "plate_x": float(plate_x) if plate_x is not None else None,
             "plate_z": float(plate_z) if plate_z is not None else None,
+            "pitcher_name": pitcher_name,
         })
 
     return hrs
@@ -301,6 +304,7 @@ def generate_graphic(hr: dict) -> bytes:
         pitch_speed=hr.get("pitch_speed"),
         plate_x=hr.get("plate_x"),
         plate_z=hr.get("plate_z"),
+        pitcher_name=hr.get("pitcher_name"),
     )
 
 
