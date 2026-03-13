@@ -145,6 +145,7 @@ def generate_hr_image(
     plate_x: float = None,
     plate_z: float = None,
     pitcher_name: str = None,
+    season_hr: int = None,
 ) -> bytes:
     """Return PNG bytes of a shareable HR graphic."""
 
@@ -433,7 +434,10 @@ def generate_hr_image(
             logo_ax2.imshow(bt_logo)
             logo_ax2.axis("off")
             header_x = 0.075
-    fig.text(header_x, 0.96, batter_name.upper(),
+    name_label = batter_name.upper()
+    if season_hr is not None:
+        name_label += f"  #{season_hr}"
+    fig.text(header_x, 0.96, name_label,
              fontsize=20, color=TEXT, fontweight="bold", va="top",
              fontfamily="sans-serif")
 

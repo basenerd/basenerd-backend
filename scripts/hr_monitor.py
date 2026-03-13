@@ -208,6 +208,15 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
         is_top = about.get("isTopInning", True)
         batter_team_abbr = away_abbr if is_top else home_abbr
 
+        # Season HR count from boxscore
+        batter_id = batter.get("id")
+        season_hr = None
+        if batter_id:
+            side = "away" if is_top else "home"
+            boxscore = (live.get("boxscore") or {}).get("teams", {}).get(side, {})
+            bp = (boxscore.get("players") or {}).get(f"ID{batter_id}", {})
+            season_hr = ((bp.get("seasonStats") or {}).get("batting") or {}).get("homeRuns")
+
         # Inning text
         inning = about.get("inning", "")
         half = "Top" if is_top else "Bot"
@@ -275,6 +284,7 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
             "plate_x": float(plate_x) if plate_x is not None else None,
             "plate_z": float(plate_z) if plate_z is not None else None,
             "pitcher_name": pitcher_name,
+            "season_hr": int(season_hr) if season_hr is not None else None,
         })
 
     return hrs
@@ -305,6 +315,7 @@ def generate_graphic(hr: dict) -> bytes:
         plate_x=hr.get("plate_x"),
         plate_z=hr.get("plate_z"),
         pitcher_name=hr.get("pitcher_name"),
+        season_hr=hr.get("season_hr"),
     )
 
 
