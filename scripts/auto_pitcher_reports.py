@@ -20,8 +20,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
+import smtplib
 import sys
 from datetime import datetime, timedelta, timezone
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +40,19 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 REPORTS_DIR = ROOT / "reports"
 MLB_API = "https://statsapi.mlb.com/api/v1"
 
+# Load .env
+env_path = ROOT / ".env"
+if env_path.exists():
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip())
+
+GMAIL_USER = os.environ.get("GMAIL_USER", "")
+GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
+NOTIFY_EMAIL = "nicklabella6@gmail.com"
+
 # Logging
 logging.basicConfig(
     level=logging.INFO,
@@ -42,6 +60,47 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 log = logging.getLogger("auto_reports")
+
+
+# ---------------------------------------------------------------------------
+# Email
+# ---------------------------------------------------------------------------
+def send_report_email(pdf_path: Path, pitcher_name: str, game_info: dict):
+    """Send a pitcher report PDF as an email attachment."""
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        log.warning("Gmail credentials not configured — skipping email")
+        return False
+
+    away = game_info.get("away", "?")
+    home = game_info.get("home", "?")
+
+    msg = MIMEMultipart()
+    msg["From"] = GMAIL_USER
+    msg["To"] = NOTIFY_EMAIL
+    msg["Subject"] = f"\u26be Pitcher Report: {pitcher_name} ({away} @ {home})"
+
+    body = (
+        f"Pitcher report for {pitcher_name} is attached.\n\n"
+        f"{away} @ {home}\n"
+    )
+    msg.attach(MIMEText(body, "plain"))
+
+    pdf_bytes = pdf_path.read_bytes()
+    attachment = MIMEApplication(pdf_bytes, _subtype="pdf")
+    attachment.add_header(
+        "Content-Disposition", "attachment", filename=pdf_path.name,
+    )
+    msg.attach(attachment)
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            smtp.send_message(msg)
+        log.info("    Email sent: %s", pdf_path.name)
+        return True
+    except Exception as e:
+        log.error("    Failed to send email: %s", e)
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +149,7 @@ def fetch_schedule(date_str: str) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Report generation — imports generate_report directly (same Python process)
 # ---------------------------------------------------------------------------
-def generate_reports_for_game(game_pk: int) -> int:
+def generate_reports_for_game(game_pk: int, game_meta: dict | None = None) -> int:
     """Generate reports for all pitchers in a game. Returns count of successes."""
     from generate_pitcher_report_pdf import (
         _fetch_live_feed,
@@ -103,8 +162,9 @@ def generate_reports_for_game(game_pk: int) -> int:
         feed = _fetch_live_feed(game_pk)
         game_info = _extract_game_info(feed)
 
-        # Extract pitcher IDs from boxscore
+        # Extract pitcher IDs and names from boxscore
         pitcher_ids = set()
+        pitcher_names: dict[int, str] = {}
         boxscore = (feed.get("liveData") or {}).get("boxscore") or {}
         for side in ("away", "home"):
             team = (boxscore.get("teams") or {}).get(side) or {}
@@ -115,6 +175,7 @@ def generate_reports_for_game(game_pk: int) -> int:
                     pid = pdata.get("person", {}).get("id")
                     if pid:
                         pitcher_ids.add(int(pid))
+                        pitcher_names[int(pid)] = pdata.get("person", {}).get("fullName", f"ID {pid}")
 
         if not pitcher_ids:
             log.warning("  No pitchers found in game %d", game_pk)
@@ -129,6 +190,7 @@ def generate_reports_for_game(game_pk: int) -> int:
                 if result:
                     success_count += 1
                     log.info("    Generated: %s", result.name)
+                    send_report_email(result, pitcher_names.get(pid, result.stem), game_meta or {})
             except Exception as e:
                 log.error("    Failed pitcher %d: %s", pid, e)
 
@@ -167,7 +229,7 @@ def process_date(date_str: str) -> int:
     total = 0
     for g in pending:
         log.info("Processing: %s @ %s (game_pk=%d)", g["away"], g["home"], g["game_pk"])
-        total += generate_reports_for_game(g["game_pk"])
+        total += generate_reports_for_game(g["game_pk"], game_meta=g)
 
     return total
 
