@@ -138,9 +138,17 @@ _MLB_TO_STADIUM = {
 }
 
 
-def _stadium_code(abbr: str) -> str:
-    """Convert MLB abbreviation to our stadium code."""
-    return _MLB_TO_STADIUM.get(abbr, abbr)
+def _stadium_code(abbr: str, game_type: str = "") -> str:
+    """Convert MLB abbreviation to our stadium code.
+    For spring training (game_type='S'), use ST_ prefixed codes."""
+    base = _MLB_TO_STADIUM.get(abbr, abbr)
+    if game_type == "S":
+        st_code = f"ST_{base}"
+        # Import here to check if the ST code exists
+        from services.hr_park_calc import _STADIUMS
+        if st_code in _STADIUMS:
+            return st_code
+    return base
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +164,7 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
     game_data = feed.get("gameData") or {}
     dt_info = game_data.get("datetime") or {}
     game_date = dt_info.get("officialDate") or ""
+    game_type = (game_data.get("game") or {}).get("type", "")  # S=spring, R=regular
     teams = game_data.get("teams") or {}
     away_info = teams.get("away") or {}
     home_info = teams.get("home") or {}
@@ -251,7 +260,7 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
             "launch_angle": float(la),
             "spray_angle": float(spray) if spray is not None else 0.0,
             "distance": float(dist) if dist is not None else None,
-            "stadium_code": _stadium_code(home_abbr),
+            "stadium_code": _stadium_code(home_abbr, game_type),
             "game_date": game_date,
             "inning_text": inning_text,
             "away_team": away_abbr,
