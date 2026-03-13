@@ -72,33 +72,38 @@ def _fetch_json(url: str, params: dict = None, timeout: int = 15) -> dict:
 
 
 def fetch_schedule(date_str: str) -> list[dict]:
-    """Return list of games for a date."""
-    data = _fetch_json(f"{MLB_API}/schedule", {
-        "date": date_str, "sportId": 1, "hydrate": "linescore,team",
-    })
+    """Return list of games for a date (MLB + WBC)."""
     games = []
-    for d in data.get("dates") or []:
-        for g in d.get("games") or []:
-            gp = g.get("gamePk")
-            if not gp:
-                continue
-            status = (g.get("status") or {}).get("abstractGameState", "").lower()
-            away_team = (g.get("teams") or {}).get("away", {}).get("team", {})
-            home_team = (g.get("teams") or {}).get("home", {}).get("team", {})
-            # Cache team abbreviations
-            for t in (away_team, home_team):
-                tid = t.get("id")
-                abbr = t.get("abbreviation", "")
-                if tid and abbr:
-                    _TEAM_ABBREV[tid] = abbr
-            games.append({
-                "game_pk": int(gp),
-                "status": status,
-                "away_abbr": away_team.get("abbreviation", ""),
-                "home_abbr": home_team.get("abbreviation", ""),
-                "away_name": away_team.get("teamName", ""),
-                "home_name": home_team.get("teamName", ""),
+    # sportId 1 = MLB (regular/spring), 51 = World Baseball Classic
+    for sport_id in (1, 51):
+        try:
+            data = _fetch_json(f"{MLB_API}/schedule", {
+                "date": date_str, "sportId": sport_id, "hydrate": "linescore,team",
             })
+        except Exception:
+            continue
+        for d in data.get("dates") or []:
+            for g in d.get("games") or []:
+                gp = g.get("gamePk")
+                if not gp:
+                    continue
+                status = (g.get("status") or {}).get("abstractGameState", "").lower()
+                away_team = (g.get("teams") or {}).get("away", {}).get("team", {})
+                home_team = (g.get("teams") or {}).get("home", {}).get("team", {})
+                # Cache team abbreviations
+                for t in (away_team, home_team):
+                    tid = t.get("id")
+                    abbr = t.get("abbreviation", "")
+                    if tid and abbr:
+                        _TEAM_ABBREV[tid] = abbr
+                games.append({
+                    "game_pk": int(gp),
+                    "status": status,
+                    "away_abbr": away_team.get("abbreviation", ""),
+                    "home_abbr": home_team.get("abbreviation", ""),
+                    "away_name": away_team.get("teamName", ""),
+                    "home_name": home_team.get("teamName", ""),
+                })
     return games
 
 
