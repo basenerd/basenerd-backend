@@ -26,6 +26,7 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any
 
+import math
 import requests
 
 # ---------------------------------------------------------------------------
@@ -223,6 +224,14 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
         la = hit_data.get("launchAngle")
         spray = hit_data.get("sprayAngle")
         dist = hit_data.get("totalDistance")
+
+        # Fallback: calculate spray angle from gameday coordinates if missing
+        if spray is None:
+            hc = (hit_data.get("coordinates") or {})
+            cx, cy = hc.get("coordX"), hc.get("coordY")
+            if cx is not None and cy is not None:
+                hp_x, hp_y = 125.42, 204.5  # home plate in gameday coords
+                spray = math.degrees(math.atan2(cx - hp_x, hp_y - cy))
 
         if ev is None or la is None:
             log.warning("  HR by %s missing hitData, skipping", batter_name)
