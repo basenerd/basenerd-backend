@@ -14,7 +14,7 @@ COPY requirements.txt .
 
 # Upgrade pip and install only binary wheels (no compiling)
 RUN python -m pip install --upgrade pip setuptools wheel \
- && pip install --only-binary=:all: -r requirements.txt
+ && pip install -r requirements.txt
 
 # Copy the rest of the repo
 COPY . .
