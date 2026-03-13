@@ -135,7 +135,33 @@ def hr_park_calc():
     except (KeyError, ValueError):
         return jsonify({"error": "Required params: ev, la, spray (all numeric)"}), 400
     return jsonify(stadiums_hr_count(ev, la, spray))
-    
+
+@app.route("/api/hr_graphic.png")
+def hr_graphic_png():
+    from services.hr_graphic import generate_hr_image
+    try:
+        ev = float(request.args["ev"])
+        la = float(request.args["la"])
+        spray = float(request.args["spray"])
+    except (KeyError, ValueError):
+        return "Required params: ev, la, spray", 400
+    png = generate_hr_image(
+        batter_name=request.args.get("name", "BATTER"),
+        exit_velo=ev,
+        launch_angle=la,
+        spray_angle=spray,
+        distance=float(request.args["dist"]) if "dist" in request.args else None,
+        stadium_code=request.args.get("stadium"),
+        game_date=request.args.get("date"),
+        inning_text=request.args.get("inning"),
+        away_team=request.args.get("away"),
+        home_team=request.args.get("home"),
+        away_score=int(request.args["away_score"]) if "away_score" in request.args else None,
+        home_score=int(request.args["home_score"]) if "home_score" in request.args else None,
+        batter_team=request.args.get("batter_team"),
+    )
+    return png, 200, {"Content-Type": "image/png"}
+
 @app.get("/about")
 def about():
     page = get_markdown_page("about.md")
