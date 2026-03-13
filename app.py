@@ -124,6 +124,17 @@ def game_analytics(game_pk):
     data = get_game_analytics(game_pk)
 
     return jsonify(data)
+
+@app.route("/api/hr_park_calc")
+def hr_park_calc():
+    from services.hr_park_calc import stadiums_hr_count
+    try:
+        ev = float(request.args["ev"])
+        la = float(request.args["la"])
+        spray = float(request.args["spray"])
+    except (KeyError, ValueError):
+        return jsonify({"error": "Required params: ev, la, spray (all numeric)"}), 400
+    return jsonify(stadiums_hr_count(ev, la, spray))
     
 @app.get("/about")
 def about():

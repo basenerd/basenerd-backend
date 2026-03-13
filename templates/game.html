@@ -1673,6 +1673,7 @@
         "inning": pa.inning,
         "ev": bb.exitVelo,
         "la": bb.launchAngle,
+        "spray": (bb.sprayAngle if bb.sprayAngle is defined else none),
         "dist": bb.distance,
         "xba": bb.xBA,
         "xslg": (bb.xSLG if bb.xSLG is defined else none),
@@ -1883,6 +1884,7 @@
                 <th class="mono">Dist</th>
                 <th class="mono">xBA</th>
                 <th class="mono">xSLG</th>
+                <th class="mono">Parks</th>
                 <th class="mono">Res</th>
               </tr>
             </thead>
@@ -1891,7 +1893,7 @@
                 {% set team_bits = (team_logo_for(r.pid, 'bat')|string).split('|||') %}
                 {% set tlogo = team_bits[0] if (team_bits|length) > 0 else '' %}
                 {% set tabbr = team_bits[1] if (team_bits|length) > 1 else '' %}
-                <tr>
+                <tr data-bb-ev="{{ r.ev }}" data-bb-la="{{ r.la }}" data-bb-spray="{{ r.spray }}">
                   <td style="width:60px;">
                     <div style="display:flex; align-items:center; gap:6px;">
                       <img src="{{ headshot_url(r.pid, 60) }}" alt="{{ r.name }}" style="width:26px;height:26px;border-radius:999px;object-fit:cover;border:1px solid rgba(226,232,240,.9); background:#fff;">
@@ -1917,6 +1919,7 @@
                   <td class="mono">{% if r.dist is not none %}{{ '%.0f'|format(r.dist) }} ft{% else %}-{% endif %}</td>
                   <td class="mono">{% if r.xba is not none %}{{ '%.3f'|format(r.xba) }}{% else %}-{% endif %}</td>
                   <td class="mono">{% if r.xslg is not none %}{{ '%.3f'|format(r.xslg) }}{% else %}-{% endif %}</td>
+                  <td class="mono bb-parks-cell" style="white-space:nowrap;">-</td>
                   <td class="mono">{{ outcome_short(r.summary, r.desc) }}</td>
                 </tr>
               {% endfor %}
@@ -2332,6 +2335,14 @@
                                   <div class="bb-v">
                                     {% if pa.battedBall.xSLG is not none %}{{ '%.3f'|format(pa.battedBall.xSLG) }}{% else %}-{% endif %}
                                   </div>
+                                </div>
+
+                                <div class="bb-item bb-parks-item"
+                                     data-bb-ev="{{ pa.battedBall.exitVelo }}"
+                                     data-bb-la="{{ pa.battedBall.launchAngle }}"
+                                     data-bb-spray="{{ pa.battedBall.sprayAngle }}">
+                                  <div class="bb-k">Parks</div>
+                                  <div class="bb-v bb-parks-val">-</div>
                                 </div>
                               </div>
 
@@ -4277,6 +4288,7 @@ function __plot_batted_balls(svg, balls, tip){
     if(!title || !body) return;
 
     title.textContent = `${bb.inningLabel || ("Inning " + bb.inning)} • ${bb.result || ""}`;
+    const parksTag = (bb._parksHR != null) ? `<span class="muted">Parks:</span> ${bb._parksHR}/30` : '';
     body.innerHTML = `
       <div><span class="muted">Batter:</span> ${bb.batter || "—"}</div>
       <div><span class="muted">Pitcher:</span> ${bb.pitcher || "—"}</div>
@@ -4288,6 +4300,7 @@ function __plot_batted_balls(svg, balls, tip){
       <div>
         <span class="muted">xBA:</span> ${__fmt3(bb.xBA)} •
         <span class="muted">xSLG:</span> ${__fmt3(bb.xSLG)}
+        ${parksTag ? ' • ' + parksTag : ''}
       </div>
     `;
     tip.style.display = "block";
@@ -4309,6 +4322,13 @@ function __plot_batted_balls(svg, balls, tip){
     const sx = Number(bb.x);
     const sy = Number(bb.y);
     if(!isFinite(sx) || !isFinite(sy)) return;
+
+    // Pre-fetch parks HR count in background
+    if(window.__fetchParksHR && bb.ev != null && bb.la != null && bb.spray != null){
+      window.__fetchParksHR(bb.ev, bb.la, bb.spray).then(d => {
+        if(d && d.count != null) bb._parksHR = d.count;
+      });
+    }
 
     const pt = window.__spray_mapPoint
       ? window.__spray_mapPoint(sx, sy, scaleX, scaleY)
@@ -4653,6 +4673,113 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
   // safe: only fetch analytics in background; won't block render
   loadAnalyticsIfNeeded();
+
+  // --- Parks HR counts (lazy-loaded via API) ---
+  (function(){
+    const cache = {};
+
+    async function fetchParksHR(ev, la, spray){
+      if(ev == null || la == null || spray == null || ev === "None" || la === "None" || spray === "None") return null;
+      const key = `${ev}|${la}|${spray}`;
+      if(cache[key] !== undefined) return cache[key];
+      try {
+        const r = await fetch(`/api/hr_park_calc?ev=${ev}&la=${la}&spray=${spray}`);
+        const d = await r.json();
+        cache[key] = d;
+        return d;
+      } catch(e){ return null; }
+    }
+
+    function formatParks(data, clickable){
+      if(!data || data.count == null) return "-";
+      const c = data.count, t = data.total;
+      const pct = c / t;
+      let color = "var(--muted)";
+      if(pct >= 0.9) color = "#16a34a";
+      else if(pct >= 0.5) color = "#ca8a04";
+      else if(pct > 0) color = "#dc2626";
+      const style = clickable ? "cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;" : "";
+      return `<span class="parks-hr-badge" style="color:${color};font-weight:600;${style}">${c}</span><span class="muted">/${t}</span>`;
+    }
+
+    function showParksPopup(data, anchor){
+      // Remove any existing popup
+      const old = document.getElementById("parks-hr-popup");
+      if(old) old.remove();
+      if(!data || !data.parks) return;
+
+      const popup = document.createElement("div");
+      popup.id = "parks-hr-popup";
+      popup.style.cssText = "position:fixed;z-index:9999;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:10px 14px;max-height:420px;overflow-y:auto;font-size:12px;min-width:220px;box-shadow:0 8px 24px rgba(0,0,0,.4);";
+
+      const hr = data.parks.filter(p => p.is_hr);
+      const miss = data.parks.filter(p => !p.is_hr);
+
+      let html = `<div style="font-weight:700;margin-bottom:6px;font-size:13px;">HR in ${data.count}/${data.total} parks</div>`;
+      if(hr.length){
+        html += `<div style="margin-bottom:6px;">`;
+        hr.forEach(p => {
+          html += `<div style="display:flex;justify-content:space-between;gap:12px;padding:1px 0;"><span>${p.team}</span><span class="muted">+${p.margin_ft} ft</span></div>`;
+        });
+        html += `</div>`;
+      }
+      if(miss.length){
+        html += `<div style="border-top:1px solid #334155;padding-top:4px;margin-top:2px;">`;
+        miss.forEach(p => {
+          const m = p.margin_ft > -900 ? p.margin_ft : "N/A";
+          html += `<div style="display:flex;justify-content:space-between;gap:12px;padding:1px 0;opacity:.5;"><span>${p.team}</span><span class="muted">${m} ft</span></div>`;
+        });
+        html += `</div>`;
+      }
+      popup.innerHTML = html;
+      document.body.appendChild(popup);
+
+      // Position near anchor
+      const rect = anchor.getBoundingClientRect();
+      popup.style.left = Math.min(rect.left, window.innerWidth - 250) + "px";
+      popup.style.top = Math.min(rect.bottom + 4, window.innerHeight - 440) + "px";
+
+      // Close on click outside
+      setTimeout(()=>{
+        const close = (e)=>{ if(!popup.contains(e.target)){ popup.remove(); document.removeEventListener("click", close); }};
+        document.addEventListener("click", close);
+      }, 50);
+    }
+
+    // Top EV table: load all 10 rows on page load
+    document.querySelectorAll(".ev-table tbody tr[data-bb-ev]").forEach(async tr => {
+      const ev = tr.dataset.bbEv, la = tr.dataset.bbLa, spray = tr.dataset.bbSpray;
+      const cell = tr.querySelector(".bb-parks-cell");
+      if(!cell) return;
+      const data = await fetchParksHR(ev, la, spray);
+      cell.innerHTML = formatParks(data, true);
+      cell.style.cursor = "pointer";
+      cell.addEventListener("click", ()=> showParksPopup(data, cell));
+    });
+
+    // PBP cards: load when <details> is opened
+    document.querySelectorAll(".bb-parks-item[data-bb-ev]").forEach(el => {
+      const details = el.closest("details");
+      if(!details) return;
+      let loaded = false;
+      let cachedData = null;
+      details.addEventListener("toggle", async ()=>{
+        if(!details.open || loaded) return;
+        loaded = true;
+        const ev = el.dataset.bbEv, la = el.dataset.bbLa, spray = el.dataset.bbSpray;
+        const val = el.querySelector(".bb-parks-val");
+        if(!val) return;
+        cachedData = await fetchParksHR(ev, la, spray);
+        val.innerHTML = formatParks(cachedData, true);
+        val.style.cursor = "pointer";
+        val.addEventListener("click", ()=> showParksPopup(cachedData, val));
+      });
+    });
+
+    // Expose for analytics spray charts
+    window.__fetchParksHR = fetchParksHR;
+    window.__formatParksHR = formatParks;
+  })();
 });
 
 </script>

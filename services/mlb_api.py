@@ -4418,6 +4418,7 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
     "pitcher": (pitcher_obj.get("fullName") or "").strip(),
     "ev": batted_ball.get("exitVelo"),
     "la": batted_ball.get("launchAngle"),
+    "spray": batted_ball.get("sprayAngle"),
     "dist": batted_ball.get("distance"),
     "xBA": batted_ball.get("xBA"),
     "xSLG": batted_ball.get("xSLG"),
