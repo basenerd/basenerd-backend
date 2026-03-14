@@ -13,6 +13,13 @@ services:
     dockerCommand: "python scripts/auto_pitcher_reports.py"
     plan: free
 
+  - type: cron
+    name: lineup-emails
+    runtime: docker
+    schedule: "*/15 * * * *"  # Every 15 minutes
+    dockerCommand: "python scripts/auto_lineup_emails.py"
+    plan: free
+
   - type: worker
     name: hr-monitor
     runtime: docker
