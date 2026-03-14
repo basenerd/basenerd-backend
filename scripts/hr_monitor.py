@@ -137,17 +137,48 @@ _MLB_TO_STADIUM = {
     "ARI": "AZ", "WSN": "WSH",
 }
 
+# Cache: venue name -> stadium code (built lazily from _STADIUMS)
+_VENUE_TO_CODE: dict[str, str] = {}
 
-def _stadium_code(abbr: str, game_type: str = "") -> str:
+
+def _build_venue_map():
+    """Build reverse map from stadium name -> code (lazy, once)."""
+    if _VENUE_TO_CODE:
+        return
+    from services.hr_park_calc import _STADIUMS
+    for code, info in _STADIUMS.items():
+        name = info.get("name", "").lower()
+        if name and not code.startswith("ST_"):
+            _VENUE_TO_CODE[name] = code
+
+
+def _stadium_code(abbr: str, game_type: str = "", venue_name: str = "") -> str:
     """Convert MLB abbreviation to our stadium code.
-    For spring training (game_type='S'), use ST_ prefixed codes."""
+    For spring training (game_type='S'), use ST_ prefixed codes.
+    For WBC/international games, fall back to venue name lookup."""
+    from services.hr_park_calc import _STADIUMS
+
     base = _MLB_TO_STADIUM.get(abbr, abbr)
     if game_type == "S":
         st_code = f"ST_{base}"
-        # Import here to check if the ST code exists
-        from services.hr_park_calc import _STADIUMS
         if st_code in _STADIUMS:
             return st_code
+
+    # If the base code is a known stadium, use it directly
+    if base in _STADIUMS:
+        return base
+
+    # Fallback: look up by venue name (handles WBC/international games)
+    if venue_name:
+        _build_venue_map()
+        vn = venue_name.lower()
+        if vn in _VENUE_TO_CODE:
+            return _VENUE_TO_CODE[vn]
+        # Partial match — venue names can vary slightly
+        for name, code in _VENUE_TO_CODE.items():
+            if name in vn or vn in name:
+                return code
+
     return base
 
 
@@ -164,7 +195,8 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
     game_data = feed.get("gameData") or {}
     dt_info = game_data.get("datetime") or {}
     game_date = dt_info.get("officialDate") or ""
-    game_type = (game_data.get("game") or {}).get("type", "")  # S=spring, R=regular
+    game_type = (game_data.get("game") or {}).get("type", "")  # S=spring, R=regular, W=WBC
+    venue_name = (game_data.get("venue") or {}).get("name", "")
     teams = game_data.get("teams") or {}
     away_info = teams.get("away") or {}
     home_info = teams.get("home") or {}
@@ -271,7 +303,7 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
             "launch_angle": float(la),
             "spray_angle": float(spray) if spray is not None else 0.0,
             "distance": float(dist) if dist is not None else None,
-            "stadium_code": _stadium_code(home_abbr, game_type),
+            "stadium_code": _stadium_code(home_abbr, game_type, venue_name),
             "game_date": game_date,
             "inning_text": inning_text,
             "away_team": away_abbr,
