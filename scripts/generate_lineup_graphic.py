@@ -206,15 +206,20 @@ def _load_team_logo(abbrev: str, team_id: int = None) -> Optional[PILImage.Image
     return None
 
 
-def _fetch_player_stats(player_ids: List[int], season: int) -> Dict[int, dict]:
-    """Fetch season hitting/pitching stats for a batch of players."""
+def _fetch_player_stats(player_ids: List[int], season: int, game_type: str = "") -> Dict[int, dict]:
+    """Fetch season hitting/pitching stats for a batch of players.
+    game_type: 'S' for spring training, 'R' for regular season, '' for all."""
     if not player_ids:
         return {}
     ids_str = ",".join(str(pid) for pid in player_ids)
     url = f"{MLB_API}/people"
+    hydrate = f"stats(group=[hitting,pitching],type=[season],season={season}"
+    if game_type:
+        hydrate += f",gameType={game_type}"
+    hydrate += ")"
     params = {
         "personIds": ids_str,
-        "hydrate": f"stats(group=[hitting,pitching],type=[season],season={season})",
+        "hydrate": hydrate,
     }
     try:
         r = requests.get(url, params=params, timeout=15)
@@ -276,6 +281,7 @@ def _extract_game_data(game: dict) -> Optional[dict]:
     official_date = game.get("officialDate", "")
     venue = (game.get("venue") or {}).get("name", "")
     status = (game.get("status") or {}).get("detailedState", "")
+    game_type = game.get("gameType", "")
 
     teams = game.get("teams") or {}
     away_team = (teams.get("away") or {}).get("team") or {}
@@ -310,6 +316,7 @@ def _extract_game_data(game: dict) -> Optional[dict]:
         "game_time": game_time,
         "venue": venue,
         "status": status,
+        "game_type": game_type,
         "away": {
             "name": away_team.get("teamName", ""),
             "full_name": away_team.get("name", ""),
@@ -444,10 +451,27 @@ def generate_lineup_graphic(game_data: dict, out_dir: Optional[Path] = None) -> 
 
     season = int(date[:4]) if date else datetime.now().year
     prev_season = season - 1
+    game_type = game_data.get("game_type", "")
 
-    print(f"  Fetching stats for {len(all_ids)} players...")
-    stats_map = _fetch_player_stats(all_ids, prev_season)
-    current_stats = _fetch_player_stats(all_ids, season)
+    # Determine which stats to fetch based on game type
+    # S = spring training, R = regular season
+    print(f"  Fetching stats for {len(all_ids)} players (gameType={game_type or 'all'})...")
+    if game_type == "S":
+        # Spring training: show ST stats, fall back to previous regular season
+        stats_map = _fetch_player_stats(all_ids, prev_season, game_type="R")
+        current_stats = _fetch_player_stats(all_ids, season, game_type="S")
+        stats_label = f"{season} Spring Training stats"
+    elif game_type == "R":
+        # Regular season: show regular season stats, fall back to previous year
+        stats_map = _fetch_player_stats(all_ids, prev_season, game_type="R")
+        current_stats = _fetch_player_stats(all_ids, season, game_type="R")
+        stats_label = f"{season} stats"
+    else:
+        # WBC or other: fall back to regular season stats
+        stats_map = _fetch_player_stats(all_ids, prev_season)
+        current_stats = _fetch_player_stats(all_ids, season)
+        stats_label = f"{season} stats (or {prev_season})"
+
     for pid, s in current_stats.items():
         has_hitting = (s.get("hitting") or {}).get("gamesPlayed", 0) > 0
         has_pitching = (s.get("pitching") or {}).get("gamesPlayed", 0) > 0
@@ -859,7 +883,7 @@ def generate_lineup_graphic(game_data: dict, out_dir: Optional[Path] = None) -> 
     # ============================================================
     c.setFillColor(TEXT_MUTED)
     c.setFont(FONT_REG, 9)
-    c.drawString(M, 6, f"basenerd.com  |  {season} stats (or {prev_season})")
+    c.drawString(M, 6, f"basenerd.com  |  {stats_label}")
     c.setFillColor(ACCENT)
     c.setFont(FONT_REG_BOLD, 10)
     c.drawRightString(W - M, 6, "@basenerd")
