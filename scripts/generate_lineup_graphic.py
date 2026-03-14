@@ -741,11 +741,12 @@ def generate_lineup_graphic(game_data: dict, out_dir: Optional[Path] = None) -> 
             c.setFont(FONT_BOLD, fsz)
             c.drawString(name_left, name_y, last_name)
 
-            # Bat side small under name
-            if bat_side:
+            # First name small under last name
+            first_name = player.get("name", "").split()[0] if " " in player.get("name", "") else ""
+            if first_name:
                 c.setFillColor(TEXT_MUTED)
                 c.setFont(FONT_REG, 9)
-                c.drawString(name_left, bat_y, f"Bats {bat_side}")
+                c.drawString(name_left, bat_y, first_name)
 
             # ======== RIGHT SIDE: stats grid ========
             hitting = pstats.get("hitting") or {}
