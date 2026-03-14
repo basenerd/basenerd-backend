@@ -34,7 +34,8 @@ import requests
 
 # ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+SCRIPTS_DIR = ROOT / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
 sys.path.insert(0, str(ROOT))
 
 REPORTS_DIR = ROOT / "reports" / "lineups"
@@ -76,45 +77,47 @@ def _game_already_processed(game_pk: int, date_str: str) -> bool:
 # Fetch schedule with lineups
 # ---------------------------------------------------------------------------
 def fetch_schedule_with_lineups(date_str: str) -> list[dict]:
-    """Fetch games for a date, hydrating lineup data."""
-    url = f"{MLB_API}/schedule"
-    params = {
-        "date": date_str,
-        "sportId": 1,
-        "hydrate": "lineups,probablePitcher,team",
-    }
-    try:
-        r = requests.get(url, params=params, timeout=15)
-        r.raise_for_status()
-        games = []
-        for d in r.json().get("dates") or []:
-            for g in d.get("games") or []:
-                gp = g.get("gamePk")
-                if not gp:
-                    continue
-                lineups = g.get("lineups") or {}
-                away_lineup = lineups.get("awayPlayers") or []
-                home_lineup = lineups.get("homePlayers") or []
-                teams = g.get("teams") or {}
-                away_team = (teams.get("away") or {}).get("team") or {}
-                home_team = (teams.get("home") or {}).get("team") or {}
-                status = ((g.get("status") or {}).get("abstractGameState") or "").lower()
+    """Fetch games for a date, hydrating lineup data (MLB + WBC)."""
+    games = []
+    # sportId 1 = MLB (regular/spring), 51 = World Baseball Classic
+    for sport_id in (1, 51):
+        url = f"{MLB_API}/schedule"
+        params = {
+            "date": date_str,
+            "sportId": sport_id,
+            "hydrate": "lineups,probablePitcher,team",
+        }
+        try:
+            r = requests.get(url, params=params, timeout=15)
+            r.raise_for_status()
+            for d in r.json().get("dates") or []:
+                for g in d.get("games") or []:
+                    gp = g.get("gamePk")
+                    if not gp:
+                        continue
+                    lineups = g.get("lineups") or {}
+                    away_lineup = lineups.get("awayPlayers") or []
+                    home_lineup = lineups.get("homePlayers") or []
+                    teams = g.get("teams") or {}
+                    away_team = (teams.get("away") or {}).get("team") or {}
+                    home_team = (teams.get("home") or {}).get("team") or {}
+                    status = ((g.get("status") or {}).get("abstractGameState") or "").lower()
 
-                games.append({
-                    "raw": g,
-                    "game_pk": int(gp),
-                    "status": status,
-                    "has_away_lineup": len(away_lineup) > 0,
-                    "has_home_lineup": len(home_lineup) > 0,
-                    "away_abbrev": away_team.get("abbreviation", "?"),
-                    "home_abbrev": home_team.get("abbreviation", "?"),
-                    "away_name": away_team.get("teamName", "?"),
-                    "home_name": home_team.get("teamName", "?"),
-                })
-        return games
-    except Exception as e:
-        log.error("Failed to fetch schedule for %s: %s", date_str, e)
-        return []
+                    games.append({
+                        "raw": g,
+                        "game_pk": int(gp),
+                        "status": status,
+                        "has_away_lineup": len(away_lineup) > 0,
+                        "has_home_lineup": len(home_lineup) > 0,
+                        "away_abbrev": away_team.get("abbreviation", "?"),
+                        "home_abbrev": home_team.get("abbreviation", "?"),
+                        "away_name": away_team.get("teamName", "?"),
+                        "home_name": home_team.get("teamName", "?"),
+                    })
+        except Exception as e:
+            log.error("Failed to fetch schedule (sportId=%d) for %s: %s",
+                      sport_id, date_str, e)
+    return games
 
 
 # ---------------------------------------------------------------------------
