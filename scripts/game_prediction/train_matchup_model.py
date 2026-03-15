@@ -127,33 +127,35 @@ def train_matchup_model():
     y_test = df.loc[test_mask, "target"]
     del df
 
-    # Sample training data to avoid OOM during XGBoost tree building
-    if len(X_train) > 300_000:
-        sample_idx = X_train.sample(n=300_000, random_state=42).index
-        X_train = X_train.loc[sample_idx]
-        y_train = y_train.loc[sample_idx]
-
     print(f"\n  Train: {len(X_train):,} PAs (2021-2024)")
     print(f"  Test:  {len(X_test):,} PAs (2025)")
 
     # Train XGBoost
+    # Tuning notes (2026-03-15):
+    # - min_child_weight reduced from 100 to 10 so the model can differentiate
+    #   rare-event rates (HR, 3B, HBP) between elite and weak hitters.
+    #   At 100, each HR-class leaf needed ~3300 samples, crushing all HR preds
+    #   toward the ~3.3% league average.
+    # - max_depth increased from 4 to 6 for richer batter×pitcher interactions
+    # - Removed 300k sample cap (hist method handles full dataset efficiently)
+    # - early_stopping_rounds increased to 20 to let the model converge
     print("\nTraining XGBoost multiclass model...")
     model = xgb.XGBClassifier(
         objective="multi:softprob",
         num_class=len(class_names),
-        n_estimators=300,
-        max_depth=4,
-        learning_rate=0.08,
-        subsample=0.7,
-        colsample_bytree=0.6,
-        min_child_weight=100,
-        reg_alpha=0.1,
-        reg_lambda=1.0,
+        n_estimators=500,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.7,
+        min_child_weight=10,
+        reg_alpha=0.05,
+        reg_lambda=0.5,
         eval_metric="mlogloss",
-        early_stopping_rounds=10,
+        early_stopping_rounds=20,
         n_jobs=2,
         random_state=42,
-        tree_method="hist",  # faster histogram-based method
+        tree_method="hist",
     )
 
     model.fit(
@@ -187,6 +189,27 @@ def train_matchup_model():
     comparison = pd.DataFrame({"actual": actual_rates, "predicted": pred_rates})
     print(comparison.to_string())
 
+    # --- Per-decile calibration check for all outcome classes ---
+    # Verifies the model properly separates talent levels for each event type
+    for cls_name in class_names:
+        cls_idx = class_names.index(cls_name)
+        cls_pred = y_pred_proba[:, cls_idx]
+        cls_actual = (y_test.values == cls_idx).astype(int)
+
+        cls_df = pd.DataFrame({"pred": cls_pred, "actual": cls_actual})
+        cls_df["bin"] = pd.qcut(cls_df["pred"], q=10, duplicates="drop")
+        calibration = cls_df.groupby("bin", observed=True).agg(
+            n=("actual", "count"),
+            avg_pred=("pred", "mean"),
+            avg_actual=("actual", "mean"),
+        )
+        print(f"\n{cls_name} calibration by predicted-probability decile:")
+        print(f"  {'Bin':<24s}  {'N':>7s}  {'Pred%':>8s}  {'Actual%':>10s}")
+        for bin_label, row in calibration.iterrows():
+            print(f"  {str(bin_label):<24s}  {row['n']:>7.0f}  {row['avg_pred']*100:>7.2f}%  {row['avg_actual']*100:>9.2f}%")
+
+        print(f"  Range: {cls_pred.min()*100:.2f}% — {cls_pred.max()*100:.2f}%  |  Std: {cls_pred.std()*100:.2f}%")
+
     # Save model
     os.makedirs(MODEL_DIR, exist_ok=True)
     joblib.dump(model, MODEL_PATH)
@@ -204,7 +227,7 @@ def train_matchup_model():
         "test_log_loss": float(log_loss(y_test, y_pred_proba)),
         "n_train": int(len(X_train)),
         "n_test": int(len(X_test)),
-        "n_estimators_used": int(model.best_iteration + 1) if hasattr(model, "best_iteration") else 500,
+        "n_estimators_used": int(model.best_iteration + 1) if hasattr(model, "best_iteration") and model.best_iteration is not None else 500,
         "label_encoding": {name: int(idx) for idx, name in enumerate(class_names)},
     }
     with open(META_PATH, "w") as f:

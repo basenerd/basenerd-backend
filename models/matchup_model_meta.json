@@ -112,10 +112,10 @@
     2024
   ],
   "test_season": 2025,
-  "test_log_loss": 1.4446923337613964,
-  "n_train": 300000,
+  "test_log_loss": 1.4422624157239763,
+  "n_train": 730089,
   "n_test": 182840,
-  "n_estimators_used": 241,
+  "n_estimators_used": 401,
   "label_encoding": {
     "1B": 0,
     "2B": 1,
