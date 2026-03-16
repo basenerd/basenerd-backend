@@ -1556,16 +1556,47 @@ def normalize_gamecast(feed: dict) -> dict:
     play_events = current_play.get("playEvents") or []
     n = 0
     for ev in play_events:
-        if not ev or not ev.get("isPitch"):
+        if not ev:
+            continue
+        details = ev.get("details") or {}
+        call = details.get("call") or {}
+        call_code = (call.get("code") or "").upper()
+
+        # Pitch clock violations: type="no_pitch", code VP (pitcher) or AC (batter)
+        if ev.get("type") == "no_pitch" and call_code in ("VP", "AC"):
+            n += 1
+            violation = details.get("violation") or {}
+            pitches_out.append({
+                "n": n,
+                "px": None,
+                "pz": None,
+                "sz_top": None,
+                "sz_bot": None,
+                "pitchType": "",
+                "mph": None,
+                "spinRate": None,
+                "vertMove": None,
+                "horizMove": None,
+                "isBall": details.get("isBall"),
+                "isStrike": details.get("isStrike"),
+                "isInPlay": False,
+                "isFoul": False,
+                "call": call.get("description") or "",
+                "desc": details.get("description") or "",
+                "isViolation": True,
+                "violationType": violation.get("type") or "",
+                "violationPlayer": (violation.get("player") or {}).get("fullName") or "",
+            })
+            continue
+
+        if not ev.get("isPitch"):
             continue
         n += 1
-        details = ev.get("details") or {}
         pitch_data = ev.get("pitchData") or {}
         coords = pitch_data.get("coordinates") or {}
         breaks = pitch_data.get("breaks") or {}
         ivb, hb = _get_ivb_hb(pitch_data)
 
-        call = details.get("call") or {}
         pitches_out.append({
             "n": n,
             "px": coords.get("pX"),
@@ -2074,6 +2105,24 @@ def normalize_gamecast(feed: dict) -> dict:
             # Skip actual pitches and game_advisory (status changes, timeouts, etc.)
             if ev.get("isPitch"):
                 continue
+
+            # Pitch clock violations: type="no_pitch", call code VP or AC
+            call_obj = details.get("call") or {}
+            _call_code = (call_obj.get("code") or "").upper()
+            if ev_type_str == "no_pitch" and _call_code in ("VP", "AC"):
+                violation = details.get("violation") or {}
+                viol_type = violation.get("type") or ""
+                feed_type = "pitcher_clock_violation" if "pitcher" in viol_type else "batter_clock_violation"
+                feed_out.append({
+                    "type": feed_type,
+                    "event": violation.get("description") or ev_desc,
+                    "description": ev_desc,
+                    "inning": inn_label,
+                    "isScoring": False,
+                    "violationPlayer": (violation.get("player") or {}).get("fullName") or "",
+                })
+                continue
+
             if det_event_lc in ("game_advisory", "batter_timeout", "mound_visit", ""):
                 if ev_type_str != "pickoff":
                     continue
