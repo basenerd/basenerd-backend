@@ -80,26 +80,27 @@
 
   /* Bases diamond */
   .mg-bases{
-    display:inline-grid;
-    grid-template-columns: 16px 16px 16px;
-    grid-template-rows: 16px 16px 16px;
-    gap:2px;
-    transform: rotate(45deg);
+    display:inline-block;
+    position:relative;
+    width:48px; height:48px;
     margin:0 12px;
+    vertical-align:middle;
   }
   .mg-base{
+    position:absolute;
     width:16px; height:16px;
     border:2px solid rgba(148,163,184,.3);
     border-radius:2px;
     background:transparent;
+    transform:rotate(45deg);
   }
   .mg-base.occupied{
     background:var(--accent, #f0b90b);
     border-color:var(--accent, #f0b90b);
   }
-  .mg-base-2b{ grid-column:2; grid-row:1; }
-  .mg-base-3b{ grid-column:1; grid-row:2; }
-  .mg-base-1b{ grid-column:3; grid-row:2; }
+  .mg-base-2b{ top:0; left:50%; margin-left:-10px; }
+  .mg-base-3b{ top:50%; left:0; margin-top:-10px; }
+  .mg-base-1b{ top:50%; right:0; margin-top:-10px; }
 
   /* Outs indicator */
   .mg-outs{
@@ -194,6 +195,25 @@
     text-align:center;
   }
   .mg-next-btn:hover{ opacity:.9; }
+
+  /* Win probability display */
+  .mg-winprob{
+    display:flex; gap:10px; margin-top:10px;
+  }
+  .mg-winprob-item{
+    flex:1; text-align:center; padding:8px;
+    border-radius:8px; background:rgba(148,163,184,.04);
+    border:1px solid rgba(148,163,184,.1);
+  }
+  .mg-winprob-label{
+    font-size:10px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.4px; opacity:.5; margin-bottom:2px;
+  }
+  .mg-winprob-val{
+    font-family: IBM Plex Mono, ui-monospace, monospace;
+    font-size:18px; font-weight:800;
+    color:var(--accent, #f0b90b);
+  }
 
   /* Final score */
   .mg-final{ text-align:center; animation: mgFadeIn .4s ease; }
@@ -310,9 +330,9 @@
     const b2 = baseState & 2 ? "occupied" : "";
     const b3 = baseState & 4 ? "occupied" : "";
     return `<div class="mg-bases">
-      <div></div><div class="mg-base mg-base-2b ${b2}"></div><div></div>
-      <div class="mg-base mg-base-3b ${b3}"></div><div></div><div class="mg-base mg-base-1b ${b1}"></div>
-      <div></div><div></div><div></div>
+      <div class="mg-base mg-base-2b ${b2}"></div>
+      <div class="mg-base mg-base-3b ${b3}"></div>
+      <div class="mg-base mg-base-1b ${b1}"></div>
     </div>`;
   }
 
@@ -362,9 +382,11 @@
       </div>`;
     }
     if(s.pitcher_tto != null){
+      const ttoLabels = {1:"1st time", 2:"2nd time", 3:"3rd time"};
+      const ttoText = ttoLabels[s.pitcher_tto] || s.pitcher_tto + "th time";
       html += `<div class="mg-context-item">
-        <div class="mg-context-label">TTO</div>
-        <div class="mg-context-val">${s.pitcher_tto}x</div>
+        <div class="mg-context-label">Through Order</div>
+        <div class="mg-context-val">${ttoText}</div>
       </div>`;
     }
     html += `</div>`;
@@ -487,6 +509,22 @@
       <span class="label">BN Engine</span>
       <span class="value">${engineLabel}${engineConf}${engine.detail ? " \u2014 " + engine.detail : ""}</span>
     </div>`;
+
+    // Win probability
+    if(engine.win_prob_yes != null && engine.win_prob_no != null){
+      const yesLabel = s.options_json?.yes_label || "Yes";
+      const noLabel = s.options_json?.no_label || "No";
+      rHtml += `<div class="mg-winprob">
+        <div class="mg-winprob-item">
+          <div class="mg-winprob-label">Win prob if ${yesLabel}</div>
+          <div class="mg-winprob-val">${Math.round(engine.win_prob_yes * 100)}%</div>
+        </div>
+        <div class="mg-winprob-item">
+          <div class="mg-winprob-label">Win prob if ${noLabel}</div>
+          <div class="mg-winprob-val">${Math.round(engine.win_prob_no * 100)}%</div>
+        </div>
+      </div>`;
+    }
 
     // Community stats
     const comm = result?.community;

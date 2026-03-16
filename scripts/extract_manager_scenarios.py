@@ -71,6 +71,32 @@ P_SCORE_1 = {
 }
 SB_BREAKEVEN = {(1, 0): 0.769, (1, 1): 0.699, (1, 2): 0.679, (2, 0): 0.947, (2, 1): 0.746, (2, 2): 0.798}
 
+# Win probability estimation using log5 / run-differential model
+# Based on Tango's model: WP = 1 / (1 + 10^(-k * run_diff / sqrt(innings_remaining)))
+import math
+
+def _win_prob(score_diff, inning, half, outs):
+    """Estimate win probability for the batting team given current game state.
+    score_diff: batting team runs - pitching team runs (positive = batting team leads)
+    Returns probability that the batting team wins (0-1).
+    """
+    # Innings remaining (each half = 0.5 innings)
+    half_innings_left = max(1, (9 - inning) * 2 + (0 if half == "bottom" else 1) - (outs / 3))
+    innings_left = half_innings_left / 2.0
+    # Empirical constant calibrated to MLB data
+    k = 0.34
+    wp = 1.0 / (1.0 + 10.0 ** (-k * score_diff / max(0.5, math.sqrt(innings_left))))
+    return round(min(0.95, max(0.05, wp)), 3)
+
+
+def _win_prob_delta(ctx, re_delta):
+    """Given a run expectancy change, estimate win prob shift for the batting team's manager.
+    re_delta: expected runs gained by making the move (positive = good for batting team).
+    """
+    base_wp = _win_prob(ctx["score_diff"], ctx["inning"], ctx["half"], ctx["outs"])
+    new_wp = _win_prob(ctx["score_diff"] + re_delta, ctx["inning"], ctx["half"], ctx["outs"])
+    return base_wp, new_wp
+
 
 def _db_url():
     url = os.environ.get("DATABASE_URL") or os.environ.get("DATABASE_URL_PG") or ""
@@ -117,7 +143,7 @@ def _engine_rec_pitching_change(ctx):
         reasons.append(f"{ctx['pitcher_pitch_count']} pitches")
         confidence += 0.15
     if ctx["pitcher_tto"] >= 3:
-        reasons.append(f"{ctx['pitcher_tto']}x through the order")
+        reasons.append(_tto_label(ctx["pitcher_tto"]))
         confidence += 0.2
     leverage = _compute_leverage(ctx["inning"], ctx["outs"], ctx["score_diff"], ctx["base_state"])
     if leverage == "high":
@@ -126,7 +152,14 @@ def _engine_rec_pitching_change(ctx):
     if not reasons:
         reasons.append("late inning situation")
     recommend = "yes" if confidence >= 0.5 else "no"
-    return {"recommend": recommend, "confidence": round(min(0.95, confidence), 2), "detail": "; ".join(reasons)}
+    # Win prob: fresh arm expected to reduce opponent RE by ~0.15 runs
+    re_delta = 0.15 if ctx.get("pitching_side") == ctx.get("batting_side") else -0.15
+    # This is from the pitching team's perspective — making a change helps the pitching team
+    base_wp = _win_prob(-ctx["score_diff"], ctx["inning"], ctx["half"], ctx["outs"])
+    wp_yes = _win_prob(-ctx["score_diff"] + 0.15, ctx["inning"], ctx["half"], ctx["outs"])
+    wp_no = base_wp
+    return {"recommend": recommend, "confidence": round(min(0.95, confidence), 2), "detail": "; ".join(reasons),
+            "win_prob_yes": round(wp_yes, 3), "win_prob_no": round(wp_no, 3)}
 
 
 def _engine_rec_pinch_hit(ctx):
@@ -146,21 +179,51 @@ def _engine_rec_pinch_hit(ctx):
     if not reasons:
         reasons.append("late inning opportunity")
     recommend = "yes" if confidence >= 0.5 else "no"
-    return {"recommend": recommend, "confidence": round(min(0.9, confidence), 2), "detail": "; ".join(reasons)}
+    # Pinch hitter upgrade ~ +0.1 expected runs
+    base_wp = _win_prob(ctx["score_diff"], ctx["inning"], ctx["half"], ctx["outs"])
+    wp_yes = _win_prob(ctx["score_diff"] + 0.1, ctx["inning"], ctx["half"], ctx["outs"])
+    wp_no = base_wp
+    return {"recommend": recommend, "confidence": round(min(0.9, confidence), 2), "detail": "; ".join(reasons),
+            "win_prob_yes": round(wp_yes, 3), "win_prob_no": round(wp_no, 3)}
 
 
 def _engine_rec_stolen_base(ctx):
     """Heuristic engine recommendation for stolen base."""
-    # Default: generally lean no unless clearly favorable
-    return {"recommend": "yes", "confidence": 0.55, "detail": "Runner has base-stealing ability in a close game"}
+    # SB success gains ~0.4 runs, caught stealing loses ~0.6 runs. Net EV at 70% success = +0.1
+    bs = ctx["base_state"]
+    outs = ctx["outs"]
+    # Compute RE delta for success vs failure
+    re_now = RE24.get(outs, {}).get(bs, 0.3)
+    # If runner on 1st -> 2nd
+    if bs & 1:
+        sb_bs = (bs & ~1) | 2
+        cs_bs = bs & ~1
+    elif bs & 2:
+        sb_bs = (bs & ~2) | 4
+        cs_bs = bs & ~2
+    else:
+        sb_bs = bs
+        cs_bs = bs
+    re_success = RE24.get(outs, {}).get(sb_bs, 0.3)
+    cs_outs = min(2, outs + 1)
+    re_fail = RE24.get(cs_outs, {}).get(cs_bs, 0.1)
+    # Assume 70% success rate
+    ev = 0.7 * (re_success - re_now) + 0.3 * (re_fail - re_now)
+    base_wp = _win_prob(ctx["score_diff"], ctx["inning"], ctx["half"], ctx["outs"])
+    wp_yes = _win_prob(ctx["score_diff"] + ev, ctx["inning"], ctx["half"], ctx["outs"])
+    wp_no = base_wp
+    return {"recommend": "yes", "confidence": 0.55, "detail": "Runner has base-stealing ability in a close game",
+            "win_prob_yes": round(wp_yes, 3), "win_prob_no": round(wp_no, 3)}
 
 
 def _engine_rec_bunt(ctx):
     """Heuristic engine recommendation for bunt."""
     bs = ctx["base_state"]
     outs = ctx["outs"]
+    base_wp = _win_prob(ctx["score_diff"], ctx["inning"], ctx["half"], ctx["outs"])
     if outs != 0:
-        return {"recommend": "no", "confidence": 0.7, "detail": "Sacrifice only makes sense with 0 outs"}
+        return {"recommend": "no", "confidence": 0.7, "detail": "Sacrifice only makes sense with 0 outs",
+                "win_prob_yes": round(base_wp - 0.02, 3), "win_prob_no": round(base_wp, 3)}
     # Compare P(score 1+) before and after bunt
     current_p1 = P_SCORE_1.get(0, {}).get(bs, 0.25)
     bunt_bs = 0
@@ -168,19 +231,40 @@ def _engine_rec_bunt(ctx):
     if bs & 2: bunt_bs |= 4
     if bs & 4: bunt_bs |= 4
     bunt_p1 = P_SCORE_1.get(1, {}).get(bunt_bs, 0.25)
+    # RE delta from bunting
+    re_now = RE24.get(0, {}).get(bs, 0.46)
+    re_bunt = RE24.get(1, {}).get(bunt_bs, 0.25)
+    re_delta = re_bunt - re_now
+    wp_yes = _win_prob(ctx["score_diff"] + re_delta, ctx["inning"], ctx["half"], ctx["outs"])
+    wp_no = base_wp
     if bunt_p1 > current_p1:
         return {"recommend": "yes", "confidence": round(0.5 + (bunt_p1 - current_p1) * 2, 2),
-                "detail": f"Bunting improves P(score 1+) from {current_p1:.0%} to {bunt_p1:.0%}"}
+                "detail": f"Bunting improves P(score 1+) from {current_p1:.0%} to {bunt_p1:.0%}",
+                "win_prob_yes": round(wp_yes, 3), "win_prob_no": round(wp_no, 3)}
     return {"recommend": "no", "confidence": 0.6,
-            "detail": f"Bunting lowers P(score 1+) from {current_p1:.0%} to {bunt_p1:.0%}"}
+            "detail": f"Bunting lowers P(score 1+) from {current_p1:.0%} to {bunt_p1:.0%}",
+            "win_prob_yes": round(wp_yes, 3), "win_prob_no": round(wp_no, 3)}
 
 
 def _engine_rec_ibb(ctx):
     """Heuristic engine recommendation for IBB."""
     leverage = _compute_leverage(ctx["inning"], ctx["outs"], ctx["score_diff"], ctx["base_state"])
+    bs = ctx["base_state"]
+    outs = ctx["outs"]
+    # IBB adds a runner: e.g. bases 010 -> 011, etc.
+    ibb_bs = bs | 1  # put runner on 1st
+    re_now = RE24.get(outs, {}).get(bs, 0.3)
+    re_ibb = RE24.get(outs, {}).get(ibb_bs, 0.5)
+    # IBB is from the pitching team's perspective (defensive move), so negative RE delta is good
+    re_delta = -(re_ibb - re_now)  # negative because more RE on base = bad for pitching team
+    base_wp = _win_prob(-ctx["score_diff"], ctx["inning"], ctx["half"], ctx["outs"])
+    wp_yes = _win_prob(-ctx["score_diff"] + re_delta, ctx["inning"], ctx["half"], ctx["outs"])
+    wp_no = base_wp
     if leverage == "high" and ctx["outs"] < 2:
-        return {"recommend": "yes", "confidence": 0.6, "detail": "High leverage, sets up force/DP"}
-    return {"recommend": "no", "confidence": 0.55, "detail": "Putting another runner on base is risky"}
+        return {"recommend": "yes", "confidence": 0.6, "detail": "High leverage, sets up force/DP",
+                "win_prob_yes": round(wp_yes, 3), "win_prob_no": round(wp_no, 3)}
+    return {"recommend": "no", "confidence": 0.55, "detail": "Putting another runner on base is risky",
+            "win_prob_yes": round(wp_yes, 3), "win_prob_no": round(wp_no, 3)}
 
 
 ENGINE_RECS = {
@@ -190,6 +274,18 @@ ENGINE_RECS = {
     "bunt": _engine_rec_bunt,
     "ibb": _engine_rec_ibb,
 }
+
+def _tto_label(tto):
+    """Human-readable TTO label."""
+    if tto == 1:
+        return "first time through the order"
+    elif tto == 2:
+        return "second time through the order"
+    elif tto == 3:
+        return "third time through the order"
+    else:
+        return "{}th time through the order".format(tto)
+
 
 DECISION_QUESTIONS = {
     "pitching_change": {
@@ -242,6 +338,7 @@ def extract_scenarios_from_game(feed, game_pk):
     # Track running game state
     pitcher_pitch_counts = {}  # pitcher_id -> count
     pitcher_batters_faced = {}  # pitcher_id -> set of batter_ids
+    pitcher_names_map = {}  # pitcher_id -> name
     current_pitcher = {"top": None, "bottom": None}
 
     # Get starting pitchers from boxscore
@@ -254,6 +351,10 @@ def extract_scenarios_from_game(feed, game_pk):
             current_pitcher[half] = pid
             pitcher_pitch_counts[pid] = 0
             pitcher_batters_faced[pid] = set()
+            # Get starter name
+            key = f"ID{pid}"
+            gp = game_players.get(key) or {}
+            pitcher_names_map[pid] = gp.get("fullName") or gp.get("lastName") or str(pid)
 
     # Get batting orders
     batting_orders = {}
@@ -297,11 +398,18 @@ def extract_scenarios_from_game(feed, game_pk):
             batting_side = "home"
             pitching_side = "away"
 
-        # Track pitch counts
+        # Track pitch counts — use the pitcher who was ALREADY in the game
+        # (current_pitcher[half]) not the matchup pitcher which may be the new reliever
+        outgoing_pitcher_id = current_pitcher.get(half)
+        outgoing_pitcher_name = pitcher_names_map.get(outgoing_pitcher_id, "") if outgoing_pitcher_id else ""
+        outgoing_pitch_count = pitcher_pitch_counts.get(outgoing_pitcher_id, 0) if outgoing_pitcher_id else 0
+        outgoing_tto = max(1, len(pitcher_batters_faced.get(outgoing_pitcher_id, set())) // 9 + 1) if outgoing_pitcher_id else 1
+
         if pitcher_id:
             if pitcher_id not in pitcher_pitch_counts:
                 pitcher_pitch_counts[pitcher_id] = 0
                 pitcher_batters_faced[pitcher_id] = set()
+            pitcher_names_map[pitcher_id] = pitcher_name
             current_pitcher[half] = pitcher_id
 
         # Count pitches in this at-bat
@@ -311,8 +419,8 @@ def extract_scenarios_from_game(feed, game_pk):
             if batter_id:
                 pitcher_batters_faced.setdefault(pitcher_id, set()).add(batter_id)
 
-        # Calculate state
-        pitch_count = pitcher_pitch_counts.get(pitcher_id, 0) - ab_pitches  # pre-AB count
+        # Current pitcher state (pre-AB)
+        pitch_count = pitcher_pitch_counts.get(pitcher_id, 0) - ab_pitches
         tto = max(1, len(pitcher_batters_faced.get(pitcher_id, set())) // 9 + 1)
 
         # Runners (from play runners data or count)
@@ -393,11 +501,40 @@ def extract_scenarios_from_game(feed, game_pk):
                 ev_desc = (ev.get("details") or {}).get("description") or ""
                 ev_event = (ev.get("details") or {}).get("eventType") or (ev.get("details") or {}).get("event") or ""
                 if "pitching_substitution" in ev_event.lower() or "pitching change" in ev_desc.lower():
-                    # Only in interesting situations
-                    if inning >= 5 and abs(score_diff) <= 5:
-                        rec = _engine_rec_pitching_change(ctx)
-                        options = {**DECISION_QUESTIONS["pitching_change"],
-                                   "situation": f"{situation_desc}. {pitcher_name} has {pitch_count} pitches, {tto}x through the order."}
+                    # Only in close, interesting situations
+                    if inning >= 5 and abs(score_diff) <= 3:
+                        # Use outgoing pitcher data (not the new reliever)
+                        pc_pitcher_id = outgoing_pitcher_id or pitcher_id
+                        pc_pitcher_name = outgoing_pitcher_name or pitcher_name
+                        pc_pitch_count = outgoing_pitch_count
+                        pc_tto = outgoing_tto
+
+                        # Extract incoming reliever name from description
+                        # Format: "Pitching Change: Camilo Doval replaces Logan Webb."
+                        reliever_name = ""
+                        if ":" in ev_desc:
+                            after_colon = ev_desc.split(":", 1)[1].strip()
+                            if " replaces " in after_colon:
+                                reliever_name = after_colon.split(" replaces ")[0].strip()
+                            elif after_colon:
+                                reliever_name = after_colon.rstrip(".")
+
+                        pc_ctx = dict(ctx)
+                        pc_ctx["pitcher_id"] = pc_pitcher_id
+                        pc_ctx["pitcher_name"] = pc_pitcher_name
+                        pc_ctx["pitcher_pitch_count"] = pc_pitch_count
+                        pc_ctx["pitcher_tto"] = pc_tto
+
+                        rec = _engine_rec_pitching_change(pc_ctx)
+                        tto_label = _tto_label(pc_tto)
+                        yes_label = "Bring in {}".format(reliever_name) if reliever_name else "Pull the pitcher"
+                        options = {
+                            "question": "Do you make a pitching change?",
+                            "yes_label": yes_label,
+                            "no_label": "Leave {} in".format(pc_pitcher_name.split()[-1] if pc_pitcher_name else "him"),
+                            "situation": "{situation}. {name} has thrown {pc} pitches, {tto}.".format(
+                                situation=situation_desc, name=pc_pitcher_name, pc=pc_pitch_count, tto=tto_label),
+                        }
                         scenarios.append({
                             "game_pk": game_pk, "game_date": game_date_str,
                             "away_team_abbr": away_abbr, "home_team_abbr": home_abbr,
@@ -405,13 +542,13 @@ def extract_scenarios_from_game(feed, game_pk):
                             "away_score": away_score, "home_score": home_score,
                             "base_state": base_state,
                             "batter_id": batter_id, "batter_name": batter_name,
-                            "pitcher_id": pitcher_id, "pitcher_name": pitcher_name,
-                            "pitcher_pitch_count": pitch_count, "pitcher_tto": tto,
+                            "pitcher_id": pc_pitcher_id, "pitcher_name": pc_pitcher_name,
+                            "pitcher_pitch_count": pc_pitch_count, "pitcher_tto": pc_tto,
                             "decision_type": "pitching_change",
                             "actual_decision": "yes",
                             "actual_detail": ev_desc,
                             "engine_recommendation": json.dumps(rec),
-                            "context_json": json.dumps(ctx),
+                            "context_json": json.dumps(pc_ctx),
                             "options_json": json.dumps(options),
                             "play_index": play_idx,
                         })
@@ -422,7 +559,7 @@ def extract_scenarios_from_game(feed, game_pk):
                 ev_event = (ev.get("details") or {}).get("eventType") or ""
                 ev_desc = (ev.get("details") or {}).get("description") or ""
                 if "offensive_substitution" in ev_event.lower() and "pinch" in ev_desc.lower():
-                    if inning >= 5 and abs(score_diff) <= 5:
+                    if inning >= 5 and abs(score_diff) <= 3:
                         rec = _engine_rec_pinch_hit(ctx)
                         options = {**DECISION_QUESTIONS["pinch_hit"],
                                    "situation": f"{situation_desc}. Batting spot {batter_spot or '?'} in the order."}
@@ -450,7 +587,7 @@ def extract_scenarios_from_game(feed, game_pk):
         # 3) Stolen base / caught stealing
         if event_type in ("stolen_base_2b", "stolen_base_3b", "stolen_base_home",
                           "caught_stealing_2b", "caught_stealing_3b", "caught_stealing_home"):
-            if abs(score_diff) <= 5:
+            if abs(score_diff) <= 3:
                 was_successful = "stolen_base" in event_type
                 rec = _engine_rec_stolen_base(ctx)
                 options = {**DECISION_QUESTIONS["stolen_base"],
@@ -476,7 +613,7 @@ def extract_scenarios_from_game(feed, game_pk):
 
         # 4) Sacrifice bunt
         if event_type in ("sac_bunt", "sac_bunt_double_play"):
-            if abs(score_diff) <= 4:
+            if abs(score_diff) <= 3:
                 rec = _engine_rec_bunt(ctx)
                 options = {**DECISION_QUESTIONS["bunt"],
                            "situation": f"{situation_desc}. {batter_name} at the plate."}
@@ -500,7 +637,7 @@ def extract_scenarios_from_game(feed, game_pk):
 
         # 5) Intentional walk
         if event_type == "intent_walk":
-            if abs(score_diff) <= 4:
+            if abs(score_diff) <= 3:
                 rec = _engine_rec_ibb(ctx)
                 options = {**DECISION_QUESTIONS["ibb"],
                            "situation": f"{situation_desc}. {batter_name} at the plate."}
@@ -527,7 +664,7 @@ def extract_scenarios_from_game(feed, game_pk):
         # ==========================================
 
         # Only for completed at-bats in interesting game states
-        if play_type != "atBat" or abs(score_diff) > 4:
+        if play_type != "atBat" or abs(score_diff) > 3:
             continue
 
         # Non-event: pitcher left in despite fatigue
@@ -536,8 +673,9 @@ def extract_scenarios_from_game(feed, game_pk):
             if leverage in ("high", "medium"):
                 rec = _engine_rec_pitching_change(ctx)
                 if rec["recommend"] == "yes":
+                    tto_label = _tto_label(tto)
                     options = {**DECISION_QUESTIONS["pitching_change"],
-                               "situation": f"{situation_desc}. {pitcher_name} has {pitch_count} pitches, {tto}x through the order."}
+                               "situation": f"{situation_desc}. {pitcher_name} has {pitch_count} pitches, {tto_label}."}
                     scenarios.append({
                         "game_pk": game_pk, "game_date": game_date_str,
                         "away_team_abbr": away_abbr, "home_team_abbr": home_abbr,
