@@ -1986,6 +1986,128 @@ def normalize_gamecast(feed: dict) -> dict:
         n_thru_order = max(1, (_unique_count // 9) + 1)
 
     # -------------------------
+    # FEED: chronological list of game events for the live feed panel
+    # -------------------------
+    feed_out = []
+    _feed_event_map = {
+        # MLB eventType -> our feed type
+        "stolen_base_2b": "stolen_base",
+        "stolen_base_3b": "stolen_base",
+        "stolen_base_home": "stolen_base",
+        "caught_stealing_2b": "caught_stealing",
+        "caught_stealing_3b": "caught_stealing",
+        "caught_stealing_home": "caught_stealing",
+        "caught_stealing_double_play": "caught_stealing",
+        "wild_pitch": "wild_pitch",
+        "passed_ball": "passed_ball",
+        "balk": "balk",
+        "pickoff_1b": "pickoff",
+        "pickoff_2b": "pickoff",
+        "pickoff_3b": "pickoff",
+        "pickoff_caught_stealing_2b": "pickoff",
+        "pickoff_caught_stealing_3b": "pickoff",
+        "pickoff_caught_stealing_home": "pickoff",
+        "ejection": "ejection",
+        "pitching_substitution": "substitution",
+        "offensive_substitution": "substitution",
+        "defensive_substitution": "substitution",
+        "defensive_switch": "substitution",
+        "offensive_switch": "substitution",
+        "runner_placed": "substitution",
+    }
+
+    def _feed_inning_label(p: dict) -> str:
+        about = p.get("about") or {}
+        inn = about.get("inning")
+        half_inn = (about.get("halfInning") or "").lower()
+        if not inn:
+            return ""
+        h = "Top" if half_inn.startswith("top") else ("Bot" if half_inn.startswith("bot") else "")
+        return f"{h} {inn}".strip()
+
+    def _map_event_type(event_type_lc: str):
+        """Map an MLB eventType string to our feed type."""
+        mapped = _feed_event_map.get(event_type_lc)
+        if mapped:
+            return mapped
+        if "stolen_base" in event_type_lc:
+            return "stolen_base"
+        if "caught_stealing" in event_type_lc:
+            return "caught_stealing"
+        if "pickoff" in event_type_lc:
+            return "pickoff"
+        if "wild_pitch" in event_type_lc:
+            return "wild_pitch"
+        if "passed_ball" in event_type_lc:
+            return "passed_ball"
+        if "balk" in event_type_lc:
+            return "balk"
+        if "substitution" in event_type_lc or "defensive_switch" in event_type_lc or "offensive_switch" in event_type_lc:
+            return "substitution"
+        if event_type_lc == "ejection":
+            return "ejection"
+        return None
+
+    # Walk through all plays (completed + current) and their playEvents
+    _all_plus_current = list(all_plays or [])
+    # Include current play if it's not already in allPlays (in-progress AB)
+    cp_idx = (current_play.get("about") or {}).get("atBatIndex")
+    if cp_idx is not None and current_play not in _all_plus_current:
+        _all_plus_current.append(current_play)
+
+    for p in _all_plus_current:
+        about = p.get("about") or {}
+        result = p.get("result") or {}
+        inn_label = _feed_inning_label(p)
+        is_complete = bool(about.get("isComplete"))
+
+        # 1) Scan playEvents for non-pitch action events (subs, steals, pickoffs, etc.)
+        for ev in (p.get("playEvents") or []):
+            if not ev:
+                continue
+            ev_type_str = (ev.get("type") or "").strip().lower()
+            details = ev.get("details") or {}
+            det_event = (details.get("eventType") or details.get("event") or "").strip()
+            det_event_lc = det_event.lower().replace(" ", "_")
+            ev_desc = (details.get("description") or "").strip()
+
+            # Skip actual pitches and game_advisory (status changes, timeouts, etc.)
+            if ev.get("isPitch"):
+                continue
+            if det_event_lc in ("game_advisory", "batter_timeout", "mound_visit", ""):
+                if ev_type_str != "pickoff":
+                    continue
+
+            # Pickoff events have type="pickoff" but empty eventType
+            if ev_type_str == "pickoff":
+                det_event_lc = "pickoff"
+                if not det_event:
+                    det_event = "Pickoff"
+
+            mapped = _map_event_type(det_event_lc)
+            if mapped and ev_desc:
+                feed_out.append({
+                    "type": mapped,
+                    "event": det_event.replace("_", " ").title() if det_event else mapped.replace("_", " ").title(),
+                    "description": ev_desc,
+                    "inning": inn_label,
+                    "isScoring": False,
+                })
+
+        # 2) Completed at-bats get an entry too
+        ab_desc = (result.get("description") or "").strip()
+        ab_event = (result.get("eventType") or result.get("event") or "").strip()
+        if is_complete and ab_desc:
+            is_scoring = bool(result.get("isScoringPlay"))
+            feed_out.append({
+                "type": "at_bat",
+                "event": ab_event.replace("_", " ").title() if ab_event else "",
+                "description": ab_desc,
+                "inning": inn_label,
+                "isScoring": is_scoring,
+            })
+
+    # -------------------------
     # Expected runs (rest of half-inning)
     # -------------------------
     expected_runs = None
@@ -2024,6 +2146,7 @@ def normalize_gamecast(feed: dict) -> dict:
             "betweenInnings": between_innings,
             "dueUp": due_up,
             "bip": bip,
+            "feed": feed_out,
         }
     
 def extract_career_statline(player: dict) -> Tuple[Optional[str], Optional[dict]]:
