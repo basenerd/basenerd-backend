@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import base64
 import logging
 import os
 import smtplib
@@ -50,6 +51,8 @@ if env_path.exists():
 GMAIL_USER = os.environ.get("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "nicklabella6@gmail.com")
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "basenerd/basenerd-backend")
 
 MLB_API = "https://statsapi.mlb.com/api/v1"
 ET = ZoneInfo("America/New_York")
@@ -173,6 +176,48 @@ def find_recently_done_pitchers(feed: dict, window_min: int) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# GitHub upload — save PDFs to repo via Contents API
+# ---------------------------------------------------------------------------
+def upload_to_github(pdf_path: Path, date_str: str):
+    """Upload a PDF to reports/<YYYYMMDD>/ in the GitHub repo."""
+    if not GITHUB_TOKEN:
+        return
+    date_folder = date_str.replace("-", "")
+    gh_path = f"reports/{date_folder}/{pdf_path.name}"
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{gh_path}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+
+    # Check if file already exists (need SHA to update)
+    sha = None
+    r = requests.get(url, headers=headers, timeout=10)
+    if r.status_code == 200:
+        sha = r.json().get("sha")
+        log.info("    GitHub: %s already exists, skipping", gh_path)
+        return  # Don't re-upload existing reports
+
+    content = base64.b64encode(pdf_path.read_bytes()).decode()
+    payload = {
+        "message": f"Add pitcher report: {pdf_path.name}",
+        "content": content,
+        "branch": "reports",
+    }
+    if sha:
+        payload["sha"] = sha
+
+    try:
+        r = requests.put(url, headers=headers, json=payload, timeout=30)
+        if r.status_code in (200, 201):
+            log.info("    GitHub: uploaded %s", gh_path)
+        else:
+            log.error("    GitHub upload failed (%d): %s", r.status_code, r.text[:200])
+    except Exception as e:
+        log.error("    GitHub upload failed: %s", e)
+
+
+# ---------------------------------------------------------------------------
 # Email — one per game, all pitcher PDFs attached
 # ---------------------------------------------------------------------------
 def send_game_email(reports: list[tuple[str, Path]], game_info: dict):
@@ -261,6 +306,7 @@ def process_games(date_str: str, window_min: int) -> int:
                 pdf_path = generate_report(pid, gp)
                 if pdf_path:
                     reports.append((name, pdf_path))
+                    upload_to_github(pdf_path, game_info.get("date", date_str))
             except Exception as e:
                 log.error("    Failed %s: %s", name, e)
 
