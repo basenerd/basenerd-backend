@@ -543,9 +543,24 @@ def extract_scenarios_from_game(feed, game_pk):
 
         # Runners (from play runners data or count)
         runners = play.get("runners") or []
-        # Pre-play base state from count info
         count = play.get("count") or {}
-        outs = count.get("outs") or about.get("outs") or 0
+
+        # Pre-play outs: use previous play's post-play outs, reset on half-inning change
+        if play_idx == 0:
+            outs = 0
+        else:
+            prev_about = (all_plays[play_idx - 1].get("about") or {})
+            prev_half = "top" if "top" in (prev_about.get("halfInning") or "top").lower() else "bottom"
+            prev_inning = prev_about.get("inning") or 1
+            if prev_half != half or prev_inning != inning:
+                outs = 0
+            else:
+                prev_count = all_plays[play_idx - 1].get("count") or {}
+                outs = prev_count.get("outs") or 0
+
+        # Safety: skip if outs >= 3 (shouldn't happen with pre-play tracking)
+        if outs >= 3:
+            outs = 0
 
         # Get base runners from the start of this play
         base_state = 0
