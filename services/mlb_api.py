@@ -2086,6 +2086,18 @@ def normalize_gamecast(feed: dict) -> dict:
 
             mapped = _map_event_type(det_event_lc)
             if mapped and ev_desc:
+                # Detect ABS challenge embedded in action event descriptions too
+                _ev_desc_lc = ev_desc.lower()
+                if "challenged (pitch result)" in _ev_desc_lc:
+                    feed_out.append({
+                        "type": "abs_challenge",
+                        "event": "ABS Challenge",
+                        "description": ev_desc,
+                        "inning": inn_label,
+                        "isScoring": False,
+                        "overturned": "overturned" in _ev_desc_lc,
+                    })
+
                 feed_out.append({
                     "type": mapped,
                     "event": det_event.replace("_", " ").title() if det_event else mapped.replace("_", " ").title(),
@@ -2099,6 +2111,20 @@ def normalize_gamecast(feed: dict) -> dict:
         ab_event = (result.get("eventType") or result.get("event") or "").strip()
         if is_complete and ab_desc:
             is_scoring = bool(result.get("isScoringPlay"))
+
+            # Detect ABS challenge from description pattern
+            _desc_lc = ab_desc.lower()
+            if "challenged (pitch result)" in _desc_lc:
+                _overturned = "overturned" in _desc_lc
+                feed_out.append({
+                    "type": "abs_challenge",
+                    "event": "ABS Challenge",
+                    "description": ab_desc,
+                    "inning": inn_label,
+                    "isScoring": is_scoring,
+                    "overturned": _overturned,
+                })
+
             feed_out.append({
                 "type": "at_bat",
                 "event": ab_event.replace("_", " ").title() if ab_event else "",

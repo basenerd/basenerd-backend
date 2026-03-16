@@ -3285,7 +3285,7 @@ if(gcBtn && gcPanel){
 
   const __gc_action_types = new Set([
     "stolen_base","caught_stealing","wild_pitch","passed_ball",
-    "balk","substitution","pickoff","ejection",
+    "balk","substitution","pickoff","ejection","abs_challenge",
   ]);
 
   const __gc_action_meta = {
@@ -3297,14 +3297,24 @@ if(gcBtn && gcPanel){
     substitution:    { label: "Substitution",      badge: "SUB", color: "#4f46e5", bg: "rgba(99,102,241,.10)", icon: "🔄" },
     pickoff:         { label: "Pickoff",           badge: "PO",  color: "#c2410c", bg: "rgba(251,146,60,.12)", icon: "👀" },
     ejection:        { label: "Ejection",          badge: "EJ",  color: "#b91c1c", bg: "rgba(239,68,68,.12)",  icon: "👋" },
+    abs_challenge:   { label: "ABS Challenge",     badge: "ABS", color: "#0ea5e9", bg: "rgba(14,165,233,.12)", icon: "📺" },
   };
 
   function __gc_show_action_takeover(item){
     const meta = __gc_action_meta[item.type] || { label: item.event || "Action", badge: "—", color: "#94a3b8", bg: "rgba(148,163,184,.1)", icon: "" };
+    // ABS challenge: show overturned/confirmed result with color
+    let absResultHTML = "";
+    if(item.type === "abs_challenge"){
+      const ov = item.overturned;
+      const rColor = ov ? "#22c55e" : "#ef4444";
+      const rLabel = ov ? "OVERTURNED" : "CONFIRMED";
+      absResultHTML = `<div style="font-weight:800;font-size:14px;color:${rColor};letter-spacing:1px;margin-top:2px;">${rLabel}</div>`;
+    }
     const body = `
       <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0 4px;">
         <div style="font-size:32px;line-height:1;">${meta.icon}</div>
         <div style="background:${meta.bg};color:${meta.color};font-weight:700;font-size:13px;padding:4px 12px;border-radius:6px;letter-spacing:.5px;">${meta.badge}</div>
+        ${absResultHTML}
         <div style="font-size:15px;color:rgba(255,255,255,.92);text-align:center;max-width:380px;line-height:1.45;">${item.description || item.event || "—"}</div>
       </div>`;
     __gc_action_showing = true;
