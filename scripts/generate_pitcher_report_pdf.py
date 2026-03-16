@@ -89,6 +89,32 @@ BB_EVENTS = {"walk", "intent_walk"}
 MLB_API = "https://statsapi.mlb.com/api/v1"
 
 # ---------------------------------------------------------------------------
+# Game / pitcher status helpers
+# ---------------------------------------------------------------------------
+def _game_status(feed: dict) -> str:
+    """Return the abstractGameState from a live feed (e.g. 'Final', 'Live', 'Preview')."""
+    return ((feed.get("gameData") or {}).get("status") or {}).get("abstractGameState", "")
+
+def _is_pitcher_done(feed: dict, pitcher_id: int) -> bool:
+    """Return True if the pitcher is no longer the active pitcher on the mound.
+
+    A pitcher is considered done if:
+      - The game state is 'Final' (everyone is done), OR
+      - The pitcher is NOT the current pitcher in the linescore defense.
+    Returns False if the game is live and the pitcher is still on the mound.
+    """
+    state = _game_status(feed).lower()
+    if state == "final":
+        return True
+    if state == "preview":
+        return False  # game hasn't started
+    # Game is live — check if this pitcher is currently on the mound
+    defense = ((feed.get("liveData") or {}).get("linescore") or {}).get("defense") or {}
+    current_pitcher_id = (defense.get("pitcher") or {}).get("id")
+    return current_pitcher_id != pitcher_id
+
+
+# ---------------------------------------------------------------------------
 # Formatting helpers
 # ---------------------------------------------------------------------------
 def _fmt(v, decimals=1, fallback="--"):
@@ -716,7 +742,7 @@ def _games_for_date(date_str: str) -> List[dict]:
                 if not gp:
                     continue
                 state = ((g.get("status") or {}).get("abstractGameState") or "").lower()
-                if state != "final":
+                if state not in ("final", "live"):
                     continue
                 teams = g.get("teams") or {}
                 away_p = ((teams.get("away") or {}).get("probablePitcher") or {}).get("id")
@@ -1059,9 +1085,17 @@ def generate_report(
     pitcher_id: int,
     game_pk: int,
     out_dir: Optional[Path] = None,
+    force: bool = False,
 ) -> Optional[Path]:
     print(f"  Fetching live feed for game {game_pk}...")
     feed = _fetch_live_feed(game_pk)
+
+    # Skip pitchers whose outing isn't over yet
+    if not force and not _is_pitcher_done(feed, pitcher_id):
+        state = _game_status(feed)
+        print(f"  Skipping pitcher {pitcher_id} — still active (game state: {state})")
+        return None
+
     game_info = _extract_game_info(feed)
 
     print(f"  Extracting pitches for pitcher {pitcher_id}...")
@@ -1318,6 +1352,8 @@ def main():
     parser.add_argument("--game_pk", type=int)
     parser.add_argument("--date", type=str, help="YYYY-MM-DD or 'yesterday'")
     parser.add_argument("--outdir", type=str, default=None)
+    parser.add_argument("--force", action="store_true",
+                        help="Generate report even if pitcher is still in the game")
     args = parser.parse_args()
 
     out_dir = Path(args.outdir) if args.outdir else None
@@ -1334,7 +1370,7 @@ def main():
         print(f"Generating reports for {date_str}...")
         games = _games_for_date(date_str)
         if not games:
-            print("No final games found.")
+            print("No final or live games found.")
             return
 
         count = 0
@@ -1352,7 +1388,7 @@ def main():
                 print(f"  Found {len(all_pitcher_ids)} pitchers in game {gp}")
                 for pid in all_pitcher_ids:
                     try:
-                        result = generate_report(pid, gp, out_dir=out_dir)
+                        result = generate_report(pid, gp, out_dir=out_dir, force=args.force)
                         if result:
                             count += 1
                     except Exception as e:
@@ -1362,7 +1398,7 @@ def main():
         print(f"\nDone. Generated {count} reports.")
 
     elif args.pitcher_id and args.game_pk:
-        generate_report(args.pitcher_id, args.game_pk, out_dir=out_dir)
+        generate_report(args.pitcher_id, args.game_pk, out_dir=out_dir, force=args.force)
     else:
         parser.print_help()
 
