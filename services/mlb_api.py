@@ -2181,6 +2181,8 @@ def normalize_gamecast(feed: dict) -> dict:
                 ab_category = "strikeout"
             elif ab_event_lc in ("walk", "intent_walk"):
                 ab_category = "walk"
+            elif ab_event_lc == "hit_by_pitch":
+                ab_category = "hit_by_pitch"
 
             matchup = p.get("matchup") or {}
             feed_out.append({
