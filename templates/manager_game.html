@@ -119,6 +119,52 @@
     font-size:14px; line-height:1.5; margin-top:10px;
   }
 
+  /* Handedness badge */
+  .mg-hand{
+    display:inline-block;
+    font-size:10px; font-weight:800;
+    padding:1px 5px; border-radius:4px;
+    background:rgba(148,163,184,.12);
+    color:rgba(148,163,184,.8);
+    vertical-align:middle; margin-left:4px;
+    text-transform:uppercase; letter-spacing:.3px;
+  }
+
+  /* Player comparison card (pinch hit) */
+  .mg-compare{
+    display:flex; gap:8px; margin-top:10px;
+  }
+  .mg-compare-card{
+    flex:1; padding:10px;
+    border-radius:8px;
+    background:rgba(148,163,184,.04);
+    border:1px solid rgba(148,163,184,.1);
+  }
+  .mg-compare-card.highlight{
+    border-color:var(--accent, #f0b90b);
+    background:rgba(240,185,11,.04);
+  }
+  .mg-compare-header{
+    font-size:12px; font-weight:700; margin-bottom:6px;
+    text-transform:uppercase; letter-spacing:.3px; opacity:.5;
+  }
+  .mg-compare-name{
+    font-size:14px; font-weight:800; margin-bottom:4px;
+  }
+  .mg-compare-stats{
+    font-family: IBM Plex Mono, ui-monospace, monospace;
+    font-size:11px; line-height:1.6; opacity:.8;
+  }
+  .mg-compare-split{
+    font-size:10px; opacity:.6; margin-top:3px;
+  }
+
+  /* Game stats line */
+  .mg-game-stats{
+    font-family: IBM Plex Mono, ui-monospace, monospace;
+    font-size:11px; opacity:.6; text-align:center; margin-top:2px;
+  }
+
   .mg-question{
     font-size:18px; font-weight:800; text-align:center;
     margin:20px 0 16px;
@@ -243,6 +289,9 @@
     .mg-choices{ flex-direction:column; }
     .mg-game-header{ font-size:16px; }
     .mg-final-score{ font-size:48px; }
+    .mg-compare{ flex-direction:column; }
+    .mg-compare-card{ padding:8px; }
+    .mg-winprob{ flex-direction:column; }
   }
 </style>
 
@@ -369,11 +418,14 @@
     html += `<div class="mg-game-score">${s.away_score} - ${s.home_score} &middot; ${inningLabel}</div>`;
 
     // Context row
+    const pThrows = ctx.pitcher_throws || ctx.p_throws || "?";
+    const bHand = ctx.batter_hand || ctx.stand || "?";
+
     html += `<div class="mg-situation">`;
     html += `<div class="mg-context-row">`;
     html += `<div class="mg-context-item">
       <div class="mg-context-label">Pitcher</div>
-      <div class="mg-context-val">${s.pitcher_name || "?"}</div>
+      <div class="mg-context-val">${s.pitcher_name || "?"}<span class="mg-hand">${pThrows}HP</span></div>
     </div>`;
     if(s.pitcher_pitch_count != null){
       html += `<div class="mg-context-item">
@@ -391,15 +443,122 @@
     }
     html += `</div>`;
 
+    // Pitcher game stats line
+    const pStats = ctx.pitcher_stats || {};
+    if(pStats.game){
+      const pg = pStats.game;
+      html += `<div class="mg-game-stats">Today: ${pg.ip || "0.0"} IP, ${pg.h || 0} H, ${pg.er || 0} ER, ${pg.so || 0} K, ${pg.bb || 0} BB</div>`;
+    }
+    if(pStats.season){
+      const ps = pStats.season;
+      html += `<div class="mg-game-stats">Season: ${ps.era || "0.00"} ERA, ${ps.whip || "0.00"} WHIP</div>`;
+    }
+
     // Bases + Outs + Batter
-    html += `<div class="mg-context-row">`;
+    html += `<div class="mg-context-row" style="margin-top:10px;">`;
     html += renderBases(s.base_state || 0);
     html += renderOuts(s.outs || 0);
     html += `<div class="mg-context-item" style="margin-left:8px;">
       <div class="mg-context-label">Batter</div>
-      <div class="mg-context-val">${s.batter_name || "?"}</div>
+      <div class="mg-context-val">${s.batter_name || "?"}<span class="mg-hand">${bHand}HB</span></div>
     </div>`;
     html += `</div>`;
+
+    // Batter game stats line
+    const bStats = ctx.batter_stats || {};
+    if(bStats.game){
+      const bg = bStats.game;
+      html += `<div class="mg-game-stats">Today: ${bg.h || 0}-${bg.ab || 0}, ${bg.hr || 0} HR, ${bg.rbi || 0} RBI, ${bg.bb || 0} BB, ${bg.so || 0} K</div>`;
+    }
+    if(bStats.season){
+      const bs = bStats.season;
+      html += `<div class="mg-game-stats">Season: ${bs.avg || ".000"} AVG, ${bs.ops || ".000"} OPS</div>`;
+    }
+
+    // Pinch hit comparison card
+    if(s.decision_type === "pinch_hit" && (ctx.pinch_hitter_name || ctx.original_batter_name)){
+      html += `<div class="mg-compare">`;
+
+      // Original batter card
+      const origHand = ctx.original_batter_hand || bHand;
+      const origStats = ctx.original_batter_stats || {};
+      const origSplits = ctx.original_batter_splits || {};
+      const origName = ctx.original_batter_name || s.batter_name || "?";
+      html += `<div class="mg-compare-card">
+        <div class="mg-compare-header">Current Batter</div>
+        <div class="mg-compare-name">${origName}<span class="mg-hand">${origHand}</span></div>`;
+      if(origStats.season){
+        html += `<div class="mg-compare-stats">${origStats.season.avg || ".000"} / ${origStats.season.obp || ".000"} / ${origStats.season.slg || ".000"}</div>`;
+      }
+      // Splits vs pitcher hand
+      const relevantSplit = pThrows === "L" ? "vs_L" : "vs_R";
+      const origSplit = origSplits[relevantSplit];
+      if(origSplit && origSplit.avg){
+        html += `<div class="mg-compare-split">vs ${pThrows}HP: ${origSplit.avg} AVG, ${origSplit.ops} OPS</div>`;
+      }
+      if(origStats.game){
+        html += `<div class="mg-compare-split" style="margin-top:4px;">Today: ${origStats.game.h || 0}-${origStats.game.ab || 0}</div>`;
+      }
+      html += `</div>`;
+
+      // Pinch hitter card
+      if(ctx.pinch_hitter_name){
+        const phHand = ctx.pinch_hitter_hand || "?";
+        const phStats = ctx.pinch_hitter_stats || {};
+        const phSplits = ctx.pinch_hitter_splits || {};
+        html += `<div class="mg-compare-card highlight">
+          <div class="mg-compare-header">Pinch Hitter</div>
+          <div class="mg-compare-name">${ctx.pinch_hitter_name}<span class="mg-hand">${phHand}</span></div>`;
+        if(phStats.season){
+          html += `<div class="mg-compare-stats">${phStats.season.avg || ".000"} / ${phStats.season.obp || ".000"} / ${phStats.season.slg || ".000"}</div>`;
+        }
+        const phSplit = phSplits[relevantSplit];
+        if(phSplit && phSplit.avg){
+          html += `<div class="mg-compare-split">vs ${pThrows}HP: ${phSplit.avg} AVG, ${phSplit.ops} OPS</div>`;
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+    }
+
+    // Pitching change: show reliever comparison
+    if(s.decision_type === "pitching_change" && ctx.reliever_name){
+      html += `<div class="mg-compare">`;
+
+      // Current pitcher card
+      const currPStats = ctx.pitcher_stats || {};
+      const currPSplits = ctx.pitcher_splits || {};
+      html += `<div class="mg-compare-card">
+        <div class="mg-compare-header">Current Pitcher</div>
+        <div class="mg-compare-name">${s.pitcher_name || "?"}<span class="mg-hand">${pThrows}HP</span></div>`;
+      if(currPStats.season){
+        html += `<div class="mg-compare-stats">${currPStats.season.era || "0.00"} ERA, ${currPStats.season.whip || "0.00"} WHIP</div>`;
+      }
+      const pRelevantSplit = bHand === "L" ? "vs_L" : "vs_R";
+      const currPSplit = currPSplits[pRelevantSplit];
+      if(currPSplit && currPSplit.era){
+        html += `<div class="mg-compare-split">vs ${bHand}HB: ${currPSplit.era} ERA, ${currPSplit.ops} OPS</div>`;
+      }
+      html += `</div>`;
+
+      // Reliever card
+      const relThrows = ctx.reliever_throws || "?";
+      const relStats = ctx.reliever_stats || {};
+      const relSplits = ctx.reliever_splits || {};
+      html += `<div class="mg-compare-card highlight">
+        <div class="mg-compare-header">Reliever</div>
+        <div class="mg-compare-name">${ctx.reliever_name}<span class="mg-hand">${relThrows}HP</span></div>`;
+      if(relStats.season){
+        html += `<div class="mg-compare-stats">${relStats.season.era || "0.00"} ERA, ${relStats.season.whip || "0.00"} WHIP</div>`;
+      }
+      const relSplit = relSplits[pRelevantSplit];
+      if(relSplit && relSplit.era){
+        html += `<div class="mg-compare-split">vs ${bHand}HB: ${relSplit.era} ERA, ${relSplit.ops} OPS</div>`;
+      }
+      html += `</div>`;
+
+      html += `</div>`;
+    }
 
     // Situation text
     if(opts.situation){

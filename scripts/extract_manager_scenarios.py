@@ -316,6 +316,115 @@ DECISION_QUESTIONS = {
 }
 
 
+def _get_player_hand(game_players, player_id, role="bat"):
+    """Get player handedness from gameData.players. role='bat' or 'pitch'."""
+    key = f"ID{player_id}"
+    gp = game_players.get(key) or {}
+    if role == "bat":
+        return ((gp.get("batSide") or {}).get("code") or "?").upper()
+    return ((gp.get("pitchHand") or {}).get("code") or "?").upper()
+
+
+def _get_boxscore_player(boxscore, player_id):
+    """Find a player's boxscore entry across both teams."""
+    for side in ("away", "home"):
+        team_box = (boxscore.get("teams") or {}).get(side) or {}
+        players = team_box.get("players") or {}
+        key = f"ID{player_id}"
+        if key in players:
+            return players[key], side
+    return None, None
+
+
+def _extract_batter_stats(boxscore, player_id):
+    """Extract game + season batting stats for a player from boxscore."""
+    entry, _ = _get_boxscore_player(boxscore, player_id)
+    if not entry:
+        return {}
+    stats = (entry.get("stats") or {}).get("batting") or {}
+    season = (entry.get("seasonStats") or {}).get("batting") or {}
+    return {
+        "game": {
+            "ab": stats.get("atBats", 0),
+            "h": stats.get("hits", 0),
+            "hr": stats.get("homeRuns", 0),
+            "rbi": stats.get("rbi", 0),
+            "bb": stats.get("baseOnBalls", 0),
+            "so": stats.get("strikeOuts", 0),
+        },
+        "season": {
+            "avg": season.get("avg", ".000"),
+            "obp": season.get("obp", ".000"),
+            "slg": season.get("slg", ".000"),
+            "ops": season.get("ops", ".000"),
+            "ab": season.get("atBats", 0),
+            "hr": season.get("homeRuns", 0),
+        },
+    }
+
+
+def _extract_pitcher_stats(boxscore, player_id):
+    """Extract game + season pitching stats for a player from boxscore."""
+    entry, _ = _get_boxscore_player(boxscore, player_id)
+    if not entry:
+        return {}
+    stats = (entry.get("stats") or {}).get("pitching") or {}
+    season = (entry.get("seasonStats") or {}).get("pitching") or {}
+    return {
+        "game": {
+            "ip": stats.get("inningsPitched", "0.0"),
+            "h": stats.get("hits", 0),
+            "r": stats.get("runs", 0),
+            "er": stats.get("earnedRuns", 0),
+            "bb": stats.get("baseOnBalls", 0),
+            "so": stats.get("strikeOuts", 0),
+            "pitches": stats.get("pitchesThrown") or stats.get("numberOfPitches", 0),
+        },
+        "season": {
+            "era": season.get("era", "0.00"),
+            "whip": season.get("whip", "0.00"),
+            "so": season.get("strikeOuts", 0),
+            "ip": season.get("inningsPitched", "0.0"),
+        },
+    }
+
+
+def _fetch_splits(player_id, season, role="batting"):
+    """Fetch vs-L/vs-R splits from MLB stats API. Returns {vs_L: {...}, vs_R: {...}}."""
+    try:
+        group = "hitting" if role == "batting" else "pitching"
+        url = (
+            f"https://statsapi.mlb.com/api/v1/people/{player_id}/stats"
+            f"?stats=statSplits&season={season}&group={group}"
+            f"&sitCodes=vl,vr"
+        )
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read())
+        splits = {}
+        for stat_group in data.get("stats") or []:
+            for split in stat_group.get("splits") or []:
+                sit = (split.get("split") or {}).get("code") or ""
+                s = split.get("stat") or {}
+                if role == "batting":
+                    splits[sit] = {
+                        "avg": s.get("avg", ".000"),
+                        "obp": s.get("obp", ".000"),
+                        "ops": s.get("ops", ".000"),
+                        "ab": s.get("atBats", 0),
+                    }
+                else:
+                    splits[sit] = {
+                        "era": s.get("era", "0.00"),
+                        "avg": s.get("avg", ".000"),
+                        "ops": s.get("ops", ".000"),
+                        "ab": s.get("atBats", 0),
+                    }
+        return {"vs_L": splits.get("vl", {}), "vs_R": splits.get("vr", {})}
+    except Exception:
+        return {}
+
+
 def extract_scenarios_from_game(feed, game_pk):
     """Extract decision-point scenarios from a completed game feed."""
     if not feed:
@@ -334,6 +443,15 @@ def extract_scenarios_from_game(feed, game_pk):
     game_players = game_data.get("players") or {}
 
     scenarios = []
+
+    # Cache for splits (to avoid re-fetching the same player)
+    _splits_cache = {}
+
+    def _cached_splits(pid, role="batting"):
+        key = (pid, role)
+        if key not in _splits_cache:
+            _splits_cache[key] = _fetch_splits(pid, season, role)
+        return _splits_cache[key]
 
     # Track running game state
     pitcher_pitch_counts = {}  # pitcher_id -> count
@@ -473,6 +591,8 @@ def extract_scenarios_from_game(feed, game_pk):
             "pitcher_name": pitcher_name,
             "stand": stand,
             "p_throws": p_throws,
+            "batter_hand": _get_player_hand(game_players, batter_id, "bat") if batter_id else stand,
+            "pitcher_throws": _get_player_hand(game_players, pitcher_id, "pitch") if pitcher_id else p_throws,
             "base_state": base_state,
             "batter_spot": batter_spot,
             "pitcher_pitch_count": pitch_count,
@@ -480,6 +600,8 @@ def extract_scenarios_from_game(feed, game_pk):
             "runner_names": runner_names,
             "venue": home_abbr,
             "season": season,
+            "batter_stats": _extract_batter_stats(boxscore, batter_id) if batter_id else {},
+            "pitcher_stats": _extract_pitcher_stats(boxscore, pitcher_id) if pitcher_id else {},
         }
 
         score_desc = "tie game" if score_diff == 0 else (
@@ -524,6 +646,30 @@ def extract_scenarios_from_game(feed, game_pk):
                         pc_ctx["pitcher_name"] = pc_pitcher_name
                         pc_ctx["pitcher_pitch_count"] = pc_pitch_count
                         pc_ctx["pitcher_tto"] = pc_tto
+                        pc_ctx["p_throws"] = _get_player_hand(game_players, pc_pitcher_id, "pitch")
+
+                        # Outgoing pitcher game + season stats
+                        pc_ctx["pitcher_stats"] = _extract_pitcher_stats(boxscore, pc_pitcher_id)
+                        pc_ctx["pitcher_splits"] = _cached_splits(pc_pitcher_id, "pitching")
+
+                        # Reliever stats (if we can find their ID)
+                        reliever_id = None
+                        if reliever_name:
+                            # Try to find reliever ID from matchup pitcher or game_players
+                            for gp_key, gp_val in game_players.items():
+                                if (gp_val.get("fullName") or "") == reliever_name:
+                                    reliever_id = gp_val.get("id")
+                                    break
+                        if reliever_id:
+                            pc_ctx["reliever_id"] = reliever_id
+                            pc_ctx["reliever_name"] = reliever_name
+                            pc_ctx["reliever_throws"] = _get_player_hand(game_players, reliever_id, "pitch")
+                            pc_ctx["reliever_stats"] = _extract_pitcher_stats(boxscore, reliever_id)
+                            pc_ctx["reliever_splits"] = _cached_splits(reliever_id, "pitching")
+
+                        # Batter stats for context
+                        pc_ctx["batter_hand"] = stand
+                        pc_ctx["batter_stats"] = _extract_batter_stats(boxscore, batter_id)
 
                         rec = _engine_rec_pitching_change(pc_ctx)
                         tto_label = _tto_label(pc_tto)
@@ -560,9 +706,78 @@ def extract_scenarios_from_game(feed, game_pk):
                 ev_desc = (ev.get("details") or {}).get("description") or ""
                 if "offensive_substitution" in ev_event.lower() and "pinch" in ev_desc.lower():
                     if inning >= 5 and abs(score_diff) <= 3:
-                        rec = _engine_rec_pinch_hit(ctx)
-                        options = {**DECISION_QUESTIONS["pinch_hit"],
-                                   "situation": f"{situation_desc}. Batting spot {batter_spot or '?'} in the order."}
+                        # Parse pinch hitter and replaced batter from description
+                        # Format: "Offensive Sub: Pinch-hitter Matt Chapman replaces LaMonte Wade Jr."
+                        ph_name = ""
+                        replaced_name = batter_name
+                        if "replaces" in ev_desc.lower():
+                            parts = ev_desc.split("replaces", 1)
+                            after = parts[-1].strip().rstrip(".")
+                            replaced_name = after or batter_name
+                            # Pinch hitter name comes after "Pinch-hitter " or "Pinch hitter "
+                            before = parts[0]
+                            for marker in ("Pinch-hitter ", "Pinch hitter ", "pinch-hitter ", "pinch hitter "):
+                                if marker in before:
+                                    ph_name = before.split(marker, 1)[1].strip()
+                                    break
+
+                        # Find player IDs from game_players by name
+                        ph_id = None
+                        replaced_id = None
+                        if ph_name:
+                            for gp_key, gp_val in game_players.items():
+                                if (gp_val.get("fullName") or "") == ph_name:
+                                    ph_id = gp_val.get("id")
+                                    break
+                        if replaced_name:
+                            for gp_key, gp_val in game_players.items():
+                                if (gp_val.get("fullName") or "") == replaced_name:
+                                    replaced_id = gp_val.get("id")
+                                    break
+                        # Fallback: if matchup batter matches PH, the replaced is someone else
+                        if not replaced_id and ph_id and batter_id == ph_id:
+                            replaced_id = None  # Can't determine
+                        elif not replaced_id:
+                            replaced_id = batter_id
+
+                        ph_ctx = dict(ctx)
+                        ph_ctx["p_throws"] = _get_player_hand(game_players, pitcher_id, "pitch") if pitcher_id else p_throws
+
+                        # Original batter stats + splits
+                        ph_ctx["original_batter_name"] = replaced_name
+                        ph_ctx["original_batter_id"] = replaced_id
+                        ph_ctx["original_batter_hand"] = _get_player_hand(game_players, replaced_id, "bat") if replaced_id else "?"
+                        ph_ctx["original_batter_stats"] = _extract_batter_stats(boxscore, replaced_id) if replaced_id else {}
+                        ph_ctx["original_batter_splits"] = _cached_splits(replaced_id, "batting") if replaced_id else {}
+
+                        # Pinch hitter stats + splits
+                        if ph_id:
+                            ph_ctx["pinch_hitter_name"] = ph_name
+                            ph_ctx["pinch_hitter_id"] = ph_id
+                            ph_ctx["pinch_hitter_hand"] = _get_player_hand(game_players, ph_id, "bat")
+                            ph_ctx["pinch_hitter_stats"] = _extract_batter_stats(boxscore, ph_id)
+                            ph_ctx["pinch_hitter_splits"] = _cached_splits(ph_id, "batting")
+                            ph_ctx["batter_hand"] = ph_ctx["pinch_hitter_hand"]
+
+                        # Pitcher stats + splits for context
+                        ph_ctx["pitcher_stats"] = _extract_pitcher_stats(boxscore, pitcher_id)
+                        ph_ctx["pitcher_splits"] = _cached_splits(pitcher_id, "pitching") if pitcher_id else {}
+
+                        rec = _engine_rec_pinch_hit(ph_ctx)
+                        yes_label = "Send in {}".format(ph_name) if ph_name else "Send in a pinch hitter"
+                        # Use last name but skip suffixes like "Jr.", "II", "III"
+                        _suffixes = {"jr.", "jr", "ii", "iii", "iv", "sr.", "sr"}
+                        _rparts = replaced_name.split() if replaced_name else []
+                        _last = _rparts[-1] if _rparts else "him"
+                        if _last.lower().rstrip(".") in _suffixes and len(_rparts) >= 2:
+                            _last = _rparts[-2]
+                        no_label = "Let {} hit".format(_last)
+                        options = {
+                            "question": "Do you pinch-hit here?",
+                            "yes_label": yes_label,
+                            "no_label": no_label,
+                            "situation": f"{situation_desc}. Batting spot {batter_spot or '?'} in the order.",
+                        }
                         scenarios.append({
                             "game_pk": game_pk, "game_date": game_date_str,
                             "away_team_abbr": away_abbr, "home_team_abbr": home_abbr,
@@ -576,7 +791,7 @@ def extract_scenarios_from_game(feed, game_pk):
                             "actual_decision": "yes",
                             "actual_detail": ev_desc,
                             "engine_recommendation": json.dumps(rec),
-                            "context_json": json.dumps(ctx),
+                            "context_json": json.dumps(ph_ctx),
                             "options_json": json.dumps(options),
                             "play_index": play_idx,
                         })
