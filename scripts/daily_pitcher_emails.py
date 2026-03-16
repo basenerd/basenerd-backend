@@ -173,10 +173,10 @@ def find_recently_done_pitchers(feed: dict, window_min: int) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Email
+# Email — one per game, all pitcher PDFs attached
 # ---------------------------------------------------------------------------
-def send_pitcher_email(pdf_path: Path, pitcher_name: str, game_info: dict):
-    """Send one email per pitcher with their PDF attached."""
+def send_game_email(reports: list[tuple[str, Path]], game_info: dict):
+    """Send one email per game with all pitcher report PDFs attached."""
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
         log.warning("Gmail credentials not set — skipping email")
         return False
@@ -185,31 +185,34 @@ def send_pitcher_email(pdf_path: Path, pitcher_name: str, game_info: dict):
     home = game_info.get("home_abbrev", "?")
     date_str = game_info.get("date", "")
 
+    pitcher_list = "\n".join(f"  - {name}" for name, _ in reports)
+
     msg = MIMEMultipart()
     msg["From"] = GMAIL_USER
     msg["To"] = NOTIFY_EMAIL
-    msg["Subject"] = f"\u26be Pitcher Report: {pitcher_name} ({away} @ {home})"
+    msg["Subject"] = f"\u26be {away} @ {home} — {len(reports)} Pitcher Reports ({date_str})"
 
     body = (
-        f"Post-game pitcher report for {pitcher_name}.\n\n"
         f"{game_info.get('away_name', '?')} @ {game_info.get('home_name', '?')}\n"
-        f"Date: {date_str}\n"
+        f"{len(reports)} pitcher reports attached:\n\n"
+        f"{pitcher_list}\n"
     )
     msg.attach(MIMEText(body, "plain"))
 
-    pdf_bytes = pdf_path.read_bytes()
-    att = MIMEApplication(pdf_bytes, _subtype="pdf")
-    att.add_header("Content-Disposition", "attachment", filename=pdf_path.name)
-    msg.attach(att)
+    for name, pdf_path in reports:
+        pdf_bytes = pdf_path.read_bytes()
+        att = MIMEApplication(pdf_bytes, _subtype="pdf")
+        att.add_header("Content-Disposition", "attachment", filename=pdf_path.name)
+        msg.attach(att)
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(GMAIL_USER, GMAIL_APP_PASSWORD)
             smtp.send_message(msg)
-        log.info("    Email sent: %s", pitcher_name)
+        log.info("  Email sent: %s @ %s (%d reports)", away, home, len(reports))
         return True
     except Exception as e:
-        log.error("    Email failed for %s: %s", pitcher_name, e)
+        log.error("  Email failed for %s @ %s: %s", away, home, e)
         return False
 
 
@@ -246,6 +249,8 @@ def process_games(date_str: str, window_min: int) -> int:
             gp, game["away_abbrev"], game["home_abbrev"], len(recently_done),
         )
 
+        # Generate all PDFs for this game's recently-done pitchers
+        reports: list[tuple[str, Path]] = []
         for p in recently_done:
             pid = p["pitcher_id"]
             name = p["pitcher_name"]
@@ -255,17 +260,21 @@ def process_games(date_str: str, window_min: int) -> int:
             try:
                 pdf_path = generate_report(pid, gp)
                 if pdf_path:
-                    email_info = {
-                        "away_abbrev": game["away_abbrev"],
-                        "home_abbrev": game["home_abbrev"],
-                        "away_name": game["away_name"],
-                        "home_name": game["home_name"],
-                        "date": game_info.get("date", date_str),
-                    }
-                    if send_pitcher_email(pdf_path, name, email_info):
-                        total_sent += 1
+                    reports.append((name, pdf_path))
             except Exception as e:
                 log.error("    Failed %s: %s", name, e)
+
+        # Send one email per game with all PDFs attached
+        if reports:
+            email_info = {
+                "away_abbrev": game["away_abbrev"],
+                "home_abbrev": game["home_abbrev"],
+                "away_name": game["away_name"],
+                "home_name": game["home_name"],
+                "date": game_info.get("date", date_str),
+            }
+            if send_game_email(reports, email_info):
+                total_sent += 1
 
     return total_sent
 
