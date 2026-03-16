@@ -1,0 +1,566 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* ---- Manager Decision Game ---- */
+  .mg-container{ max-width:640px; margin:0 auto; }
+
+  /* Start screen */
+  .mg-start{ text-align:center; padding:40px 20px; }
+  .mg-start-title{
+    font-size:28px; font-weight:800; margin-bottom:8px;
+  }
+  .mg-start-sub{
+    font-size:14px; opacity:.7; margin-bottom:24px; line-height:1.5;
+  }
+  .mg-start-best{
+    font-size:13px; opacity:.5; margin-top:16px;
+  }
+
+  /* Progress bar */
+  .mg-progress{
+    display:flex; align-items:center; gap:6px;
+    margin-bottom:16px; justify-content:center;
+  }
+  .mg-progress-dot{
+    width:10px; height:10px; border-radius:50%;
+    background:rgba(148,163,184,.2);
+    transition: background .3s;
+  }
+  .mg-progress-dot.done{ background:var(--accent, #f0b90b); }
+  .mg-progress-dot.active{
+    background:var(--accent, #f0b90b);
+    box-shadow: 0 0 0 3px rgba(240,185,11,.25);
+  }
+  .mg-progress-label{
+    font-size:12px; font-weight:700; opacity:.5; margin-left:8px;
+    text-transform:uppercase; letter-spacing:.5px;
+  }
+
+  /* Scenario card */
+  .mg-scenario{ animation: mgFadeIn .35s ease; }
+  @keyframes mgFadeIn{
+    from{ opacity:0; transform:translateY(8px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  .mg-game-header{
+    display:flex; align-items:center; justify-content:center;
+    gap:12px; font-size:18px; font-weight:800; margin-bottom:4px;
+  }
+  .mg-game-header .vs{ font-size:12px; opacity:.4; font-weight:400; }
+  .mg-game-score{
+    font-family: IBM Plex Mono, ui-monospace, monospace;
+    font-size:13px; text-align:center; opacity:.7; margin-bottom:12px;
+  }
+
+  .mg-situation{
+    padding:16px;
+    border-radius:10px;
+    background:rgba(148,163,184,.06);
+    border:1px solid rgba(148,163,184,.12);
+    margin-bottom:16px;
+  }
+
+  .mg-context-row{
+    display:flex; gap:16px; align-items:center; justify-content:center;
+    margin-bottom:10px; flex-wrap:wrap;
+  }
+  .mg-context-item{
+    text-align:center;
+  }
+  .mg-context-label{
+    font-size:10px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.4px; opacity:.5;
+  }
+  .mg-context-val{
+    font-family: IBM Plex Mono, ui-monospace, monospace;
+    font-size:14px; font-weight:700;
+  }
+
+  /* Bases diamond */
+  .mg-bases{
+    display:inline-grid;
+    grid-template-columns: 16px 16px 16px;
+    grid-template-rows: 16px 16px 16px;
+    gap:2px;
+    transform: rotate(45deg);
+    margin:0 12px;
+  }
+  .mg-base{
+    width:16px; height:16px;
+    border:2px solid rgba(148,163,184,.3);
+    border-radius:2px;
+    background:transparent;
+  }
+  .mg-base.occupied{
+    background:var(--accent, #f0b90b);
+    border-color:var(--accent, #f0b90b);
+  }
+  .mg-base-2b{ grid-column:2; grid-row:1; }
+  .mg-base-3b{ grid-column:1; grid-row:2; }
+  .mg-base-1b{ grid-column:3; grid-row:2; }
+
+  /* Outs indicator */
+  .mg-outs{
+    display:flex; gap:4px; align-items:center; justify-content:center;
+  }
+  .mg-out-dot{
+    width:10px; height:10px; border-radius:50%;
+    border:2px solid rgba(148,163,184,.3);
+  }
+  .mg-out-dot.filled{
+    background:var(--accent, #f0b90b);
+    border-color:var(--accent, #f0b90b);
+  }
+
+  .mg-situation-text{
+    font-size:14px; line-height:1.5; margin-top:10px;
+  }
+
+  .mg-question{
+    font-size:18px; font-weight:800; text-align:center;
+    margin:20px 0 16px;
+  }
+
+  .mg-choices{
+    display:flex; gap:10px;
+  }
+  .mg-choice-btn{
+    flex:1;
+    padding:14px 16px;
+    border:2px solid rgba(148,163,184,.2);
+    border-radius:10px;
+    background:rgba(148,163,184,.04);
+    font-size:14px; font-weight:700;
+    cursor:pointer;
+    text-align:center;
+    transition: all .2s;
+  }
+  .mg-choice-btn:hover{
+    border-color:var(--accent, #f0b90b);
+    background:rgba(240,185,11,.06);
+  }
+  .mg-choice-btn.selected-yes{
+    border-color:#16a34a;
+    background:rgba(34,197,94,.1);
+  }
+  .mg-choice-btn.selected-no{
+    border-color:#dc2626;
+    background:rgba(220,38,38,.08);
+  }
+
+  /* Result reveal */
+  .mg-result{
+    animation: mgFadeIn .35s ease;
+    margin-top:16px;
+  }
+  .mg-result-row{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px;
+    border-radius:8px;
+    margin-bottom:6px;
+    font-size:13px;
+  }
+  .mg-result-row .label{
+    font-weight:700; width:110px; flex:0 0 auto;
+    font-size:12px; text-transform:uppercase; letter-spacing:.3px;
+  }
+  .mg-result-row .value{ flex:1; font-weight:600; }
+  .mg-result-row .icon{ font-size:18px; flex:0 0 auto; }
+  .mg-result-you{ background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.15); }
+  .mg-result-mgr{ background:rgba(148,163,184,.06); border:1px solid rgba(148,163,184,.12); }
+  .mg-result-engine{ background:rgba(240,185,11,.06); border:1px solid rgba(240,185,11,.15); }
+
+  .mg-community{
+    text-align:center; margin-top:12px; font-size:12px; opacity:.6;
+  }
+  .mg-community-bar{
+    height:8px; border-radius:4px; background:rgba(148,163,184,.12);
+    overflow:hidden; margin:6px 0;
+  }
+  .mg-community-fill{
+    height:100%; border-radius:4px;
+    background:var(--accent, #f0b90b);
+    transition: width .5s ease;
+  }
+
+  .mg-next-btn{
+    display:block; width:100%; margin-top:16px;
+    padding:12px; border-radius:10px;
+    background:var(--accent, #f0b90b);
+    color:#000; font-size:14px; font-weight:700;
+    border:none; cursor:pointer;
+    text-align:center;
+  }
+  .mg-next-btn:hover{ opacity:.9; }
+
+  /* Final score */
+  .mg-final{ text-align:center; animation: mgFadeIn .4s ease; }
+  .mg-final-score{
+    font-size:64px; font-weight:900;
+    color:var(--accent, #f0b90b);
+    margin:16px 0 4px;
+  }
+  .mg-final-label{
+    font-size:14px; opacity:.6; margin-bottom:24px;
+  }
+  .mg-final-breakdown{
+    display:flex; flex-wrap:wrap; gap:6px; justify-content:center;
+    margin-bottom:24px;
+  }
+  .mg-final-dot{
+    width:32px; height:32px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; font-weight:700;
+  }
+  .mg-final-dot.correct{ background:rgba(34,197,94,.15); color:#16a34a; }
+  .mg-final-dot.wrong{ background:rgba(220,38,38,.1); color:#dc2626; }
+
+  @media(max-width:640px){
+    .mg-start-title{ font-size:22px; }
+    .mg-question{ font-size:16px; }
+    .mg-choices{ flex-direction:column; }
+    .mg-game-header{ font-size:16px; }
+    .mg-final-score{ font-size:48px; }
+  }
+</style>
+
+<div class="mg-container">
+  <!-- Start Screen -->
+  <div id="mg-start" class="mg-start">
+    <div class="card" style="padding:32px 24px;">
+      <div class="mg-start-title">Manager Decision Game</div>
+      <div class="mg-start-sub">
+        You'll see 10 real game situations from completed MLB games.<br>
+        Make the call as if you're the manager. After each decision, see what
+        actually happened, what the Basenerd engine recommends, and what other
+        users picked.
+      </div>
+      <button class="mg-next-btn" onclick="startGame()" style="max-width:260px; margin:0 auto;">
+        Start Game
+      </button>
+      <div class="mg-start-best" id="mg-best-score"></div>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="mg-game" style="display:none;"></div>
+
+  <!-- Final Score Screen -->
+  <div id="mg-final" style="display:none;"></div>
+</div>
+
+<script>
+(function(){
+  // Session UUID
+  let SESSION_UUID = localStorage.getItem("mg_session_uuid");
+  if(!SESSION_UUID){
+    SESSION_UUID = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36));
+    localStorage.setItem("mg_session_uuid", SESSION_UUID);
+  }
+
+  let scenarios = [];
+  let currentIdx = 0;
+  let results = []; // {scenario_id, user_choice, correct}
+  let answered = false;
+
+  // Show best score on start screen
+  const best = localStorage.getItem("mg_best_score");
+  if(best !== null){
+    document.getElementById("mg-best-score").textContent = `Your best score: ${best}/10`;
+  }
+
+  window.startGame = async function(){
+    document.getElementById("mg-start").style.display = "none";
+    document.getElementById("mg-game").style.display = "block";
+    document.getElementById("mg-final").style.display = "none";
+    document.getElementById("mg-game").innerHTML = '<div style="text-align:center;padding:40px;opacity:.5;">Loading scenarios...</div>';
+
+    try {
+      const res = await fetch("/api/manager-game/scenarios", {cache:"no-store"});
+      const data = await res.json();
+      if(!data.ok || !data.scenarios || data.scenarios.length === 0){
+        document.getElementById("mg-game").innerHTML = '<div style="text-align:center;padding:40px;">No scenarios available yet. Check back soon!</div>';
+        return;
+      }
+      scenarios = data.scenarios;
+      currentIdx = 0;
+      results = [];
+      answered = false;
+      renderScenario();
+    } catch(err){
+      document.getElementById("mg-game").innerHTML = '<div style="text-align:center;padding:40px;">Error loading scenarios. Please try again.</div>';
+    }
+  };
+
+  function renderProgress(){
+    let html = '<div class="mg-progress">';
+    for(let i = 0; i < scenarios.length; i++){
+      const cls = i < currentIdx ? "done" : (i === currentIdx ? "active" : "");
+      html += `<div class="mg-progress-dot ${cls}"></div>`;
+    }
+    html += `<span class="mg-progress-label">${currentIdx+1} of ${scenarios.length}</span>`;
+    html += '</div>';
+    return html;
+  }
+
+  function renderBases(baseState){
+    const b1 = baseState & 1 ? "occupied" : "";
+    const b2 = baseState & 2 ? "occupied" : "";
+    const b3 = baseState & 4 ? "occupied" : "";
+    return `<div class="mg-bases">
+      <div></div><div class="mg-base mg-base-2b ${b2}"></div><div></div>
+      <div class="mg-base mg-base-3b ${b3}"></div><div></div><div class="mg-base mg-base-1b ${b1}"></div>
+      <div></div><div></div><div></div>
+    </div>`;
+  }
+
+  function renderOuts(outs){
+    let html = '<div class="mg-outs">';
+    for(let i = 0; i < 3; i++){
+      html += `<div class="mg-out-dot ${i < outs ? 'filled' : ''}"></div>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function halfDisplay(h){
+    return h === "top" ? "Top" : "Bottom";
+  }
+
+  function renderScenario(){
+    const s = scenarios[currentIdx];
+    const opts = s.options_json || {};
+    const ctx = s.context_json || {};
+
+    const inningLabel = `${halfDisplay(s.half)} ${s.inning}`;
+
+    let html = renderProgress();
+    html += `<div class="mg-scenario">`;
+    html += `<div class="card" style="padding:20px;">`;
+
+    // Game header
+    html += `<div class="mg-game-header">
+      <span>${s.away_team_abbr || "AWAY"}</span>
+      <span class="vs">vs</span>
+      <span>${s.home_team_abbr || "HOME"}</span>
+    </div>`;
+    html += `<div class="mg-game-score">${s.away_score} - ${s.home_score} &middot; ${inningLabel}</div>`;
+
+    // Context row
+    html += `<div class="mg-situation">`;
+    html += `<div class="mg-context-row">`;
+    html += `<div class="mg-context-item">
+      <div class="mg-context-label">Pitcher</div>
+      <div class="mg-context-val">${s.pitcher_name || "?"}</div>
+    </div>`;
+    if(s.pitcher_pitch_count != null){
+      html += `<div class="mg-context-item">
+        <div class="mg-context-label">Pitches</div>
+        <div class="mg-context-val">${s.pitcher_pitch_count}</div>
+      </div>`;
+    }
+    if(s.pitcher_tto != null){
+      html += `<div class="mg-context-item">
+        <div class="mg-context-label">TTO</div>
+        <div class="mg-context-val">${s.pitcher_tto}x</div>
+      </div>`;
+    }
+    html += `</div>`;
+
+    // Bases + Outs + Batter
+    html += `<div class="mg-context-row">`;
+    html += renderBases(s.base_state || 0);
+    html += renderOuts(s.outs || 0);
+    html += `<div class="mg-context-item" style="margin-left:8px;">
+      <div class="mg-context-label">Batter</div>
+      <div class="mg-context-val">${s.batter_name || "?"}</div>
+    </div>`;
+    html += `</div>`;
+
+    // Situation text
+    if(opts.situation){
+      html += `<div class="mg-situation-text">${opts.situation}</div>`;
+    }
+    html += `</div>`; // end mg-situation
+
+    // Question
+    html += `<div class="mg-question">${opts.question || "What do you do?"}</div>`;
+
+    // Choices
+    html += `<div class="mg-choices">
+      <button class="mg-choice-btn" id="mg-btn-yes" onclick="submitAnswer('yes')">
+        ${opts.yes_label || "Yes"}
+      </button>
+      <button class="mg-choice-btn" id="mg-btn-no" onclick="submitAnswer('no')">
+        ${opts.no_label || "No"}
+      </button>
+    </div>`;
+
+    // Result container (hidden until answered)
+    html += `<div id="mg-result-area"></div>`;
+
+    html += `</div>`; // end card
+    html += `</div>`; // end mg-scenario
+
+    document.getElementById("mg-game").innerHTML = html;
+    answered = false;
+  }
+
+  window.submitAnswer = async function(choice){
+    if(answered) return;
+    answered = true;
+
+    const s = scenarios[currentIdx];
+
+    // Highlight selected button
+    document.getElementById("mg-btn-yes").style.pointerEvents = "none";
+    document.getElementById("mg-btn-no").style.pointerEvents = "none";
+    if(choice === "yes"){
+      document.getElementById("mg-btn-yes").classList.add("selected-yes");
+      document.getElementById("mg-btn-no").style.opacity = ".4";
+    } else {
+      document.getElementById("mg-btn-no").classList.add("selected-no");
+      document.getElementById("mg-btn-yes").style.opacity = ".4";
+    }
+
+    // Post answer
+    let result = null;
+    try {
+      const res = await fetch("/api/manager-game/answer", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          scenario_id: s.id,
+          session_uuid: SESSION_UUID,
+          user_choice: choice,
+        })
+      });
+      result = await res.json();
+    } catch(err){
+      console.error("Answer submit error:", err);
+    }
+
+    // Determine correctness (vs engine recommendation)
+    const engine = (result && result.engine_recommendation) || s.engine_recommendation || {};
+    const engineRec = engine.recommend || "no";
+    const correct = choice === engineRec;
+    const matchesMgr = choice === (result?.actual_decision || s.actual_decision);
+
+    results.push({
+      scenario_id: s.id,
+      user_choice: choice,
+      correct: correct,
+      matches_manager: matchesMgr,
+    });
+
+    // Render result
+    const area = document.getElementById("mg-result-area");
+    const choiceLabel = choice === "yes" ? (s.options_json?.yes_label || "Yes") : (s.options_json?.no_label || "No");
+    const actualLabel = (result?.actual_decision || s.actual_decision) === "yes"
+      ? (s.options_json?.yes_label || "Yes")
+      : (s.options_json?.no_label || "No");
+    const engineLabel = engineRec === "yes"
+      ? (s.options_json?.yes_label || "Yes")
+      : (s.options_json?.no_label || "No");
+    const engineConf = engine.confidence ? ` (${Math.round(engine.confidence * 100)}% confidence)` : "";
+
+    let rHtml = '<div class="mg-result">';
+
+    // Your pick
+    rHtml += `<div class="mg-result-row mg-result-you">
+      <span class="label">You chose</span>
+      <span class="value">${choiceLabel}</span>
+      <span class="icon">${correct ? "\u2705" : "\u274C"}</span>
+    </div>`;
+
+    // Actual manager
+    const actualDetail = result?.actual_detail || s.actual_detail || "";
+    rHtml += `<div class="mg-result-row mg-result-mgr">
+      <span class="label">Manager</span>
+      <span class="value">${actualLabel}${actualDetail ? " \u2014 " + actualDetail : ""}</span>
+    </div>`;
+
+    // Engine
+    rHtml += `<div class="mg-result-row mg-result-engine">
+      <span class="label">BN Engine</span>
+      <span class="value">${engineLabel}${engineConf}${engine.detail ? " \u2014 " + engine.detail : ""}</span>
+    </div>`;
+
+    // Community stats
+    const comm = result?.community;
+    if(comm && comm.total > 0){
+      const yesPct = Math.round(comm.yes_pct * 100);
+      rHtml += `<div class="mg-community">
+        ${comm.total} user${comm.total !== 1 ? "s" : ""} answered &middot; ${yesPct}% said "${s.options_json?.yes_label || "Yes"}"
+        <div class="mg-community-bar">
+          <div class="mg-community-fill" style="width:${yesPct}%"></div>
+        </div>
+      </div>`;
+    }
+
+    // Next / Finish button
+    const isLast = currentIdx >= scenarios.length - 1;
+    rHtml += `<button class="mg-next-btn" onclick="${isLast ? 'showFinalScore()' : 'nextScenario()'}">
+      ${isLast ? "See Your Score" : "Next Question"}
+    </button>`;
+
+    rHtml += '</div>';
+    area.innerHTML = rHtml;
+  };
+
+  window.nextScenario = function(){
+    currentIdx++;
+    renderScenario();
+  };
+
+  window.showFinalScore = function(){
+    document.getElementById("mg-game").style.display = "none";
+    document.getElementById("mg-final").style.display = "block";
+
+    const score = results.filter(r => r.correct).length;
+    const total = results.length;
+
+    // Save best score
+    const prev = parseInt(localStorage.getItem("mg_best_score") || "0", 10);
+    if(score > prev){
+      localStorage.setItem("mg_best_score", String(score));
+    }
+
+    let html = '<div class="mg-final card" style="padding:32px 24px;">';
+    html += `<div style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; opacity:.5;">Game Over</div>`;
+    html += `<div class="mg-final-score">${score}/${total}</div>`;
+    html += `<div class="mg-final-label">Matched the Basenerd Engine</div>`;
+
+    // Breakdown dots
+    html += '<div class="mg-final-breakdown">';
+    for(let i = 0; i < results.length; i++){
+      const cls = results[i].correct ? "correct" : "wrong";
+      html += `<div class="mg-final-dot ${cls}">${i+1}</div>`;
+    }
+    html += '</div>';
+
+    // Manager match count
+    const mgrMatch = results.filter(r => r.matches_manager).length;
+    html += `<div style="font-size:13px; opacity:.6; margin-bottom:20px;">
+      You matched the actual manager ${mgrMatch} of ${total} times.
+    </div>`;
+
+    html += `<button class="mg-next-btn" onclick="startGame()" style="max-width:260px; margin:0 auto;">
+      Play Again
+    </button>`;
+
+    // Best score
+    const best = parseInt(localStorage.getItem("mg_best_score") || "0", 10);
+    if(best > 0){
+      html += `<div style="font-size:12px; opacity:.4; margin-top:12px;">Best score: ${best}/10</div>`;
+    }
+
+    html += '</div>';
+    document.getElementById("mg-final").innerHTML = html;
+  };
+})();
+</script>
+
+{% endblock %}

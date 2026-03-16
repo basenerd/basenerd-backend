@@ -166,6 +166,47 @@ def hr_graphic_png():
     )
     return png, 200, {"Content-Type": "image/png"}
 
+# ---- Manager Decision Game ----
+
+@app.get("/manager-game")
+def manager_game():
+    return render_template("manager_game.html")
+
+
+@app.get("/api/manager-game/scenarios")
+def manager_game_scenarios_api():
+    """Return 10 random quiz scenarios."""
+    try:
+        from services.manager_game import get_quiz_scenarios
+        scenarios = get_quiz_scenarios(10)
+        return jsonify({"ok": True, "scenarios": scenarios}), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "scenarios": [], "reason": str(e)}), 200
+
+
+@app.route("/api/manager-game/answer", methods=["POST"])
+def manager_game_answer():
+    """Record a user's answer and return the result."""
+    try:
+        from services.manager_game import record_response, get_scenario_result
+        data = request.get_json(force=True)
+        scenario_id = data.get("scenario_id")
+        session_uuid = data.get("session_uuid")
+        user_choice = data.get("user_choice")
+        if not scenario_id or not session_uuid or not user_choice:
+            return jsonify({"ok": False, "reason": "missing_fields"}), 200
+
+        record_response(int(scenario_id), str(session_uuid), str(user_choice))
+        result = get_scenario_result(int(scenario_id))
+        return jsonify({"ok": True, **result}), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "reason": str(e)}), 200
+
+
 @app.get("/about")
 def about():
     page = get_markdown_page("about.md")
