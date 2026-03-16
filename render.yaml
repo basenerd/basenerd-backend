@@ -9,7 +9,7 @@ services:
   - type: cron
     name: pitcher-reports
     runtime: python
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: "pip install -r requirements-reports.txt"
     schedule: "*/15 * * * *"  # Every 15 minutes
     startCommand: "python scripts/daily_pitcher_emails.py"
     plan: free
