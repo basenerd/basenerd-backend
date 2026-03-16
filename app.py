@@ -2011,8 +2011,16 @@ def gamecast_json(game_pk: int):
 
         # 1) Completed at-bat results
         if p_type == "atBat" and p_about.get("isComplete") and p_desc:
+            # Determine if this is a walk or strikeout for popup treatment
+            ab_category = "atBat"
+            evt_lower = p_event_type.lower()
+            if evt_lower in ("strikeout", "strikeout_double_play"):
+                ab_category = "strikeout"
+            elif evt_lower in ("walk", "intent_walk"):
+                ab_category = "walk"
+
             feed_events.append({
-                "type": "atBat",
+                "type": ab_category,
                 "inning": inning_label,
                 "event": p_event,
                 "eventType": p_event_type,
