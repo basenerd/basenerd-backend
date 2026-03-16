@@ -1492,17 +1492,6 @@
         —
       </div>
 
-      {# ---- Live Event Feed ---- #}
-      <div id="gc-feed-card" class="card" style="margin-top:14px; display:none;">
-        <div class="card-header" style="cursor:pointer;" onclick="document.getElementById('gc-feed-body').classList.toggle('collapsed');">
-          <div class="card-title">Live Feed</div>
-          <div class="card-subtitle mono" style="opacity:.75;">Plays, subs, steals, challenges</div>
-        </div>
-        <div id="gc-feed-body" style="max-height:320px; overflow-y:auto; padding:0 10px 10px;">
-          <div id="gc-feed-list"></div>
-        </div>
-      </div>
-
 
 {# -----------------------------
    Expected Linescore (Monte Carlo)
@@ -1692,6 +1681,17 @@
       </div>
     </div>
   </div>
+
+      {# ---- Live Event Feed ---- #}
+      <div id="gc-feed-card" class="card" style="margin-top:14px; display:none;">
+        <div class="card-header" style="cursor:pointer;" onclick="document.getElementById('gc-feed-body').classList.toggle('collapsed');">
+          <div class="card-title">Live Feed</div>
+          <div class="card-subtitle mono" style="opacity:.75;">Plays, subs, steals, challenges</div>
+        </div>
+        <div id="gc-feed-body" style="max-height:320px; overflow-y:auto; padding:0 10px 10px;">
+          <div id="gc-feed-list"></div>
+        </div>
+      </div>
 
 </div>
 {% endif %}
@@ -3310,15 +3310,20 @@ if(gcBtn && gcPanel){
       const rLabel = ov ? "OVERTURNED" : "CONFIRMED";
       absResultHTML = `<div style="font-weight:800;font-size:14px;color:${rColor};letter-spacing:1px;margin-top:2px;">${rLabel}</div>`;
     }
+    // For substitutions, show the actual description as the title
+    const titleLabel = (item.type === "substitution" && item.description) ? "Sub" : meta.label;
+    const subtitleText = (item.type === "substitution" && item.description)
+      ? item.description
+      : (item.inning || "");
     const body = `
       <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0 4px;">
         <div style="font-size:32px;line-height:1;">${meta.icon}</div>
         <div style="background:${meta.bg};color:${meta.color};font-weight:700;font-size:13px;padding:4px 12px;border-radius:6px;letter-spacing:.5px;">${meta.badge}</div>
         ${absResultHTML}
-        <div style="font-size:15px;color:rgba(255,255,255,.92);text-align:center;max-width:380px;line-height:1.45;">${item.description || item.event || "—"}</div>
+        <div style="font-size:15px;color:rgba(255,255,255,.92);text-align:center;max-width:380px;line-height:1.45;">${item.type === "substitution" ? (item.inning || "") : (item.description || item.event || "—")}</div>
       </div>`;
     __gc_action_showing = true;
-    __gc_show_takeover(meta.label, item.inning || "", body, 7000, "action");
+    __gc_show_takeover(titleLabel, subtitleText, body, 7000, "action");
     setTimeout(()=>{ __gc_action_showing = false; __gc_drain_action_queue(); }, 7200);
   }
 
