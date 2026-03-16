@@ -3283,7 +3283,7 @@ if(gcBtn && gcPanel){
   return `${parts[0][0]}. ${parts[parts.length-1]}`;
 }
   // ---- Action event takeover (SB, CS, WP, PB, BK, SUB, PO, EJ, etc.) ----
-  let __gc_last_action_count = -1;  // -1 = first poll (seed count, don't fire)
+  let __gc_seen_action_keys = null;  // null = first poll (seed keys, don't fire)
   let __gc_action_queue = [];
   let __gc_action_showing = false;
 
@@ -3352,22 +3352,27 @@ if(gcBtn && gcPanel){
     __gc_show_action_takeover(__gc_action_queue.shift());
   }
 
+  function __gc_action_key(e){
+    // Build a dedup key from type + inning + description
+    return `${e.type}|${e.inning||""}|${(e.description||"").slice(0,120)}`;
+  }
+
   function __gc_check_action_events(feedArr){
     if(!feedArr || !feedArr.length) return;
     const actions = feedArr.filter(e => __gc_action_types.has(e.type));
-    // First poll: seed the count without firing takeovers
-    if(__gc_last_action_count < 0){
-      __gc_last_action_count = actions.length;
+    // First poll: seed the seen keys without firing takeovers
+    if(__gc_seen_action_keys === null){
+      __gc_seen_action_keys = new Set(actions.map(__gc_action_key));
       return;
     }
-    if(actions.length > __gc_last_action_count){
-      const newItems = actions.slice(__gc_last_action_count);
-      for(const item of newItems){
+    for(const item of actions){
+      const key = __gc_action_key(item);
+      if(!__gc_seen_action_keys.has(key)){
+        __gc_seen_action_keys.add(key);
         __gc_action_queue.push(item);
       }
-      __gc_drain_action_queue();
     }
-    __gc_last_action_count = actions.length;
+    if(__gc_action_queue.length) __gc_drain_action_queue();
   }
 
   // ---- Render live event feed ----
