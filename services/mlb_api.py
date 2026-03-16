@@ -1852,6 +1852,7 @@ def normalize_gamecast(feed: dict) -> dict:
         }
 
     due_up = []
+    due_up_team = ""
     try:
         # linescore.offense has batter/onDeck/inHole in many live games
         off = (linescore or {}).get("offense") or {}
@@ -1865,6 +1866,30 @@ def normalize_gamecast(feed: dict) -> dict:
     # Only send dueUp during between-innings (keeps frontend logic clean)
     if not between_innings:
         due_up = []
+    else:
+        # Determine which team bats next and enrich due-up with spot + gameSummary
+        if inning_state.lower().startswith("mid"):
+            due_team_key = "home"
+        elif inning_state.lower().startswith("end"):
+            due_team_key = "away"
+        else:
+            due_team_key = "home" if half == "Top" else "away"
+
+        due_up_team = ((_gc_teams.get(due_team_key) or {}).get("teamName") or
+                       (_gc_teams.get(due_team_key) or {}).get("name") or "")
+
+        # Build pid -> lineup player map for spot lookup
+        pid_to_lineup = {}
+        for lp in (lineups.get(due_team_key) or []):
+            lpid = lp.get("id")
+            if lpid:
+                pid_to_lineup[int(lpid)] = lp
+
+        for p in due_up:
+            lp = pid_to_lineup.get(p["id"]) if p.get("id") else None
+            if lp:
+                p["spot"] = lp.get("spot")
+                p["gameSummary"] = lp.get("gameSummary") or lp.get("batLine") or ""
 
     # -------------------------
     # Ball-in-play (BIP) info for the takeover animation
@@ -2233,6 +2258,7 @@ def normalize_gamecast(feed: dict) -> dict:
             "inningState": inning_state_raw,
             "betweenInnings": between_innings,
             "dueUp": due_up,
+            "dueUpTeam": due_up_team,
             "bip": bip,
             "feed": feed_out,
         }
