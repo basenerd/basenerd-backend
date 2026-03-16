@@ -324,7 +324,7 @@ def upsert_df(conn, df: pd.DataFrame, table_name: str, chunk_size: int = 5000) -
     for c in (set(FORCE_INT_COLS) & set(keep_cols)):
         # to_numeric handles strings like "12.0" and floats like 12.0; errors become NaN
         s = pd.to_numeric(df2[c], errors="coerce")
-        df2[c] = s.map(lambda v: None if pd.isna(v) else int(v))
+        df2[c] = s.map(lambda v: None if pd.isna(v) else int(v)).astype(object)
 
     # Debug zone until first successful run (leave this in for now)
     if "zone" in df2.columns:
