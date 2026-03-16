@@ -735,6 +735,30 @@ def matchup_probs_json(game_pk: int):
         print(f"[matchup_probs] EXCEPTION for batter={batter_id} pitcher={pitcher_id}: {e}")
         return jsonify({"ok": False, "reason": f"exception: {type(e).__name__}: {e}"}), 200
 
+
+@app.get("/game/<int:game_pk>/manager_engine.json")
+def manager_engine_json(game_pk: int):
+    """Return Basenerd Manager Engine recommendations for the current game state."""
+    try:
+        from services.manager_engine import evaluate_decisions
+        feed = get_game_feed(game_pk)
+        if not feed or feed.get("scheduleOnly"):
+            return jsonify({"ok": False, "decisions": [], "reason": "no_feed"}), 200
+
+        import time as _t
+        _t0 = _t.time()
+        decisions = evaluate_decisions(feed, game_pk)
+        _elapsed = round((_t.time() - _t0) * 1000)
+        print(f"[manager_engine] game={game_pk} decisions={len(decisions)} time={_elapsed}ms")
+
+        return jsonify({"ok": True, "decisions": decisions}), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"[manager_engine] EXCEPTION for game={game_pk}: {e}")
+        return jsonify({"ok": False, "decisions": [], "reason": f"exception: {type(e).__name__}: {e}"}), 200
+
+
 @app.get("/game/<int:game_pk>/pitcher/<int:pitcher_id>/live_scores.json")
 def pitcher_live_scores(game_pk: int, pitcher_id: int):
     """Score stuff+/control+ for a pitcher from the MLB live feed."""

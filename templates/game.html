@@ -396,6 +396,62 @@
   }
   #gc-matchup-probs .mp-pregame-link:hover{ opacity:1; }
 
+  /* ---- Manager Decision Engine ---- */
+  #gc-manager-engine .me-rec{
+    padding:10px 12px;
+    border-radius:8px;
+    background:rgba(212,160,23,.04);
+    border:1px solid rgba(212,160,23,.15);
+    margin-bottom:8px;
+    animation: meFadeIn .4s ease;
+  }
+  #gc-manager-engine .me-rec:last-child{ margin-bottom:0; }
+  #gc-manager-engine .me-rec-header{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:4px;
+  }
+  #gc-manager-engine .me-rec-icon{
+    font-size:16px;
+    flex:0 0 auto;
+  }
+  #gc-manager-engine .me-rec-headline{
+    font-size:13px;
+    font-weight:700;
+    flex:1;
+  }
+  #gc-manager-engine .me-rec-badge{
+    font-family: IBM Plex Mono, ui-monospace, Menlo, monospace;
+    font-size:10px;
+    font-weight:700;
+    padding:2px 6px;
+    border-radius:4px;
+    flex:0 0 auto;
+    text-transform:uppercase;
+    letter-spacing:.3px;
+  }
+  #gc-manager-engine .me-badge-high{ background:rgba(34,197,94,.15); color:#16a34a; }
+  #gc-manager-engine .me-badge-med{ background:rgba(234,179,8,.15); color:#ca8a04; }
+  #gc-manager-engine .me-badge-low{ background:rgba(148,163,184,.12); color:#94a3b8; }
+  #gc-manager-engine .me-rec-detail{
+    font-size:11.5px;
+    line-height:1.45;
+    opacity:.8;
+    padding-left:24px;
+  }
+  #gc-manager-engine .me-rec-team{
+    font-size:10px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:.4px;
+    opacity:.5;
+  }
+  @keyframes meFadeIn{
+    from{ opacity:0; transform:translateY(-4px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
   #tab-gamecast .gc-midgrid{
     display:grid;
     grid-template-columns: 1fr 1fr;
@@ -1478,6 +1534,19 @@
     <div class="mp-summary" id="gc-mp-summary"></div>
     <div class="mp-arsenal" id="gc-mp-arsenal" style="display:none;"></div>
   </div>
+</div>
+
+<!-- Manager Decision Engine -->
+<div class="card" id="gc-manager-engine" style="margin-top:14px; display:none;">
+  <div class="card-header" style="border-left:3px solid #d4a017;">
+    <div>
+      <div class="card-title" style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:14px;">&#9881;</span> Basenerd Manager Engine
+      </div>
+      <div class="card-subtitle" id="gc-me-subtitle">In-game decision analysis</div>
+    </div>
+  </div>
+  <div id="gc-me-body" style="padding:10px 14px 14px;"></div>
 </div>
 
 {# -----------------------------
@@ -3758,6 +3827,92 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
     container.style.display = "block";
   }
 
+  // ---- Manager Decision Engine ----
+  let __gc_me_last_key = null;
+  let __gc_me_inflight = false;
+
+  function __gc_maybe_fetch_manager_engine(data){
+    if(!GAME_PK) return;
+    const bid = data?.batter?.id;
+    const pid = data?.pitcher?.id;
+    if(!bid || !pid) return;
+
+    const r = data?.runners || {};
+    const meKey = [
+      data.inning, data.half, data.outs,
+      bid, pid,
+      r.first ? "1" : "0",
+      r.second ? "1" : "0",
+      r.third ? "1" : "0"
+    ].join("|");
+    if(meKey === __gc_me_last_key) return;
+    if(__gc_me_inflight) return;
+
+    __gc_me_last_key = meKey;
+    __gc_me_inflight = true;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+
+    fetch(`/game/${GAME_PK}/manager_engine.json`, { cache: "no-store", signal: controller.signal })
+      .then(r => r.json())
+      .then(d => {
+        clearTimeout(timeout);
+        __gc_me_inflight = false;
+        if(d && d.ok){
+          __gc_render_manager_engine(d.decisions || []);
+        } else {
+          document.getElementById("gc-manager-engine").style.display = "none";
+        }
+      })
+      .catch(err => {
+        clearTimeout(timeout);
+        __gc_me_inflight = false;
+        __gc_me_last_key = null;
+        console.error("[ManagerEngine] Fetch failed:", err?.message || err);
+      });
+  }
+
+  const ME_ICONS = {
+    pitching_change: "\u{1F4AA}",
+    pinch_hit: "\u{1F3CF}",
+    stolen_base: "\u{1F3C3}",
+    bunt: "\u25C6",
+    ibb: "\u{1F6B6}",
+  };
+
+  function __gc_render_manager_engine(decisions){
+    const container = document.getElementById("gc-manager-engine");
+    const body = document.getElementById("gc-me-body");
+    if(!container || !body) return;
+
+    if(!decisions || decisions.length === 0){
+      container.style.display = "none";
+      return;
+    }
+
+    let html = "";
+    for(const rec of decisions){
+      const icon = ME_ICONS[rec.type] || "\u2699";
+      const lev = rec.leverage || "low";
+      const badgeClass = lev === "high" ? "me-badge-high" : lev === "medium" ? "me-badge-med" : "me-badge-low";
+      const conf = rec.confidence != null ? Math.round(rec.confidence * 100) + "%" : "";
+      const teamLabel = (rec.team || "").toUpperCase();
+
+      html += `<div class="me-rec">
+        <div class="me-rec-header">
+          <span class="me-rec-icon">${icon}</span>
+          <span class="me-rec-headline">${rec.headline || ""}</span>
+          <span class="me-rec-badge ${badgeClass}">${lev}</span>
+        </div>
+        <div class="me-rec-detail">${rec.detail || ""}</div>
+      </div>`;
+    }
+
+    body.innerHTML = html;
+    container.style.display = "block";
+  }
+
   // FIXED: single async, no syntax error
   async function fetchGameCast(){
     if(!GC_URL) return;
@@ -3804,6 +3959,9 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
       // Must be outside the key-dedup block so retries work when the endpoint
       // is slow (model cold-start) or fails (between innings).
       __gc_maybe_fetch_matchup(data);
+
+      // Manager Engine runs every poll (has its own dedup via __gc_me_last_key).
+      __gc_maybe_fetch_manager_engine(data);
 
       const key = [
         data.inning, data.displayHalf || data.half, data.balls, data.strikes, data.outs,
