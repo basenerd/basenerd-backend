@@ -2174,12 +2174,23 @@ def normalize_gamecast(feed: dict) -> dict:
                     "overturned": _overturned,
                 })
 
+            # Categorize walks and strikeouts for popup treatment
+            ab_category = "at_bat"
+            ab_event_lc = ab_event.lower()
+            if ab_event_lc in ("strikeout", "strikeout_double_play"):
+                ab_category = "strikeout"
+            elif ab_event_lc in ("walk", "intent_walk"):
+                ab_category = "walk"
+
+            matchup = p.get("matchup") or {}
             feed_out.append({
-                "type": "at_bat",
+                "type": ab_category,
                 "event": ab_event.replace("_", " ").title() if ab_event else "",
                 "description": ab_desc,
                 "inning": inn_label,
                 "isScoring": is_scoring,
+                "batter": (matchup.get("batter") or {}).get("fullName"),
+                "pitcher": (matchup.get("pitcher") or {}).get("fullName"),
             })
 
     # -------------------------
