@@ -2127,8 +2127,26 @@ def normalize_gamecast(feed: dict) -> dict:
             det_event_lc = det_event.lower().replace(" ", "_")
             ev_desc = (details.get("description") or "").strip()
 
-            # Skip actual pitches and game_advisory (status changes, timeouts, etc.)
+            # Pitches: check for ABS challenge via reviewDetails, then skip
             if ev.get("isPitch"):
+                review = ev.get("reviewDetails")
+                if isinstance(review, dict) and review.get("reviewType"):
+                    call_desc = (details.get("call") or {}).get("description") or ""
+                    overturned = bool(review.get("isOverturned"))
+                    review_type = review.get("reviewType") or ""
+                    challenge_team = review.get("challengeTeamId")
+
+                    abs_label = "ABS Challenge" if review_type == "MJ" else f"Review ({review_type})"
+                    result_text = "Overturned" if overturned else "Confirmed"
+                    feed_out.append({
+                        "type": "abs_challenge",
+                        "event": abs_label,
+                        "description": f"{abs_label}: {call_desc} — {result_text}",
+                        "inning": inn_label,
+                        "isScoring": False,
+                        "overturned": overturned,
+                        "challengeTeamId": challenge_team,
+                    })
                 continue
 
             # Pitch clock violations: type="no_pitch", call code VP or AC
