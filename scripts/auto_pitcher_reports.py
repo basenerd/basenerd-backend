@@ -3,8 +3,8 @@
 Automatically generate pitcher report PDFs after every MLB game finishes.
 
 Polls the MLB schedule API, detects newly completed games, and generates
-reports for every pitcher who appeared. Checks for existing report PDFs
-on disk to avoid duplicating work across runs.
+reports for every pitcher who appeared. Tracks processed games in Postgres
+to avoid duplicate emails across ephemeral Render cron runs.
 
 Usage:
     # Run once for today (designed for Render cron job):
@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import smtplib
+import ssl
 import sys
 from datetime import datetime, timedelta, timezone
 from email.mime.application import MIMEApplication
@@ -31,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from sqlalchemy import create_engine, text
 
 # ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
@@ -52,6 +54,7 @@ if env_path.exists():
 GMAIL_USER = os.environ.get("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 NOTIFY_EMAIL = "nicklabella6@gmail.com"
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 # Logging
 logging.basicConfig(
@@ -104,14 +107,66 @@ def send_report_email(pdf_path: Path, pitcher_name: str, game_info: dict):
 
 
 # ---------------------------------------------------------------------------
-# Check existing reports on disk
+# DB-backed dedup (survives ephemeral Render cron containers)
 # ---------------------------------------------------------------------------
+def _build_engine():
+    db_url = DATABASE_URL
+    if not db_url:
+        return None
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
+    elif db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+pg8000://", 1)
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    return create_engine(db_url, connect_args={"ssl_context": ssl_context}, pool_pre_ping=True)
+
+
+def _ensure_tracking_table(conn):
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS pitcher_reports_sent (
+            game_pk   INTEGER NOT NULL,
+            game_date TEXT    NOT NULL,
+            created   TIMESTAMP DEFAULT now(),
+            PRIMARY KEY (game_pk)
+        )
+    """))
+
+
 def _game_already_processed(game_pk: int, game_date: str) -> bool:
-    """Check if any PDF matching *_<game_pk>.pdf exists in the date folder."""
-    date_dir = REPORTS_DIR / game_date.replace("-", "")
-    if not date_dir.exists():
-        return False
-    return any(date_dir.glob(f"*_{game_pk}.pdf"))
+    """Check DB for whether we've already emailed reports for this game."""
+    engine = _build_engine()
+    if not engine:
+        # No DB — fall back to filesystem check
+        date_dir = REPORTS_DIR / game_date.replace("-", "")
+        if not date_dir.exists():
+            return False
+        return any(date_dir.glob(f"*_{game_pk}.pdf"))
+    with engine.begin() as conn:
+        _ensure_tracking_table(conn)
+        row = conn.execute(
+            text("SELECT 1 FROM pitcher_reports_sent WHERE game_pk = :gp"),
+            {"gp": game_pk},
+        ).fetchone()
+        return row is not None
+
+
+def _mark_game_processed(game_pk: int, game_date: str):
+    """Record that we've sent reports for this game."""
+    engine = _build_engine()
+    if not engine:
+        return
+    with engine.begin() as conn:
+        _ensure_tracking_table(conn)
+        conn.execute(
+            text("""
+                INSERT INTO pitcher_reports_sent (game_pk, game_date)
+                VALUES (:gp, :gd)
+                ON CONFLICT (game_pk) DO NOTHING
+            """),
+            {"gp": game_pk, "gd": game_date},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +250,8 @@ def generate_reports_for_game(game_pk: int, game_meta: dict | None = None) -> in
                 log.error("    Failed pitcher %d: %s", pid, e)
 
         log.info("  Game %d: %d/%d reports generated", game_pk, success_count, len(pitcher_ids))
+        if success_count > 0 and game_meta:
+            _mark_game_processed(game_pk, game_meta.get("game_date", ""))
         return success_count
 
     except Exception as e:
@@ -229,6 +286,7 @@ def process_date(date_str: str) -> int:
     total = 0
     for g in pending:
         log.info("Processing: %s @ %s (game_pk=%d)", g["away"], g["home"], g["game_pk"])
+        g["game_date"] = date_str
         total += generate_reports_for_game(g["game_pk"], game_meta=g)
 
     return total
