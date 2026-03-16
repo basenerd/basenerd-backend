@@ -9,8 +9,8 @@ services:
   - type: cron
     name: pitcher-reports
     runtime: docker
-    schedule: "*/30 * * * *"  # Every 30 minutes
-    dockerCommand: "python scripts/auto_pitcher_reports.py"
+    schedule: "*/15 * * * *"  # Every 15 minutes
+    dockerCommand: "python scripts/daily_pitcher_emails.py"
     plan: free
 
   - type: cron
