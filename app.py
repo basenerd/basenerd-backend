@@ -2457,7 +2457,7 @@ def player(player_id: int):
 
     # optional query params
     log_year = request.args.get("log_year", type=int)
-    selected_season = request.args.get("season", str(current_year))
+    selected_season = request.args.get("season", "2025")
 
     bio = get_player(player_id)
     role = get_player_role(bio)
