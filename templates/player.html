@@ -1070,7 +1070,7 @@
          <select 
            class="season-select mono" 
            style="padding: 3px 8px; font-size: 11px; font-weight: 900; cursor: pointer;"
-           onchange="window.location.search = '?season=' + this.value;"
+           onchange="updateSeasonDynamic(this.value)"
          >
            <option value="2025" {% if selected_season == '2025' %}selected{% endif %}>Season 2025</option>
            <option value="2024" {% if selected_season == '2024' %}selected{% endif %}>Season 2024</option>
@@ -2203,6 +2203,55 @@
     }
   }
 })();
+
+   async function updateSeasonDynamic(season) {
+        const tab = document.getElementById('tab-scouting');
+        
+        // Dim the tab slightly so the user knows it's loading
+        tab.style.opacity = '0.5';
+        tab.style.transition = 'opacity 0.2s';
+
+        try {
+            // 1. Fetch the new season's HTML page in the background
+            const response = await fetch(window.location.pathname + '?season=' + season);
+            const htmlText = await response.text();
+            
+            // 2. Parse the HTML invisibly
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlText, 'text/html');
+
+            // 3. Swap out the entire Scouting Report section instantly
+            tab.innerHTML = doc.getElementById('tab-scouting').innerHTML;
+
+            // 4. --- Re-activate the Spray Chart ---
+            // Because we swapped the raw HTML, we have to tell the Spray Chart to redraw.
+            // We search the new page's code for the updated "points" data:
+            const newScriptText = Array.from(doc.scripts).map(s => s.textContent).join('\n');
+            const match = newScriptText.match(/const points = (\[.*\]);/);
+            
+            if (match && match[1]) {
+                const newPoints = JSON.parse(match[1]);
+                
+                // Redraw the dots with the new data!
+                renderSpray(newPoints);
+
+                // Re-link the checkboxes so they still filter the hits
+                ['sprSingle', 'sprDouble', 'sprTriple', 'sprHR'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.addEventListener("change", () => renderSpray(newPoints));
+                });
+            }
+
+            // 5. Quietly update the URL so sharing the link still works!
+            window.history.replaceState(null, '', '?season=' + season);
+
+        } catch (error) {
+            console.error("Failed to update season:", error);
+        } finally {
+            // Bring the opacity back to normal
+            tab.style.opacity = '1';
+        }
+    }
 </script>
 
 {% endblock %}
