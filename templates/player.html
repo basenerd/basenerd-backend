@@ -1067,16 +1067,7 @@
 
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         {% if season_found %}
-         <select 
-           class="season-select mono" 
-           style="padding: 3px 8px; font-size: 11px; font-weight: 900; cursor: pointer;"
-           onchange="updateSeasonDynamic(this.value)"
-         >
-           <option value="2025" {% if selected_season == '2025' %}selected{% endif %}>Season 2025</option>
-           <option value="2024" {% if selected_season == '2024' %}selected{% endif %}>Season 2024</option>
-           <option value="2023" {% if selected_season == '2023' %}selected{% endif %}>Season 2023</option>
-           <option value="2022" {% if selected_season == '2022' %}selected{% endif %}>Season 2022</option>
-         </select>
+         <div class="sr-pill">Season {{ season_found }}</div>
         {% endif %}
 
         {% if is_two_way %}
@@ -2203,46 +2194,6 @@
     }
   }
 })();
-
-   async function updateSeasonDynamic(season) {
-        const tab = document.getElementById('tab-scouting');
-        
-        tab.style.opacity = '0.5';
-        tab.style.transition = 'opacity 0.2s';
-
-        try {
-            // 1. Fetch and parse the new HTML
-            const response = await fetch(window.location.pathname + '?season=' + season);
-            const htmlText = await response.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlText, 'text/html');
-
-            // 2. Swap the HTML
-            tab.innerHTML = doc.getElementById('tab-scouting').innerHTML;
-
-            // 3. --- The Bulletproof Script Runner ---
-            // Find any scripts inside the newly swapped tab and force them to run
-            const scripts = tab.querySelectorAll('script');
-            scripts.forEach(oldScript => {
-                const newScript = document.createElement('script');
-                
-                // Wrap the old code in curly braces { } to create a block scope.
-                // This prevents "variable already declared" errors if your code uses 'const'.
-                newScript.textContent = "{" + oldScript.textContent + "}";
-                
-                // Replace the dead script tag with our new, live one
-                oldScript.parentNode.replaceChild(newScript, oldScript);
-            });
-
-            // 4. Update the URL quietly
-            window.history.replaceState(null, '', '?season=' + season);
-
-        } catch (error) {
-            console.error("Failed to update season:", error);
-        } finally {
-            tab.style.opacity = '1';
-        }
-    }
 </script>
 
 {% endblock %}
