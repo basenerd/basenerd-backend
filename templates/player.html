@@ -2207,48 +2207,39 @@
    async function updateSeasonDynamic(season) {
         const tab = document.getElementById('tab-scouting');
         
-        // Dim the tab slightly so the user knows it's loading
         tab.style.opacity = '0.5';
         tab.style.transition = 'opacity 0.2s';
 
         try {
-            // 1. Fetch the new season's HTML page in the background
+            // 1. Fetch and parse the new HTML
             const response = await fetch(window.location.pathname + '?season=' + season);
             const htmlText = await response.text();
-            
-            // 2. Parse the HTML invisibly
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlText, 'text/html');
 
-            // 3. Swap out the entire Scouting Report section instantly
+            // 2. Swap the HTML
             tab.innerHTML = doc.getElementById('tab-scouting').innerHTML;
 
-            // 4. --- Re-activate the Spray Chart ---
-            // Because we swapped the raw HTML, we have to tell the Spray Chart to redraw.
-            // We search the new page's code for the updated "points" data:
-            const newScriptText = Array.from(doc.scripts).map(s => s.textContent).join('\n');
-            const match = newScriptText.match(/const points = (\[.*\]);/);
-            
-            if (match && match[1]) {
-                const newPoints = JSON.parse(match[1]);
+            // 3. --- The Bulletproof Script Runner ---
+            // Find any scripts inside the newly swapped tab and force them to run
+            const scripts = tab.querySelectorAll('script');
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement('script');
                 
-                // Redraw the dots with the new data!
-                renderSpray(newPoints);
+                // Wrap the old code in curly braces { } to create a block scope.
+                // This prevents "variable already declared" errors if your code uses 'const'.
+                newScript.textContent = "{" + oldScript.textContent + "}";
+                
+                // Replace the dead script tag with our new, live one
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
 
-                // Re-link the checkboxes so they still filter the hits
-                ['sprSingle', 'sprDouble', 'sprTriple', 'sprHR'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.addEventListener("change", () => renderSpray(newPoints));
-                });
-            }
-
-            // 5. Quietly update the URL so sharing the link still works!
+            // 4. Update the URL quietly
             window.history.replaceState(null, '', '?season=' + season);
 
         } catch (error) {
             console.error("Failed to update season:", error);
         } finally {
-            // Bring the opacity back to normal
             tab.style.opacity = '1';
         }
     }
