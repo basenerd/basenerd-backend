@@ -2847,7 +2847,7 @@ def player(player_id: int):
         savant_profile=savant_profile,
         stadium_svg=stadium_svg,
         hitter_pitch_profile=hitter_pitch_profile,
-        spray_data=spray_data
+        spray_data=spray_data,
         selected_season=str(season_for_scouting)
     )
     
