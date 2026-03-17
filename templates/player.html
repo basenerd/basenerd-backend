@@ -1067,7 +1067,16 @@
 
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         {% if season_found %}
-          <div class="sr-pill">Season {{ season_found }}</div>
+         <select 
+           class="season-select mono" 
+           style="padding: 3px 8px; font-size: 11px; font-weight: 900; cursor: pointer;"
+           onchange="window.location.search = '?season=' + this.value;"
+         >
+           <option value="2025" {% if selected_season == '2025' %}selected{% endif %}>Season 2025</option>
+           <option value="2024" {% if selected_season == '2024' %}selected{% endif %}>Season 2024</option>
+           <option value="2023" {% if selected_season == '2023' %}selected{% endif %}>Season 2023</option>
+           <option value="2022" {% if selected_season == '2022' %}selected{% endif %}>Season 2022</option>
+         </select>
         {% endif %}
 
         {% if is_two_way %}
