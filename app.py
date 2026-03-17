@@ -2457,7 +2457,6 @@ def player(player_id: int):
 
     # optional query params
     log_year = request.args.get("log_year", type=int)
-    selected_season = request.args.get("season", "2025")
 
     bio = get_player(player_id)
     role = get_player_role(bio)
@@ -2793,7 +2792,7 @@ def player(player_id: int):
         transactions = []
     savant_profile = {"available": True, "season": 2025, "groups": []}
     print("DEBUG: building savant_profile", "player_id=", int(bio["id"]), "season=", season_found)
-    season_for_scouting = int(selected_season)
+    season_for_scouting = int(season_found or log_year or 2025)
     player_id = int(bio["id"])  # or int(bio["id"]) depending on your bio object
     
     savant_profile = get_player_savant_profile(player_id, season_for_scouting, min_pa=1)
@@ -2847,8 +2846,7 @@ def player(player_id: int):
         savant_profile=savant_profile,
         stadium_svg=stadium_svg,
         hitter_pitch_profile=hitter_pitch_profile,
-        spray_data=spray_data,
-        selected_season=str(season_for_scouting)
+        spray_data=spray_data
     )
     
 @app.get("/articles")
