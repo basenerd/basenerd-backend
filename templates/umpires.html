@@ -113,7 +113,7 @@
   let sortCol = "games";
   let sortDir = "desc";
 
-  function pct(v, digits){ return v != null ? (v*100).toFixed(digits||1) : "—"; }
+  function pct(v, digits){ return v != null ? (v*100).toFixed(digits||1) + "%" : "—"; }
   function fmt(v, digits){ return v != null ? v.toFixed(digits||2) : "—"; }
 
   function favorPill(fi, label){
@@ -130,7 +130,7 @@
     const w = Math.max(0, Math.min(100, (acc - 0.85) / 0.15 * 100));
     const color = acc >= 0.93 ? "#22c55e" : acc >= 0.90 ? "#f59e0b" : "#ef4444";
     return `<span class="acc-bar-wrap">
-      <span>${p}</span>
+      <span>${p}%</span>
       <span class="acc-bar-bg"><span class="acc-bar-fill" style="width:${w}%;background:${color}"></span></span>
     </span>`;
   }
