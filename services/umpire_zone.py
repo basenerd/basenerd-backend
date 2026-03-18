@@ -73,7 +73,6 @@ def _load():
         log.warning("Could not load umpire zone registry: %s", e)
         _registry = {"umpires": {}, "features": [], "cat_features": [],
                       "cat_categories": {}}
-        return
 
     try:
         _league_model = joblib.load(os.path.join(_MODEL_DIR, "_league_avg.joblib"))

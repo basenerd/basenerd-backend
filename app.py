@@ -3276,7 +3276,7 @@ def umpires_page():
     season = request.args.get("season", type=int) or 2026
     # Get available seasons from the service
     data = umpire_list(season)
-    seasons = data.get("seasons", list(range(2021, 2026)))
+    seasons = data.get("seasons", list(range(2021, 2027)))
     return render_template(
         "umpires.html",
         title="Umpires \u2022 Basenerd",
