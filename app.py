@@ -3273,7 +3273,7 @@ def projections():
 
 @app.get("/umpires")
 def umpires_page():
-    season = request.args.get("season", type=int) or 2025
+    season = request.args.get("season", type=int) or 2026
     # Get available seasons from the service
     data = umpire_list(season)
     seasons = data.get("seasons", list(range(2021, 2026)))
