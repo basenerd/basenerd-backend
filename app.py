@@ -52,6 +52,12 @@ from services.pitching_report import (
     pitching_scatter,
 )
 from services.matchup_predict import predict_matchup, predict_matchup_live
+from services.umpire_zone import (
+    predict_called_strike,
+    umpire_zone_heatmap,
+    umpire_profile,
+    umpire_list,
+)
 from services.pregame_predictions import get_pregame_predictions
 from services.articles import load_articles, get_article
 from services.articles import get_markdown_page
@@ -3260,6 +3266,33 @@ def projections():
         meta=meta,
         error=error,
     )
+
+
+# ── Umpire zone endpoints ────────────────────────────────────────────
+
+@app.get("/umpires.json")
+def umpires_json():
+    season = request.args.get("season", type=int)
+    data = umpire_list(season)
+    return jsonify(data)
+
+
+@app.get("/umpire/<int:umpire_id>/profile.json")
+def umpire_profile_json(umpire_id: int):
+    season = request.args.get("season", type=int)
+    data = umpire_profile(umpire_id, season)
+    return jsonify(data)
+
+
+@app.get("/umpire/<int:umpire_id>/zone_heatmap.json")
+def umpire_zone_heatmap_json(umpire_id: int):
+    stand = request.args.get("stand", "R")
+    pitch_type = request.args.get("pitch_type")
+    balls = request.args.get("balls", type=int)
+    strikes = request.args.get("strikes", type=int)
+    data = umpire_zone_heatmap(umpire_id, stand=stand, pitch_type=pitch_type,
+                               balls=balls, strikes=strikes)
+    return jsonify(data)
 
 
 if __name__ == "__main__":
