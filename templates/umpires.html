@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="card">
+<div class="card" style="overflow:visible;">
   <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
     <div>
       <div class="card-title">Umpire Leaderboard</div>
@@ -29,9 +29,9 @@
     </form>
   </div>
 
-  <div class="card-body" style="padding:0;">
-    <div class="table-wrap">
-      <table class="table" id="umpTable" style="width:max-content; min-width:100%; table-layout:auto;">
+  <div class="card-body" style="padding:0; overflow:visible;">
+    <div class="table-wrap" style="overflow-x:auto; overflow-y:visible;">
+      <table class="table" id="umpTable" style="width:max-content; min-width:100%; table-layout:auto; white-space:nowrap;">
         <thead>
           <tr>
             <th class="sortable has-tip" data-col="name" style="text-align:left; min-width:140px;">Umpire<span class="col-tip">Home plate umpire name</span></th>
@@ -120,19 +120,21 @@
 </div>
 
 <style>
+  #umpTable thead { position:relative; z-index:10; }
   .table th.sortable { cursor:pointer; user-select:none; }
   .table th.sortable:hover { color: var(--link); }
   .table th.sortable.asc::after { content:" \25B2"; font-size:8px; }
   .table th.sortable.desc::after { content:" \25BC"; font-size:8px; }
 
-  /* Column tooltips */
+  /* Column tooltips — shown below header to avoid card overflow clipping */
   .has-tip { position:relative; }
   .col-tip {
     display:none;
     position:absolute;
-    bottom:100%;
+    top:100%;
     left:50%;
     transform:translateX(-50%);
+    margin-top:4px;
     background:var(--card-bg, #1e293b);
     color:var(--text, #e2e8f0);
     border:1px solid var(--border, #334155);
@@ -143,11 +145,14 @@
     line-height:1.4;
     white-space:normal;
     width:240px;
-    z-index:100;
+    z-index:200;
     pointer-events:none;
     box-shadow:0 4px 12px rgba(0,0,0,.3);
   }
   .has-tip:hover .col-tip { display:block; }
+  /* Keep tooltips on-screen for edge columns */
+  .has-tip:first-child .col-tip { left:0; transform:none; }
+  .has-tip:last-child .col-tip { left:auto; right:0; transform:none; }
 
   .favor-pill {
     display:inline-block;
