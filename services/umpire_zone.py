@@ -402,16 +402,11 @@ def umpire_list(season=None):
             else:
                 favor_label = "Neutral"
 
-        # Accuracy: proportion of correct calls
-        # correct = in_zone strikes + out_of_zone balls
-        # accuracy = 1 - (ooz_cs_rate * ooz_fraction + iz_ball_rate * iz_fraction)
-        # We approximate from the rates we have
-        accuracy = None
-        if ooz is not None and iz is not None:
+        # Accuracy: use precomputed if available, otherwise estimate
+        accuracy = _safe_float(row.get("accuracy"))
+        if accuracy is None and ooz is not None and iz is not None:
             cs_rate = _safe_float(row.get("overall_cs_rate"))
             if cs_rate is not None:
-                # ooz_fraction ≈ 1 - cs_rate (not exact but reasonable proxy)
-                # iz_fraction ≈ cs_rate
                 ooz_frac = 1 - cs_rate
                 iz_frac = cs_rate
                 error_rate = ooz * ooz_frac + iz * iz_frac
