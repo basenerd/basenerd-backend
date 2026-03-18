@@ -29,6 +29,7 @@ _REGISTRY_PATH = os.path.join(_MODEL_DIR, "registry.json")
 _DATA_DIR = os.path.join(_ROOT, "data")
 
 # Lazy-loaded globals
+_loaded = False
 _registry = None
 _league_model = None
 _umpire_models = {}  # cache: umpire_id -> model
@@ -59,10 +60,11 @@ def _safe_float(val):
 
 def _load():
     """Lazy-load registry, league-average model, and data files."""
-    global _registry, _league_model, _umpire_metrics, _game_outcomes
+    global _loaded, _registry, _league_model, _umpire_metrics, _game_outcomes
 
-    if _registry is not None:
+    if _loaded:
         return
+    _loaded = True
 
     try:
         with open(_REGISTRY_PATH) as f:
