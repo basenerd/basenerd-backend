@@ -30,11 +30,11 @@
   </div>
 
   <div class="card-body" style="padding:0; overflow:visible;">
-    <div class="table-wrap" style="overflow-x:auto; overflow-y:visible;">
-      <table class="table" id="umpTable" style="width:max-content; min-width:100%; table-layout:auto; white-space:nowrap;">
+    <div class="table-wrap">
+      <table class="table" id="umpTable" style="min-width:100%; table-layout:auto;">
         <thead>
           <tr>
-            <th class="sortable has-tip" data-col="name" style="text-align:left; min-width:140px;">Umpire<span class="col-tip">Home plate umpire name</span></th>
+            <th class="sortable has-tip" data-col="name" style="text-align:left; min-width:120px;">Umpire<span class="col-tip">Home plate umpire name</span></th>
             <th class="sortable num has-tip" data-col="games">G<span class="col-tip">Games worked behind home plate this season</span></th>
             <th class="sortable num has-tip" data-col="total_called">Pitches<span class="col-tip">Total called pitches (called strikes + balls). Does not include swings or HBP.</span></th>
             <th class="sortable num has-tip" data-col="accuracy">Acc%<span class="col-tip">Accuracy: % of called pitches where the umpire made the correct call based on the true strike zone</span></th>
@@ -167,30 +167,15 @@
   .favor-hitter  { background:rgba(59,130,246,.12); color:#2563eb; }
   .favor-neutral { background:rgba(100,116,139,.10); color:#64748b; }
 
-  .zone-bar {
+  /* Gradient pills for accuracy and zone size */
+  .grad-pill {
     display:inline-block;
-    height:6px;
-    border-radius:3px;
-    vertical-align:middle;
-  }
-
-  .acc-bar-wrap {
-    display:inline-flex;
-    align-items:center;
-    gap:4px;
-  }
-  .acc-bar-bg {
-    width:40px;
-    height:5px;
-    border-radius:3px;
-    background:var(--border);
-    overflow:hidden;
-    display:inline-block;
-    vertical-align:middle;
-  }
-  .acc-bar-fill {
-    height:100%;
-    border-radius:3px;
+    padding:1px 7px;
+    border-radius:6px;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.2px;
+    white-space:nowrap;
   }
 
   .glossary-grid {
@@ -240,23 +225,26 @@
     return `<span class="favor-pill ${cls}">${label}</span>`;
   }
 
-  function accBar(acc){
+  function accPill(acc){
     if(acc == null) return "\u2014";
-    const p = (acc*100).toFixed(1);
-    const w = Math.max(0, Math.min(100, (acc - 0.85) / 0.15 * 100));
-    const color = acc >= 0.93 ? "#22c55e" : acc >= 0.90 ? "#f59e0b" : "#ef4444";
-    return `<span class="acc-bar-wrap">
-      <span>${p}%</span>
-      <span class="acc-bar-bg"><span class="acc-bar-fill" style="width:${w}%;background:${color}"></span></span>
-    </span>`;
+    const p = (acc*100).toFixed(1) + "%";
+    // Green for high accuracy, yellow for mid, red for low
+    let bg, color;
+    if(acc >= 0.93)      { bg = "rgba(34,197,94,.15)";  color = "#22c55e"; }
+    else if(acc >= 0.90) { bg = "rgba(245,158,11,.15)"; color = "#f59e0b"; }
+    else                 { bg = "rgba(239,68,68,.15)";  color = "#ef4444"; }
+    return `<span class="grad-pill" style="background:${bg};color:${color}">${p}</span>`;
   }
 
-  function zoneBar(zsf){
+  function zonePill(zsf){
     if(zsf == null) return "\u2014";
     const val = zsf.toFixed(2);
-    const w = Math.max(0, Math.min(100, ((zsf - 0.5) / 1.0) * 100));
-    const color = zsf > 1.1 ? "#ef4444" : zsf < 0.9 ? "#3b82f6" : "#64748b";
-    return `${val} <span class="zone-bar" style="width:${w}%;max-width:30px;background:${color}"></span>`;
+    // Red for big zone, blue for tight, gray for neutral
+    let bg, color;
+    if(zsf > 1.10)      { bg = "rgba(239,68,68,.15)";  color = "#ef4444"; }
+    else if(zsf < 0.90) { bg = "rgba(59,130,246,.15)";  color = "#3b82f6"; }
+    else                 { bg = "rgba(100,116,139,.10)"; color = "#94a3b8"; }
+    return `<span class="grad-pill" style="background:${bg};color:${color}">${val}</span>`;
   }
 
   function renderTable(){
@@ -274,11 +262,11 @@
         <td style="text-align:left; white-space:nowrap; font-weight:600;">${name}</td>
         <td class="num">${u.games}</td>
         <td class="num">${u.total_called.toLocaleString()}</td>
-        <td class="num">${accBar(u.accuracy)}</td>
+        <td class="num">${accPill(u.accuracy)}</td>
         <td class="num">${pct(u.overall_cs_rate)}</td>
         <td class="num">${pct(u.ooz_cs_rate)}</td>
         <td class="num">${pct(u.iz_ball_rate)}</td>
-        <td class="num">${zoneBar(u.zone_size_factor)}</td>
+        <td class="num">${zonePill(u.zone_size_factor)}</td>
         <td class="num">${favorPill(u.favor_index, u.favor_label)}</td>
         <td class="num">${num(u.abs_challenges)}</td>
         <td class="num">${pct(u.abs_overturn_pct)}</td>
