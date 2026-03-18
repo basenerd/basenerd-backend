@@ -337,6 +337,9 @@ def umpire_profile(hp_umpire_id, season=None):
             "games": int(latest.get("games", 0)),
             "total_called": int(latest.get("total_called", 0)),
             "run_env_factor": _safe_float(latest.get("run_env_factor")),
+            "accuracy": _safe_float(latest.get("accuracy")),
+            "abs_challenges": int(latest.get("abs_challenges", 0)),
+            "abs_overturned": int(latest.get("abs_overturned", 0)),
         },
         "has_individual_model": has_model,
         "model_eval": {
@@ -516,6 +519,90 @@ def umpire_gamelog(hp_umpire_id, season=None):
         })
 
     return {"ok": True, "games": games, "total": len(games)}
+
+
+def umpire_tendency_heatmap(hp_umpire_id, season=None, stand=None):
+    """Build a called-strike-rate heatmap from all games for an umpire.
+
+    Fetches live feeds for every game in the umpire's gamelog, extracts
+    called pitches, bins them into a grid, and returns the grid of
+    P(called strike) at each bin.
+
+    Returns dict with grid_x, grid_z, grid (2D array of strike rates),
+    grid_n (2D array of pitch counts), and zone boundaries.
+    """
+    _load()
+
+    # Get game list
+    gl = umpire_gamelog(hp_umpire_id, season)
+    if not gl.get("ok") or not gl.get("games"):
+        return {"ok": False, "error": "No games found"}
+
+    game_pks = [g["game_pk"] for g in gl["games"]]
+
+    # Grid setup
+    nx, nz = 25, 30
+    x_min, x_max = -1.8, 1.8
+    z_min, z_max = 0.8, 4.2
+    dx = (x_max - x_min) / nx
+    dz = (z_max - z_min) / nz
+
+    strikes = np.zeros((nz, nx))
+    totals = np.zeros((nz, nx))
+
+    for game_pk in game_pks:
+        try:
+            url = f"https://statsapi.mlb.com/api/v1.1/game/{game_pk}/feed/live"
+            resp = requests.get(url, timeout=15)
+            if resp.status_code != 200:
+                continue
+            feed = resp.json()
+        except Exception:
+            continue
+
+        report = umpire_game_report(feed)
+        if not report or not report.get("ok"):
+            continue
+
+        for p in report.get("pitches", []):
+            if stand and p.get("stand") != stand:
+                continue
+            px_val = p.get("px")
+            pz_val = p.get("pz")
+            if px_val is None or pz_val is None:
+                continue
+
+            xi = int((px_val - x_min) / dx)
+            zi = int((pz_val - z_min) / dz)
+            if xi < 0 or xi >= nx or zi < 0 or zi >= nz:
+                continue
+
+            totals[zi][xi] += 1
+            if p.get("call") == "called_strike":
+                strikes[zi][xi] += 1
+
+    # Compute rates
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rates = np.where(totals > 0, strikes / totals, np.nan)
+
+    grid_x = [round(x_min + (i + 0.5) * dx, 4) for i in range(nx)]
+    grid_z = [round(z_min + (j + 0.5) * dz, 4) for j in range(nz)]
+
+    total_pitches = int(totals.sum())
+
+    return {
+        "ok": True,
+        "grid_x": grid_x,
+        "grid_z": grid_z,
+        "grid": [[None if np.isnan(rates[j][i]) else round(float(rates[j][i]), 4)
+                   for i in range(nx)] for j in range(nz)],
+        "grid_n": [[int(totals[j][i]) for i in range(nx)] for j in range(nz)],
+        "total_pitches": total_pitches,
+        "total_games": len(game_pks),
+        "sz_top": 3.4,
+        "sz_bot": 1.6,
+        "plate_half": float(_PLATE_HALF),
+    }
 
 
 # ── Per-game umpire report ──────────────────────────────────────────
