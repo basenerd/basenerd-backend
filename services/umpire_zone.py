@@ -607,6 +607,32 @@ def umpire_game_report(feed):
     summary["favor_home"] = favor_home
     summary["favor_away"] = favor_away
 
+    # Hitter/Pitcher favor index
+    # Incorrect called strikes expand the zone → favor pitchers (+)
+    # Incorrect balls contract the zone → favor hitters (-)
+    # Range: -1.0 (all favor hitters) to +1.0 (all favor pitchers), 0 = neutral
+    n_incorrect = len(incorrect)
+    if n_incorrect > 0:
+        favor_index = (len(incorrect_strikes) - len(incorrect_balls)) / n_incorrect
+        summary["favor_index"] = round(favor_index, 3)
+        if favor_index > 0.15:
+            summary["favor_label"] = "Pitcher-friendly"
+        elif favor_index < -0.15:
+            summary["favor_label"] = "Hitter-friendly"
+        else:
+            summary["favor_label"] = "Neutral"
+    else:
+        summary["favor_index"] = 0.0
+        summary["favor_label"] = "Perfect"
+
+    # Mark which pitches had ABS challenges (by pitch number)
+    challenge_pitch_nums = set()
+    for c in challenges:
+        if c.get("pitch_num"):
+            challenge_pitch_nums.add(c["pitch_num"])
+    for p in called_pitches:
+        p["challenged"] = p["n"] in challenge_pitch_nums
+
     # Team names
     teams = game_data.get("teams") or {}
     home_team = (teams.get("home") or {}).get("abbreviation") or \

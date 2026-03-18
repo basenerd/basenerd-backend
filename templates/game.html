@@ -2720,6 +2720,30 @@
             </div>
           </div>
         </div>
+
+        <!-- Favor index -->
+        <div class="card" style="margin:0 0 18px 0; padding:12px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div>
+              <div style="font-size:12px; font-weight:700; margin-bottom:2px;">Zone Tendency</div>
+              <div class="mono" style="font-size:11px; opacity:.6;">Missed calls lean toward expanding or contracting the zone</div>
+            </div>
+            <div style="margin-left:auto; text-align:right;">
+              <div class="mono" style="font-size:18px; font-weight:800;" id="ump-favor-label">—</div>
+              <div class="mono" style="font-size:11px; opacity:.5;" id="ump-favor-detail"></div>
+            </div>
+          </div>
+          <!-- Favor bar -->
+          <div style="margin-top:10px; position:relative; height:8px; border-radius:4px; background:rgba(255,255,255,.06);">
+            <div id="ump-favor-bar" style="position:absolute; top:0; height:100%; border-radius:4px; transition:all .3s;"></div>
+            <div id="ump-favor-needle" style="position:absolute; top:-3px; width:3px; height:14px; border-radius:2px; background:rgba(255,255,255,.9); transition:left .3s;"></div>
+          </div>
+          <div class="mono" style="display:flex; justify-content:space-between; font-size:9px; opacity:.4; margin-top:3px;">
+            <span>Hitter-friendly</span>
+            <span>Neutral</span>
+            <span>Pitcher-friendly</span>
+          </div>
+        </div>
       </div>
 
       <!-- Zone plots -->
@@ -5959,14 +5983,40 @@ document.addEventListener("DOMContentLoaded", ()=>{
     document.getElementById("ump-favor-home").innerHTML =
       `${data.home_team} <span style="float:right;font-weight:700;">${s.favor_home}</span>`;
 
+    // Favor index
+    const fi = s.favor_index || 0;
+    const favorLabel = document.getElementById("ump-favor-label");
+    const favorDetail = document.getElementById("ump-favor-detail");
+    favorLabel.textContent = s.favor_label || "—";
+    if(fi > 0.15) favorLabel.style.color = "#f97316";
+    else if(fi < -0.15) favorLabel.style.color = "#0ea5e9";
+    else favorLabel.style.color = "#94a3b8";
+    favorDetail.textContent = `${s.incorrect_strikes} expanded · ${s.incorrect_balls} contracted`;
+
+    // Favor bar: -1 = left (hitter), 0 = center, +1 = right (pitcher)
+    const barEl = document.getElementById("ump-favor-bar");
+    const needleEl = document.getElementById("ump-favor-needle");
+    const pct = (fi + 1) / 2 * 100; // 0-100
+    needleEl.style.left = `calc(${pct}% - 1.5px)`;
+    if(fi > 0){
+      barEl.style.left = "50%";
+      barEl.style.width = `${fi * 50}%`;
+      barEl.style.background = "rgba(249,115,22,.4)";
+    } else {
+      barEl.style.left = `${50 + fi * 50}%`;
+      barEl.style.width = `${-fi * 50}%`;
+      barEl.style.background = "rgba(14,165,233,.4)";
+    }
+
     document.getElementById("ump-summary").style.display = "";
 
-    // Zone plots
+    // Zone plots — pass challenges for ABS markers
+    const challengeNums = new Set(data.challenges.map(c => c.pitch_num));
     const correct = data.pitches.filter(p => p.correct);
     const missed = data.pitches.filter(p => !p.correct);
 
-    renderUmpZone("ump-zone-correct", correct, false);
-    renderUmpZone("ump-zone-missed", missed, true);
+    renderUmpZone("ump-zone-correct", correct, false, challengeNums);
+    renderUmpZone("ump-zone-missed", missed, true, challengeNums);
     document.getElementById("ump-zones").style.display = "";
 
     // ABS Challenges
@@ -6026,7 +6076,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
     }
   }
 
-  function renderUmpZone(svgId, pitches, highlightMissed){
+  // Tooltip element (shared)
+  const umpTip = document.createElement("div");
+  umpTip.className = "card";
+  umpTip.style.cssText = "display:none;position:fixed;padding:8px 10px;pointer-events:none;max-width:220px;z-index:200;font-size:11px;";
+  document.body.appendChild(umpTip);
+
+  function renderUmpZone(svgId, pitches, highlightMissed, challengeNums){
     const svg = document.getElementById(svgId);
     if(!svg) return;
 
@@ -6062,29 +6118,59 @@ document.addEventListener("DOMContentLoaded", ()=>{
     // Pitch dots
     pitches.forEach(p => {
       if(p.px == null || p.pz == null) return;
+      const cx = xScale(p.px);
+      const cy = yScale(p.pz);
+      const isChallenged = challengeNums && challengeNums.has(p.n);
 
-      const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
-      c.setAttribute("cx", xScale(p.px));
-      c.setAttribute("cy", yScale(p.pz));
-      c.setAttribute("r", 6);
+      let fill = p.call === "called_strike"
+        ? "rgba(239,68,68,.85)"   // red — called strike
+        : "rgba(34,197,94,.85)";  // green — ball
 
-      let fill;
-      if(highlightMissed){
-        // Missed calls: color by what was called
-        fill = p.call === "called_strike"
-          ? "rgba(239,68,68,.85)"   // red — strike called outside zone
-          : "rgba(34,197,94,.85)";  // green — ball called inside zone
+      let el;
+      if(isChallenged){
+        // Diamond shape for challenged pitches
+        const size = 8;
+        el = document.createElementNS("http://www.w3.org/2000/svg","polygon");
+        el.setAttribute("points",
+          `${cx},${cy-size} ${cx+size},${cy} ${cx},${cy+size} ${cx-size},${cy}`);
+        el.setAttribute("fill", fill);
+        el.setAttribute("stroke", "#facc15");
+        el.setAttribute("stroke-width", "2.5");
       } else {
-        // Correct calls: dimmer dots
-        fill = p.call === "called_strike"
-          ? "rgba(239,68,68,.4)"
-          : "rgba(34,197,94,.4)";
+        el = document.createElementNS("http://www.w3.org/2000/svg","circle");
+        el.setAttribute("cx", cx);
+        el.setAttribute("cy", cy);
+        el.setAttribute("r", 6);
+        el.setAttribute("fill", fill);
+        el.setAttribute("stroke", highlightMissed ? "rgba(255,255,255,.5)" : "rgba(15,23,42,.2)");
+        el.setAttribute("stroke-width", highlightMissed ? "1.5" : "0.5");
       }
 
-      c.setAttribute("fill", fill);
-      c.setAttribute("stroke", highlightMissed ? "rgba(255,255,255,.6)" : "rgba(15,23,42,.15)");
-      c.setAttribute("stroke-width", highlightMissed ? "1.5" : "0.5");
-      svg.appendChild(c);
+      el.style.cursor = "pointer";
+
+      // Tooltip on hover
+      const callLabel = p.call === "called_strike" ? "Called Strike" : "Ball";
+      const correctLabel = p.correct ? "Correct" : "Missed";
+      const challengeLabel = isChallenged ? ' <span style="color:#facc15;font-weight:700;">ABS</span>' : "";
+      el.addEventListener("mouseenter", (e) => {
+        umpTip.innerHTML = `
+          <div class="mono" style="font-weight:700;margin-bottom:3px;">#${p.n} · ${callLabel}${challengeLabel}</div>
+          <div class="mono" style="opacity:.7;line-height:1.5;">
+            ${correctLabel} · ${p.pitch_type_desc || p.pitch_type}<br>
+            ${p.batter} vs ${p.pitcher}<br>
+            ${p.half} ${p.inning} · Count: ${p.balls}-${p.strikes}
+          </div>`;
+        umpTip.style.display = "block";
+        umpTip.style.left = (e.clientX + 12) + "px";
+        umpTip.style.top = (e.clientY - 10) + "px";
+      });
+      el.addEventListener("mouseleave", () => { umpTip.style.display = "none"; });
+      el.addEventListener("mousemove", (e) => {
+        umpTip.style.left = (e.clientX + 12) + "px";
+        umpTip.style.top = (e.clientY - 10) + "px";
+      });
+
+      svg.appendChild(el);
     });
 
     // Count label
