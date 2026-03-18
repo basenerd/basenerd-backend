@@ -51,10 +51,10 @@
       </select>
     </div>
     <div class="card-body" style="display:flex; flex-direction:column; align-items:center; padding:16px;">
-      <div class="heatmap-legend" style="display:flex; align-items:center; gap:4px; font-size:10px; color:var(--muted); margin-bottom:10px;">
-        <span>Ball</span>
-        <div style="width:120px; height:10px; border-radius:3px; background:linear-gradient(to right, #3b82f6, #1e293b 45%, #1e293b 55%, #ef4444);"></div>
-        <span>Strike</span>
+      <div style="display:flex; align-items:center; gap:4px; font-size:10px; color:var(--muted); margin-bottom:10px;">
+        <span>Always Ball</span>
+        <div style="width:140px; height:10px; border-radius:3px; background:linear-gradient(to right, #3b82f6, #e2e8f0 50%, #ef4444);"></div>
+        <span>Always Strike</span>
       </div>
       <canvas id="heatmapCanvas" width="350" height="420" style="max-width:100%; border-radius:8px;"></canvas>
     </div>
@@ -65,11 +65,11 @@
     <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
       <div>
         <div class="card-title">Game Zone</div>
-        <div class="card-subtitle" id="zoneMsg">Select a game below</div>
+        <div class="card-subtitle" id="zoneMsg">Loading latest game...</div>
       </div>
       <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
         <select class="input" id="zoneGameSelect" style="width:auto; max-width:180px; font-size:13px;">
-          <option value="">Select game...</option>
+          <option value="">Loading...</option>
         </select>
         <select class="input" id="zoneStandSelect" style="width:auto; min-width:60px; font-size:13px;">
           <option value="">All</option>
@@ -87,6 +87,32 @@
       </div>
       <canvas id="zoneCanvas" width="350" height="420" style="max-width:100%; border-radius:8px;"></canvas>
       <div id="zoneSummary" style="display:none; margin-top:8px; font-size:11px; color:var(--muted); text-align:center;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ABS Challenges -->
+<div class="card" style="margin-top:16px;" id="absCard" style="display:none;">
+  <div class="card-header">
+    <div class="card-title">ABS Challenges</div>
+    <div class="card-subtitle" id="absSubtitle"></div>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-wrap">
+      <table class="table" style="min-width:100%; table-layout:auto;">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Inning</th>
+            <th style="text-align:left;">Batter</th>
+            <th style="text-align:left;">Pitcher</th>
+            <th style="text-align:left;">Original Call</th>
+            <th style="text-align:left;">Result</th>
+          </tr>
+        </thead>
+        <tbody id="absBody">
+          <tr><td colspan="5" style="text-align:center; color:var(--muted); padding:16px;">Select a game to see ABS challenges</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -186,6 +212,9 @@
     vertical-align:middle;
   }
 
+  .abs-overturned { color:#ef4444; font-weight:700; }
+  .abs-confirmed { color:#22c55e; }
+
   #zoneCanvas, #heatmapCanvas { background:var(--bg, #0f172a); }
 
   @media (max-width:900px) {
@@ -207,6 +236,8 @@
   const statsSubtitle = document.getElementById("statsSubtitle");
   const gamelogBody = document.getElementById("gamelogBody");
   const gamelogSubtitle = document.getElementById("gamelogSubtitle");
+  const absBody = document.getElementById("absBody");
+  const absSubtitle = document.getElementById("absSubtitle");
 
   // Zone scatter
   const zoneCanvas = document.getElementById("zoneCanvas");
@@ -224,6 +255,7 @@
   const heatStandSel = document.getElementById("heatStandSelect");
 
   let currentPitches = null;
+  let currentChallenges = null;
   let activeGameBtn = null;
 
   // ─── Helpers ───
@@ -310,6 +342,10 @@
           accVal = 1.0 - (ooz * (1 - csRate) + iz * csRate);
         }
 
+        const absChal = t.abs_challenges || 0;
+        const absOT = t.abs_overturned || 0;
+        const absOTpct = absChal > 0 ? ((absOT / absChal) * 100).toFixed(0) + "%" : "\u2014";
+
         statsGrid.innerHTML =
           stat("Games", t.games || 0) +
           stat("Pitches", (t.total_called || 0).toLocaleString()) +
@@ -322,7 +358,8 @@
           stat("Shad Hi", pct(t.shadow_high_cs_rate)) +
           stat("Shad Lo", pct(t.shadow_low_cs_rate)) +
           stat("Run Env", fmt(t.run_env_factor)) +
-          stat("ABS Chal.", (t.abs_challenges || 0).toLocaleString());
+          stat("ABS Chal.", absChal) +
+          stat("ABS OT%", absOTpct);
       })
       .catch(() => {
         statsGrid.innerHTML = `<div style="color:var(--muted); padding:8px;">Error loading stats</div>`;
@@ -350,7 +387,6 @@
           <td class="num"><button class="zone-btn" data-pk="${g.game_pk}">View Zone</button></td>
         </tr>`).join("");
 
-        // Attach click handlers
         gamelogBody.querySelectorAll(".zone-btn").forEach(btn => {
           btn.addEventListener("click", () => {
             if(activeGameBtn) activeGameBtn.classList.remove("active");
@@ -364,6 +400,13 @@
           data.games.map(g =>
             `<option value="${g.game_pk}">${g.game_date} \u2014 ${g.away_team} @ ${g.home_team}</option>`
           ).join("");
+
+        // Auto-load most recent game
+        const latestPk = data.games[0].game_pk;
+        zoneGameSel.value = latestPk;
+        const firstBtn = gamelogBody.querySelector(".zone-btn");
+        if(firstBtn){ firstBtn.classList.add("active"); activeGameBtn = firstBtn; }
+        loadZone(latestPk);
       })
       .catch(() => {
         gamelogBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:20px;">Error loading games</td></tr>`;
@@ -392,34 +435,41 @@
     const plateHalf = 17.0 / 24.0;
     const zx1 = toX(-plateHalf), zx2 = toX(plateHalf);
     const zy1 = toY(szTop), zy2 = toY(szBot);
+    const zw = zx2 - zx1, zh = zy2 - zy1;
 
-    // Zone rectangle
-    context.strokeStyle = "rgba(255,255,255,0.5)";
-    context.lineWidth = 1.5;
-    context.strokeRect(zx1, zy1, zx2 - zx1, zy2 - zy1);
+    // Zone rectangle - thick white border
+    context.save();
+    context.strokeStyle = "#ffffff";
+    context.lineWidth = 2.5;
+    context.shadowColor = "rgba(0,0,0,0.5)";
+    context.shadowBlur = 4;
+    context.strokeRect(zx1, zy1, zw, zh);
+    context.restore();
 
     // Grid lines (thirds)
-    context.strokeStyle = "rgba(255,255,255,0.12)";
-    context.lineWidth = 0.5;
-    const zw3 = (zx2 - zx1) / 3;
-    const zh3 = (zy2 - zy1) / 3;
+    context.strokeStyle = "rgba(255,255,255,0.25)";
+    context.lineWidth = 1;
+    const zw3 = zw / 3, zh3 = zh / 3;
     for(let i = 1; i < 3; i++){
       context.beginPath(); context.moveTo(zx1 + zw3*i, zy1); context.lineTo(zx1 + zw3*i, zy2); context.stroke();
       context.beginPath(); context.moveTo(zx1, zy1 + zh3*i); context.lineTo(zx2, zy1 + zh3*i); context.stroke();
     }
 
-    // Home plate
+    // Home plate pentagon
     const px1 = toX(-plateHalf), px2 = toX(plateHalf);
-    const py = toY(PZ_MIN) - 2;
-    context.fillStyle = "rgba(255,255,255,0.15)";
+    const py = toY(PZ_MIN) + 6;
+    context.fillStyle = "rgba(255,255,255,0.2)";
+    context.strokeStyle = "rgba(255,255,255,0.4)";
+    context.lineWidth = 1;
     context.beginPath();
     context.moveTo(px1, py);
     context.lineTo(px2, py);
-    context.lineTo(px2, py + 4);
-    context.lineTo((px1+px2)/2, py + 8);
-    context.lineTo(px1, py + 4);
+    context.lineTo(px2, py + 6);
+    context.lineTo((px1+px2)/2, py + 12);
+    context.lineTo(px1, py + 6);
     context.closePath();
     context.fill();
+    context.stroke();
   }
 
   // ─── Heatmap ───
@@ -447,24 +497,21 @@
   }
 
   function heatColor(rate){
-    // rate 0..1: 0 = strong blue (ball), 0.5 = dark/neutral, 1.0 = strong red (strike)
+    // Diverging: blue (0%) → white (50%) → red (100%)
     if(rate == null) return "rgba(0,0,0,0)";
-    const r = rate;
-    if(r <= 0.5){
-      // blue to dark
-      const t = r / 0.5;
-      const R = Math.round(59 * (1 - t));
-      const G = Math.round(130 * (1 - t));
-      const B = Math.round(246 * (1 - t) + 30 * t);
-      return `rgba(${R},${G},${B},0.85)`;
+    let R, G, B;
+    if(rate <= 0.5){
+      const t = rate / 0.5; // 0→1
+      R = Math.round(59  + (240 - 59)  * t);
+      G = Math.round(130 + (240 - 130) * t);
+      B = Math.round(246 + (240 - 246) * t);
     } else {
-      // dark to red
-      const t = (r - 0.5) / 0.5;
-      const R = Math.round(239 * t);
-      const G = Math.round(68 * t);
-      const B = Math.round(68 * t);
-      return `rgba(${R},${G},${B},0.85)`;
+      const t = (rate - 0.5) / 0.5; // 0→1
+      R = Math.round(240 + (239 - 240) * t);
+      G = Math.round(240 + (68  - 240) * t);
+      B = Math.round(240 + (68  - 240) * t);
     }
+    return `rgb(${R},${G},${B})`;
   }
 
   function drawHeatmap(data){
@@ -485,7 +532,7 @@
       for(let i = 0; i < nx; i++){
         const rate = grid[j][i];
         const n = gridN[j][i];
-        if(n < 2) continue; // skip sparse bins
+        if(n < 2) continue;
 
         const cx = gridX[i] - dx/2;
         const cz = gridZ[j] - dz/2;
@@ -496,24 +543,18 @@
         const w = x2 - x1;
         const h = y2 - y1;
 
-        heatCtx.fillStyle = heatColor(rate);
-        // Soften edges with slight rounding
-        const r = Math.min(2, w/4);
-        heatCtx.beginPath();
-        heatCtx.moveTo(x1 + r, y1);
-        heatCtx.lineTo(x1 + w - r, y1);
-        heatCtx.quadraticCurveTo(x1 + w, y1, x1 + w, y1 + r);
-        heatCtx.lineTo(x1 + w, y1 + h - r);
-        heatCtx.quadraticCurveTo(x1 + w, y1 + h, x1 + w - r, y1 + h);
-        heatCtx.lineTo(x1 + r, y1 + h);
-        heatCtx.quadraticCurveTo(x1, y1 + h, x1, y1 + h - r);
-        heatCtx.lineTo(x1, y1 + r);
-        heatCtx.quadraticCurveTo(x1, y1, x1 + r, y1);
-        heatCtx.closePath();
-        heatCtx.fill();
+        // Opacity scales with sample size
+        const alpha = Math.min(0.9, 0.3 + (n / 15) * 0.6);
+        const color = heatColor(rate);
+
+        heatCtx.globalAlpha = alpha;
+        heatCtx.fillStyle = color;
+        heatCtx.fillRect(x1, y1, w + 0.5, h + 0.5); // +0.5 to eliminate gaps
+        heatCtx.globalAlpha = 1;
       }
     }
 
+    // Draw zone outline ON TOP of heatmap
     drawZoneOutline(heatCtx, data.sz_top, data.sz_bot);
   }
 
@@ -541,6 +582,7 @@
     const avgTop = tops.length ? tops.reduce((a,b) => a+b, 0) / tops.length : 3.4;
     const avgBot = bots.length ? bots.reduce((a,b) => a+b, 0) / bots.length : 1.6;
 
+    // Draw zone FIRST as background
     drawZoneOutline(zoneCtx, avgTop, avgBot);
 
     // Sort: correct behind, incorrect on top
@@ -556,10 +598,14 @@
       else                                          color = "#f97316";
 
       zoneCtx.beginPath();
-      zoneCtx.arc(x, y, 3.5, 0, Math.PI * 2);
+      zoneCtx.arc(x, y, 4, 0, Math.PI * 2);
       zoneCtx.fillStyle = color;
-      zoneCtx.globalAlpha = 0.8;
+      zoneCtx.globalAlpha = 0.85;
       zoneCtx.fill();
+      // Thin border for visibility
+      zoneCtx.strokeStyle = "rgba(0,0,0,0.3)";
+      zoneCtx.lineWidth = 0.5;
+      zoneCtx.stroke();
       zoneCtx.globalAlpha = 1;
     });
 
@@ -570,7 +616,25 @@
     const acc = total > 0 ? (correct / total * 100).toFixed(1) : "0.0";
 
     zoneSummary.style.display = "block";
-    zoneSummary.innerHTML = `${total} pitches \u2022 ${acc}% acc \u2022 ${badStrikes} bad K \u2022 ${badBalls} bad B`;
+    zoneSummary.innerHTML = `${total} pitches \u2022 ${acc}% accuracy \u2022 ${badStrikes} bad strikes \u2022 ${badBalls} bad balls`;
+  }
+
+  // ─── ABS Challenges ───
+  function renderChallenges(challenges){
+    if(!challenges || challenges.length === 0){
+      absSubtitle.textContent = "No challenges this game";
+      absBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:16px;">No ABS challenges this game</td></tr>`;
+      return;
+    }
+    const ot = challenges.filter(c => c.overturned).length;
+    absSubtitle.textContent = `${challenges.length} challenge${challenges.length !== 1 ? "s" : ""} \u2022 ${ot} overturned`;
+    absBody.innerHTML = challenges.map(c => `<tr>
+      <td style="text-align:left; white-space:nowrap;">${c.half} ${c.inning}</td>
+      <td style="text-align:left; white-space:nowrap;">${c.batter || "\u2014"}</td>
+      <td style="text-align:left; white-space:nowrap;">${c.pitcher || "\u2014"}</td>
+      <td style="text-align:left;">${c.call || "\u2014"}</td>
+      <td style="text-align:left;" class="${c.overturned ? "abs-overturned" : "abs-confirmed"}">${c.result}</td>
+    </tr>`).join("");
   }
 
   function loadZone(gamePk){
@@ -578,6 +642,7 @@
     zoneLegend.style.display = "none";
     zoneSummary.style.display = "none";
     currentPitches = null;
+    currentChallenges = null;
     zoneGameSel.value = gamePk;
 
     fetch(`/umpire/${UMPIRE_ID}/game_zone.json?game_pk=${gamePk}`)
@@ -588,9 +653,16 @@
           return;
         }
         currentPitches = data.pitches || [];
-        zoneMsg.textContent = `${data.away_team} @ ${data.home_team}`;
+        currentChallenges = data.challenges || [];
+        const summary = data.summary || {};
+
+        let msgParts = [`${data.away_team} @ ${data.home_team}`];
+        if(summary.accuracy != null) msgParts.push(`${(summary.accuracy * 100).toFixed(1)}% acc`);
+        zoneMsg.textContent = msgParts.join(" \u2022 ");
+
         zoneLegend.style.display = "flex";
         drawScatter(currentPitches);
+        renderChallenges(currentChallenges);
       })
       .catch(() => {
         zoneMsg.textContent = "Error loading zone";
@@ -612,10 +684,13 @@
     loadGamelog();
     loadHeatmap();
     currentPitches = null;
+    currentChallenges = null;
     activeGameBtn = null;
     zoneLegend.style.display = "none";
     zoneSummary.style.display = "none";
-    zoneMsg.textContent = "Select a game below";
+    zoneMsg.textContent = "Loading latest game...";
+    absSubtitle.textContent = "";
+    absBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:16px;">Select a game to see ABS challenges</td></tr>`;
     setupCanvas(zoneCanvas, zoneCtx);
     zoneCtx.clearRect(0, 0, CW, CH);
   });
