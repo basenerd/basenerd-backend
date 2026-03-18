@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <div>
+      <div class="card-title">Umpire Leaderboard</div>
+      <div class="card-subtitle" id="umpSubtitle">Loading...</div>
+    </div>
+    <form id="umpFilters" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <select class="input" id="seasonSelect" aria-label="Season" style="width:auto; min-width:90px;">
+        {% for s in seasons %}
+          <option value="{{ s }}" {% if s == season %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <select class="input" id="sortSelect" aria-label="Sort by" style="width:auto; min-width:140px;">
+        <option value="games">Games</option>
+        <option value="accuracy">Accuracy</option>
+        <option value="ooz_cs_rate">OOZ Strike %</option>
+        <option value="iz_ball_rate">IZ Ball %</option>
+        <option value="zone_size_factor">Zone Size</option>
+        <option value="favor_index">Favor Index</option>
+        <option value="total_called">Total Pitches</option>
+        <option value="shadow_high_cs_rate">Shadow High %</option>
+        <option value="shadow_low_cs_rate">Shadow Low %</option>
+      </select>
+    </form>
+  </div>
+
+  <div class="card-body" style="padding:0;">
+    <div class="table-wrap">
+      <table class="table" id="umpTable" style="width:max-content; min-width:100%; table-layout:auto;">
+        <thead>
+          <tr>
+            <th class="sortable" data-col="name" style="text-align:left; min-width:140px;">Umpire</th>
+            <th class="sortable num" data-col="games">G</th>
+            <th class="sortable num" data-col="total_called">Pitches</th>
+            <th class="sortable num" data-col="accuracy">Acc%</th>
+            <th class="sortable num" data-col="overall_cs_rate">CS%</th>
+            <th class="sortable num" data-col="ooz_cs_rate" title="Out-of-zone called strike rate (incorrect strikes)">OOZ K%</th>
+            <th class="sortable num" data-col="iz_ball_rate" title="In-zone ball rate (incorrect balls)">IZ Ball%</th>
+            <th class="sortable num" data-col="zone_size_factor" title="Zone size relative to league avg (>1 = bigger zone)">Zone Size</th>
+            <th class="sortable num" data-col="favor_index" title="Positive = pitcher-friendly, Negative = hitter-friendly">Favor</th>
+            <th class="sortable num" data-col="shadow_high_cs_rate" title="Called strike rate on pitches just above zone">Shad High</th>
+            <th class="sortable num" data-col="shadow_low_cs_rate" title="Called strike rate on pitches just below zone">Shad Low</th>
+            <th class="sortable num" data-col="run_env_factor" title="Run environment factor vs league avg">Run Env</th>
+          </tr>
+        </thead>
+        <tbody id="umpBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .table th.sortable { cursor:pointer; user-select:none; }
+  .table th.sortable:hover { color: var(--link); }
+  .table th.sortable.asc::after { content:" \25B2"; font-size:8px; }
+  .table th.sortable.desc::after { content:" \25BC"; font-size:8px; }
+
+  .favor-pill {
+    display:inline-block;
+    padding: 1px 7px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    white-space: nowrap;
+  }
+  .favor-pitcher { background:rgba(239,68,68,.12); color:#dc2626; }
+  .favor-hitter  { background:rgba(59,130,246,.12); color:#2563eb; }
+  .favor-neutral { background:rgba(100,116,139,.10); color:#64748b; }
+
+  .zone-bar {
+    display:inline-block;
+    height:6px;
+    border-radius:3px;
+    vertical-align:middle;
+  }
+
+  .acc-bar-wrap {
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+  }
+  .acc-bar-bg {
+    width:40px;
+    height:5px;
+    border-radius:3px;
+    background:var(--border);
+    overflow:hidden;
+    display:inline-block;
+    vertical-align:middle;
+  }
+  .acc-bar-fill {
+    height:100%;
+    border-radius:3px;
+  }
+
+  @media (max-width:640px) {
+    .table th, .table td { font-size:10px; padding:5px 4px; }
+    #seasonSelect, #sortSelect { font-size:16px !important; }
+  }
+</style>
+
+<script>
+(function(){
+  const body = document.getElementById("umpBody");
+  const subtitle = document.getElementById("umpSubtitle");
+  const seasonSel = document.getElementById("seasonSelect");
+  const sortSel = document.getElementById("sortSelect");
+  let allData = [];
+  let sortCol = "games";
+  let sortDir = "desc";
+
+  function pct(v, digits){ return v != null ? (v*100).toFixed(digits||1) : "—"; }
+  function fmt(v, digits){ return v != null ? v.toFixed(digits||2) : "—"; }
+
+  function favorPill(fi, label){
+    if(fi == null) return "—";
+    let cls = "favor-neutral";
+    if(label === "Pitcher-friendly") cls = "favor-pitcher";
+    else if(label === "Hitter-friendly") cls = "favor-hitter";
+    return `<span class="favor-pill ${cls}">${label}</span>`;
+  }
+
+  function accBar(acc){
+    if(acc == null) return "—";
+    const p = (acc*100).toFixed(1);
+    const w = Math.max(0, Math.min(100, (acc - 0.85) / 0.15 * 100));
+    const color = acc >= 0.93 ? "#22c55e" : acc >= 0.90 ? "#f59e0b" : "#ef4444";
+    return `<span class="acc-bar-wrap">
+      <span>${p}</span>
+      <span class="acc-bar-bg"><span class="acc-bar-fill" style="width:${w}%;background:${color}"></span></span>
+    </span>`;
+  }
+
+  function zoneBar(zsf){
+    if(zsf == null) return "—";
+    const val = zsf.toFixed(2);
+    const w = Math.max(0, Math.min(100, ((zsf - 0.5) / 1.0) * 100));
+    const color = zsf > 1.1 ? "#ef4444" : zsf < 0.9 ? "#3b82f6" : "#64748b";
+    return `${val} <span class="zone-bar" style="width:${w}%;max-width:30px;background:${color}"></span>`;
+  }
+
+  function renderTable(){
+    const sorted = [...allData].sort((a,b) => {
+      let va = a[sortCol], vb = b[sortCol];
+      if(va == null) va = sortDir === "asc" ? Infinity : -Infinity;
+      if(vb == null) vb = sortDir === "asc" ? Infinity : -Infinity;
+      if(typeof va === "string") return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortDir === "asc" ? va - vb : vb - va;
+    });
+
+    body.innerHTML = sorted.map((u, i) => {
+      const name = u.name || `Umpire #${u.umpire_id}`;
+      return `<tr>
+        <td style="text-align:left; white-space:nowrap; font-weight:600;">${name}</td>
+        <td class="num">${u.games}</td>
+        <td class="num">${u.total_called.toLocaleString()}</td>
+        <td class="num">${accBar(u.accuracy)}</td>
+        <td class="num">${pct(u.overall_cs_rate)}</td>
+        <td class="num">${pct(u.ooz_cs_rate)}</td>
+        <td class="num">${pct(u.iz_ball_rate)}</td>
+        <td class="num">${zoneBar(u.zone_size_factor)}</td>
+        <td class="num">${favorPill(u.favor_index, u.favor_label)}</td>
+        <td class="num">${pct(u.shadow_high_cs_rate)}</td>
+        <td class="num">${pct(u.shadow_low_cs_rate)}</td>
+        <td class="num">${fmt(u.run_env_factor)}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  function loadData(){
+    const season = seasonSel.value;
+    subtitle.textContent = "Loading...";
+    fetch(`/umpires.json?season=${season}`)
+      .then(r => r.json())
+      .then(data => {
+        if(!data.ok){
+          subtitle.textContent = data.error || "Error loading data";
+          body.innerHTML = "";
+          return;
+        }
+        allData = data.umpires || [];
+        subtitle.textContent = `${data.total} umpires \u2022 ${season} season`;
+        renderTable();
+      })
+      .catch(err => {
+        subtitle.textContent = "Error loading data";
+      });
+  }
+
+  // Sort headers
+  document.querySelectorAll(".table th.sortable").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.col;
+      if(sortCol === col){
+        sortDir = sortDir === "asc" ? "desc" : "asc";
+      } else {
+        sortCol = col;
+        // Default sort directions
+        sortDir = (col === "name") ? "asc" : "desc";
+        if(col === "ooz_cs_rate" || col === "iz_ball_rate") sortDir = "asc";
+      }
+      document.querySelectorAll(".table th.sortable").forEach(h => h.classList.remove("asc","desc"));
+      th.classList.add(sortDir);
+      // Sync dropdown
+      if([...sortSel.options].some(o => o.value === col)) sortSel.value = col;
+      renderTable();
+    });
+  });
+
+  // Sort dropdown (for mobile convenience)
+  sortSel.addEventListener("change", () => {
+    sortCol = sortSel.value;
+    sortDir = (sortCol === "name") ? "asc" : "desc";
+    if(sortCol === "ooz_cs_rate" || sortCol === "iz_ball_rate") sortDir = "asc";
+    document.querySelectorAll(".table th.sortable").forEach(h => h.classList.remove("asc","desc"));
+    const activeHeader = document.querySelector(`th[data-col="${sortCol}"]`);
+    if(activeHeader) activeHeader.classList.add(sortDir);
+    renderTable();
+  });
+
+  seasonSel.addEventListener("change", loadData);
+
+  // Initial load
+  loadData();
+
+  // Set initial sort indicator
+  const initHeader = document.querySelector('th[data-col="games"]');
+  if(initHeader) initHeader.classList.add("desc");
+})();
+</script>
+
+{% endblock %}

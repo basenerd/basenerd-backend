@@ -373,10 +373,48 @@ def umpire_list(season=None):
         names = names.drop_duplicates("hp_umpire_id")
         name_map = dict(zip(names["hp_umpire_id"], names["hp_umpire_name"]))
 
+    # Compute league averages for this season subset for percentile context
+    lg_ooz_cs = um["ooz_cs_rate"].dropna()
+    lg_iz_ball = um["iz_ball_rate"].dropna()
+
     umpires = []
     for _, row in um.iterrows():
         ump_id = int(row["hp_umpire_id"])
         has_model = str(ump_id) in _registry.get("umpires", {})
+
+        ooz = _safe_float(row.get("ooz_cs_rate"))
+        iz = _safe_float(row.get("iz_ball_rate"))
+
+        # Favor index: positive = pitcher-friendly (expands zone),
+        # negative = hitter-friendly (contracts zone)
+        favor_index = None
+        favor_label = None
+        if ooz is not None and iz is not None:
+            # ooz_cs_rate = incorrectly expanding zone (helps pitchers)
+            # iz_ball_rate = incorrectly contracting zone (helps hitters)
+            # Normalize to roughly -1..+1 scale
+            favor_index = round(ooz - iz, 4)
+            if favor_index > 0.01:
+                favor_label = "Pitcher-friendly"
+            elif favor_index < -0.01:
+                favor_label = "Hitter-friendly"
+            else:
+                favor_label = "Neutral"
+
+        # Accuracy: proportion of correct calls
+        # correct = in_zone strikes + out_of_zone balls
+        # accuracy = 1 - (ooz_cs_rate * ooz_fraction + iz_ball_rate * iz_fraction)
+        # We approximate from the rates we have
+        accuracy = None
+        if ooz is not None and iz is not None:
+            cs_rate = _safe_float(row.get("overall_cs_rate"))
+            if cs_rate is not None:
+                # ooz_fraction ≈ 1 - cs_rate (not exact but reasonable proxy)
+                # iz_fraction ≈ cs_rate
+                ooz_frac = 1 - cs_rate
+                iz_frac = cs_rate
+                error_rate = ooz * ooz_frac + iz * iz_frac
+                accuracy = round(1.0 - error_rate, 4)
 
         umpires.append({
             "umpire_id": ump_id,
@@ -385,18 +423,29 @@ def umpire_list(season=None):
             "games": int(row.get("games", 0)),
             "total_called": int(row.get("total_called", 0)),
             "overall_cs_rate": _safe_float(row.get("overall_cs_rate")),
-            "ooz_cs_rate": _safe_float(row.get("ooz_cs_rate")),
+            "ooz_cs_rate": ooz,
+            "iz_ball_rate": iz,
             "zone_size_factor": _safe_float(row.get("zone_size_factor")),
+            "shadow_high_cs_rate": _safe_float(row.get("shadow_high_cs_rate")),
+            "shadow_low_cs_rate": _safe_float(row.get("shadow_low_cs_rate")),
+            "run_env_factor": _safe_float(row.get("run_env_factor")),
+            "accuracy": accuracy,
+            "favor_index": favor_index,
+            "favor_label": favor_label,
             "has_individual_model": has_model,
         })
 
     # Sort by games worked descending
     umpires.sort(key=lambda u: u.get("games", 0), reverse=True)
 
+    # Available seasons
+    all_seasons = sorted(_umpire_metrics["season"].unique().tolist())
+
     return {
         "ok": True,
         "umpires": umpires,
         "season": season,
+        "seasons": all_seasons,
         "total": len(umpires),
     }
 
