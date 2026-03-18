@@ -23,6 +23,8 @@
         <option value="total_called">Total Pitches</option>
         <option value="shadow_high_cs_rate">Shadow High %</option>
         <option value="shadow_low_cs_rate">Shadow Low %</option>
+        <option value="abs_challenges">ABS Challenges</option>
+        <option value="abs_overturn_pct">ABS Overturn %</option>
       </select>
     </form>
   </div>
@@ -32,22 +34,87 @@
       <table class="table" id="umpTable" style="width:max-content; min-width:100%; table-layout:auto;">
         <thead>
           <tr>
-            <th class="sortable" data-col="name" style="text-align:left; min-width:140px;">Umpire</th>
-            <th class="sortable num" data-col="games">G</th>
-            <th class="sortable num" data-col="total_called">Pitches</th>
-            <th class="sortable num" data-col="accuracy">Acc%</th>
-            <th class="sortable num" data-col="overall_cs_rate">CS%</th>
-            <th class="sortable num" data-col="ooz_cs_rate" title="Out-of-zone called strike rate (incorrect strikes)">OOZ K%</th>
-            <th class="sortable num" data-col="iz_ball_rate" title="In-zone ball rate (incorrect balls)">IZ Ball%</th>
-            <th class="sortable num" data-col="zone_size_factor" title="Zone size relative to league avg (>1 = bigger zone)">Zone Size</th>
-            <th class="sortable num" data-col="favor_index" title="Positive = pitcher-friendly, Negative = hitter-friendly">Favor</th>
-            <th class="sortable num" data-col="shadow_high_cs_rate" title="Called strike rate on pitches just above zone">Shad High</th>
-            <th class="sortable num" data-col="shadow_low_cs_rate" title="Called strike rate on pitches just below zone">Shad Low</th>
-            <th class="sortable num" data-col="run_env_factor" title="Run environment factor vs league avg">Run Env</th>
+            <th class="sortable has-tip" data-col="name" style="text-align:left; min-width:140px;">Umpire<span class="col-tip">Home plate umpire name</span></th>
+            <th class="sortable num has-tip" data-col="games">G<span class="col-tip">Games worked behind home plate this season</span></th>
+            <th class="sortable num has-tip" data-col="total_called">Pitches<span class="col-tip">Total called pitches (called strikes + balls). Does not include swings or HBP.</span></th>
+            <th class="sortable num has-tip" data-col="accuracy">Acc%<span class="col-tip">Accuracy: % of called pitches where the umpire made the correct call based on the true strike zone</span></th>
+            <th class="sortable num has-tip" data-col="overall_cs_rate">CS%<span class="col-tip">Called Strike Rate: % of all called pitches that were called strikes (correct or not)</span></th>
+            <th class="sortable num has-tip" data-col="ooz_cs_rate">OOZ K%<span class="col-tip">Out-of-Zone Strike %: % of pitches outside the true zone that were incorrectly called strikes. Higher = bigger zone.</span></th>
+            <th class="sortable num has-tip" data-col="iz_ball_rate">IZ Ball%<span class="col-tip">In-Zone Ball %: % of pitches inside the true zone that were incorrectly called balls. Higher = tighter zone.</span></th>
+            <th class="sortable num has-tip" data-col="zone_size_factor">Zone<span class="col-tip">Zone Size Factor: Umpire's OOZ strike rate relative to league average. >1.00 = bigger zone, <1.00 = tighter zone.</span></th>
+            <th class="sortable num has-tip" data-col="favor_index">Favor<span class="col-tip">Favor Index: OOZ K% minus IZ Ball%. Positive = more bad strikes than bad balls (pitcher-friendly errors). Negative = more bad balls than bad strikes (hitter-friendly errors).</span></th>
+            <th class="sortable num has-tip" data-col="abs_challenges">ABS<span class="col-tip">ABS Challenges: Total Automated Ball-Strike challenge requests against this umpire</span></th>
+            <th class="sortable num has-tip" data-col="abs_overturn_pct">OT%<span class="col-tip">ABS Overturn %: % of ABS challenges that resulted in the call being overturned</span></th>
+            <th class="sortable num has-tip" data-col="shadow_high_cs_rate">Shad Hi<span class="col-tip">Shadow High %: Called strike rate on pitches just above the top of the zone (within ~5 inches). Higher = expands zone upward.</span></th>
+            <th class="sortable num has-tip" data-col="shadow_low_cs_rate">Shad Lo<span class="col-tip">Shadow Low %: Called strike rate on pitches just below the bottom of the zone (within ~5 inches). Higher = expands zone downward.</span></th>
+            <th class="sortable num has-tip" data-col="run_env_factor">Run Env<span class="col-tip">Run Environment Factor: Average total runs in this umpire's games vs league average. >1.00 = higher-scoring games, <1.00 = lower-scoring.</span></th>
           </tr>
         </thead>
         <tbody id="umpBody"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- Glossary -->
+<div class="card" style="margin-top:16px;">
+  <div class="card-header">
+    <div class="card-title">Glossary</div>
+  </div>
+  <div class="card-body">
+    <div class="glossary-grid">
+      <div class="glossary-item">
+        <strong>G</strong>
+        <span>Games worked behind home plate this season.</span>
+      </div>
+      <div class="glossary-item">
+        <strong>Pitches</strong>
+        <span>Total called pitches (called strikes + balls). Does not include swings, foul balls, or hit-by-pitches.</span>
+      </div>
+      <div class="glossary-item">
+        <strong>Acc%</strong>
+        <span>Accuracy — the percentage of called pitches where the umpire made the correct call based on the true strike zone boundaries.</span>
+      </div>
+      <div class="glossary-item">
+        <strong>CS%</strong>
+        <span>Called Strike Rate — the percentage of all called pitches that were ruled strikes, whether correct or not. Higher values indicate an umpire who calls more strikes overall.</span>
+      </div>
+      <div class="glossary-item">
+        <strong>OOZ K%</strong>
+        <span>Out-of-Zone Strike % — the percentage of pitches <em>outside</em> the true strike zone that were incorrectly called strikes. A higher rate means the umpire tends to expand the zone (helps pitchers).</span>
+      </div>
+      <div class="glossary-item">
+        <strong>IZ Ball%</strong>
+        <span>In-Zone Ball % — the percentage of pitches <em>inside</em> the true strike zone that were incorrectly called balls. A higher rate means the umpire tends to contract the zone (helps hitters).</span>
+      </div>
+      <div class="glossary-item">
+        <strong>Zone Size</strong>
+        <span>Zone Size Factor — the umpire's out-of-zone strike rate divided by the league average. A value above 1.00 means a bigger-than-average zone; below 1.00 means a tighter zone.</span>
+      </div>
+      <div class="glossary-item">
+        <strong>Favor</strong>
+        <span>Favor Index — calculated as OOZ K% minus IZ Ball%. A positive value means the umpire makes more incorrect strikes than incorrect balls (pitcher-friendly errors). A negative value means more incorrect balls (hitter-friendly errors). Note: this measures error <em>balance</em>, not zone size — an umpire can have a tight zone overall but still lean pitcher-friendly if their few mistakes skew toward bad strikes.</span>
+      </div>
+      <div class="glossary-item">
+        <strong>ABS</strong>
+        <span>ABS Challenges — the total number of Automated Ball-Strike system challenge requests made against this umpire's calls during the season.</span>
+      </div>
+      <div class="glossary-item">
+        <strong>OT%</strong>
+        <span>ABS Overturn % — the percentage of ABS challenges that resulted in the umpire's original call being overturned. A higher rate suggests more reviewable incorrect calls.</span>
+      </div>
+      <div class="glossary-item">
+        <strong>Shad Hi</strong>
+        <span>Shadow High % — the called strike rate on pitches located just above the top of the strike zone (within ~5 inches). Higher values mean the umpire tends to expand their zone upward.</span>
+      </div>
+      <div class="glossary-item">
+        <strong>Shad Lo</strong>
+        <span>Shadow Low % — the called strike rate on pitches located just below the bottom of the strike zone (within ~5 inches). Higher values mean the umpire tends to expand their zone downward.</span>
+      </div>
+      <div class="glossary-item">
+        <strong>Run Env</strong>
+        <span>Run Environment Factor — the average total runs scored in this umpire's games divided by the league average. Values above 1.00 indicate higher-scoring games; below 1.00 indicates lower-scoring games.</span>
+      </div>
     </div>
   </div>
 </div>
@@ -57,6 +124,30 @@
   .table th.sortable:hover { color: var(--link); }
   .table th.sortable.asc::after { content:" \25B2"; font-size:8px; }
   .table th.sortable.desc::after { content:" \25BC"; font-size:8px; }
+
+  /* Column tooltips */
+  .has-tip { position:relative; }
+  .col-tip {
+    display:none;
+    position:absolute;
+    bottom:100%;
+    left:50%;
+    transform:translateX(-50%);
+    background:var(--card-bg, #1e293b);
+    color:var(--text, #e2e8f0);
+    border:1px solid var(--border, #334155);
+    padding:8px 12px;
+    border-radius:8px;
+    font-size:12px;
+    font-weight:400;
+    line-height:1.4;
+    white-space:normal;
+    width:240px;
+    z-index:100;
+    pointer-events:none;
+    box-shadow:0 4px 12px rgba(0,0,0,.3);
+  }
+  .has-tip:hover .col-tip { display:block; }
 
   .favor-pill {
     display:inline-block;
@@ -97,9 +188,28 @@
     border-radius:3px;
   }
 
+  .glossary-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
+    gap:12px 24px;
+  }
+  .glossary-item {
+    font-size:13px;
+    line-height:1.5;
+  }
+  .glossary-item strong {
+    color:var(--link, #60a5fa);
+    margin-right:6px;
+  }
+  .glossary-item span {
+    color:var(--muted, #94a3b8);
+  }
+
   @media (max-width:640px) {
     .table th, .table td { font-size:10px; padding:5px 4px; }
     #seasonSelect, #sortSelect { font-size:16px !important; }
+    .col-tip { width:180px; font-size:11px; }
+    .glossary-grid { grid-template-columns:1fr; }
   }
 </style>
 
@@ -113,11 +223,12 @@
   let sortCol = "games";
   let sortDir = "desc";
 
-  function pct(v, digits){ return v != null ? (v*100).toFixed(digits||1) + "%" : "—"; }
-  function fmt(v, digits){ return v != null ? v.toFixed(digits||2) : "—"; }
+  function pct(v, digits){ return v != null ? (v*100).toFixed(digits||1) + "%" : "\u2014"; }
+  function fmt(v, digits){ return v != null ? v.toFixed(digits||2) : "\u2014"; }
+  function num(v){ return v != null ? v.toLocaleString() : "\u2014"; }
 
   function favorPill(fi, label){
-    if(fi == null) return "—";
+    if(fi == null) return "\u2014";
     let cls = "favor-neutral";
     if(label === "Pitcher-friendly") cls = "favor-pitcher";
     else if(label === "Hitter-friendly") cls = "favor-hitter";
@@ -125,7 +236,7 @@
   }
 
   function accBar(acc){
-    if(acc == null) return "—";
+    if(acc == null) return "\u2014";
     const p = (acc*100).toFixed(1);
     const w = Math.max(0, Math.min(100, (acc - 0.85) / 0.15 * 100));
     const color = acc >= 0.93 ? "#22c55e" : acc >= 0.90 ? "#f59e0b" : "#ef4444";
@@ -136,7 +247,7 @@
   }
 
   function zoneBar(zsf){
-    if(zsf == null) return "—";
+    if(zsf == null) return "\u2014";
     const val = zsf.toFixed(2);
     const w = Math.max(0, Math.min(100, ((zsf - 0.5) / 1.0) * 100));
     const color = zsf > 1.1 ? "#ef4444" : zsf < 0.9 ? "#3b82f6" : "#64748b";
@@ -164,6 +275,8 @@
         <td class="num">${pct(u.iz_ball_rate)}</td>
         <td class="num">${zoneBar(u.zone_size_factor)}</td>
         <td class="num">${favorPill(u.favor_index, u.favor_label)}</td>
+        <td class="num">${num(u.abs_challenges)}</td>
+        <td class="num">${pct(u.abs_overturn_pct)}</td>
         <td class="num">${pct(u.shadow_high_cs_rate)}</td>
         <td class="num">${pct(u.shadow_low_cs_rate)}</td>
         <td class="num">${fmt(u.run_env_factor)}</td>
@@ -199,13 +312,11 @@
         sortDir = sortDir === "asc" ? "desc" : "asc";
       } else {
         sortCol = col;
-        // Default sort directions
         sortDir = (col === "name") ? "asc" : "desc";
         if(col === "ooz_cs_rate" || col === "iz_ball_rate") sortDir = "asc";
       }
       document.querySelectorAll(".table th.sortable").forEach(h => h.classList.remove("asc","desc"));
       th.classList.add(sortDir);
-      // Sync dropdown
       if([...sortSel.options].some(o => o.value === col)) sortSel.value = col;
       renderTable();
     });

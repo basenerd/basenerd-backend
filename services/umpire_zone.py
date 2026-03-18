@@ -412,6 +412,11 @@ def umpire_list(season=None):
                 error_rate = ooz * ooz_frac + iz * iz_frac
                 accuracy = round(1.0 - error_rate, 4)
 
+        abs_challenges = int(row.get("abs_challenges", 0))
+        abs_overturned = int(row.get("abs_overturned", 0))
+        abs_overturn_pct = (abs_overturned / abs_challenges
+                           if abs_challenges > 0 else None)
+
         umpires.append({
             "umpire_id": ump_id,
             "name": name_map.get(ump_id),
@@ -428,6 +433,9 @@ def umpire_list(season=None):
             "accuracy": accuracy,
             "favor_index": favor_index,
             "favor_label": favor_label,
+            "abs_challenges": abs_challenges,
+            "abs_overturned": abs_overturned,
+            "abs_overturn_pct": _safe_float(abs_overturn_pct),
             "has_individual_model": has_model,
         })
 
