@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Header -->
+<div class="card">
+  <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <div>
+      <div class="card-title" id="umpName">{{ name }}</div>
+      <div class="card-subtitle" id="umpBio">Loading...</div>
+    </div>
+    <select class="input" id="seasonSelect" aria-label="Season" style="width:auto; min-width:90px;">
+      {% for s in seasons %}
+        <option value="{{ s }}" {% if s == season %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<!-- Season Stats -->
+<div class="card" style="margin-top:12px;">
+  <div class="card-header">
+    <div class="card-title">Season Stats</div>
+  </div>
+  <div class="card-body">
+    <div class="headline-grid" id="statsGrid">
+      <div class="headline-stat"><div class="k">Loading...</div><div class="v">&mdash;</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Strike Zone -->
+<div class="card" style="margin-top:12px;">
+  <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+    <div class="card-title">Strike Zone</div>
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <select class="input" id="zoneGameSelect" style="width:auto; min-width:160px; font-size:13px;">
+        <option value="">Select a game...</option>
+      </select>
+      <select class="input" id="zoneStandSelect" style="width:auto; min-width:70px; font-size:13px;">
+        <option value="">All</option>
+        <option value="R">vs RHH</option>
+        <option value="L">vs LHH</option>
+      </select>
+    </div>
+  </div>
+  <div class="card-body" style="display:flex; flex-direction:column; align-items:center;">
+    <div id="zoneLegend" style="display:none; font-size:11px; color:var(--muted); margin-bottom:8px; gap:16px; flex-wrap:wrap; justify-content:center;">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e;margin-right:3px;vertical-align:middle;"></span>Correct Strike</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#86efac;margin-right:3px;vertical-align:middle;"></span>Correct Ball</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444;margin-right:3px;vertical-align:middle;"></span>Bad Strike</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f97316;margin-right:3px;vertical-align:middle;"></span>Bad Ball</span>
+    </div>
+    <canvas id="zoneCanvas" width="400" height="480" style="max-width:100%; border-radius:8px;"></canvas>
+    <div id="zoneMsg" style="font-size:13px; color:var(--muted); margin-top:8px;">Select a game to view the zone plot</div>
+    <div id="zoneSummary" style="display:none; margin-top:8px; font-size:12px; color:var(--muted); text-align:center;"></div>
+  </div>
+</div>
+
+<!-- Game Log -->
+<div class="card" style="margin-top:12px;">
+  <div class="card-header">
+    <div class="card-title">Game Log</div>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-wrap">
+      <table class="table" style="min-width:100%; table-layout:auto;">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Date</th>
+            <th style="text-align:left;">Game</th>
+            <th class="num">Score</th>
+            <th class="num">Runs</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="gamelogBody">
+          <tr><td colspan="5" style="text-align:center; color:var(--muted);">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .headline-grid {
+    display:grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap:10px;
+  }
+  .headline-stat {
+    border:1px solid var(--border, rgba(226,232,240,.9));
+    border-radius:12px;
+    padding:8px 10px;
+    text-align:center;
+  }
+  .headline-stat .k {
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:var(--muted, #94a3b8);
+    margin-bottom:2px;
+  }
+  .headline-stat .v {
+    font-size:16px;
+    font-weight:700;
+  }
+
+  .grad-pill {
+    display:inline-block;
+    padding:1px 7px;
+    border-radius:6px;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:.2px;
+    white-space:nowrap;
+  }
+
+  .favor-pill {
+    display:inline-block;
+    padding:1px 7px;
+    border-radius:6px;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.2px;
+    white-space:nowrap;
+  }
+  .favor-pitcher { background:rgba(239,68,68,.12); color:#dc2626; }
+  .favor-hitter  { background:rgba(59,130,246,.12); color:#2563eb; }
+  .favor-neutral { background:rgba(100,116,139,.10); color:#64748b; }
+
+  .zone-btn {
+    background:none;
+    border:1px solid var(--border);
+    color:var(--link);
+    padding:2px 8px;
+    border-radius:6px;
+    font-size:11px;
+    cursor:pointer;
+  }
+  .zone-btn:hover { background:var(--border); }
+
+  #zoneCanvas { background:var(--bg, #0f172a); }
+
+  @media (max-width:900px) {
+    .headline-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width:640px) {
+    .headline-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .table th, .table td { font-size:11px; padding:6px 5px; }
+    #seasonSelect, #zoneGameSelect, #zoneStandSelect { font-size:16px !important; }
+  }
+</style>
+
+<script>
+(function(){
+  const UMPIRE_ID = {{ umpire_id }};
+  const seasonSel = document.getElementById("seasonSelect");
+  const statsGrid = document.getElementById("statsGrid");
+  const gamelogBody = document.getElementById("gamelogBody");
+  const zoneCanvas = document.getElementById("zoneCanvas");
+  const zoneMsg = document.getElementById("zoneMsg");
+  const zoneSummary = document.getElementById("zoneSummary");
+  const zoneLegend = document.getElementById("zoneLegend");
+  const zoneGameSel = document.getElementById("zoneGameSelect");
+  const zoneStandSel = document.getElementById("zoneStandSelect");
+  const ctx = zoneCanvas.getContext("2d");
+
+  let currentPitches = null; // cached pitches for current game
+
+  // ─── Helpers ───
+  function pct(v){ return v != null ? (v*100).toFixed(1) + "%" : "\u2014"; }
+  function fmt(v, d){ return v != null ? v.toFixed(d||2) : "\u2014"; }
+
+  function accPill(acc){
+    if(acc == null) return "\u2014";
+    const p = (acc*100).toFixed(1) + "%";
+    let bg, color;
+    if(acc >= 0.93)      { bg = "rgba(34,197,94,.15)";  color = "#22c55e"; }
+    else if(acc >= 0.90) { bg = "rgba(245,158,11,.15)"; color = "#f59e0b"; }
+    else                 { bg = "rgba(239,68,68,.15)";  color = "#ef4444"; }
+    return `<span class="grad-pill" style="background:${bg};color:${color}">${p}</span>`;
+  }
+
+  function zonePill(zsf){
+    if(zsf == null) return "\u2014";
+    let bg, color;
+    if(zsf > 1.10)      { bg = "rgba(239,68,68,.15)";  color = "#ef4444"; }
+    else if(zsf < 0.90) { bg = "rgba(59,130,246,.15)";  color = "#3b82f6"; }
+    else                 { bg = "rgba(100,116,139,.10)"; color = "#94a3b8"; }
+    return `<span class="grad-pill" style="background:${bg};color:${color}">${zsf.toFixed(2)}</span>`;
+  }
+
+  function favorPill(fi, label){
+    if(fi == null) return "\u2014";
+    let cls = "favor-neutral";
+    if(label === "Pitcher-friendly") cls = "favor-pitcher";
+    else if(label === "Hitter-friendly") cls = "favor-hitter";
+    return `<span class="favor-pill ${cls}">${label}</span>`;
+  }
+
+  function stat(k, v){ return `<div class="headline-stat"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
+
+  // ─── Bio ───
+  fetch(`/umpire/${UMPIRE_ID}/bio.json`)
+    .then(r => r.json())
+    .then(bio => {
+      if(!bio.ok) return;
+      const parts = [];
+      if(bio.currentAge) parts.push(`Age ${bio.currentAge}`);
+      if(bio.birthCity && bio.birthStateProvince) parts.push(`${bio.birthCity}, ${bio.birthStateProvince}`);
+      else if(bio.birthCity) parts.push(bio.birthCity);
+      if(bio.height) parts.push(bio.height);
+      document.getElementById("umpBio").textContent = parts.join(" \u2022 ") || "Umpire";
+      if(bio.fullName) document.getElementById("umpName").textContent = bio.fullName;
+    })
+    .catch(() => {
+      document.getElementById("umpBio").textContent = "Umpire";
+    });
+
+  // ─── Stats ───
+  function loadStats(){
+    const season = seasonSel.value;
+    fetch(`/umpire/${UMPIRE_ID}/profile.json?season=${season}`)
+      .then(r => r.json())
+      .then(data => {
+        if(!data.ok){
+          statsGrid.innerHTML = `<div style="color:var(--muted);">${data.error || "No stats"}</div>`;
+          return;
+        }
+        const t = data.tendencies || {};
+
+        // Compute favor
+        let favorHtml = "\u2014";
+        const ooz = t.ooz_cs_rate, iz = t.iz_ball_rate;
+        if(ooz != null && iz != null){
+          const fi = ooz - iz;
+          let label = "Neutral";
+          if(fi > 0.01) label = "Pitcher-friendly";
+          else if(fi < -0.01) label = "Hitter-friendly";
+          favorHtml = favorPill(fi, label);
+        }
+
+        // Compute accuracy estimate if not in tendencies
+        let accVal = t.accuracy;
+        if(accVal == null && ooz != null && iz != null && t.overall_cs_rate != null){
+          const csRate = t.overall_cs_rate;
+          accVal = 1.0 - (ooz * (1 - csRate) + iz * csRate);
+        }
+
+        statsGrid.innerHTML =
+          stat("Games", t.games || 0) +
+          stat("Pitches", (t.total_called || 0).toLocaleString()) +
+          stat("Accuracy", accPill(accVal)) +
+          stat("CS%", pct(t.overall_cs_rate)) +
+          stat("OOZ K%", pct(t.ooz_cs_rate)) +
+          stat("IZ Ball%", pct(t.iz_ball_rate)) +
+          stat("Zone Size", zonePill(t.zone_size_factor)) +
+          stat("Favor", favorHtml) +
+          stat("Shad Hi", pct(t.shadow_high_cs_rate)) +
+          stat("Shad Lo", pct(t.shadow_low_cs_rate)) +
+          stat("Run Env", fmt(t.run_env_factor));
+      })
+      .catch(() => {
+        statsGrid.innerHTML = `<div style="color:var(--muted);">Error loading stats</div>`;
+      });
+  }
+
+  // ─── Game Log ───
+  function loadGamelog(){
+    const season = seasonSel.value;
+    fetch(`/umpire/${UMPIRE_ID}/gamelog.json?season=${season}`)
+      .then(r => r.json())
+      .then(data => {
+        if(!data.ok || !data.games || data.games.length === 0){
+          gamelogBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted);">No games found</td></tr>`;
+          zoneGameSel.innerHTML = `<option value="">No games</option>`;
+          return;
+        }
+        gamelogBody.innerHTML = data.games.map(g => `<tr>
+          <td style="text-align:left; white-space:nowrap;">${g.game_date}</td>
+          <td style="text-align:left; white-space:nowrap;">${g.away_team} @ ${g.home_team}</td>
+          <td class="num">${g.away_score}\u2013${g.home_score}</td>
+          <td class="num">${g.total_runs}</td>
+          <td class="num"><button class="zone-btn" onclick="loadZone(${g.game_pk})">Zone</button></td>
+        </tr>`).join("");
+
+        // Populate game selector for zone
+        zoneGameSel.innerHTML = `<option value="">Select a game...</option>` +
+          data.games.map(g =>
+            `<option value="${g.game_pk}">${g.game_date} \u2014 ${g.away_team} @ ${g.home_team}</option>`
+          ).join("");
+      })
+      .catch(() => {
+        gamelogBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted);">Error loading games</td></tr>`;
+      });
+  }
+
+  // ─── Zone Plot ───
+  const DPR = window.devicePixelRatio || 1;
+  const CW = 400, CH = 480;
+
+  function initCanvas(){
+    zoneCanvas.width = CW * DPR;
+    zoneCanvas.height = CH * DPR;
+    zoneCanvas.style.width = CW + "px";
+    zoneCanvas.style.height = CH + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+
+  // Map pitch coords to canvas coords
+  // plate_x: -2 to 2 (feet), plate_z: 0.5 to 4.5 (feet)
+  const PX_MIN = -2, PX_MAX = 2;
+  const PZ_MIN = 0.5, PZ_MAX = 4.5;
+  const PAD = 40;
+  function toX(px){ return PAD + (px - PX_MIN) / (PX_MAX - PX_MIN) * (CW - 2*PAD); }
+  function toY(pz){ return PAD + (PZ_MAX - pz) / (PZ_MAX - PZ_MIN) * (CH - 2*PAD); } // inverted
+
+  function drawZone(pitches){
+    initCanvas();
+    ctx.clearRect(0, 0, CW, CH);
+
+    if(!pitches || pitches.length === 0){
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "14px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("No called pitch data", CW/2, CH/2);
+      return;
+    }
+
+    const standFilter = zoneStandSel.value;
+    let filtered = pitches;
+    if(standFilter) filtered = pitches.filter(p => p.stand === standFilter);
+
+    // Average strike zone
+    const tops = filtered.map(p => p.sz_top).filter(v => v != null);
+    const bots = filtered.map(p => p.sz_bot).filter(v => v != null);
+    const avgTop = tops.length ? tops.reduce((a,b) => a+b, 0) / tops.length : 3.4;
+    const avgBot = bots.length ? bots.reduce((a,b) => a+b, 0) / bots.length : 1.6;
+    const plateHalf = 17.0 / 24.0;
+
+    // Draw zone rectangle
+    const zx1 = toX(-plateHalf), zx2 = toX(plateHalf);
+    const zy1 = toY(avgTop), zy2 = toY(avgBot);
+    ctx.strokeStyle = "rgba(255,255,255,0.4)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(zx1, zy1, zx2 - zx1, zy2 - zy1);
+
+    // Draw plate
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.lineWidth = 1;
+    const pw = toX(plateHalf) - toX(-plateHalf);
+    ctx.strokeRect(toX(-plateHalf), toY(0.5), pw, 3);
+
+    // Zone grid lines (thirds)
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.lineWidth = 1;
+    const zw3 = (zx2 - zx1) / 3;
+    const zh3 = (zy2 - zy1) / 3;
+    for(let i = 1; i < 3; i++){
+      ctx.beginPath(); ctx.moveTo(zx1 + zw3*i, zy1); ctx.lineTo(zx1 + zw3*i, zy2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(zx1, zy1 + zh3*i); ctx.lineTo(zx2, zy1 + zh3*i); ctx.stroke();
+    }
+
+    // Sort: draw correct calls first (behind), incorrect on top
+    const sorted = [...filtered].sort((a,b) => (b.correct ? 1 : 0) - (a.correct ? 1 : 0));
+
+    // Draw pitches
+    sorted.forEach(p => {
+      const x = toX(p.px);
+      const y = toY(p.pz);
+      let color;
+      if(p.correct && p.call === "called_strike")  color = "#22c55e"; // correct strike
+      else if(p.correct)                            color = "#86efac"; // correct ball
+      else if(p.call === "called_strike")           color = "#ef4444"; // bad strike
+      else                                          color = "#f97316"; // bad ball
+
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.75;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+
+    // Axis labels
+    ctx.fillStyle = "#64748b";
+    ctx.font = "10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Inside (RHH)", PAD/2, CH/2);
+    ctx.fillText("Outside (RHH)", CW - PAD/2, CH/2);
+
+    // Summary
+    const total = filtered.length;
+    const correct = filtered.filter(p => p.correct).length;
+    const badStrikes = filtered.filter(p => !p.correct && p.call === "called_strike").length;
+    const badBalls = filtered.filter(p => !p.correct && p.call !== "called_strike").length;
+    const acc = total > 0 ? (correct / total * 100).toFixed(1) : "0.0";
+
+    zoneSummary.style.display = "block";
+    zoneSummary.innerHTML = `${total} pitches \u2022 ${acc}% accuracy \u2022 ${badStrikes} bad strikes \u2022 ${badBalls} bad balls`;
+  }
+
+  window.loadZone = function(gamePk){
+    zoneMsg.textContent = "Loading zone data...";
+    zoneLegend.style.display = "none";
+    zoneSummary.style.display = "none";
+    currentPitches = null;
+
+    // Sync dropdown
+    zoneGameSel.value = gamePk;
+
+    fetch(`/umpire/${UMPIRE_ID}/game_zone.json?game_pk=${gamePk}`)
+      .then(r => r.json())
+      .then(data => {
+        if(!data.ok){
+          zoneMsg.textContent = data.error || "Error loading zone data";
+          return;
+        }
+        currentPitches = data.pitches || [];
+        zoneMsg.textContent = `${data.umpire_name || ""} \u2022 ${data.away_team} @ ${data.home_team}`;
+        zoneLegend.style.display = "flex";
+        drawZone(currentPitches);
+      })
+      .catch(() => {
+        zoneMsg.textContent = "Error loading zone data";
+      });
+  };
+
+  zoneGameSel.addEventListener("change", () => {
+    const pk = parseInt(zoneGameSel.value);
+    if(pk) window.loadZone(pk);
+  });
+
+  zoneStandSel.addEventListener("change", () => {
+    if(currentPitches) drawZone(currentPitches);
+  });
+
+  // ─── Season change ───
+  seasonSel.addEventListener("change", () => {
+    loadStats();
+    loadGamelog();
+    currentPitches = null;
+    zoneLegend.style.display = "none";
+    zoneSummary.style.display = "none";
+    zoneMsg.textContent = "Select a game to view the zone plot";
+    initCanvas();
+    ctx.clearRect(0, 0, CW, CH);
+  });
+
+  // ─── Init ───
+  initCanvas();
+  loadStats();
+  loadGamelog();
+})();
+</script>
+
+{% endblock %}

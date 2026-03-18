@@ -58,6 +58,8 @@ from services.umpire_zone import (
     umpire_profile,
     umpire_list,
     umpire_game_report,
+    umpire_bio,
+    umpire_gamelog,
 )
 from services.pregame_predictions import get_pregame_predictions
 from services.articles import load_articles, get_article
@@ -3312,6 +3314,47 @@ def umpire_zone_heatmap_json(umpire_id: int):
 
 @app.get("/game/<int:game_pk>/umpire_report.json")
 def umpire_report_json(game_pk: int):
+    feed = get_game_feed(game_pk)
+    if not feed:
+        return jsonify({"ok": False, "error": "Could not load game feed"})
+    data = umpire_game_report(feed)
+    return jsonify(data)
+
+
+@app.get("/umpire/<int:umpire_id>")
+def umpire_page(umpire_id: int):
+    season = request.args.get("season", type=int) or 2026
+    profile = umpire_profile(umpire_id, season)
+    seasons = profile.get("seasons", list(range(2021, 2027)))
+    name = profile.get("name") or f"Umpire #{umpire_id}"
+    return render_template(
+        "umpire.html",
+        title=f"{name} \u2022 Basenerd",
+        umpire_id=umpire_id,
+        season=season,
+        seasons=seasons,
+        name=name,
+    )
+
+
+@app.get("/umpire/<int:umpire_id>/bio.json")
+def umpire_bio_json(umpire_id: int):
+    data = umpire_bio(umpire_id)
+    return jsonify(data)
+
+
+@app.get("/umpire/<int:umpire_id>/gamelog.json")
+def umpire_gamelog_json(umpire_id: int):
+    season = request.args.get("season", type=int)
+    data = umpire_gamelog(umpire_id, season)
+    return jsonify(data)
+
+
+@app.get("/umpire/<int:umpire_id>/game_zone.json")
+def umpire_game_zone_json(umpire_id: int):
+    game_pk = request.args.get("game_pk", type=int)
+    if not game_pk:
+        return jsonify({"ok": False, "error": "game_pk required"})
     feed = get_game_feed(game_pk)
     if not feed:
         return jsonify({"ok": False, "error": "Could not load game feed"})

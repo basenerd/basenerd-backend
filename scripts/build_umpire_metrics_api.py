@@ -38,7 +38,7 @@ def get_schedule(season, game_type="S"):
         "gameType": game_type,
         "startDate": f"{season}-02-01",
         "endDate": f"{season}-11-30",
-        "hydrate": "probablePitcher,linescore,venue",
+        "hydrate": "probablePitcher,linescore,venue,team",
     }
     resp = requests.get(url, params=params, timeout=60)
     resp.raise_for_status()

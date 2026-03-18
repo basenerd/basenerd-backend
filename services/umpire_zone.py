@@ -20,6 +20,7 @@ import math
 import joblib
 import numpy as np
 import pandas as pd
+import requests
 
 log = logging.getLogger(__name__)
 
@@ -452,6 +453,69 @@ def umpire_list(season=None):
         "seasons": all_seasons,
         "total": len(umpires),
     }
+
+
+def umpire_bio(hp_umpire_id):
+    """Fetch umpire bio from MLB API."""
+    try:
+        resp = requests.get(
+            f"https://statsapi.mlb.com/api/v1/people/{hp_umpire_id}",
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return {"ok": False, "error": "MLB API error"}
+        people = resp.json().get("people", [])
+        if not people:
+            return {"ok": False, "error": "Not found"}
+        p = people[0]
+        return {
+            "ok": True,
+            "id": p.get("id"),
+            "fullName": p.get("fullName"),
+            "birthDate": p.get("birthDate"),
+            "currentAge": p.get("currentAge"),
+            "birthCity": p.get("birthCity"),
+            "birthStateProvince": p.get("birthStateProvince"),
+            "birthCountry": p.get("birthCountry"),
+            "height": p.get("height"),
+            "weight": p.get("weight"),
+            "active": p.get("active"),
+        }
+    except Exception as e:
+        log.warning("Could not fetch umpire bio %s: %s", hp_umpire_id, e)
+        return {"ok": False, "error": str(e)}
+
+
+def umpire_gamelog(hp_umpire_id, season=None):
+    """Return game log for an umpire from game_outcomes."""
+    _load()
+
+    if _game_outcomes is None or _game_outcomes.empty:
+        return {"ok": False, "error": "Game outcomes not available"}
+
+    go = _game_outcomes
+    go_ump = go[go["hp_umpire_id"] == hp_umpire_id]
+
+    if season:
+        go_ump = go_ump[go_ump["season"] == season]
+
+    if go_ump.empty:
+        return {"ok": True, "games": [], "total": 0}
+
+    games = []
+    for _, row in go_ump.sort_values("game_date", ascending=False).iterrows():
+        games.append({
+            "game_pk": int(row["game_pk"]),
+            "game_date": str(row.get("game_date", "")),
+            "season": int(row.get("season", 0)),
+            "home_team": str(row.get("home_team", "")),
+            "away_team": str(row.get("away_team", "")),
+            "home_score": int(row.get("home_score", 0)),
+            "away_score": int(row.get("away_score", 0)),
+            "total_runs": int(row.get("total_runs", 0)),
+        })
+
+    return {"ok": True, "games": games, "total": len(games)}
 
 
 # ── Per-game umpire report ──────────────────────────────────────────

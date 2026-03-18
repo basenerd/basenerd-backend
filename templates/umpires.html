@@ -259,7 +259,7 @@
     body.innerHTML = sorted.map((u, i) => {
       const name = u.name || `Umpire #${u.umpire_id}`;
       return `<tr>
-        <td style="text-align:left; white-space:nowrap; font-weight:600;">${name}</td>
+        <td style="text-align:left; white-space:nowrap; font-weight:600;"><a href="/umpire/${u.umpire_id}" style="color:var(--link);text-decoration:none;">${name}</a></td>
         <td class="num">${u.games}</td>
         <td class="num">${u.total_called.toLocaleString()}</td>
         <td class="num">${accPill(u.accuracy)}</td>
