@@ -321,12 +321,25 @@ def umpire_profile(hp_umpire_id, season=None):
     has_model = ump_key in _registry.get("umpires", {})
     model_info = _registry["umpires"].get(ump_key, {}) if has_model else {}
 
+    # Compute accuracy rank among all umpires in this season
+    accuracy_val = _safe_float(latest.get("accuracy"))
+    accuracy_rank = None
+    accuracy_total = None
+    current_season = int(latest["season"])
+    season_umps = um[um["season"] == current_season]
+    if accuracy_val is not None and "accuracy" in season_umps.columns:
+        valid_acc = season_umps["accuracy"].dropna()
+        accuracy_total = len(valid_acc)
+        if accuracy_total > 0:
+            # Rank 1 = highest accuracy
+            accuracy_rank = int((valid_acc > accuracy_val).sum() + 1)
+
     result = {
         "ok": True,
         "umpire_id": int(hp_umpire_id),
         "name": name,
         "seasons": sorted(int(s) for s in ump_data["season"].unique()),
-        "season": int(latest["season"]),
+        "season": current_season,
         "tendencies": {
             "overall_cs_rate": _safe_float(latest.get("overall_cs_rate")),
             "ooz_cs_rate": _safe_float(latest.get("ooz_cs_rate")),
@@ -337,7 +350,9 @@ def umpire_profile(hp_umpire_id, season=None):
             "games": int(latest.get("games", 0)),
             "total_called": int(latest.get("total_called", 0)),
             "run_env_factor": _safe_float(latest.get("run_env_factor")),
-            "accuracy": _safe_float(latest.get("accuracy")),
+            "accuracy": accuracy_val,
+            "accuracy_rank": accuracy_rank,
+            "accuracy_total": accuracy_total,
             "abs_challenges": int(latest.get("abs_challenges", 0)),
             "abs_overturned": int(latest.get("abs_overturned", 0)),
         },

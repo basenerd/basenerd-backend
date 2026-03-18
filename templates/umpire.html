@@ -261,6 +261,11 @@
   // ─── Helpers ───
   function pct(v){ return v != null ? (v*100).toFixed(1) + "%" : "\u2014"; }
   function fmt(v, d){ return v != null ? v.toFixed(d||2) : "\u2014"; }
+  function ordinal(n){
+    const s = ["th","st","nd","rd"];
+    const v = n % 100;
+    return n + (s[(v-20)%10] || s[v] || s[0]);
+  }
 
   function accPill(acc){
     if(acc == null) return "\u2014";
@@ -346,10 +351,15 @@
         const absOT = t.abs_overturned || 0;
         const absOTpct = absChal > 0 ? ((absOT / absChal) * 100).toFixed(0) + "%" : "\u2014";
 
+        let accHtml = accPill(accVal);
+        if(t.accuracy_rank != null && t.accuracy_total != null){
+          accHtml += `<div style="font-size:10px; color:var(--muted); margin-top:2px;">${ordinal(t.accuracy_rank)} of ${t.accuracy_total}</div>`;
+        }
+
         statsGrid.innerHTML =
           stat("Games", t.games || 0) +
           stat("Pitches", (t.total_called || 0).toLocaleString()) +
-          stat("Accuracy", accPill(accVal)) +
+          stat("Accuracy", accHtml) +
           stat("CS%", pct(t.overall_cs_rate)) +
           stat("OOZ K%", pct(t.ooz_cs_rate)) +
           stat("IZ Ball%", pct(t.iz_ball_rate)) +
