@@ -6,6 +6,7 @@ Loads per-umpire strike zone models and provides:
 - Zone heatmap grids (per-umpire vs league average)
 - Umpire profile data (tendencies from umpire_metrics.parquet)
 - Umpire list with key metrics
+- Per-game umpire report (all called pitches, correct/incorrect, ABS challenges)
 
 Each umpire has their own individually trained model.
 Umpires below the training threshold fall back to the league-average model.
@@ -397,4 +398,229 @@ def umpire_list(season=None):
         "umpires": umpires,
         "season": season,
         "total": len(umpires),
+    }
+
+
+# ── Per-game umpire report ──────────────────────────────────────────
+
+# Zone boundary: half plate width in feet (17 inches / 2 / 12)
+_PLATE_HALF = 17.0 / 24.0  # 0.7083 ft
+
+
+def umpire_game_report(feed):
+    """Build an umpire report for a completed game from the MLB live feed.
+
+    Extracts every called pitch (called strike or ball), classifies each
+    as correct or incorrect based on the true zone, and pulls ABS challenges.
+
+    Returns dict with:
+      - umpire info (id, name)
+      - all called pitches with correct/incorrect flags
+      - summary stats (accuracy, missed calls, etc.)
+      - ABS challenges
+    """
+    if not feed:
+        return {"ok": False, "error": "No feed data"}
+
+    game_data = feed.get("gameData") or {}
+    live_data = feed.get("liveData") or {}
+    status = (game_data.get("status") or {}).get("abstractGameState", "")
+    if status != "Final":
+        return {"ok": False, "error": "Game not final"}
+
+    # --- Umpire info ---
+    boxscore = live_data.get("boxscore") or {}
+    officials = boxscore.get("officials") or []
+    hp_umpire_id = None
+    hp_umpire_name = None
+    for official in officials:
+        if official.get("officialType") == "Home Plate":
+            ump = official.get("official") or {}
+            hp_umpire_id = ump.get("id")
+            hp_umpire_name = ump.get("fullName")
+            break
+
+    if not hp_umpire_id:
+        return {"ok": False, "error": "No home plate umpire found"}
+
+    # --- Walk all plays and pitches ---
+    all_plays = (live_data.get("plays") or {}).get("allPlays") or []
+    called_pitches = []
+    challenges = []
+    pitch_num = 0
+
+    for play in all_plays:
+        about = play.get("about") or {}
+        inning = about.get("inning", 0)
+        half = (about.get("halfInning") or "").lower()
+        half_label = "Top" if half.startswith("top") else "Bot"
+        matchup = play.get("matchup") or {}
+        batter_name = (matchup.get("batter") or {}).get("fullName", "")
+        batter_id = (matchup.get("batter") or {}).get("id")
+        pitcher_name = (matchup.get("pitcher") or {}).get("fullName", "")
+        pitcher_id = (matchup.get("pitcher") or {}).get("id")
+        bat_side = ((matchup.get("batSide") or {}).get("code") or "R").upper()
+
+        play_events = play.get("playEvents") or []
+        for ev in play_events:
+            if not ev.get("isPitch"):
+                continue
+
+            details = ev.get("details") or {}
+            call_obj = details.get("call") or {}
+            call_code = (call_obj.get("code") or "").upper()
+            call_desc = call_obj.get("description") or ""
+            desc = details.get("description") or ""
+
+            pitch_data = ev.get("pitchData") or {}
+            coords = pitch_data.get("coordinates") or {}
+            px = coords.get("pX")
+            pz = coords.get("pZ")
+            sz_top = pitch_data.get("strikeZoneTop")
+            sz_bot = pitch_data.get("strikeZoneBottom")
+
+            pitch_type_obj = details.get("type") or {}
+            pitch_type_code = pitch_type_obj.get("code") or ""
+            pitch_type_desc = pitch_type_obj.get("description") or ""
+
+            count = ev.get("count") or {}
+            balls = count.get("balls", 0)
+            strikes = count.get("strikes", 0)
+
+            # Check for ABS challenge on this pitch
+            review = ev.get("reviewDetails")
+            if isinstance(review, dict) and review.get("reviewType"):
+                review_type = review.get("reviewType") or ""
+                overturned = bool(review.get("isOverturned"))
+                challenge_team = review.get("challengeTeamId")
+                is_abs = review_type == "MJ"
+                result_text = "Overturned" if overturned else "Confirmed"
+                challenges.append({
+                    "type": "abs_challenge" if is_abs else "review",
+                    "label": "ABS Challenge" if is_abs else f"Review ({review_type})",
+                    "call": call_desc,
+                    "result": result_text,
+                    "overturned": overturned,
+                    "challengeTeamId": challenge_team,
+                    "inning": inning,
+                    "half": half_label,
+                    "batter": batter_name,
+                    "pitcher": pitcher_name,
+                    "px": _safe_float(px),
+                    "pz": _safe_float(pz),
+                    "sz_top": _safe_float(sz_top),
+                    "sz_bot": _safe_float(sz_bot),
+                    "pitch_num": pitch_num + 1,
+                })
+
+            # Only process called strikes and balls
+            is_called_strike = call_code in ("C",)
+            is_ball = call_code in ("B", "*B")
+            if not is_called_strike and not is_ball:
+                pitch_num += 1
+                continue
+
+            pitch_num += 1
+
+            px_f = _safe_float(px)
+            pz_f = _safe_float(pz)
+            sz_top_f = _safe_float(sz_top)
+            sz_bot_f = _safe_float(sz_bot)
+
+            if px_f is None or pz_f is None or sz_top_f is None or sz_bot_f is None:
+                continue
+
+            # True zone check
+            in_zone = (abs(px_f) <= _PLATE_HALF
+                       and pz_f >= sz_bot_f
+                       and pz_f <= sz_top_f)
+
+            if is_called_strike:
+                correct = in_zone
+            else:
+                correct = not in_zone
+
+            called_pitches.append({
+                "px": round(px_f, 4),
+                "pz": round(pz_f, 4),
+                "sz_top": round(sz_top_f, 4),
+                "sz_bot": round(sz_bot_f, 4),
+                "call": "called_strike" if is_called_strike else "ball",
+                "correct": correct,
+                "in_zone": in_zone,
+                "inning": inning,
+                "half": half_label,
+                "batter": batter_name,
+                "batter_id": batter_id,
+                "pitcher": pitcher_name,
+                "pitcher_id": pitcher_id,
+                "stand": bat_side,
+                "pitch_type": pitch_type_code,
+                "pitch_type_desc": pitch_type_desc,
+                "balls": balls,
+                "strikes": strikes,
+                "n": pitch_num,
+            })
+
+    # --- Summary stats ---
+    total = len(called_pitches)
+    correct_count = sum(1 for p in called_pitches if p["correct"])
+    incorrect = [p for p in called_pitches if not p["correct"]]
+    incorrect_strikes = [p for p in incorrect if p["call"] == "called_strike"]
+    incorrect_balls = [p for p in incorrect if p["call"] == "ball"]
+
+    called_strikes_total = sum(1 for p in called_pitches if p["call"] == "called_strike")
+    called_balls_total = total - called_strikes_total
+
+    summary = {
+        "total_called": total,
+        "correct": correct_count,
+        "incorrect": len(incorrect),
+        "accuracy": round(correct_count / total, 4) if total > 0 else None,
+        "called_strikes": called_strikes_total,
+        "called_balls": called_balls_total,
+        "incorrect_strikes": len(incorrect_strikes),
+        "incorrect_balls": len(incorrect_balls),
+        "challenges_total": len(challenges),
+        "challenges_overturned": sum(1 for c in challenges if c["overturned"]),
+    }
+
+    # Favor breakdown (incorrect calls by team impact)
+    # An incorrect called strike hurts the batting team; incorrect ball hurts pitching team
+    favor_home = 0
+    favor_away = 0
+    for p in incorrect:
+        is_top = p["half"] == "Top"  # top inning = away batting
+        if p["call"] == "called_strike":
+            # Incorrect strike hurts batter
+            if is_top:
+                favor_home += 1  # helps home (pitching)
+            else:
+                favor_away += 1  # helps away (pitching)
+        else:
+            # Incorrect ball hurts pitcher
+            if is_top:
+                favor_away += 1  # helps away (batting)
+            else:
+                favor_home += 1  # helps home (batting)
+
+    summary["favor_home"] = favor_home
+    summary["favor_away"] = favor_away
+
+    # Team names
+    teams = game_data.get("teams") or {}
+    home_team = (teams.get("home") or {}).get("abbreviation") or \
+                (teams.get("home") or {}).get("teamName", "Home")
+    away_team = (teams.get("away") or {}).get("abbreviation") or \
+                (teams.get("away") or {}).get("teamName", "Away")
+
+    return {
+        "ok": True,
+        "umpire_id": hp_umpire_id,
+        "umpire_name": hp_umpire_name,
+        "home_team": home_team,
+        "away_team": away_team,
+        "pitches": called_pitches,
+        "summary": summary,
+        "challenges": challenges,
     }

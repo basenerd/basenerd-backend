@@ -1028,6 +1028,11 @@
     .pv-bp-avatar{ width:32px; height:32px; }
   }
 
+  /* Umpire report responsive */
+  @media (max-width:640px){
+    .ump-stat-grid{ grid-template-columns: repeat(2,1fr) !important; }
+  }
+
 </style>
 
 {# Convert IP string like "7.2" into outs (23) for simple scoring #}
@@ -1449,6 +1454,7 @@
   <button class="tab-btn" data-tab="scoring">Scoring</button>
   <button class="tab-btn" data-tab="pbp">Play-by-Play</button>
   <button class="tab-btn" data-tab="analytics">Analytics</button>
+  {% if is_final %}<button class="tab-btn" data-tab="umpire">Umpire</button>{% endif %}
 </div>
 
 <!-- GAMECAST -->
@@ -2663,6 +2669,106 @@
     </div>
   </div>
 </div>
+
+<!-- UMPIRE REPORT -->
+{% if is_final %}
+<div class="tab-panel" id="tab-umpire">
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div>
+        <div class="card-title" id="ump-title">Umpire Report</div>
+        <div class="card-subtitle" id="ump-subtitle">Loading…</div>
+      </div>
+    </div>
+
+    <div style="padding:14px;" id="ump-body">
+      <!-- Summary row -->
+      <div id="ump-summary" style="display:none;">
+        <div class="ump-stat-grid" style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px;">
+          <div class="card" style="margin:0; padding:12px; text-align:center;">
+            <div class="mono" style="font-size:22px; font-weight:800;" id="ump-accuracy">—</div>
+            <div style="font-size:11px; opacity:.6; margin-top:2px;">Accuracy</div>
+          </div>
+          <div class="card" style="margin:0; padding:12px; text-align:center;">
+            <div class="mono" style="font-size:22px; font-weight:800;" id="ump-total">—</div>
+            <div style="font-size:11px; opacity:.6; margin-top:2px;">Called Pitches</div>
+          </div>
+          <div class="card" style="margin:0; padding:12px; text-align:center;">
+            <div class="mono" style="font-size:22px; font-weight:800;" id="ump-missed">—</div>
+            <div style="font-size:11px; opacity:.6; margin-top:2px;">Missed Calls</div>
+          </div>
+          <div class="card" style="margin:0; padding:12px; text-align:center;">
+            <div class="mono" style="font-size:22px; font-weight:800;" id="ump-challenges">—</div>
+            <div style="font-size:11px; opacity:.6; margin-top:2px;">ABS Challenges</div>
+          </div>
+        </div>
+
+        <!-- Missed call breakdown -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px;">
+          <div class="card" style="margin:0; padding:12px;">
+            <div style="font-size:12px; font-weight:700; margin-bottom:6px;">Missed Call Breakdown</div>
+            <div class="mono" style="font-size:12px; line-height:1.8;">
+              <div>Incorrect Strikes <span style="float:right; font-weight:700;" id="ump-bad-strikes">—</span></div>
+              <div>Incorrect Balls <span style="float:right; font-weight:700;" id="ump-bad-balls">—</span></div>
+            </div>
+          </div>
+          <div class="card" style="margin:0; padding:12px;">
+            <div style="font-size:12px; font-weight:700; margin-bottom:6px;">Favor</div>
+            <div class="mono" style="font-size:12px; line-height:1.8;">
+              <div id="ump-favor-away">— <span style="float:right; font-weight:700;">—</span></div>
+              <div id="ump-favor-home">— <span style="float:right; font-weight:700;">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zone plots -->
+      <div id="ump-zones" style="display:none;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:10px;">All Called Pitches</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px;">
+          <div style="text-align:center;">
+            <div style="font-size:11px; opacity:.6; margin-bottom:6px;">Correct Calls</div>
+            <svg id="ump-zone-correct" width="260" height="300" style="width:100%; max-width:260px; display:block; margin:0 auto;"></svg>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:11px; opacity:.6; margin-bottom:6px;">Missed Calls</div>
+            <svg id="ump-zone-missed" width="260" height="300" style="width:100%; max-width:260px; display:block; margin:0 auto;"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABS Challenges -->
+      <div id="ump-abs-section" style="display:none;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:10px;">ABS Challenges</div>
+        <div id="ump-abs-list"></div>
+      </div>
+
+      <!-- Missed calls table -->
+      <div id="ump-missed-section" style="display:none;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:10px;">Missed Calls Detail</div>
+        <div style="overflow-x:auto;">
+          <table class="tbl" id="ump-missed-table" style="width:100%; font-size:12px;">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Inn</th>
+                <th>Call</th>
+                <th>Batter</th>
+                <th>Pitcher</th>
+                <th>Pitch</th>
+                <th>Count</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script>
 (function(){
   const tabs = document.querySelectorAll(".tab-btn");
@@ -5801,5 +5907,202 @@ document.addEventListener("DOMContentLoaded", ()=>{
 })();
 {% endif %}
 </script>
+
+{% if is_final %}
+<script>
+(function(){
+  const GAME_PK = {{ game_pk }};
+  let umpLoaded = false;
+
+  function loadUmpireReport(){
+    if(umpLoaded) return;
+    umpLoaded = true;
+
+    fetch(`/game/${GAME_PK}/umpire_report.json`)
+      .then(r => r.json())
+      .then(data => {
+        if(!data.ok){
+          document.getElementById("ump-subtitle").textContent = data.error || "Not available";
+          return;
+        }
+        renderUmpireReport(data);
+      })
+      .catch(err => {
+        document.getElementById("ump-subtitle").textContent = "Error loading report";
+      });
+  }
+
+  function renderUmpireReport(data){
+    const s = data.summary;
+
+    // Header
+    document.getElementById("ump-title").textContent = data.umpire_name || "Umpire Report";
+    document.getElementById("ump-subtitle").textContent = "Home Plate Umpire";
+
+    // Summary cards
+    const accPct = s.accuracy != null ? (s.accuracy * 100).toFixed(1) + "%" : "—";
+    document.getElementById("ump-accuracy").textContent = accPct;
+    document.getElementById("ump-total").textContent = s.total_called;
+    document.getElementById("ump-missed").textContent = s.incorrect;
+
+    const challengeText = s.challenges_total > 0
+      ? `${s.challenges_total} (${s.challenges_overturned} overturned)`
+      : "0";
+    document.getElementById("ump-challenges").textContent = challengeText;
+
+    document.getElementById("ump-bad-strikes").textContent = s.incorrect_strikes;
+    document.getElementById("ump-bad-balls").textContent = s.incorrect_balls;
+
+    // Favor
+    document.getElementById("ump-favor-away").innerHTML =
+      `${data.away_team} <span style="float:right;font-weight:700;">${s.favor_away}</span>`;
+    document.getElementById("ump-favor-home").innerHTML =
+      `${data.home_team} <span style="float:right;font-weight:700;">${s.favor_home}</span>`;
+
+    document.getElementById("ump-summary").style.display = "";
+
+    // Zone plots
+    const correct = data.pitches.filter(p => p.correct);
+    const missed = data.pitches.filter(p => !p.correct);
+
+    renderUmpZone("ump-zone-correct", correct, false);
+    renderUmpZone("ump-zone-missed", missed, true);
+    document.getElementById("ump-zones").style.display = "";
+
+    // ABS Challenges
+    if(data.challenges.length > 0){
+      const listEl = document.getElementById("ump-abs-list");
+      listEl.innerHTML = "";
+      data.challenges.forEach(c => {
+        const isAbs = c.type === "abs_challenge";
+        const badge = c.overturned
+          ? '<span style="color:#22c55e;font-weight:700;">OVERTURNED</span>'
+          : '<span style="color:#ef4444;font-weight:700;">CONFIRMED</span>';
+        const div = document.createElement("div");
+        div.className = "card";
+        div.style.cssText = "margin:0 0 8px 0; padding:10px 12px;";
+        div.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="background:${isAbs ? 'rgba(14,165,233,.15)' : 'rgba(148,163,184,.15)'};
+                         color:${isAbs ? '#0ea5e9' : '#94a3b8'};
+                         font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">
+              ${isAbs ? 'ABS' : 'REV'}
+            </span>
+            <span class="mono" style="font-size:12px;font-weight:700;">${c.label}</span>
+            ${badge}
+          </div>
+          <div class="mono" style="font-size:11px;opacity:.7;">
+            ${c.half} ${c.inning} · ${c.batter} vs ${c.pitcher} · Call: ${c.call}
+          </div>
+        `;
+        listEl.appendChild(div);
+      });
+      document.getElementById("ump-abs-section").style.display = "";
+    }
+
+    // Missed calls table
+    if(missed.length > 0){
+      const tbody = document.querySelector("#ump-missed-table tbody");
+      tbody.innerHTML = "";
+      missed.forEach(p => {
+        const callLabel = p.call === "called_strike"
+          ? '<span style="color:#ef4444;">Called Strike</span>'
+          : '<span style="color:#22c55e;">Ball</span>';
+        const note = p.call === "called_strike"
+          ? "(out of zone)" : "(in zone)";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="mono">${p.n}</td>
+          <td class="mono">${p.half} ${p.inning}</td>
+          <td>${callLabel} <span style="opacity:.5;font-size:10px;">${note}</span></td>
+          <td>${p.batter}</td>
+          <td>${p.pitcher}</td>
+          <td>${p.pitch_type_desc || p.pitch_type}</td>
+          <td class="mono">${p.balls}-${p.strikes}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      document.getElementById("ump-missed-section").style.display = "";
+    }
+  }
+
+  function renderUmpZone(svgId, pitches, highlightMissed){
+    const svg = document.getElementById(svgId);
+    if(!svg) return;
+
+    const w = parseFloat(svg.getAttribute("width") || 260);
+    const h = parseFloat(svg.getAttribute("height") || 300);
+
+    // Compute average zone from all pitches
+    const tops = pitches.map(p => p.sz_top).filter(v => v != null);
+    const bots = pitches.map(p => p.sz_bot).filter(v => v != null);
+    const zoneTop = tops.length ? tops.reduce((a,b)=>a+b,0)/tops.length : 3.4;
+    const zoneBot = bots.length ? bots.reduce((a,b)=>a+b,0)/bots.length : 1.6;
+
+    const xMin = -1.5, xMax = 1.5;
+    const yMin = zoneBot - 0.8, yMax = zoneTop + 0.8;
+
+    function xScale(x){ return ((x - xMin) / (xMax - xMin)) * w; }
+    function yScale(y){ return h - ((y - yMin) / (yMax - yMin)) * h; }
+
+    svg.innerHTML = "";
+
+    // Strike zone rectangle
+    const plateHalf = 17/24;
+    const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+    rect.setAttribute("x", xScale(-plateHalf));
+    rect.setAttribute("y", yScale(zoneTop));
+    rect.setAttribute("width", xScale(plateHalf) - xScale(-plateHalf));
+    rect.setAttribute("height", yScale(zoneBot) - yScale(zoneTop));
+    rect.setAttribute("fill", "rgba(15,23,42,.03)");
+    rect.setAttribute("stroke", "rgba(226,232,240,.9)");
+    rect.setAttribute("stroke-width", "1");
+    svg.appendChild(rect);
+
+    // Pitch dots
+    pitches.forEach(p => {
+      if(p.px == null || p.pz == null) return;
+
+      const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx", xScale(p.px));
+      c.setAttribute("cy", yScale(p.pz));
+      c.setAttribute("r", 6);
+
+      let fill;
+      if(highlightMissed){
+        // Missed calls: color by what was called
+        fill = p.call === "called_strike"
+          ? "rgba(239,68,68,.85)"   // red — strike called outside zone
+          : "rgba(34,197,94,.85)";  // green — ball called inside zone
+      } else {
+        // Correct calls: dimmer dots
+        fill = p.call === "called_strike"
+          ? "rgba(239,68,68,.4)"
+          : "rgba(34,197,94,.4)";
+      }
+
+      c.setAttribute("fill", fill);
+      c.setAttribute("stroke", highlightMissed ? "rgba(255,255,255,.6)" : "rgba(15,23,42,.15)");
+      c.setAttribute("stroke-width", highlightMissed ? "1.5" : "0.5");
+      svg.appendChild(c);
+    });
+
+    // Count label
+    const countText = document.createElementNS("http://www.w3.org/2000/svg","text");
+    countText.setAttribute("x", w/2);
+    countText.setAttribute("y", h - 4);
+    countText.setAttribute("text-anchor", "middle");
+    countText.setAttribute("font-size", "11");
+    countText.setAttribute("font-family", "IBM Plex Mono, ui-monospace, Menlo, monospace");
+    countText.setAttribute("fill", "rgba(148,163,184,.7)");
+    countText.textContent = `${pitches.length} pitches`;
+    svg.appendChild(countText);
+  }
+
+  // Lazy load on tab click
+  document.querySelector('.tab-btn[data-tab="umpire"]')?.addEventListener('click', loadUmpireReport);
+})();
+</script>
+{% endif %}
 
 {% endblock %}

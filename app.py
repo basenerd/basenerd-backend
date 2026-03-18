@@ -57,6 +57,7 @@ from services.umpire_zone import (
     umpire_zone_heatmap,
     umpire_profile,
     umpire_list,
+    umpire_game_report,
 )
 from services.pregame_predictions import get_pregame_predictions
 from services.articles import load_articles, get_article
@@ -3292,6 +3293,15 @@ def umpire_zone_heatmap_json(umpire_id: int):
     strikes = request.args.get("strikes", type=int)
     data = umpire_zone_heatmap(umpire_id, stand=stand, pitch_type=pitch_type,
                                balls=balls, strikes=strikes)
+    return jsonify(data)
+
+
+@app.get("/game/<int:game_pk>/umpire_report.json")
+def umpire_report_json(game_pk: int):
+    feed = get_game_feed(game_pk)
+    if not feed:
+        return jsonify({"ok": False, "error": "Could not load game feed"})
+    data = umpire_game_report(feed)
     return jsonify(data)
 
 
