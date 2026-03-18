@@ -6010,13 +6010,14 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
     document.getElementById("ump-summary").style.display = "";
 
-    // Zone plots — pass challenges for ABS markers
-    const challengeNums = new Set(data.challenges.map(c => c.pitch_num));
+    // Zone plots — pass challenge map for ABS markers + tooltip details
+    const challengeMap = {};
+    data.challenges.forEach(c => { if(c.pitch_num) challengeMap[c.pitch_num] = c; });
     const correct = data.pitches.filter(p => p.correct);
     const missed = data.pitches.filter(p => !p.correct);
 
-    renderUmpZone("ump-zone-correct", correct, false, challengeNums);
-    renderUmpZone("ump-zone-missed", missed, true, challengeNums);
+    renderUmpZone("ump-zone-correct", correct, false, challengeMap);
+    renderUmpZone("ump-zone-missed", missed, true, challengeMap);
     document.getElementById("ump-zones").style.display = "";
 
     // ABS Challenges
@@ -6082,7 +6083,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   umpTip.style.cssText = "display:none;position:fixed;padding:8px 10px;pointer-events:none;max-width:220px;z-index:200;font-size:11px;";
   document.body.appendChild(umpTip);
 
-  function renderUmpZone(svgId, pitches, highlightMissed, challengeNums){
+  function renderUmpZone(svgId, pitches, highlightMissed, challengeMap){
     const svg = document.getElementById(svgId);
     if(!svg) return;
 
@@ -6120,7 +6121,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
       if(p.px == null || p.pz == null) return;
       const cx = xScale(p.px);
       const cy = yScale(p.pz);
-      const isChallenged = challengeNums && challengeNums.has(p.n);
+      const challenge = challengeMap && challengeMap[p.n];
+      const isChallenged = !!challenge;
 
       let fill = p.call === "called_strike"
         ? "rgba(239,68,68,.85)"   // red — called strike
@@ -6149,17 +6151,26 @@ document.addEventListener("DOMContentLoaded", ()=>{
       el.style.cursor = "pointer";
 
       // Tooltip on hover
-      const callLabel = p.call === "called_strike" ? "Called Strike" : "Ball";
+      const callLabel = p.call === "called_strike" ? "Strike" : "Ball";
+      let absLine = "";
+      if(isChallenged){
+        const origCall = challenge.call || callLabel;
+        if(challenge.overturned){
+          const newCall = p.call === "called_strike" ? "Ball" : "Strike";
+          absLine = `<div style="color:#facc15;font-weight:700;margin-top:3px;">ABS — Call Overturned — ${origCall} → ${newCall}</div>`;
+        } else {
+          absLine = `<div style="color:#facc15;font-weight:700;margin-top:3px;">ABS — Call Confirmed — ${origCall}</div>`;
+        }
+      }
       const correctLabel = p.correct ? "Correct" : "Missed";
-      const challengeLabel = isChallenged ? ' <span style="color:#facc15;font-weight:700;">ABS</span>' : "";
       el.addEventListener("mouseenter", (e) => {
         umpTip.innerHTML = `
-          <div class="mono" style="font-weight:700;margin-bottom:3px;">#${p.n} · ${callLabel}${challengeLabel}</div>
+          <div class="mono" style="font-weight:700;margin-bottom:3px;">#${p.n} · Called ${callLabel}</div>
           <div class="mono" style="opacity:.7;line-height:1.5;">
             ${correctLabel} · ${p.pitch_type_desc || p.pitch_type}<br>
             ${p.batter} vs ${p.pitcher}<br>
             ${p.half} ${p.inning} · Count: ${p.balls}-${p.strikes}
-          </div>`;
+          </div>${absLine}`;
         umpTip.style.display = "block";
         umpTip.style.left = (e.clientX + 12) + "px";
         umpTip.style.top = (e.clientY - 10) + "px";
