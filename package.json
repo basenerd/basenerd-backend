@@ -1,0 +1,23 @@
+{
+  "name": "basenerd",
+  "version": "1.0.0",
+  "description": "Basenerd - A modern, stats-first MLB hub",
+  "scripts": {
+    "cap:init": "npx cap init Basenerd com.basenerd.app --web-dir www",
+    "cap:add:ios": "npx cap add ios",
+    "cap:sync": "npx cap sync",
+    "cap:open:ios": "npx cap open ios"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/basenerd/basenerd-backend.git"
+  },
+  "author": "Nick Labella",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
+    "@capacitor/ios": "^8.2.0"
+  }
+}

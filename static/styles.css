@@ -1981,3 +1981,55 @@ span.status-pill.status-other {
     font-size: 26px;
   }
 }
+
+/* =============================================
+   APP-MODE ENHANCEMENTS (CAPACITOR / MOBILE)
+   ============================================= */
+
+/* Footer must clear the bottom tab bar on mobile */
+@media (max-width: 900px) {
+  .footer {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    margin-bottom: 60px;
+  }
+
+  /* Container bottom margin for tab bar clearance */
+  .container,
+  .wrap {
+    margin-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Smooth link transitions for app-like feel */
+  a, .btn, button {
+    transition: opacity .12s ease, transform .1s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  a:active, .btn:active, button:active {
+    opacity: .7;
+    transform: scale(.98);
+  }
+
+  /* Cards: subtler shadows, more rounded for iOS feel */
+  .card {
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+
+  /* Game ticker: add safe area padding on sides */
+  .game-ticker {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Loading skeleton animation */
+  @keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: 200px 0; }
+  }
+  .loading-skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 8px;
+  }
+}
