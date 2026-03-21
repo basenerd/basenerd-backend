@@ -217,6 +217,27 @@ def manager_game_answer():
         return jsonify({"ok": False, "reason": str(e)}), 200
 
 
+@app.get("/boxscore-game")
+def boxscore_game():
+    return render_template("boxscore_game.html")
+
+
+@app.get("/api/boxscore-game/round")
+def boxscore_game_round_api():
+    """Return a round for the career boxscore guessing game."""
+    try:
+        from services.boxscore_game import get_round
+        difficulty = request.args.get("difficulty", "rookie")
+        exclude_raw = request.args.get("exclude_ids", "")
+        exclude_ids = [int(x) for x in exclude_raw.split(",") if x.strip().isdigit()]
+        result = get_round(difficulty=difficulty, exclude_ids=exclude_ids)
+        return jsonify(result), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 200
+
+
 @app.get("/about")
 def about():
     page = get_markdown_page("about.md")
