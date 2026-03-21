@@ -621,6 +621,9 @@
             <a href="/manager-game" class="{% if request.path.startswith('/manager-game') %}active{% endif %}">
               Manager Game
             </a>
+            <a href="/boxscore-game" class="{% if request.path.startswith('/boxscore-game') %}active{% endif %}">
+              Boxscore Game
+            </a>
             <a class="dropdown-item" href="/random-player">Random Player Generator</a>
             <a href="/about" class="{% if request.path.startswith('/about') %}active{% endif %}">
               About
@@ -758,6 +761,10 @@
         <a href="/manager-game" class="app-more-link{% if request.path.startswith('/manager-game') %} active{% endif %}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           Manager Game
+        </a>
+        <a href="/boxscore-game" class="app-more-link{% if request.path.startswith('/boxscore-game') %} active{% endif %}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          Boxscore Game
         </a>
         <a href="/random-player" class="app-more-link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h.01M15 15h.01M9 15h.01M15 9h.01"/></svg>
