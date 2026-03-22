@@ -34,18 +34,33 @@
   .bg-table-wrap{
     overflow-x:auto; margin:12px 0; border-radius:10px;
     border:1px solid rgba(148,163,184,.12);
+    -webkit-overflow-scrolling:touch;
+    max-height:55vh;
+    overflow-y:auto;
   }
   .bg-table{
-    width:100%; border-collapse:collapse;
+    width:100%; border-collapse:separate; border-spacing:0;
     font-family:'IBM Plex Mono', ui-monospace, monospace;
     font-size:12px; white-space:nowrap;
   }
   .bg-table th{
     background:rgba(148,163,184,.08); padding:5px 7px;
     font-size:10px; font-weight:700; text-transform:uppercase;
-    letter-spacing:.3px; text-align:right; position:sticky; top:0;
+    letter-spacing:.3px; text-align:right;
+    position:sticky; top:0; z-index:2;
   }
   .bg-table th.l{ text-align:left; }
+  /* Sticky Year column */
+  .bg-table th.sticky, .bg-table td.sticky{
+    position:sticky; left:0; z-index:3;
+    background:var(--card, #181c24);
+  }
+  .bg-table th.sticky{
+    z-index:4; background:rgba(148,163,184,.08);
+  }
+  .bg-table td.sticky{
+    border-right:1px solid rgba(148,163,184,.1);
+  }
   .bg-table td{
     padding:4px 7px; border-top:1px solid rgba(148,163,184,.06);
     text-align:right;
@@ -55,7 +70,10 @@
     border-top:2px solid var(--accent, #f0b90b);
     font-weight:700; background:rgba(240,185,11,.04);
   }
-  .bg-table tbody tr:hover{ background:rgba(148,163,184,.04); }
+  .bg-table tr.career-row td.sticky{
+    background:rgba(240,185,11,.04);
+  }
+  .bg-table tbody tr:hover td{ background:rgba(148,163,184,.04); }
 
   /* Hint pills */
   .bg-hints{
@@ -187,13 +205,36 @@
   .bg-final-dot.correct{ background:rgba(34,197,94,.15); color:#16a34a; }
   .bg-final-dot.wrong{ background:rgba(220,38,38,.1); color:#dc2626; }
 
+  .bg-game-card{ padding:16px; }
+
   @media(max-width:640px){
+    .bg-game-card{ padding:10px 8px; }
+    .bg-container{ padding:0 6px; }
+    .bg-start{ padding:20px 8px; }
     .bg-start-title{ font-size:22px; }
-    .bg-diff-grid{ grid-template-columns:1fr 1fr; }
-    .bg-table{ font-size:11px; }
-    .bg-table th, .bg-table td{ padding:3px 5px; }
+    .bg-diff-grid{ grid-template-columns:1fr 1fr; gap:6px; }
+    .bg-diff-btn{ padding:10px 6px; }
+    .bg-table{ font-size:10px; }
+    .bg-table th{ padding:4px 5px; font-size:9px; }
+    .bg-table td{ padding:3px 5px; }
+    .bg-table-wrap{ max-height:50vh; border-radius:8px; }
+    .bg-hints{ gap:4px; }
+    .bg-hint{ font-size:10px; padding:2px 7px; }
+    .bg-round-diff{ font-size:10px; padding:2px 7px; }
+    .bg-input-area label{ font-size:14px; margin-bottom:8px; }
+    .bg-input{ font-size:16px !important; padding:10px 12px; }
+    .bg-submit-btn{ padding:10px 24px; font-size:13px; }
+    .bg-result-headshot{ width:64px; height:64px; }
+    .bg-result-text{ font-size:16px; }
     .bg-final-score{ font-size:48px; }
-    .bg-input{ font-size:16px !important; }
+    .bg-next-btn{ padding:10px; font-size:13px; }
+  }
+  @media(max-width:400px){
+    .bg-table{ font-size:9px; }
+    .bg-table th{ padding:3px 4px; font-size:8px; letter-spacing:0; }
+    .bg-table td{ padding:2px 4px; }
+    .bg-diff-name{ font-size:13px; }
+    .bg-diff-desc{ font-size:9px; }
   }
 </style>
 
@@ -326,7 +367,7 @@
     var sl = {gamesPlayed:"G",atBats:"AB",runs:"R",hits:"H",doubles:"2B",triples:"3B",homeRuns:"HR",rbi:"RBI",baseOnBalls:"BB",strikeOuts:"SO",stolenBases:"SB",avg:"AVG",obp:"OBP",slg:"SLG",ops:"OPS"};
 
     var h = renderProgress();
-    h += '<div class="card" style="padding:16px;">';
+    h += '<div class="card bg-game-card">';
 
     /* hint pills */
     h += '<div class="bg-hints"><div class="bg-hints-left">';
@@ -339,7 +380,7 @@
 
     /* table */
     h += '<div class="bg-table-wrap"><table class="bg-table"><thead><tr>';
-    h += '<th class="l">Year</th>';
+    h += '<th class="l sticky">Year</th>';
     if(showAge) h += '<th class="l">Age</th>';
     if(showTeam) h += '<th class="l">Tm</th>';
     sk.forEach(function(k){ h += '<th>' + sl[k] + '</th>'; });
@@ -347,7 +388,7 @@
 
     data.years.forEach(function(yr){
       h += '<tr>';
-      h += '<td class="l">' + yr.year + '</td>';
+      h += '<td class="l sticky">' + yr.year + '</td>';
       if(showAge) h += '<td class="l">' + yr.age + '</td>';
       if(showTeam) h += '<td class="l">' + yr.team + '</td>';
       sk.forEach(function(k){ h += '<td>' + yr.stats[k] + '</td>'; });
@@ -355,7 +396,7 @@
     });
 
     h += '<tr class="career-row">';
-    h += '<td class="l">Career</td>';
+    h += '<td class="l sticky">Career</td>';
     if(showAge) h += '<td></td>';
     if(showTeam) h += '<td></td>';
     sk.forEach(function(k){ h += '<td>' + data.career[k] + '</td>'; });
