@@ -77,9 +77,15 @@ def _pick(stat: dict, key: str):
     return v
 
 
+def get_player_names() -> List[str]:
+    """Return sorted list of all player names in the pool (for autocomplete)."""
+    pool = _load_pool()
+    return sorted(set(p["name"] for p in pool))
+
+
 def get_round(difficulty: str = "rookie", exclude_ids: list = None) -> dict:
     pool = _load_pool()
-    if len(pool) < 5:
+    if len(pool) < 1:
         return {
             "error": "Player pool not found or too small. "
                      "Run: python scripts/generate_boxscore_game_data.py"
@@ -88,12 +94,10 @@ def get_round(difficulty: str = "rookie", exclude_ids: list = None) -> dict:
     diff = DIFFICULTIES.get(difficulty, DIFFICULTIES["rookie"])
     exclude_set = set(exclude_ids or [])
     available = [p for p in pool if p["id"] not in exclude_set]
-    if len(available) < 5:
+    if len(available) < 1:
         available = pool
 
-    chosen = random.sample(available, 5)
-    answer_idx = random.randint(0, 4)
-    answer = chosen[answer_idx]
+    answer = random.choice(available)
 
     # Build year-by-year display
     years_display = []
@@ -109,25 +113,25 @@ def get_round(difficulty: str = "rookie", exclude_ids: list = None) -> dict:
     career_stat = answer.get("career", {})
     career_display = {k: _pick(career_stat, k) for k in STAT_KEYS}
 
-    choices = []
-    for p in chosen:
-        c = {"id": p["id"], "name": p["name"]}
-        if not diff["hide_pos"]:
-            c["pos"] = p.get("pos", "")
-        choices.append(c)
-
     headshot = (
         f"https://img.mlbstatic.com/mlb-photos/image/upload/"
         f"w_360,q_100/v1/people/{answer['id']}/headshot/67/current"
     )
 
+    # Hints based on difficulty
+    hints = {}
+    if not diff["hide_pos"]:
+        hints["pos"] = answer.get("pos", "")
+    if not diff["hide_bats"]:
+        hints["bats"] = answer.get("bats", "")
+    hints["seasons"] = len(answer.get("years", []))
+
     return {
         "answer_id": answer["id"],
         "answer_name": answer["name"],
         "answer_pos": answer.get("pos", ""),
-        "answer_bats": "" if diff["hide_bats"] else answer.get("bats", ""),
         "answer_headshot": headshot,
-        "choices": choices,
+        "hints": hints,
         "years": years_display,
         "career": career_display,
         "difficulty": difficulty,

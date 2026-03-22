@@ -2,22 +2,22 @@
 {% block content %}
 
 <style>
-  .bg-container{ max-width:920px; margin:0 auto; }
+  .bg-container{ max-width:920px; margin:0 auto; padding:0 12px; }
 
   /* Start screen */
-  .bg-start{ text-align:center; padding:40px 20px; }
-  .bg-start-title{ font-size:28px; font-weight:800; margin-bottom:8px; }
+  .bg-start{ text-align:center; padding:32px 16px; }
+  .bg-start-title{ font-size:28px; font-weight:800; margin-bottom:6px; }
   .bg-start-sub{
-    font-size:14px; opacity:.7; margin-bottom:24px; line-height:1.5;
+    font-size:14px; opacity:.7; margin-bottom:28px; line-height:1.5;
   }
 
   /* Difficulty selector */
   .bg-diff-grid{
-    display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;
-    margin-bottom:24px; max-width:560px; margin-left:auto; margin-right:auto;
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;
+    margin-bottom:24px; max-width:540px; margin-left:auto; margin-right:auto;
   }
   .bg-diff-btn{
-    padding:14px 10px; border:2px solid rgba(148,163,184,.2);
+    padding:12px 8px; border:2px solid rgba(148,163,184,.2);
     border-radius:10px; background:rgba(148,163,184,.04);
     cursor:pointer; text-align:center; transition:all .2s;
   }
@@ -27,12 +27,12 @@
   .bg-diff-btn.selected{
     border-color:var(--accent, #f0b90b); background:rgba(240,185,11,.08);
   }
-  .bg-diff-name{ font-size:15px; font-weight:700; }
-  .bg-diff-desc{ font-size:10px; opacity:.55; margin-top:3px; line-height:1.3; }
+  .bg-diff-name{ font-size:14px; font-weight:700; }
+  .bg-diff-desc{ font-size:10px; opacity:.55; margin-top:2px; line-height:1.3; }
 
   /* Stats table */
   .bg-table-wrap{
-    overflow-x:auto; margin:16px 0; border-radius:10px;
+    overflow-x:auto; margin:12px 0; border-radius:10px;
     border:1px solid rgba(148,163,184,.12);
   }
   .bg-table{
@@ -41,50 +41,87 @@
     font-size:12px; white-space:nowrap;
   }
   .bg-table th{
-    background:rgba(148,163,184,.08); padding:6px 8px;
+    background:rgba(148,163,184,.08); padding:5px 7px;
     font-size:10px; font-weight:700; text-transform:uppercase;
     letter-spacing:.3px; text-align:right; position:sticky; top:0;
   }
-  .bg-table th.left{ text-align:left; }
+  .bg-table th.l{ text-align:left; }
   .bg-table td{
-    padding:5px 8px; border-top:1px solid rgba(148,163,184,.06);
+    padding:4px 7px; border-top:1px solid rgba(148,163,184,.06);
     text-align:right;
   }
-  .bg-table td.left{ text-align:left; font-weight:600; }
+  .bg-table td.l{ text-align:left; font-weight:600; }
   .bg-table tr.career-row{
     border-top:2px solid var(--accent, #f0b90b);
     font-weight:700; background:rgba(240,185,11,.04);
   }
   .bg-table tbody tr:hover{ background:rgba(148,163,184,.04); }
 
-  /* Choices */
-  .bg-choices{
-    display:grid; grid-template-columns:repeat(5, 1fr);
-    gap:8px; margin-top:20px;
+  /* Hint pills */
+  .bg-hints{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:10px; flex-wrap:wrap; gap:6px;
   }
-  .bg-choice-btn{
-    padding:14px 8px; border:2px solid rgba(148,163,184,.2);
-    border-radius:10px; background:rgba(148,163,184,.04);
-    font-size:13px; font-weight:700; cursor:pointer;
-    text-align:center; transition:all .2s; line-height:1.3;
+  .bg-hints-left{ display:flex; gap:6px; flex-wrap:wrap; }
+  .bg-hint{
+    display:inline-block; padding:3px 10px; border-radius:6px;
+    font-size:11px; font-weight:600; background:rgba(148,163,184,.08);
   }
-  .bg-choice-btn:hover{
-    border-color:var(--accent, #f0b90b); background:rgba(240,185,11,.06);
+  .bg-round-diff{
+    font-size:11px; font-weight:700; padding:3px 10px; border-radius:6px;
+    background:rgba(240,185,11,.1); color:var(--accent, #f0b90b);
   }
-  .bg-choice-btn.correct{
-    border-color:#16a34a; background:rgba(34,197,94,.1);
+
+  /* Text input + autocomplete */
+  .bg-input-area{
+    margin-top:18px; text-align:center;
   }
-  .bg-choice-btn.wrong{
-    border-color:#dc2626; background:rgba(220,38,38,.08);
+  .bg-input-area label{
+    display:block; font-size:16px; font-weight:800; margin-bottom:10px;
   }
-  .bg-choice-pos{
-    font-size:10px; opacity:.5; margin-top:2px;
+  .bg-input-wrap{
+    position:relative; max-width:380px; margin:0 auto;
   }
+  .bg-input{
+    width:100%; padding:12px 16px; border-radius:10px;
+    border:2px solid rgba(148,163,184,.25); background:rgba(148,163,184,.06);
+    font-size:16px; font-weight:600; color:inherit;
+    outline:none; transition:border-color .2s;
+    font-family:inherit;
+  }
+  .bg-input:focus{
+    border-color:var(--accent, #f0b90b);
+  }
+  .bg-input::placeholder{ opacity:.35; }
+  .bg-autocomplete{
+    position:absolute; left:0; right:0; top:100%; margin-top:2px;
+    background:var(--card, #181c24); border:1px solid rgba(148,163,184,.15);
+    border-radius:10px; max-height:220px; overflow-y:auto; z-index:100;
+    display:none;
+  }
+  .bg-autocomplete.open{ display:block; }
+  .bg-ac-item{
+    padding:9px 14px; cursor:pointer; font-size:14px; font-weight:600;
+    transition:background .1s;
+  }
+  .bg-ac-item:hover, .bg-ac-item.highlighted{
+    background:rgba(240,185,11,.1);
+  }
+  .bg-ac-item:first-child{ border-radius:10px 10px 0 0; }
+  .bg-ac-item:last-child{ border-radius:0 0 10px 10px; }
+  .bg-submit-btn{
+    margin-top:10px; padding:10px 32px; border-radius:10px;
+    background:var(--accent, #f0b90b); color:#000;
+    font-size:14px; font-weight:700; border:none;
+    cursor:pointer;
+  }
+  .bg-submit-btn:hover{ opacity:.9; }
+  .bg-submit-btn:disabled{ opacity:.3; cursor:default; }
 
   /* Progress bar */
   .bg-progress{
     display:flex; align-items:center; gap:6px;
-    margin-bottom:16px; justify-content:center;
+    margin-bottom:14px; justify-content:center;
   }
   .bg-progress-dot{
     width:10px; height:10px; border-radius:50%;
@@ -101,24 +138,9 @@
     text-transform:uppercase; letter-spacing:.5px;
   }
 
-  /* Round hints */
-  .bg-hint{
-    display:inline-block; padding:3px 8px; border-radius:6px;
-    font-size:11px; font-weight:600; background:rgba(148,163,184,.08);
-    margin-right:6px;
-  }
-  .bg-round-header{
-    display:flex; align-items:center; justify-content:space-between;
-    margin-bottom:12px; flex-wrap:wrap; gap:8px;
-  }
-  .bg-round-diff{
-    font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;
-    background:rgba(240,185,11,.1); color:var(--accent, #f0b90b);
-  }
-
   /* Result reveal */
   .bg-result{
-    text-align:center; margin-top:16px; animation:bgFadeIn .35s ease;
+    text-align:center; margin-top:18px; animation:bgFadeIn .35s ease;
   }
   @keyframes bgFadeIn{
     from{ opacity:0; transform:translateY(8px); }
@@ -129,14 +151,17 @@
   .bg-result-wrong{ color:#dc2626; }
   .bg-result-headshot{
     width:80px; height:80px; border-radius:50%; object-fit:cover;
-    margin:8px auto; display:block;
+    margin:10px auto; display:block;
     border:3px solid rgba(148,163,184,.15);
+  }
+  .bg-result-pos{
+    font-size:13px; opacity:.6; margin-bottom:8px;
   }
 
   /* Buttons */
   .bg-next-btn{
     display:block; width:100%; max-width:300px;
-    margin:16px auto 0; padding:12px; border-radius:10px;
+    margin:14px auto 0; padding:12px; border-radius:10px;
     background:var(--accent, #f0b90b); color:#000;
     font-size:14px; font-weight:700; border:none;
     cursor:pointer; text-align:center;
@@ -149,10 +174,10 @@
     font-size:64px; font-weight:900;
     color:var(--accent, #f0b90b); margin:16px 0 4px;
   }
-  .bg-final-label{ font-size:14px; opacity:.6; margin-bottom:24px; }
+  .bg-final-label{ font-size:14px; opacity:.6; margin-bottom:20px; }
   .bg-final-breakdown{
     display:flex; flex-wrap:wrap; gap:6px;
-    justify-content:center; margin-bottom:24px;
+    justify-content:center; margin-bottom:20px;
   }
   .bg-final-dot{
     width:32px; height:32px; border-radius:8px;
@@ -165,27 +190,24 @@
   @media(max-width:640px){
     .bg-start-title{ font-size:22px; }
     .bg-diff-grid{ grid-template-columns:1fr 1fr; }
-    .bg-choices{ grid-template-columns:repeat(3, 1fr); }
     .bg-table{ font-size:11px; }
-    .bg-table th, .bg-table td{ padding:4px 5px; }
+    .bg-table th, .bg-table td{ padding:3px 5px; }
     .bg-final-score{ font-size:48px; }
-  }
-  @media(max-width:400px){
-    .bg-choices{ grid-template-columns:repeat(2, 1fr); }
+    .bg-input{ font-size:16px !important; }
   }
 </style>
 
 <div class="bg-container">
   <!-- Start Screen -->
   <div id="bg-start" class="bg-start">
-    <div class="card" style="padding:32px 24px;">
+    <div class="card" style="padding:28px 20px;">
       <div class="bg-start-title">Career Boxscore Game</div>
       <div class="bg-start-sub">
         A player's career batting stats appear year by year.<br>
-        Can you figure out who it is? 5 rounds, 5 choices each.
+        Type in who you think it is. 5 rounds per game.
       </div>
 
-      <div style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; opacity:.5; margin-bottom:10px;">
+      <div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; opacity:.5; margin-bottom:8px;">
         Select Difficulty
       </div>
       <div class="bg-diff-grid" id="bg-diff-grid">
@@ -207,10 +229,10 @@
         </div>
       </div>
 
-      <button class="bg-next-btn" onclick="startGame()" style="max-width:260px;">
+      <button class="bg-next-btn" onclick="startGame()" style="max-width:240px;">
         Play
       </button>
-      <div id="bg-best-score" style="font-size:13px; opacity:.5; margin-top:16px;"></div>
+      <div id="bg-best-score" style="font-size:12px; opacity:.45; margin-top:14px;"></div>
     </div>
   </div>
 
@@ -229,6 +251,8 @@
   var results = [];
   var answered = false;
   var usedIds = [];
+  var allPlayerNames = [];
+  var hlIdx = -1;
 
   /* ---------- helpers ---------- */
   function getBest(d){ return parseInt(localStorage.getItem("bg_best_" + d) || "0", 10); }
@@ -240,6 +264,11 @@
     el.textContent = b > 0 ? "Best score (" + difficulty + "): " + b + "/" + TOTAL_ROUNDS : "";
   }
   updateBestDisplay();
+
+  /* ---------- load player names for autocomplete ---------- */
+  fetch("/api/boxscore-game/players").then(function(r){ return r.json(); }).then(function(names){
+    allPlayerNames = names;
+  });
 
   /* ---------- difficulty ---------- */
   window.selectDiff = function(el){
@@ -289,6 +318,7 @@
 
   /* ---------- render round ---------- */
   function renderRound(data){
+    var hints = data.hints || {};
     var showAge  = data.years.length > 0 && data.years[0].age !== "";
     var showTeam = data.years.length > 0 && data.years[0].team !== "???";
 
@@ -296,35 +326,36 @@
     var sl = {gamesPlayed:"G",atBats:"AB",runs:"R",hits:"H",doubles:"2B",triples:"3B",homeRuns:"HR",rbi:"RBI",baseOnBalls:"BB",strikeOuts:"SO",stolenBases:"SB",avg:"AVG",obp:"OBP",slg:"SLG",ops:"OPS"};
 
     var h = renderProgress();
-    h += '<div class="card" style="padding:20px;">';
+    h += '<div class="card" style="padding:16px;">';
 
-    /* header hints */
-    h += '<div class="bg-round-header"><div>';
-    if(data.answer_bats) h += '<span class="bg-hint">Bats: ' + data.answer_bats + '</span>';
-    h += '<span class="bg-hint">' + data.years.length + ' MLB seasons</span>';
+    /* hint pills */
+    h += '<div class="bg-hints"><div class="bg-hints-left">';
+    if(hints.pos) h += '<span class="bg-hint">Position: ' + hints.pos + '</span>';
+    if(hints.bats) h += '<span class="bg-hint">Bats: ' + hints.bats + '</span>';
+    h += '<span class="bg-hint">' + hints.seasons + ' MLB seasons</span>';
     h += '</div>';
-    h += '<div class="bg-round-diff">' + data.difficulty_label + '</div>';
+    h += '<span class="bg-round-diff">' + data.difficulty_label + '</span>';
     h += '</div>';
 
     /* table */
     h += '<div class="bg-table-wrap"><table class="bg-table"><thead><tr>';
-    h += '<th class="left">Year</th>';
-    if(showAge) h += '<th class="left">Age</th>';
-    if(showTeam) h += '<th class="left">Tm</th>';
+    h += '<th class="l">Year</th>';
+    if(showAge) h += '<th class="l">Age</th>';
+    if(showTeam) h += '<th class="l">Tm</th>';
     sk.forEach(function(k){ h += '<th>' + sl[k] + '</th>'; });
     h += '</tr></thead><tbody>';
 
     data.years.forEach(function(yr){
       h += '<tr>';
-      h += '<td class="left">' + yr.year + '</td>';
-      if(showAge) h += '<td class="left">' + yr.age + '</td>';
-      if(showTeam) h += '<td class="left">' + yr.team + '</td>';
+      h += '<td class="l">' + yr.year + '</td>';
+      if(showAge) h += '<td class="l">' + yr.age + '</td>';
+      if(showTeam) h += '<td class="l">' + yr.team + '</td>';
       sk.forEach(function(k){ h += '<td>' + yr.stats[k] + '</td>'; });
       h += '</tr>';
     });
 
     h += '<tr class="career-row">';
-    h += '<td class="left">Career</td>';
+    h += '<td class="l">Career</td>';
     if(showAge) h += '<td></td>';
     if(showTeam) h += '<td></td>';
     sk.forEach(function(k){ h += '<td>' + data.career[k] + '</td>'; });
@@ -332,17 +363,14 @@
 
     h += '</tbody></table></div>';
 
-    /* question */
-    h += '<div style="font-size:18px; font-weight:800; text-align:center; margin:20px 0 12px;">Who is this player?</div>';
-
-    /* choices */
-    h += '<div class="bg-choices">';
-    data.choices.forEach(function(c){
-      h += '<button class="bg-choice-btn" data-id="' + c.id + '" onclick="submitGuess(' + c.id + ', this)">';
-      h += c.name;
-      if(c.pos) h += '<div class="bg-choice-pos">' + c.pos + '</div>';
-      h += '</button>';
-    });
+    /* text input */
+    h += '<div class="bg-input-area">';
+    h += '<label>Who is this player?</label>';
+    h += '<div class="bg-input-wrap">';
+    h += '<input class="bg-input" id="bg-guess" type="text" placeholder="Start typing a name..." autocomplete="off" spellcheck="false">';
+    h += '<div class="bg-autocomplete" id="bg-ac"></div>';
+    h += '</div>';
+    h += '<button class="bg-submit-btn" id="bg-submit" onclick="submitGuess()" disabled>Submit</button>';
     h += '</div>';
 
     /* result placeholder */
@@ -351,44 +379,108 @@
 
     document.getElementById("bg-game").innerHTML = h;
     answered = false;
+    hlIdx = -1;
 
     window._bgAnswer = data.answer_id;
     window._bgAnswerName = data.answer_name;
+    window._bgAnswerPos = data.answer_pos;
     window._bgHeadshot = data.answer_headshot;
-    window._bgChoiceIds = data.choices.map(function(c){ return c.id; });
+
+    /* wire up autocomplete */
+    var inp = document.getElementById("bg-guess");
+    var ac = document.getElementById("bg-ac");
+    var btn = document.getElementById("bg-submit");
+
+    inp.addEventListener("input", function(){
+      var q = inp.value.trim().toLowerCase();
+      hlIdx = -1;
+      if(q.length < 2){ ac.classList.remove("open"); ac.innerHTML = ""; btn.disabled = true; return; }
+      var matches = allPlayerNames.filter(function(n){ return n.toLowerCase().indexOf(q) !== -1; }).slice(0, 8);
+      if(!matches.length){ ac.classList.remove("open"); ac.innerHTML = ""; return; }
+      ac.innerHTML = matches.map(function(n, i){
+        return '<div class="bg-ac-item" data-name="' + n + '">' + n + '</div>';
+      }).join("");
+      ac.classList.add("open");
+
+      ac.querySelectorAll(".bg-ac-item").forEach(function(el){
+        el.addEventListener("mousedown", function(e){
+          e.preventDefault();
+          inp.value = el.dataset.name;
+          ac.classList.remove("open");
+          btn.disabled = false;
+        });
+      });
+
+      /* enable submit if exact match typed */
+      var exact = allPlayerNames.some(function(n){ return n.toLowerCase() === q; });
+      btn.disabled = !exact && !matches.length;
+    });
+
+    inp.addEventListener("keydown", function(e){
+      var items = ac.querySelectorAll(".bg-ac-item");
+      if(!items.length) {
+        if(e.key === "Enter" && !btn.disabled){ submitGuess(); }
+        return;
+      }
+      if(e.key === "ArrowDown"){
+        e.preventDefault();
+        hlIdx = Math.min(hlIdx + 1, items.length - 1);
+        items.forEach(function(el, i){ el.classList.toggle("highlighted", i === hlIdx); });
+      } else if(e.key === "ArrowUp"){
+        e.preventDefault();
+        hlIdx = Math.max(hlIdx - 1, 0);
+        items.forEach(function(el, i){ el.classList.toggle("highlighted", i === hlIdx); });
+      } else if(e.key === "Enter"){
+        e.preventDefault();
+        if(hlIdx >= 0 && items[hlIdx]){
+          inp.value = items[hlIdx].dataset.name;
+          ac.classList.remove("open");
+          btn.disabled = false;
+          hlIdx = -1;
+        } else if(!btn.disabled){
+          submitGuess();
+        }
+      } else if(e.key === "Escape"){
+        ac.classList.remove("open");
+        hlIdx = -1;
+      }
+    });
+
+    inp.addEventListener("blur", function(){
+      setTimeout(function(){ ac.classList.remove("open"); }, 150);
+    });
+
+    inp.focus();
   }
 
   /* ---------- submit guess ---------- */
-  window.submitGuess = function(guessId, btnEl){
+  window.submitGuess = function(){
     if(answered) return;
+    var inp = document.getElementById("bg-guess");
+    var guess = inp.value.trim();
+    if(!guess) return;
     answered = true;
 
-    var correct = guessId === window._bgAnswer;
-    results.push({correct: correct, answer_name: window._bgAnswerName});
-    usedIds = usedIds.concat(window._bgChoiceIds);
+    var correct = guess.toLowerCase() === window._bgAnswerName.toLowerCase();
+    results.push({correct: correct, answer_name: window._bgAnswerName, guess: guess});
+    usedIds.push(window._bgAnswer);
 
-    /* highlight buttons */
-    document.querySelectorAll(".bg-choice-btn").forEach(function(btn){
-      btn.style.pointerEvents = "none";
-      var id = parseInt(btn.dataset.id);
-      if(id === window._bgAnswer){
-        btn.classList.add("correct");
-      } else if(id === guessId && !correct){
-        btn.classList.add("wrong");
-      } else {
-        btn.style.opacity = ".4";
-      }
-    });
+    /* disable input */
+    inp.disabled = true;
+    inp.style.opacity = ".5";
+    document.getElementById("bg-submit").disabled = true;
+    document.getElementById("bg-ac").classList.remove("open");
 
     /* result */
     var area = document.getElementById("bg-result-area");
     var rh = '<div class="bg-result">';
     rh += '<img class="bg-result-headshot" src="' + window._bgHeadshot + '" onerror="this.style.display=\'none\'" alt="">';
     if(correct){
-      rh += '<div class="bg-result-text bg-result-correct">Correct! It\'s ' + window._bgAnswerName + '</div>';
+      rh += '<div class="bg-result-text bg-result-correct">Correct!</div>';
     } else {
-      rh += '<div class="bg-result-text bg-result-wrong">Wrong! It was ' + window._bgAnswerName + '</div>';
+      rh += '<div class="bg-result-text bg-result-wrong">It was ' + window._bgAnswerName + '</div>';
     }
+    rh += '<div class="bg-result-pos">' + window._bgAnswerPos + '</div>';
 
     var isLast = currentRound >= TOTAL_ROUNDS - 1;
     rh += '<button class="bg-next-btn" onclick="' + (isLast ? 'showFinal()' : 'nextRound()') + '">';
@@ -412,8 +504,8 @@
     setBest(difficulty, score);
     var diffLabel = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
 
-    var h = '<div class="bg-final card" style="padding:32px 24px;">';
-    h += '<div style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; opacity:.5;">Game Over</div>';
+    var h = '<div class="bg-final card" style="padding:28px 20px;">';
+    h += '<div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; opacity:.5;">Game Over</div>';
     h += '<div class="bg-final-score">' + score + '/' + TOTAL_ROUNDS + '</div>';
     h += '<div class="bg-final-label">Correct on ' + diffLabel + ' difficulty</div>';
 
@@ -423,10 +515,11 @@
     });
     h += '</div>';
 
-    h += '<div style="margin-bottom:20px;">';
+    h += '<div style="margin-bottom:18px;">';
     results.forEach(function(r, i){
-      h += '<div style="font-size:13px; opacity:.7; margin-bottom:4px;">'
-        + (r.correct ? '\u2705' : '\u274C') + ' Round ' + (i+1) + ': ' + r.answer_name + '</div>';
+      var icon = r.correct ? '\u2705' : '\u274C';
+      var detail = r.correct ? r.answer_name : r.guess + ' \u2192 ' + r.answer_name;
+      h += '<div style="font-size:13px; opacity:.7; margin-bottom:3px;">' + icon + ' Round ' + (i+1) + ': ' + detail + '</div>';
     });
     h += '</div>';
 
@@ -443,10 +536,10 @@
     h += '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>';
     h += 'Share on X</a>';
 
-    h += '<div style="margin-top:16px;"><button class="bg-next-btn" onclick="startGame()" style="max-width:260px; margin:0 auto;">Play Again</button></div>';
+    h += '<div style="margin-top:14px;"><button class="bg-next-btn" onclick="startGame()" style="max-width:240px; margin:0 auto;">Play Again</button></div>';
 
     var best = getBest(difficulty);
-    if(best > 0) h += '<div style="font-size:12px; opacity:.4; margin-top:12px;">Best score (' + diffLabel + '): ' + best + '/' + TOTAL_ROUNDS + '</div>';
+    if(best > 0) h += '<div style="font-size:12px; opacity:.4; margin-top:10px;">Best score (' + diffLabel + '): ' + best + '/' + TOTAL_ROUNDS + '</div>';
 
     h += '</div>';
     document.getElementById("bg-final").innerHTML = h;

@@ -238,6 +238,13 @@ def boxscore_game_round_api():
         return jsonify({"error": str(e)}), 200
 
 
+@app.get("/api/boxscore-game/players")
+def boxscore_game_players_api():
+    """Return all player names in the pool (for autocomplete)."""
+    from services.boxscore_game import get_player_names
+    return jsonify(get_player_names()), 200
+
+
 @app.get("/about")
 def about():
     page = get_markdown_page("about.md")

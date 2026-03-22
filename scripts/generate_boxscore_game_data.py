@@ -25,6 +25,51 @@ START_YEAR = 2000
 END_YEAR = 2026
 BATCH_SIZE = 50
 
+# Team ID → abbreviation (API yearByYear doesn't return abbreviation)
+TEAM_ABBREV = {}
+
+
+def _load_team_abbrevs():
+    """Build team ID → abbreviation map from multiple seasons."""
+    global TEAM_ABBREV
+    if TEAM_ABBREV:
+        return
+    for yr in range(2000, 2027, 5):
+        try:
+            r = requests.get(f"{BASE}/teams", params={"sportId": 1, "season": yr}, timeout=20)
+            r.raise_for_status()
+            for t in r.json().get("teams", []):
+                tid = t.get("id")
+                abbr = t.get("abbreviation", "")
+                if tid and abbr and tid not in TEAM_ABBREV:
+                    TEAM_ABBREV[tid] = abbr
+        except Exception:
+            pass
+    # Also current year
+    try:
+        r = requests.get(f"{BASE}/teams", params={"sportId": 1, "season": 2025}, timeout=20)
+        r.raise_for_status()
+        for t in r.json().get("teams", []):
+            TEAM_ABBREV[t["id"]] = t.get("abbreviation", "")
+    except Exception:
+        pass
+    print(f"  Loaded {len(TEAM_ABBREV)} team abbreviations")
+
+
+def _team_abbr(team_obj):
+    """Get abbreviation from a team dict, falling back to ID lookup."""
+    abbr = team_obj.get("abbreviation", "")
+    if abbr:
+        return abbr
+    tid = team_obj.get("id")
+    if tid and tid in TEAM_ABBREV:
+        return TEAM_ABBREV[tid]
+    # Last resort: shorten the name
+    name = team_obj.get("name", "")
+    if name:
+        return name.split()[-1][:3].upper()
+    return ""
+
 
 def fetch_season_player_ids(season: int) -> list:
     """Get all MLB player IDs for a season."""
@@ -92,7 +137,7 @@ def build_entry(player: dict):
                 if sport and "Major League Baseball" not in sport:
                     continue
                 season = s.get("season", "")
-                team_abbr = (s.get("team") or {}).get("abbreviation", "")
+                team_abbr = _team_abbr(s.get("team") or {})
                 by_year.setdefault(season, []).append({
                     "team": team_abbr,
                     "stat": s.get("stat", {}),
@@ -147,6 +192,9 @@ def build_entry(player: dict):
 
 def main():
     print("=== Boxscore Game Data Generator ===\n")
+
+    print("Loading team abbreviations...")
+    _load_team_abbrevs()
 
     # Step 1: Scan seasons for player IDs
     print(f"Step 1: Scanning seasons {START_YEAR}-{END_YEAR} for player IDs...")
