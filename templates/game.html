@@ -1011,6 +1011,64 @@
     width:10px; height:10px; border-radius:3px;
   }
 
+  /* ---- Stat Probability Distribution ---- */
+  .pv-dist{
+    margin-top:16px; padding:14px; background:rgba(255,255,255,0.02);
+    border:1px solid rgba(255,255,255,0.06); border-radius:10px;
+  }
+  .pv-dist-header{
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;
+  }
+  .pv-dist-title{ font-weight:800; font-size:0.9rem; }
+  .pv-dist-toggle{
+    display:flex; gap:0; border-radius:6px; overflow:hidden;
+    border:1px solid rgba(255,255,255,0.1);
+  }
+  .pv-dist-btn{
+    padding:4px 10px; font-size:0.68rem; font-weight:700; cursor:pointer;
+    background:transparent; color:rgba(255,255,255,0.5); border:none;
+    transition: all 0.15s;
+  }
+  .pv-dist-btn.active{
+    background:rgba(255,255,255,0.12); color:#fff;
+  }
+  .pv-dist-btn:hover:not(.active){ background:rgba(255,255,255,0.05); }
+  .pv-dist-grid{
+    display:flex; gap:2px; align-items:flex-end; min-height:100px;
+  }
+  .pv-dist-col{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+    min-width:0;
+  }
+  .pv-dist-bar{
+    width:100%; border-radius:4px 4px 0 0; min-height:2px;
+    transition: height 0.3s, background 0.3s;
+  }
+  .pv-dist-val{
+    font-size:0.62rem; font-weight:700; color:rgba(255,255,255,0.7);
+    font-variant-numeric:tabular-nums;
+  }
+  .pv-dist-lbl{
+    font-size:0.65rem; font-weight:800; color:rgba(255,255,255,0.4);
+    font-variant-numeric:tabular-nums;
+  }
+  .pv-dist-expected{
+    margin-top:8px; font-size:0.72rem; opacity:0.5; text-align:center;
+  }
+  .pv-dist-expected span{ font-weight:800; color:#f0c040; opacity:1; }
+
+  .pv-dist-tabs{
+    display:flex; gap:4px; margin-bottom:10px;
+  }
+  .pv-dist-tab{
+    padding:3px 8px; font-size:0.65rem; font-weight:700; cursor:pointer;
+    background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.4); border:none;
+    border-radius:4px; transition: all 0.15s;
+  }
+  .pv-dist-tab.active{
+    background:rgba(240,192,64,0.15); color:#f0c040;
+  }
+
   @media(max-width:640px){
     .pv-table{ font-size:0.75rem; }
     .pv-table th, .pv-table td{ padding:5px 3px; }
@@ -1026,6 +1084,8 @@
     .pv-bullpen-grid{ grid-template-columns: 1fr; }
     .pv-bp-card{ padding:8px 10px; }
     .pv-bp-avatar{ width:32px; height:32px; }
+    .pv-dist-btn{ padding:3px 7px; font-size:0.62rem; }
+    .pv-dist-val{ font-size:0.56rem; }
   }
 
   /* Umpire report responsive */
@@ -5485,6 +5545,135 @@ document.addEventListener("DOMContentLoaded", ()=>{
   const OUTCOMES = ['K','OUT','BB','1B','2B','3B','HR'];
   let _pvLoaded = false;
 
+  // ---- Poisson probability distribution helpers ----
+  function poissonPMF(lambda, k){
+    // P(X=k) = (lambda^k * e^-lambda) / k!
+    if(lambda <= 0) return k === 0 ? 1 : 0;
+    let logP = -lambda + k * Math.log(lambda);
+    for(let i = 2; i <= k; i++) logP -= Math.log(i);
+    return Math.exp(logP);
+  }
+
+  function computeDistribution(lambda, maxK){
+    // Returns array of {k, pct} from 0..maxK
+    const dist = [];
+    let cumulative = 0;
+    for(let k = 0; k <= maxK; k++){
+      const p = poissonPMF(lambda, k);
+      dist.push({k, pct: p * 100});
+      cumulative += p;
+    }
+    // Add "maxK+" bucket for remainder
+    const remainder = (1 - cumulative) * 100;
+    if(remainder > 0.5){
+      dist.push({k: maxK + 1, pct: remainder, plus: true});
+    }
+    return dist;
+  }
+
+  // Pitcher stat configs
+  const PITCHER_STATS = [
+    {key:'k', label:'Strikeouts', color:'#ff6b6b', maxK:12},
+    {key:'ip', label:'Innings Pitched', color:'#4dabf7', maxK:9},
+    {key:'h', label:'Hits Allowed', color:'#51cf66', maxK:10},
+    {key:'bb', label:'Walks', color:'#ffd43b', maxK:6},
+    {key:'hr', label:'Homers Allowed', color:'#e64980', maxK:4},
+  ];
+
+  // Batter stat configs
+  const BATTER_STATS = [
+    {key:'h', label:'Hits', color:'#51cf66', maxK:4},
+    {key:'hr', label:'Home Runs', color:'#e64980', maxK:3},
+    {key:'rbi', label:'RBIs', color:'#ff922b', maxK:5},
+  ];
+
+  function computePitcherLambdas(side){
+    // Compute expected values (lambda) for each pitcher stat from batter data
+    const batters = side.batters || [];
+    const valid = batters.filter(b => b.probs && Object.keys(b.probs).length);
+    if(!valid.length) return null;
+    const n = valid.length;
+    const isSpring = side._isSpring;
+    const estBF = isSpring ? 12 : 24;
+
+    const avgK = valid.reduce((s,b) => s + (b.probs.K||0), 0) / n;
+    const avgBB = valid.reduce((s,b) => s + (b.probs.BB||0) + (b.probs.IBB||0) + (b.probs.HBP||0), 0) / n;
+    const avgHit = valid.reduce((s,b) => s + (b.summary?.hit_pct||0), 0) / n;
+    const avgHR = valid.reduce((s,b) => s + (b.probs.HR||0), 0) / n;
+    const avgOut = valid.reduce((s,b) => s + (b.probs.OUT||0) + (b.probs.K||0), 0) / n;
+
+    // IP: convert expected outs to innings (lambda in innings for Poisson)
+    const estOuts = estBF * avgOut;
+    const ipLambda = estOuts / 3;
+
+    return {
+      k: estBF * avgK,
+      ip: ipLambda,
+      h: estBF * avgHit,
+      bb: estBF * avgBB,
+      hr: estBF * avgHR,
+    };
+  }
+
+  function computeBatterLambdas(batter){
+    const probs = batter.probs || {};
+    const summary = batter.summary || {};
+    const sl = batter.statline || {};
+    if(!sl.pa) return null;
+    const pa = sl.pa;
+    return {
+      h: pa * (summary.hit_pct || 0),
+      hr: pa * (probs.HR || 0),
+      rbi: sl.rbi || pa * ((probs.HR||0)*1.5 + (probs['2B']||0)*0.5 + (probs['3B']||0)*0.8 + (probs['1B']||0)*0.15),
+    };
+  }
+
+  function renderDistWidget(containerId, stats, lambdas, playerLabel){
+    const el = document.getElementById(containerId);
+    if(!el || !lambdas) return;
+
+    const activeStat = stats[0].key;
+
+    function render(statKey){
+      const stat = stats.find(s=>s.key===statKey);
+      const lambda = lambdas[statKey] || 0;
+      const dist = computeDistribution(lambda, stat.maxK);
+      const maxPct = Math.max(...dist.map(d=>d.pct), 1);
+
+      let html = `<div class="pv-dist-header">
+        <div class="pv-dist-title">${playerLabel} Projections</div>
+      </div>`;
+      html += '<div class="pv-dist-toggle">';
+      stats.forEach(s=>{
+        html += `<button class="pv-dist-btn ${s.key===statKey?'active':''}" data-stat="${s.key}">${s.label}</button>`;
+      });
+      html += '</div>';
+
+      html += '<div class="pv-dist-grid">';
+      dist.forEach(d=>{
+        const barH = Math.max(2, (d.pct / maxPct) * 80);
+        const lbl = d.plus ? `${d.k-1}+` : d.k;
+        const pctStr = d.pct >= 1 ? d.pct.toFixed(0)+'%' : d.pct < 0.1 ? '<1%' : d.pct.toFixed(1)+'%';
+        html += `<div class="pv-dist-col">
+          <div class="pv-dist-val">${pctStr}</div>
+          <div class="pv-dist-bar" style="height:${barH}px;background:${stat.color}"></div>
+          <div class="pv-dist-lbl">${lbl}</div>
+        </div>`;
+      });
+      html += '</div>';
+      html += `<div class="pv-dist-expected">Expected: <span>${lambda.toFixed(1)} ${stat.label}</span></div>`;
+
+      el.innerHTML = html;
+
+      // Bind toggle buttons
+      el.querySelectorAll('.pv-dist-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=> render(btn.dataset.stat));
+      });
+    }
+
+    render(activeStat);
+  }
+
   function loadPreview(){
     if(_pvLoaded) return;
     _pvLoaded = true;
@@ -5541,6 +5730,40 @@ document.addEventListener("DOMContentLoaded", ()=>{
         if(er) er.classList.toggle('open');
       });
     });
+
+    // Render probability distributions
+    if(window._pvDistQueue){
+      window._pvDistQueue.forEach(({side, sideKey, batters, pitcherDistId})=>{
+        // Pitcher distribution
+        const lambdas = computePitcherLambdas(side);
+        if(lambdas){
+          const pName = side.pitcher ? side.pitcher.name : 'Pitcher';
+          renderDistWidget(pitcherDistId, PITCHER_STATS, lambdas, pName);
+        }
+
+        // Batter distributions
+        batters.forEach((b,i)=>{
+          const bLambdas = computeBatterLambdas(b);
+          if(bLambdas){
+            renderDistWidget(`pv-dist-batter-${sideKey}-${i}`, BATTER_STATS, bLambdas, b.name.split(' ').pop());
+          }
+        });
+
+        // Batter tab switching
+        document.querySelectorAll(`.pv-dist-tab[data-side="${sideKey}"]`).forEach(tab=>{
+          tab.addEventListener('click', ()=>{
+            const idx = parseInt(tab.dataset.batterIdx);
+            document.querySelectorAll(`.pv-dist-tab[data-side="${sideKey}"]`).forEach(t=>t.classList.remove('active'));
+            tab.classList.add('active');
+            batters.forEach((_,j)=>{
+              const el = document.getElementById(`pv-dist-batter-${sideKey}-${j}`);
+              if(el) el.style.display = j===idx ? '' : 'none';
+            });
+          });
+        });
+      });
+      window._pvDistQueue = [];
+    }
   }
 
   function renderPitchingMatchup(d){
@@ -5918,7 +6141,32 @@ document.addEventListener("DOMContentLoaded", ()=>{
     html += `<div class="pv-total"><div class="tv">${(totals.exp_k||0).toFixed(1)}</div><div class="tl">Exp K</div></div>`;
     html += '</div>';
 
+    // Pitcher probability distribution
+    const pitcherDistId = `pv-dist-pitcher-${sideKey}`;
+    html += `<div id="${pitcherDistId}"></div>`;
+
+    // Per-batter probability distributions (collapsible)
+    html += '<div style="margin-top:14px;">';
+    html += '<div class="pv-dist-title" style="font-size:0.85rem; margin-bottom:8px;">Batter Projections</div>';
+    html += '<div class="pv-dist-tabs">';
+    batters.forEach((b,i)=>{
+      const battDistId = `pv-dist-batter-${sideKey}-${i}`;
+      html += `<button class="pv-dist-tab ${i===0?'active':''}" data-batter-idx="${i}" data-side="${sideKey}">${b.spot}. ${b.name.split(' ').pop()}</button>`;
+    });
     html += '</div>';
+    batters.forEach((b,i)=>{
+      const battDistId = `pv-dist-batter-${sideKey}-${i}`;
+      html += `<div id="${battDistId}" style="${i>0?'display:none':''}"></div>`;
+    });
+    html += '</div>';
+
+    html += '</div>';
+
+    // Store side data for post-render distribution setup
+    if(!window._pvDistQueue) window._pvDistQueue = [];
+    side._isSpring = isSpring;
+    window._pvDistQueue.push({side, sideKey, batters, pitcherDistId});
+
     return html;
   }
 

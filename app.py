@@ -1479,6 +1479,24 @@ def games():
         user_tz=user_tz,
         show_wbc=show_wbc,
     )
+
+
+@app.get("/todays-projections")
+def todays_projections():
+    """Today's stat probability projections for all pitchers and hitters."""
+    user_tz = "America/Phoenix"
+    picked = (request.args.get("date") or "").strip()
+    today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
+    target = picked or today_ymd
+    games_list = get_games_for_date(target, tz_name=user_tz)
+    return render_template(
+        "todays_projections.html",
+        title=f"Today's Projections • {target}",
+        date=target,
+        games=games_list,
+    )
+
+
 @app.get("/game/<int:game_pk>")
 def game_detail(game_pk: int):
     user_tz = "America/Phoenix"
