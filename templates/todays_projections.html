@@ -25,83 +25,7 @@
   .tp-game-body{ padding:16px; display:none; }
   .tp-game.open .tp-game-body{ display:block; }
 
-  /* Player section */
-  .tp-section{ margin-bottom:20px; }
-  .tp-section-title{
-    font-weight:800; font-size:0.95rem; margin-bottom:10px;
-    padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.06);
-  }
-
-  /* Pitcher/Batter card */
-  .tp-player{
-    margin-bottom:16px; padding:12px; background:rgba(255,255,255,0.02);
-    border:1px solid rgba(255,255,255,0.05); border-radius:10px;
-  }
-  .tp-player-header{
-    display:flex; align-items:center; gap:10px; margin-bottom:10px;
-  }
-  .tp-player-img{
-    width:44px; height:44px; border-radius:50%; object-fit:cover;
-    border:2px solid rgba(255,255,255,0.08);
-  }
-  .tp-player-name{ font-weight:800; font-size:0.9rem; }
-  .tp-player-meta{ font-size:0.72rem; opacity:0.5; }
-  .tp-player-statline{
-    display:flex; gap:12px; flex-wrap:wrap; margin-bottom:10px;
-  }
-  .tp-stat-chip{
-    text-align:center;
-  }
-  .tp-stat-chip .sv{ font-size:0.95rem; font-weight:800; color:#f0c040; }
-  .tp-stat-chip .sl{ font-size:0.6rem; opacity:0.4; text-transform:uppercase; }
-
-  /* Distribution */
-  .tp-dist-toggle{
-    display:flex; gap:0; border-radius:6px; overflow:hidden;
-    border:1px solid rgba(255,255,255,0.1); margin-bottom:8px;
-  }
-  .tp-dist-btn{
-    padding:4px 10px; font-size:0.68rem; font-weight:700; cursor:pointer;
-    background:transparent; color:rgba(255,255,255,0.5); border:none;
-    transition: all 0.15s;
-  }
-  .tp-dist-btn.active{ background:rgba(255,255,255,0.12); color:#fff; }
-  .tp-dist-btn:hover:not(.active){ background:rgba(255,255,255,0.05); }
-  .tp-dist-grid{
-    display:flex; gap:2px; align-items:flex-end; min-height:80px;
-  }
-  .tp-dist-col{
-    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0;
-  }
-  .tp-dist-bar{
-    width:100%; border-radius:4px 4px 0 0; min-height:2px;
-    transition: height 0.3s, background 0.3s;
-  }
-  .tp-dist-val{
-    font-size:0.6rem; font-weight:700; color:rgba(255,255,255,0.7);
-    font-variant-numeric:tabular-nums;
-  }
-  .tp-dist-lbl{
-    font-size:0.65rem; font-weight:800; color:rgba(255,255,255,0.4);
-    font-variant-numeric:tabular-nums;
-  }
-  .tp-dist-expected{
-    margin-top:6px; font-size:0.72rem; opacity:0.5; text-align:center;
-  }
-  .tp-dist-expected span{ font-weight:800; color:#f0c040; opacity:1; }
-
-  /* Batter tabs */
-  .tp-batter-tabs{
-    display:flex; gap:4px; flex-wrap:wrap; margin-bottom:10px;
-  }
-  .tp-batter-tab{
-    padding:3px 8px; font-size:0.65rem; font-weight:700; cursor:pointer;
-    background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.4); border:none;
-    border-radius:4px; transition: all 0.15s;
-  }
-  .tp-batter-tab.active{ background:rgba(240,192,64,0.15); color:#f0c040; }
-
-  /* Tabs for pitcher vs batter view */
+  /* View toggle */
   .tp-view-tabs{
     display:flex; gap:0; border-radius:8px; overflow:hidden;
     border:1px solid rgba(255,255,255,0.1); margin-bottom:14px; width:fit-content;
@@ -113,13 +37,103 @@
   }
   .tp-view-btn.active{ background:rgba(255,255,255,0.12); color:#fff; }
 
+  /* Stat toggle */
+  .tp-stat-toggle{
+    display:flex; gap:0; border-radius:6px; overflow:hidden;
+    border:1px solid rgba(255,255,255,0.1); margin-bottom:12px; width:fit-content;
+  }
+  .tp-stat-btn{
+    padding:5px 12px; font-size:0.72rem; font-weight:700; cursor:pointer;
+    background:transparent; color:rgba(255,255,255,0.45); border:none;
+    transition: all 0.15s; white-space:nowrap;
+  }
+  .tp-stat-btn.active{ background:rgba(255,255,255,0.12); color:#fff; }
+  .tp-stat-btn:hover:not(.active){ background:rgba(255,255,255,0.05); }
+
+  /* Table */
+  .tp-tbl-wrap{
+    overflow-x:auto; -webkit-overflow-scrolling:touch;
+  }
+  .tp-tbl{
+    width:100%; border-collapse:collapse; font-size:0.8rem;
+  }
+  .tp-tbl th{
+    text-align:center; padding:6px 4px; font-size:0.68rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.3px; opacity:0.5;
+    border-bottom:2px solid rgba(255,255,255,0.08);
+    white-space:nowrap;
+  }
+  .tp-tbl th.player-col{
+    text-align:left; min-width:180px;
+  }
+  .tp-tbl th.num-col{
+    min-width:48px; width:48px;
+  }
+  .tp-tbl th.exp-col{
+    min-width:52px; border-left:2px solid rgba(255,255,255,0.06);
+  }
+  .tp-tbl td{
+    padding:8px 4px; border-bottom:1px solid rgba(255,255,255,0.04);
+    text-align:center; font-variant-numeric:tabular-nums;
+  }
+  .tp-tbl td.player-td{
+    text-align:left;
+  }
+  .tp-tbl td.exp-td{
+    border-left:2px solid rgba(255,255,255,0.06);
+    font-weight:800; color:#f0c040;
+  }
+  .tp-tbl tr:hover{
+    background:rgba(255,255,255,0.03);
+  }
+
+  /* Player cell */
+  .tp-player-cell{
+    display:flex; align-items:center; gap:8px;
+  }
+  .tp-team-logo{
+    width:22px; height:22px; flex-shrink:0;
+  }
+  .tp-player-img{
+    width:32px; height:32px; border-radius:50%; object-fit:cover;
+    border:1.5px solid rgba(255,255,255,0.08); flex-shrink:0;
+  }
+  .tp-player-info{
+    min-width:0;
+  }
+  .tp-player-name{
+    font-weight:700; font-size:0.8rem; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;
+  }
+  .tp-player-meta{
+    font-size:0.65rem; opacity:0.45;
+  }
+
+  /* Pct cell coloring */
+  .tp-pct{
+    font-size:0.78rem; font-weight:600;
+  }
+  .tp-pct-high{ color:#51cf66; }
+  .tp-pct-med{ color:rgba(255,255,255,0.7); }
+  .tp-pct-low{ opacity:0.35; }
+
+  /* Section title */
+  .tp-section-label{
+    font-weight:800; font-size:0.85rem; margin:16px 0 8px; opacity:0.6;
+    text-transform:uppercase; letter-spacing:0.5px;
+  }
+
   @media(max-width:640px){
     .tp-game-header{ padding:10px 12px; }
     .tp-game-body{ padding:10px; }
-    .tp-player{ padding:10px; }
-    .tp-dist-btn{ padding:3px 7px; font-size:0.62rem; }
-    .tp-dist-val{ font-size:0.54rem; }
-    .tp-batter-tab{ font-size:0.58rem; padding:2px 6px; }
+    .tp-stat-btn{ padding:4px 8px; font-size:0.65rem; }
+    .tp-tbl{ font-size:0.72rem; }
+    .tp-tbl th{ padding:5px 3px; font-size:0.6rem; }
+    .tp-tbl td{ padding:6px 3px; }
+    .tp-tbl th.num-col{ min-width:38px; width:38px; }
+    .tp-player-img{ width:26px; height:26px; }
+    .tp-team-logo{ width:18px; height:18px; }
+    .tp-player-name{ font-size:0.72rem; }
   }
 </style>
 
@@ -146,58 +160,54 @@
   const DATE = {{ date | tojson }};
   const GAMES = {{ games | tojson }};
 
-  // Poisson PMF
-  function poissonPMF(lambda, k){
-    if(lambda <= 0) return k === 0 ? 1 : 0;
-    let logP = -lambda + k * Math.log(lambda);
+  // ---- Poisson math ----
+  function poissonPMF(lam, k){
+    if(lam <= 0) return k === 0 ? 1 : 0;
+    let logP = -lam + k * Math.log(lam);
     for(let i = 2; i <= k; i++) logP -= Math.log(i);
     return Math.exp(logP);
   }
 
-  function computeDist(lambda, maxK){
+  function computeDist(lam, maxK){
     const dist = [];
     let cum = 0;
     for(let k = 0; k <= maxK; k++){
-      const p = poissonPMF(lambda, k);
+      const p = poissonPMF(lam, k);
       dist.push({k, pct: p * 100});
       cum += p;
     }
     const rem = (1 - cum) * 100;
-    if(rem > 0.5) dist.push({k: maxK+1, pct: rem, plus: true});
+    if(rem > 0.5) dist[dist.length-1].pct += rem; // fold remainder into last bucket
     return dist;
   }
 
+  // ---- Stat definitions ----
   const P_STATS = [
-    {key:'k', label:'Strikeouts', color:'#ff6b6b', maxK:12},
-    {key:'ip', label:'Innings Pitched', color:'#4dabf7', maxK:9},
-    {key:'h', label:'Hits Allowed', color:'#51cf66', maxK:10},
-    {key:'bb', label:'Walks', color:'#ffd43b', maxK:6},
-    {key:'hr', label:'Homers Allowed', color:'#e64980', maxK:4},
+    {key:'k',  label:'Strikeouts',     short:'K',  maxK:10},
+    {key:'ip', label:'Innings Pitched', short:'IP', maxK:8},
+    {key:'h',  label:'Hits Allowed',    short:'H',  maxK:9},
+    {key:'bb', label:'Walks',           short:'BB', maxK:5},
+    {key:'hr', label:'Homers Allowed',  short:'HR', maxK:3},
   ];
   const B_STATS = [
-    {key:'h', label:'Hits', color:'#51cf66', maxK:4},
-    {key:'hr', label:'Home Runs', color:'#e64980', maxK:3},
-    {key:'rbi', label:'RBIs', color:'#ff922b', maxK:5},
+    {key:'h',   label:'Hits',      short:'H',   maxK:4},
+    {key:'hr',  label:'Home Runs', short:'HR',  maxK:3},
+    {key:'rbi', label:'RBIs',      short:'RBI', maxK:5},
   ];
 
+  // ---- Lambda computations ----
   function pitcherLambdas(side){
     const batters = (side.batters||[]).filter(b => b.probs && Object.keys(b.probs).length);
     if(!batters.length) return null;
     const n = batters.length;
     const isSpring = side._isSpring;
     const estBF = isSpring ? 12 : 24;
-    const avgK = batters.reduce((s,b)=>s+(b.probs.K||0),0)/n;
-    const avgBB = batters.reduce((s,b)=>s+(b.probs.BB||0)+(b.probs.IBB||0)+(b.probs.HBP||0),0)/n;
+    const avgK   = batters.reduce((s,b)=>s+(b.probs.K||0),0)/n;
+    const avgBB  = batters.reduce((s,b)=>s+(b.probs.BB||0)+(b.probs.IBB||0)+(b.probs.HBP||0),0)/n;
     const avgHit = batters.reduce((s,b)=>s+(b.summary?.hit_pct||0),0)/n;
-    const avgHR = batters.reduce((s,b)=>s+(b.probs.HR||0),0)/n;
+    const avgHR  = batters.reduce((s,b)=>s+(b.probs.HR||0),0)/n;
     const avgOut = batters.reduce((s,b)=>s+(b.probs.OUT||0)+(b.probs.K||0),0)/n;
-    return {
-      k: estBF*avgK,
-      ip: estBF*avgOut/3,
-      h: estBF*avgHit,
-      bb: estBF*avgBB,
-      hr: estBF*avgHR,
-    };
+    return { k: estBF*avgK, ip: estBF*avgOut/3, h: estBF*avgHit, bb: estBF*avgBB, hr: estBF*avgHR };
   }
 
   function batterLambdas(b){
@@ -206,46 +216,81 @@
     const sl = b.statline||{};
     if(!sl.pa) return null;
     return {
-      h: sl.pa * (summary.hit_pct||0),
-      hr: sl.pa * (probs.HR||0),
+      h:   sl.pa * (summary.hit_pct||0),
+      hr:  sl.pa * (probs.HR||0),
       rbi: sl.rbi || sl.pa * ((probs.HR||0)*1.5 + (probs['2B']||0)*0.5 + (probs['3B']||0)*0.8 + (probs['1B']||0)*0.15),
     };
   }
 
-  function renderDist(containerId, stats, lambdas, prefix){
-    const el = document.getElementById(containerId);
-    if(!el || !lambdas) return;
-    function render(statKey){
-      const stat = stats.find(s=>s.key===statKey);
-      const lambda = lambdas[statKey]||0;
-      const dist = computeDist(lambda, stat.maxK);
-      const maxPct = Math.max(...dist.map(d=>d.pct),1);
-      let html = '<div class="tp-dist-toggle">';
-      stats.forEach(s=>{
-        html += `<button class="tp-dist-btn ${s.key===statKey?'active':''}" data-stat="${s.key}">${s.label}</button>`;
-      });
-      html += '</div><div class="tp-dist-grid">';
-      dist.forEach(d=>{
-        const barH = Math.max(2, (d.pct/maxPct)*70);
-        const lbl = d.plus ? `${d.k-1}+` : d.k;
-        const pctStr = d.pct>=1 ? d.pct.toFixed(0)+'%' : d.pct<0.1 ? '<1%' : d.pct.toFixed(1)+'%';
-        html += `<div class="tp-dist-col">
-          <div class="tp-dist-val">${pctStr}</div>
-          <div class="tp-dist-bar" style="height:${barH}px;background:${stat.color}"></div>
-          <div class="tp-dist-lbl">${lbl}</div>
-        </div>`;
-      });
-      html += '</div>';
-      html += `<div class="tp-dist-expected">Expected: <span>${lambda.toFixed(1)} ${stat.label}</span></div>`;
-      el.innerHTML = html;
-      el.querySelectorAll('.tp-dist-btn').forEach(btn=>{
-        btn.addEventListener('click', ()=>render(btn.dataset.stat));
-      });
-    }
-    render(stats[0].key);
+  // ---- Formatting helpers ----
+  function fmtPct(pct){
+    if(pct >= 10) return pct.toFixed(0) + '%';
+    if(pct >= 1)  return pct.toFixed(1) + '%';
+    if(pct >= 0.1) return pct.toFixed(1) + '%';
+    return '<1%';
+  }
+  function pctClass(pct){
+    if(pct >= 20) return 'tp-pct-high';
+    if(pct >= 5)  return 'tp-pct-med';
+    return 'tp-pct-low';
   }
 
-  // Filter to only scheduled/preview games
+  function teamLogoUrl(teamId){
+    return teamId ? `https://www.mlbstatic.com/team-logos/${teamId}.svg` : '';
+  }
+  function headshotUrl(playerId){
+    return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_80,q_auto:best/v1/people/${playerId}/headshot/67/current`;
+  }
+
+  // ---- Build table for a stat ----
+  function buildTable(players, stat, type){
+    const maxK = stat.maxK;
+    // Compute distributions for all players
+    const rows = players.map(p => {
+      const lam = p.lambdas ? (p.lambdas[stat.key]||0) : 0;
+      const dist = computeDist(lam, maxK);
+      return { ...p, dist, lam };
+    });
+
+    // Column headers: 0, 1, 2, ... maxK+
+    let html = '<div class="tp-tbl-wrap"><table class="tp-tbl"><thead><tr>';
+    html += '<th class="player-col">Player</th>';
+    for(let k = 0; k <= maxK; k++){
+      const label = k === maxK ? `${k}+` : k;
+      html += `<th class="num-col">${label}</th>`;
+    }
+    html += '<th class="exp-col">Exp</th>';
+    html += '</tr></thead><tbody>';
+
+    rows.forEach(r => {
+      html += '<tr>';
+      // Player cell
+      html += `<td class="player-td"><div class="tp-player-cell">`;
+      if(r.logoUrl) html += `<img class="tp-team-logo" src="${r.logoUrl}" alt="" onerror="this.style.display='none'">`;
+      html += `<img class="tp-player-img" src="${headshotUrl(r.id)}" alt="" onerror="this.style.display='none'">`;
+      html += `<div class="tp-player-info"><div class="tp-player-name">${r.name}</div>`;
+      html += `<div class="tp-player-meta">${r.meta}</div></div>`;
+      html += '</div></td>';
+
+      // Pct cells
+      r.dist.forEach(d => {
+        html += `<td><span class="tp-pct ${pctClass(d.pct)}">${fmtPct(d.pct)}</span></td>`;
+      });
+      // If dist is shorter than maxK+1 columns (no remainder bucket), pad
+      for(let i = r.dist.length; i <= maxK; i++){
+        html += '<td><span class="tp-pct tp-pct-low"><1%</span></td>';
+      }
+
+      // Expected value
+      html += `<td class="exp-td">${r.lam.toFixed(1)}</td>`;
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  // ---- Filter games ----
   const previewGames = GAMES.filter(g=>{
     const ds = (g.detailedState||'').toLowerCase();
     return ds.includes('scheduled') || ds.includes('warmup') || ds.includes('pre-game')
@@ -259,9 +304,16 @@
     // Build game shells
     let shellHtml = '';
     previewGames.forEach((g,gi)=>{
+      const awayLogo = g.away?.logo || '';
+      const homeLogo = g.home?.logo || '';
       shellHtml += `<div class="tp-game open" id="tp-game-${gi}">
         <div class="tp-game-header" data-game-idx="${gi}">
-          <div class="tp-game-teams">${g.away.abbrev} @ ${g.home.abbrev}</div>
+          <div class="tp-game-teams">
+            ${awayLogo ? `<img src="${awayLogo}" style="height:20px;width:20px;vertical-align:middle;margin-right:4px" alt="">` : ''}
+            ${g.away.abbrev} @
+            ${homeLogo ? `<img src="${homeLogo}" style="height:20px;width:20px;vertical-align:middle;margin:0 4px" alt="">` : ''}
+            ${g.home.abbrev}
+          </div>
           <div class="tp-game-time">${g.timeLocal || g.statusPill || ''}</div>
         </div>
         <div class="tp-game-body" id="tp-game-body-${gi}">
@@ -274,45 +326,128 @@
 
     // Toggle game collapse
     document.querySelectorAll('.tp-game-header').forEach(hdr=>{
-      hdr.addEventListener('click', ()=>{
-        hdr.parentElement.classList.toggle('open');
-      });
+      hdr.addEventListener('click', ()=>{ hdr.parentElement.classList.toggle('open'); });
     });
 
     // Fetch pregame data for each game
     previewGames.forEach((g,gi)=>{
       fetch(`/game/${g.gamePk}/pregame.json`)
         .then(r=>r.json())
-        .then(d=> renderGameProjections(d, gi))
-        .catch(err=>{
+        .then(d=> renderGameProjections(d, gi, g))
+        .catch(()=>{
           document.getElementById(`tp-game-body-${gi}`).innerHTML =
             '<div style="opacity:0.4; font-size:0.8rem;">Projections unavailable (lineups may not be posted yet).</div>';
         });
     });
   }
 
-  function renderGameProjections(d, gi){
+  function renderGameProjections(d, gi, gameMeta){
     const body = document.getElementById(`tp-game-body-${gi}`);
     if(!d.ok || !d.lineups_posted){
       body.innerHTML = '<div style="opacity:0.4; font-size:0.8rem;">Lineups not yet posted. Check back closer to game time.</div>';
       return;
     }
 
+    const awayLogo = gameMeta.away?.logo || teamLogoUrl(d.away_team_id);
+    const homeLogo = gameMeta.home?.logo || teamLogoUrl(d.home_team_id);
+
+    // Build pitcher player rows
+    // d.home side = away pitcher's matchup data, d.away side = home pitcher's matchup data
+    const pitcherRows = [];
+    [{side: d.home, pitcher: d.home?.pitcher, abbrev: d.away_abbrev, logo: awayLogo, statline: d.home?.pitcher_statline},
+     {side: d.away, pitcher: d.away?.pitcher, abbrev: d.home_abbrev, logo: homeLogo, statline: d.away?.pitcher_statline}]
+    .forEach(cfg => {
+      if(!cfg.pitcher) return;
+      cfg.side._isSpring = d.is_spring;
+      const lam = pitcherLambdas(cfg.side);
+      if(!lam) return;
+      const hand = cfg.pitcher.throws === 'L' ? 'LHP' : 'RHP';
+      pitcherRows.push({
+        id: cfg.pitcher.id,
+        name: cfg.pitcher.name,
+        meta: `${cfg.abbrev} · ${hand}`,
+        logoUrl: cfg.logo,
+        lambdas: lam,
+      });
+    });
+
+    // Build batter player rows
+    const batterRows = [];
+    [{batters: d.away?.batters||[], abbrev: d.away_abbrev, logo: awayLogo},
+     {batters: d.home?.batters||[], abbrev: d.home_abbrev, logo: homeLogo}]
+    .forEach(cfg => {
+      cfg.batters.forEach(b => {
+        const lam = batterLambdas(b);
+        if(!lam) return;
+        batterRows.push({
+          id: b.id,
+          name: b.name,
+          meta: `${cfg.abbrev} · ${b.stand} ${b.pos}`,
+          logoUrl: cfg.logo,
+          lambdas: lam,
+        });
+      });
+    });
+
+    // Render shell with view toggle + stat toggles
     let html = '';
 
-    // View toggle: Pitchers / Batters
+    // View tabs
     html += `<div class="tp-view-tabs">
       <button class="tp-view-btn active" data-view="pitchers" data-gi="${gi}">Pitchers</button>
       <button class="tp-view-btn" data-view="batters" data-gi="${gi}">Batters</button>
     </div>`;
-    html += `<div id="tp-pitchers-${gi}"></div>`;
-    html += `<div id="tp-batters-${gi}" style="display:none"></div>`;
+
+    // Pitchers panel
+    html += `<div id="tp-pitchers-${gi}">`;
+    html += `<div class="tp-stat-toggle" id="tp-pstat-toggle-${gi}">`;
+    P_STATS.forEach((s,i) => {
+      html += `<button class="tp-stat-btn ${i===0?'active':''}" data-stat="${s.key}" data-gi="${gi}" data-type="p">${s.label}</button>`;
+    });
+    html += '</div>';
+    html += `<div id="tp-ptable-${gi}"></div>`;
+    html += '</div>';
+
+    // Batters panel
+    html += `<div id="tp-batters-${gi}" style="display:none">`;
+    html += `<div class="tp-stat-toggle" id="tp-bstat-toggle-${gi}">`;
+    B_STATS.forEach((s,i) => {
+      html += `<button class="tp-stat-btn ${i===0?'active':''}" data-stat="${s.key}" data-gi="${gi}" data-type="b">${s.label}</button>`;
+    });
+    html += '</div>';
+    html += `<div id="tp-btable-${gi}"></div>`;
+    html += '</div>';
 
     body.innerHTML = html;
 
-    // Render pitchers section
-    renderPitchersSection(d, gi);
-    renderBattersSection(d, gi);
+    // Render initial tables
+    function renderPitcherTable(statKey){
+      const stat = P_STATS.find(s=>s.key===statKey);
+      document.getElementById(`tp-ptable-${gi}`).innerHTML = buildTable(pitcherRows, stat, 'pitcher');
+    }
+    function renderBatterTable(statKey){
+      const stat = B_STATS.find(s=>s.key===statKey);
+      document.getElementById(`tp-btable-${gi}`).innerHTML = buildTable(batterRows, stat, 'batter');
+    }
+
+    renderPitcherTable(P_STATS[0].key);
+    renderBatterTable(B_STATS[0].key);
+
+    // Stat toggle handlers
+    body.querySelectorAll(`#tp-pstat-toggle-${gi} .tp-stat-btn`).forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        body.querySelectorAll(`#tp-pstat-toggle-${gi} .tp-stat-btn`).forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        renderPitcherTable(btn.dataset.stat);
+      });
+    });
+    body.querySelectorAll(`#tp-bstat-toggle-${gi} .tp-stat-btn`).forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        body.querySelectorAll(`#tp-bstat-toggle-${gi} .tp-stat-btn`).forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        renderBatterTable(btn.dataset.stat);
+      });
+    });
 
     // View toggle handlers
     body.querySelectorAll('.tp-view-btn').forEach(btn=>{
@@ -326,138 +461,15 @@
     });
   }
 
-  function renderPitchersSection(d, gi){
-    const el = document.getElementById(`tp-pitchers-${gi}`);
-    let html = '';
-
-    // Away pitcher (d.home.pitcher faces home lineup, d.home side has away pitcher stats)
-    // Note: d.away = home pitcher vs away lineup, d.home = away pitcher vs home lineup
-    // The away team's starter is d.home.pitcher (he pitches to home lineup)
-    // The home team's starter is d.away.pitcher
-    [{side: d.home, pitcher: d.home?.pitcher, label: d.away_abbrev, statline: d.home?.pitcher_statline, isSpring: d.is_spring},
-     {side: d.away, pitcher: d.away?.pitcher, label: d.home_abbrev, statline: d.away?.pitcher_statline, isSpring: d.is_spring}]
-    .forEach((cfg, pi)=>{
-      if(!cfg.pitcher) return;
-      const p = cfg.pitcher;
-      cfg.side._isSpring = cfg.isSpring;
-      const lambdas = pitcherLambdas(cfg.side);
-      const sl = cfg.statline;
-      const hs = p.headshot || `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_120,q_auto:best/v1/people/${p.id}/headshot/67/current`;
-
-      html += `<div class="tp-player">
-        <div class="tp-player-header">
-          <img class="tp-player-img" src="${hs}" alt="${p.name}" onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_120,q_auto:best/v1/people/${p.id}/headshot/67/current'">
-          <div>
-            <div class="tp-player-name">${cfg.label} - ${p.name}</div>
-            <div class="tp-player-meta">${p.throws}HP</div>
-          </div>
-        </div>`;
-      if(sl){
-        html += '<div class="tp-player-statline">';
-        [['IP',sl.ip],['K',sl.k],['BB',sl.bb],['H',sl.h],['ER',sl.er]].forEach(([l,v])=>{
-          html += `<div class="tp-stat-chip"><div class="sv">${v}</div><div class="sl">${l}</div></div>`;
-        });
-        html += '</div>';
-      }
-      const distId = `tp-pdist-${gi}-${pi}`;
-      html += `<div id="${distId}"></div></div>`;
-    });
-
-    el.innerHTML = html;
-
-    // Render distributions
-    [{side: d.home, isSpring: d.is_spring}, {side: d.away, isSpring: d.is_spring}].forEach((cfg, pi)=>{
-      cfg.side._isSpring = cfg.isSpring;
-      const lambdas = pitcherLambdas(cfg.side);
-      if(lambdas) renderDist(`tp-pdist-${gi}-${pi}`, P_STATS, lambdas, '');
-    });
-  }
-
-  function renderBattersSection(d, gi){
-    const el = document.getElementById(`tp-batters-${gi}`);
-    let html = '';
-
-    // Away batters then home batters
-    [{batters: d.away?.batters||[], label: d.away_abbrev||'AWAY', sideKey:'away'},
-     {batters: d.home?.batters||[], label: d.home_abbrev||'HOME', sideKey:'home'}]
-    .forEach((cfg, si)=>{
-      if(!cfg.batters.length) return;
-      html += `<div class="tp-section">
-        <div class="tp-section-title">${cfg.label} Batters</div>`;
-
-      // Batter tabs
-      html += '<div class="tp-batter-tabs">';
-      cfg.batters.forEach((b,bi)=>{
-        html += `<button class="tp-batter-tab ${bi===0?'active':''}" data-bi="${bi}" data-gi="${gi}" data-si="${si}">${b.spot}. ${b.name.split(' ').pop()}</button>`;
-      });
-      html += '</div>';
-
-      // Batter panels
-      cfg.batters.forEach((b,bi)=>{
-        const sl = b.statline||{};
-        const hs = b.headshot || `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_60,q_auto:best/v1/people/${b.id}/headshot/67/current`;
-        const panelId = `tp-batter-${gi}-${si}-${bi}`;
-        html += `<div class="tp-player" id="${panelId}" style="${bi>0?'display:none':''}">
-          <div class="tp-player-header">
-            <img class="tp-player-img" src="${hs}" alt="${b.name}" onerror="this.style.display='none'">
-            <div>
-              <div class="tp-player-name">${b.name}</div>
-              <div class="tp-player-meta">${b.stand} ${b.pos}</div>
-            </div>
-          </div>`;
-        if(sl.pa){
-          html += '<div class="tp-player-statline">';
-          [['PA',sl.pa],['H',sl.h],['HR',sl.hr],['RBI',sl.rbi],['BB',sl.bb],['K',sl.k]].forEach(([l,v])=>{
-            html += `<div class="tp-stat-chip"><div class="sv">${v}</div><div class="sl">${l}</div></div>`;
-          });
-          html += '</div>';
-        }
-        const distId = `tp-bdist-${gi}-${si}-${bi}`;
-        html += `<div id="${distId}"></div></div>`;
-      });
-
-      html += '</div>';
-    });
-
-    el.innerHTML = html;
-
-    // Render batter distributions
-    [{batters: d.away?.batters||[], sideKey:'away'},
-     {batters: d.home?.batters||[], sideKey:'home'}]
-    .forEach((cfg, si)=>{
-      cfg.batters.forEach((b,bi)=>{
-        const lambdas = batterLambdas(b);
-        if(lambdas) renderDist(`tp-bdist-${gi}-${si}-${bi}`, B_STATS, lambdas, '');
-      });
-    });
-
-    // Batter tab switching
-    el.querySelectorAll('.tp-batter-tab').forEach(tab=>{
-      tab.addEventListener('click', ()=>{
-        const bi = parseInt(tab.dataset.bi);
-        const tgi = tab.dataset.gi;
-        const tsi = tab.dataset.si;
-        // Deactivate siblings
-        el.querySelectorAll(`.tp-batter-tab[data-gi="${tgi}"][data-si="${tsi}"]`).forEach(t=>t.classList.remove('active'));
-        tab.classList.add('active');
-        // Show/hide panels
-        el.querySelectorAll(`.tp-player[id^="tp-batter-${tgi}-${tsi}-"]`).forEach((p,j)=>{
-          p.style.display = j===bi ? '' : 'none';
-        });
-      });
-    });
-  }
-
   // Date navigation
   const prevBtn = document.getElementById('tp-prev');
   const nextBtn = document.getElementById('tp-next');
   const dateInput = document.querySelector('input[name="date"]');
-
   function adjDate(days){
     if(!dateInput||!dateInput.value) return;
-    const d = new Date(dateInput.value+'T00:00:00');
-    d.setDate(d.getDate()+days);
-    dateInput.value = d.toISOString().slice(0,10);
+    const dt = new Date(dateInput.value+'T00:00:00');
+    dt.setDate(dt.getDate()+days);
+    dateInput.value = dt.toISOString().slice(0,10);
     if(dateInput.form) dateInput.form.submit();
   }
   if(prevBtn) prevBtn.addEventListener('click', ()=>adjDate(-1));
