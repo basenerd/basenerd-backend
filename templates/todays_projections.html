@@ -13,32 +13,40 @@
   .tp-controls{
     display:flex; align-items:center; gap:14px; flex-wrap:wrap;
     margin-top:16px; margin-bottom:14px;
+    padding:12px 16px;
+    background:rgba(255,255,255,0.02);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:10px;
+  }
+  .tp-controls-label{
+    font-size:0.72rem; font-weight:700; opacity:0.5; text-transform:uppercase;
+    letter-spacing:0.5px; margin-right:4px;
   }
 
   /* View toggle */
   .tp-view-tabs{
     display:flex; gap:0; border-radius:8px; overflow:hidden;
-    border:1px solid rgba(255,255,255,0.1);
+    border:1px solid rgba(255,255,255,0.15);
   }
   .tp-view-btn{
-    padding:6px 16px; font-size:0.78rem; font-weight:700; cursor:pointer;
+    padding:7px 18px; font-size:0.8rem; font-weight:700; cursor:pointer;
     background:transparent; color:rgba(255,255,255,0.5); border:none;
     transition: all 0.15s;
   }
-  .tp-view-btn.active{ background:rgba(255,255,255,0.12); color:#fff; }
+  .tp-view-btn.active{ background:rgba(240,192,64,0.2); color:#f0c040; }
   .tp-view-btn:hover:not(.active){ background:rgba(255,255,255,0.05); }
 
   /* Stat toggle */
   .tp-stat-toggle{
     display:flex; gap:0; border-radius:6px; overflow:hidden;
-    border:1px solid rgba(255,255,255,0.1);
+    border:1px solid rgba(255,255,255,0.15);
   }
   .tp-stat-btn{
-    padding:5px 12px; font-size:0.72rem; font-weight:700; cursor:pointer;
-    background:transparent; color:rgba(255,255,255,0.45); border:none;
+    padding:6px 14px; font-size:0.75rem; font-weight:700; cursor:pointer;
+    background:transparent; color:rgba(255,255,255,0.5); border:none;
     transition: all 0.15s; white-space:nowrap;
   }
-  .tp-stat-btn.active{ background:rgba(255,255,255,0.12); color:#fff; }
+  .tp-stat-btn.active{ background:rgba(255,255,255,0.15); color:#fff; }
   .tp-stat-btn:hover:not(.active){ background:rgba(255,255,255,0.05); }
 
   /* Table */
@@ -164,10 +172,12 @@
 <div id="tp-loading" class="tp-loading">Loading games and projections...</div>
 
 <div id="tp-controls" class="tp-controls" style="display:none">
+  <span class="tp-controls-label">View:</span>
   <div class="tp-view-tabs">
     <button class="tp-view-btn active" data-view="pitchers">Pitchers</button>
     <button class="tp-view-btn" data-view="batters">Batters</button>
   </div>
+  <span class="tp-controls-label">Stat:</span>
   <div class="tp-stat-toggle" id="tp-stat-toggle"></div>
 </div>
 
