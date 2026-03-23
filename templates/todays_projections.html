@@ -9,26 +9,16 @@
   .tp-loading{ text-align:center; padding:60px 20px; opacity:0.5; }
   .tp-empty{ text-align:center; padding:40px 20px; opacity:0.5; }
 
-  /* Game section */
-  .tp-game{
-    margin-top:18px; border:1px solid rgba(255,255,255,0.06);
-    border-radius:12px; overflow:hidden; background:rgba(255,255,255,0.01);
+  /* Controls row */
+  .tp-controls{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    margin-top:16px; margin-bottom:14px;
   }
-  .tp-game-header{
-    display:flex; align-items:center; justify-content:space-between; gap:12px;
-    padding:12px 16px; background:rgba(255,255,255,0.03);
-    border-bottom:1px solid rgba(255,255,255,0.06); cursor:pointer;
-  }
-  .tp-game-header:hover{ background:rgba(255,255,255,0.05); }
-  .tp-game-teams{ font-weight:800; font-size:1rem; }
-  .tp-game-time{ font-size:0.75rem; opacity:0.5; font-family:monospace; }
-  .tp-game-body{ padding:16px; display:none; }
-  .tp-game.open .tp-game-body{ display:block; }
 
   /* View toggle */
   .tp-view-tabs{
     display:flex; gap:0; border-radius:8px; overflow:hidden;
-    border:1px solid rgba(255,255,255,0.1); margin-bottom:14px; width:fit-content;
+    border:1px solid rgba(255,255,255,0.1);
   }
   .tp-view-btn{
     padding:6px 16px; font-size:0.78rem; font-weight:700; cursor:pointer;
@@ -36,11 +26,12 @@
     transition: all 0.15s;
   }
   .tp-view-btn.active{ background:rgba(255,255,255,0.12); color:#fff; }
+  .tp-view-btn:hover:not(.active){ background:rgba(255,255,255,0.05); }
 
   /* Stat toggle */
   .tp-stat-toggle{
     display:flex; gap:0; border-radius:6px; overflow:hidden;
-    border:1px solid rgba(255,255,255,0.1); margin-bottom:12px; width:fit-content;
+    border:1px solid rgba(255,255,255,0.1);
   }
   .tp-stat-btn{
     padding:5px 12px; font-size:0.72rem; font-weight:700; cursor:pointer;
@@ -52,38 +43,51 @@
 
   /* Table */
   .tp-tbl-wrap{
-    overflow-x:auto; -webkit-overflow-scrolling:touch;
+    overflow-x:auto; -webkit-overflow-scrolling:touch; margin-top:4px;
   }
   .tp-tbl{
     width:100%; border-collapse:collapse; font-size:0.8rem;
   }
   .tp-tbl th{
-    text-align:center; padding:6px 4px; font-size:0.68rem; font-weight:700;
+    text-align:center; padding:8px 5px; font-size:0.7rem; font-weight:700;
     text-transform:uppercase; letter-spacing:0.3px; opacity:0.5;
     border-bottom:2px solid rgba(255,255,255,0.08);
-    white-space:nowrap;
+    white-space:nowrap; cursor:pointer; user-select:none;
+    position:relative;
   }
+  .tp-tbl th:hover{ opacity:0.8; }
   .tp-tbl th.player-col{
-    text-align:left; min-width:180px;
+    text-align:left; min-width:190px; cursor:pointer;
+  }
+  .tp-tbl th.opp-col{
+    text-align:left; min-width:100px;
   }
   .tp-tbl th.num-col{
-    min-width:48px; width:48px;
+    min-width:50px; width:50px;
   }
   .tp-tbl th.exp-col{
-    min-width:52px; border-left:2px solid rgba(255,255,255,0.06);
+    min-width:54px; border-left:2px solid rgba(255,255,255,0.06);
   }
+  .tp-tbl th .sort-arrow{
+    font-size:0.6rem; margin-left:2px; opacity:0.4;
+  }
+  .tp-tbl th.sorted .sort-arrow{ opacity:1; color:#f0c040; }
+
   .tp-tbl td{
-    padding:8px 4px; border-bottom:1px solid rgba(255,255,255,0.04);
+    padding:8px 5px; border-bottom:1px solid rgba(255,255,255,0.04);
     text-align:center; font-variant-numeric:tabular-nums;
   }
   .tp-tbl td.player-td{
+    text-align:left;
+  }
+  .tp-tbl td.opp-td{
     text-align:left;
   }
   .tp-tbl td.exp-td{
     border-left:2px solid rgba(255,255,255,0.06);
     font-weight:800; color:#f0c040;
   }
-  .tp-tbl tr:hover{
+  .tp-tbl tbody tr:hover{
     background:rgba(255,255,255,0.03);
   }
 
@@ -98,15 +102,24 @@
     width:32px; height:32px; border-radius:50%; object-fit:cover;
     border:1.5px solid rgba(255,255,255,0.08); flex-shrink:0;
   }
-  .tp-player-info{
-    min-width:0;
-  }
+  .tp-player-info{ min-width:0; }
   .tp-player-name{
     font-weight:700; font-size:0.8rem; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis;
   }
   .tp-player-meta{
     font-size:0.65rem; opacity:0.45;
+  }
+
+  /* Opponent cell */
+  .tp-opp-cell{
+    display:flex; align-items:center; gap:6px;
+  }
+  .tp-opp-logo{
+    width:18px; height:18px; flex-shrink:0;
+  }
+  .tp-opp-name{
+    font-size:0.78rem; font-weight:600;
   }
 
   /* Pct cell coloring */
@@ -117,23 +130,20 @@
   .tp-pct-med{ color:rgba(255,255,255,0.7); }
   .tp-pct-low{ opacity:0.35; }
 
-  /* Section title */
-  .tp-section-label{
-    font-weight:800; font-size:0.85rem; margin:16px 0 8px; opacity:0.6;
-    text-transform:uppercase; letter-spacing:0.5px;
-  }
-
   @media(max-width:640px){
-    .tp-game-header{ padding:10px 12px; }
-    .tp-game-body{ padding:10px; }
+    .tp-controls{ gap:8px; }
     .tp-stat-btn{ padding:4px 8px; font-size:0.65rem; }
+    .tp-view-btn{ padding:5px 10px; font-size:0.7rem; }
     .tp-tbl{ font-size:0.72rem; }
     .tp-tbl th{ padding:5px 3px; font-size:0.6rem; }
     .tp-tbl td{ padding:6px 3px; }
-    .tp-tbl th.num-col{ min-width:38px; width:38px; }
+    .tp-tbl th.num-col{ min-width:40px; width:40px; }
+    .tp-tbl th.player-col{ min-width:150px; }
+    .tp-tbl th.opp-col{ min-width:70px; }
     .tp-player-img{ width:26px; height:26px; }
     .tp-team-logo{ width:18px; height:18px; }
     .tp-player-name{ font-size:0.72rem; }
+    .tp-pct{ font-size:0.7rem; }
   }
 </style>
 
@@ -153,11 +163,19 @@
 </div>
 
 <div id="tp-loading" class="tp-loading">Loading games and projections...</div>
-<div id="tp-content"></div>
+
+<div id="tp-controls" class="tp-controls" style="display:none">
+  <div class="tp-view-tabs">
+    <button class="tp-view-btn active" data-view="pitchers">Pitchers</button>
+    <button class="tp-view-btn" data-view="batters">Batters</button>
+  </div>
+  <div class="tp-stat-toggle" id="tp-stat-toggle"></div>
+</div>
+
+<div id="tp-table-area"></div>
 
 <script>
 (function(){
-  const DATE = {{ date | tojson }};
   const GAMES = {{ games | tojson }};
 
   // ---- Poisson math ----
@@ -170,37 +188,31 @@
 
   function computeDist(lam, maxK){
     const dist = [];
-    let cum = 0;
     for(let k = 0; k <= maxK; k++){
-      const p = poissonPMF(lam, k);
-      dist.push({k, pct: p * 100});
-      cum += p;
+      dist.push(poissonPMF(lam, k) * 100);
     }
-    const rem = (1 - cum) * 100;
-    if(rem > 0.5) dist[dist.length-1].pct += rem; // fold remainder into last bucket
     return dist;
   }
 
   // ---- Stat definitions ----
   const P_STATS = [
-    {key:'k',  label:'Strikeouts',     short:'K',  maxK:10},
-    {key:'ip', label:'Innings Pitched', short:'IP', maxK:8},
-    {key:'h',  label:'Hits Allowed',    short:'H',  maxK:9},
-    {key:'bb', label:'Walks',           short:'BB', maxK:5},
-    {key:'hr', label:'Homers Allowed',  short:'HR', maxK:3},
+    {key:'k',  label:'Strikeouts',     maxK:10},
+    {key:'ip', label:'Innings Pitched', maxK:8},
+    {key:'h',  label:'Hits Allowed',    maxK:9},
+    {key:'bb', label:'Walks',           maxK:5},
+    {key:'hr', label:'Homers Allowed',  maxK:3},
   ];
   const B_STATS = [
-    {key:'h',   label:'Hits',      short:'H',   maxK:4},
-    {key:'hr',  label:'Home Runs', short:'HR',  maxK:3},
-    {key:'rbi', label:'RBIs',      short:'RBI', maxK:5},
+    {key:'h',   label:'Hits',      maxK:4},
+    {key:'hr',  label:'Home Runs', maxK:3},
+    {key:'rbi', label:'RBIs',      maxK:5},
   ];
 
   // ---- Lambda computations ----
-  function pitcherLambdas(side){
+  function pitcherLambdas(side, isSpring){
     const batters = (side.batters||[]).filter(b => b.probs && Object.keys(b.probs).length);
     if(!batters.length) return null;
     const n = batters.length;
-    const isSpring = side._isSpring;
     const estBF = isSpring ? 12 : 24;
     const avgK   = batters.reduce((s,b)=>s+(b.probs.K||0),0)/n;
     const avgBB  = batters.reduce((s,b)=>s+(b.probs.BB||0)+(b.probs.IBB||0)+(b.probs.HBP||0),0)/n;
@@ -222,73 +234,33 @@
     };
   }
 
-  // ---- Formatting helpers ----
+  // ---- Formatting ----
   function fmtPct(pct){
     if(pct >= 10) return pct.toFixed(0) + '%';
     if(pct >= 1)  return pct.toFixed(1) + '%';
     if(pct >= 0.1) return pct.toFixed(1) + '%';
-    return '<1%';
+    return '&lt;1%';
   }
   function pctClass(pct){
     if(pct >= 20) return 'tp-pct-high';
     if(pct >= 5)  return 'tp-pct-med';
     return 'tp-pct-low';
   }
-
-  function teamLogoUrl(teamId){
-    return teamId ? `https://www.mlbstatic.com/team-logos/${teamId}.svg` : '';
+  function headshotUrl(pid){
+    return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_80,q_auto:best/v1/people/${pid}/headshot/67/current`;
   }
-  function headshotUrl(playerId){
-    return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_80,q_auto:best/v1/people/${playerId}/headshot/67/current`;
+  function teamLogoUrl(tid){
+    return tid ? `https://www.mlbstatic.com/team-logos/${tid}.svg` : '';
   }
 
-  // ---- Build table for a stat ----
-  function buildTable(players, stat, type){
-    const maxK = stat.maxK;
-    // Compute distributions for all players
-    const rows = players.map(p => {
-      const lam = p.lambdas ? (p.lambdas[stat.key]||0) : 0;
-      const dist = computeDist(lam, maxK);
-      return { ...p, dist, lam };
-    });
-
-    // Column headers: 0, 1, 2, ... maxK+
-    let html = '<div class="tp-tbl-wrap"><table class="tp-tbl"><thead><tr>';
-    html += '<th class="player-col">Player</th>';
-    for(let k = 0; k <= maxK; k++){
-      const label = k === maxK ? `${k}+` : k;
-      html += `<th class="num-col">${label}</th>`;
-    }
-    html += '<th class="exp-col">Exp</th>';
-    html += '</tr></thead><tbody>';
-
-    rows.forEach(r => {
-      html += '<tr>';
-      // Player cell
-      html += `<td class="player-td"><div class="tp-player-cell">`;
-      if(r.logoUrl) html += `<img class="tp-team-logo" src="${r.logoUrl}" alt="" onerror="this.style.display='none'">`;
-      html += `<img class="tp-player-img" src="${headshotUrl(r.id)}" alt="" onerror="this.style.display='none'">`;
-      html += `<div class="tp-player-info"><div class="tp-player-name">${r.name}</div>`;
-      html += `<div class="tp-player-meta">${r.meta}</div></div>`;
-      html += '</div></td>';
-
-      // Pct cells
-      r.dist.forEach(d => {
-        html += `<td><span class="tp-pct ${pctClass(d.pct)}">${fmtPct(d.pct)}</span></td>`;
-      });
-      // If dist is shorter than maxK+1 columns (no remainder bucket), pad
-      for(let i = r.dist.length; i <= maxK; i++){
-        html += '<td><span class="tp-pct tp-pct-low"><1%</span></td>';
-      }
-
-      // Expected value
-      html += `<td class="exp-td">${r.lam.toFixed(1)}</td>`;
-      html += '</tr>';
-    });
-
-    html += '</tbody></table></div>';
-    return html;
-  }
+  // ---- Global data stores ----
+  let allPitchers = [];
+  let allBatters = [];
+  let currentView = 'pitchers';
+  let currentPStat = 'k';
+  let currentBStat = 'h';
+  let sortCol = 'exp';
+  let sortDir = -1; // -1 = desc
 
   // ---- Filter games ----
   const previewGames = GAMES.filter(g=>{
@@ -299,164 +271,213 @@
 
   if(!previewGames.length){
     document.getElementById('tp-loading').style.display = 'none';
-    document.getElementById('tp-content').innerHTML = '<div class="tp-empty">No upcoming games for this date.</div>';
+    document.getElementById('tp-table-area').innerHTML = '<div class="tp-empty">No upcoming games for this date.</div>';
   } else {
-    // Build game shells
-    let shellHtml = '';
-    previewGames.forEach((g,gi)=>{
-      const awayLogo = g.away?.logo || '';
-      const homeLogo = g.home?.logo || '';
-      shellHtml += `<div class="tp-game open" id="tp-game-${gi}">
-        <div class="tp-game-header" data-game-idx="${gi}">
-          <div class="tp-game-teams">
-            ${awayLogo ? `<img src="${awayLogo}" style="height:20px;width:20px;vertical-align:middle;margin-right:4px" alt="">` : ''}
-            ${g.away.abbrev} @
-            ${homeLogo ? `<img src="${homeLogo}" style="height:20px;width:20px;vertical-align:middle;margin:0 4px" alt="">` : ''}
-            ${g.home.abbrev}
-          </div>
-          <div class="tp-game-time">${g.timeLocal || g.statusPill || ''}</div>
-        </div>
-        <div class="tp-game-body" id="tp-game-body-${gi}">
-          <div style="opacity:0.5; font-size:0.8rem;">Loading projections...</div>
-        </div>
-      </div>`;
-    });
-    document.getElementById('tp-content').innerHTML = shellHtml;
-    document.getElementById('tp-loading').style.display = 'none';
+    let loaded = 0;
+    const total = previewGames.length;
 
-    // Toggle game collapse
-    document.querySelectorAll('.tp-game-header').forEach(hdr=>{
-      hdr.addEventListener('click', ()=>{ hdr.parentElement.classList.toggle('open'); });
-    });
-
-    // Fetch pregame data for each game
-    previewGames.forEach((g,gi)=>{
+    previewGames.forEach((g, gi)=>{
       fetch(`/game/${g.gamePk}/pregame.json`)
         .then(r=>r.json())
-        .then(d=> renderGameProjections(d, gi, g))
-        .catch(()=>{
-          document.getElementById(`tp-game-body-${gi}`).innerHTML =
-            '<div style="opacity:0.4; font-size:0.8rem;">Projections unavailable (lineups may not be posted yet).</div>';
+        .then(d => collectGameData(d, g))
+        .catch(()=>{})
+        .finally(()=>{
+          loaded++;
+          if(loaded === total) finishLoading();
         });
     });
   }
 
-  function renderGameProjections(d, gi, gameMeta){
-    const body = document.getElementById(`tp-game-body-${gi}`);
-    if(!d.ok || !d.lineups_posted){
-      body.innerHTML = '<div style="opacity:0.4; font-size:0.8rem;">Lineups not yet posted. Check back closer to game time.</div>';
-      return;
-    }
+  function collectGameData(d, gameMeta){
+    if(!d.ok || !d.lineups_posted) return;
 
-    const awayLogo = gameMeta.away?.logo || teamLogoUrl(d.away_team_id);
-    const homeLogo = gameMeta.home?.logo || teamLogoUrl(d.home_team_id);
+    const awayLogo = gameMeta.away?.logo || '';
+    const homeLogo = gameMeta.home?.logo || '';
+    const awayAbbrev = d.away_abbrev || gameMeta.away?.abbrev || '';
+    const homeAbbrev = d.home_abbrev || gameMeta.home?.abbrev || '';
 
-    // Build pitcher player rows
-    // d.home side = away pitcher's matchup data, d.away side = home pitcher's matchup data
-    const pitcherRows = [];
-    [{side: d.home, pitcher: d.home?.pitcher, abbrev: d.away_abbrev, logo: awayLogo, statline: d.home?.pitcher_statline},
-     {side: d.away, pitcher: d.away?.pitcher, abbrev: d.home_abbrev, logo: homeLogo, statline: d.away?.pitcher_statline}]
-    .forEach(cfg => {
+    // Pitchers
+    // d.home = away pitcher facing home lineup; d.away = home pitcher facing away lineup
+    [
+      {side: d.home, pitcher: d.home?.pitcher, teamAbbrev: awayAbbrev, teamLogo: awayLogo, oppAbbrev: homeAbbrev, oppLogo: homeLogo},
+      {side: d.away, pitcher: d.away?.pitcher, teamAbbrev: homeAbbrev, teamLogo: homeLogo, oppAbbrev: awayAbbrev, oppLogo: awayLogo},
+    ].forEach(cfg => {
       if(!cfg.pitcher) return;
-      cfg.side._isSpring = d.is_spring;
-      const lam = pitcherLambdas(cfg.side);
+      const lam = pitcherLambdas(cfg.side, d.is_spring);
       if(!lam) return;
       const hand = cfg.pitcher.throws === 'L' ? 'LHP' : 'RHP';
-      pitcherRows.push({
+      allPitchers.push({
         id: cfg.pitcher.id,
         name: cfg.pitcher.name,
-        meta: `${cfg.abbrev} · ${hand}`,
-        logoUrl: cfg.logo,
+        hand,
+        teamAbbrev: cfg.teamAbbrev,
+        teamLogo: cfg.teamLogo,
+        oppAbbrev: cfg.oppAbbrev,
+        oppLogo: cfg.oppLogo,
         lambdas: lam,
       });
     });
 
-    // Build batter player rows
-    const batterRows = [];
-    [{batters: d.away?.batters||[], abbrev: d.away_abbrev, logo: awayLogo},
-     {batters: d.home?.batters||[], abbrev: d.home_abbrev, logo: homeLogo}]
-    .forEach(cfg => {
+    // Batters
+    [
+      {batters: d.away?.batters||[], teamAbbrev: awayAbbrev, teamLogo: awayLogo, oppName: d.away?.pitcher?.name || '', oppAbbrev: homeAbbrev, oppLogo: homeLogo},
+      {batters: d.home?.batters||[], teamAbbrev: homeAbbrev, teamLogo: homeLogo, oppName: d.home?.pitcher?.name || '', oppAbbrev: awayAbbrev, oppLogo: awayLogo},
+    ].forEach(cfg => {
       cfg.batters.forEach(b => {
         const lam = batterLambdas(b);
         if(!lam) return;
-        batterRows.push({
+        allBatters.push({
           id: b.id,
           name: b.name,
-          meta: `${cfg.abbrev} · ${b.stand} ${b.pos}`,
-          logoUrl: cfg.logo,
+          stand: b.stand,
+          pos: b.pos,
+          teamAbbrev: cfg.teamAbbrev,
+          teamLogo: cfg.teamLogo,
+          oppAbbrev: cfg.oppAbbrev,
+          oppLogo: cfg.oppLogo,
+          oppName: cfg.oppName,
           lambdas: lam,
         });
       });
     });
+  }
 
-    // Render shell with view toggle + stat toggles
-    let html = '';
+  function finishLoading(){
+    document.getElementById('tp-loading').style.display = 'none';
 
-    // View tabs
-    html += `<div class="tp-view-tabs">
-      <button class="tp-view-btn active" data-view="pitchers" data-gi="${gi}">Pitchers</button>
-      <button class="tp-view-btn" data-view="batters" data-gi="${gi}">Batters</button>
-    </div>`;
-
-    // Pitchers panel
-    html += `<div id="tp-pitchers-${gi}">`;
-    html += `<div class="tp-stat-toggle" id="tp-pstat-toggle-${gi}">`;
-    P_STATS.forEach((s,i) => {
-      html += `<button class="tp-stat-btn ${i===0?'active':''}" data-stat="${s.key}" data-gi="${gi}" data-type="p">${s.label}</button>`;
-    });
-    html += '</div>';
-    html += `<div id="tp-ptable-${gi}"></div>`;
-    html += '</div>';
-
-    // Batters panel
-    html += `<div id="tp-batters-${gi}" style="display:none">`;
-    html += `<div class="tp-stat-toggle" id="tp-bstat-toggle-${gi}">`;
-    B_STATS.forEach((s,i) => {
-      html += `<button class="tp-stat-btn ${i===0?'active':''}" data-stat="${s.key}" data-gi="${gi}" data-type="b">${s.label}</button>`;
-    });
-    html += '</div>';
-    html += `<div id="tp-btable-${gi}"></div>`;
-    html += '</div>';
-
-    body.innerHTML = html;
-
-    // Render initial tables
-    function renderPitcherTable(statKey){
-      const stat = P_STATS.find(s=>s.key===statKey);
-      document.getElementById(`tp-ptable-${gi}`).innerHTML = buildTable(pitcherRows, stat, 'pitcher');
-    }
-    function renderBatterTable(statKey){
-      const stat = B_STATS.find(s=>s.key===statKey);
-      document.getElementById(`tp-btable-${gi}`).innerHTML = buildTable(batterRows, stat, 'batter');
+    if(!allPitchers.length && !allBatters.length){
+      document.getElementById('tp-table-area').innerHTML = '<div class="tp-empty">No lineups posted yet. Check back closer to game time.</div>';
+      return;
     }
 
-    renderPitcherTable(P_STATS[0].key);
-    renderBatterTable(B_STATS[0].key);
+    document.getElementById('tp-controls').style.display = 'flex';
+    buildStatToggle();
+    renderTable();
 
-    // Stat toggle handlers
-    body.querySelectorAll(`#tp-pstat-toggle-${gi} .tp-stat-btn`).forEach(btn=>{
+    // View toggle
+    document.querySelectorAll('.tp-view-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        body.querySelectorAll(`#tp-pstat-toggle-${gi} .tp-stat-btn`).forEach(b=>b.classList.remove('active'));
+        document.querySelectorAll('.tp-view-btn').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
-        renderPitcherTable(btn.dataset.stat);
+        currentView = btn.dataset.view;
+        sortCol = 'exp'; sortDir = -1;
+        buildStatToggle();
+        renderTable();
       });
     });
-    body.querySelectorAll(`#tp-bstat-toggle-${gi} .tp-stat-btn`).forEach(btn=>{
+  }
+
+  function buildStatToggle(){
+    const stats = currentView === 'pitchers' ? P_STATS : B_STATS;
+    const current = currentView === 'pitchers' ? currentPStat : currentBStat;
+    const el = document.getElementById('tp-stat-toggle');
+    el.innerHTML = stats.map(s =>
+      `<button class="tp-stat-btn ${s.key===current?'active':''}" data-stat="${s.key}">${s.label}</button>`
+    ).join('');
+    el.querySelectorAll('.tp-stat-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        body.querySelectorAll(`#tp-bstat-toggle-${gi} .tp-stat-btn`).forEach(b=>b.classList.remove('active'));
+        el.querySelectorAll('.tp-stat-btn').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
-        renderBatterTable(btn.dataset.stat);
+        if(currentView === 'pitchers') currentPStat = btn.dataset.stat;
+        else currentBStat = btn.dataset.stat;
+        sortCol = 'exp'; sortDir = -1;
+        renderTable();
       });
     });
+  }
 
-    // View toggle handlers
-    body.querySelectorAll('.tp-view-btn').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        body.querySelectorAll('.tp-view-btn').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        const v = btn.dataset.view;
-        document.getElementById(`tp-pitchers-${gi}`).style.display = v==='pitchers'?'':'none';
-        document.getElementById(`tp-batters-${gi}`).style.display = v==='batters'?'':'none';
+  function renderTable(){
+    const isPitcher = currentView === 'pitchers';
+    const stats = isPitcher ? P_STATS : B_STATS;
+    const statKey = isPitcher ? currentPStat : currentBStat;
+    const stat = stats.find(s=>s.key===statKey);
+    const maxK = stat.maxK;
+    const players = isPitcher ? allPitchers : allBatters;
+
+    // Compute distributions
+    const rows = players.map(p => {
+      const lam = p.lambdas[statKey] || 0;
+      const dist = computeDist(lam, maxK);
+      return { ...p, dist, lam };
+    });
+
+    // Sort
+    rows.sort((a,b)=>{
+      let av, bv;
+      if(sortCol === 'name'){ av = a.name.toLowerCase(); bv = b.name.toLowerCase(); return sortDir * av.localeCompare(bv); }
+      if(sortCol === 'opp'){ av = a.oppAbbrev; bv = b.oppAbbrev; return sortDir * av.localeCompare(bv); }
+      if(sortCol === 'exp'){ av = a.lam; bv = b.lam; }
+      else { const k = parseInt(sortCol); av = a.dist[k]||0; bv = b.dist[k]||0; }
+      return sortDir * (av - bv);
+    });
+
+    // Build table
+    let html = '<div class="tp-tbl-wrap"><table class="tp-tbl"><thead><tr>';
+
+    // Player column
+    const sc = col => col===sortCol ? 'sorted' : '';
+    const arrow = col => col===sortCol ? (sortDir>0?'&#9650;':'&#9660;') : '&#9650;';
+    html += `<th class="player-col ${sc('name')}" data-sort="name">Player <span class="sort-arrow">${arrow('name')}</span></th>`;
+    html += `<th class="opp-col ${sc('opp')}" data-sort="opp">${isPitcher ? 'Opponent' : 'vs Pitcher'} <span class="sort-arrow">${arrow('opp')}</span></th>`;
+
+    for(let k = 0; k <= maxK; k++){
+      const label = k === maxK ? `${k}+` : k;
+      html += `<th class="num-col ${sc(String(k))}" data-sort="${k}">${label} <span class="sort-arrow">${arrow(String(k))}</span></th>`;
+    }
+    html += `<th class="exp-col ${sc('exp')}" data-sort="exp">Exp <span class="sort-arrow">${arrow('exp')}</span></th>`;
+    html += '</tr></thead><tbody>';
+
+    rows.forEach(r => {
+      html += '<tr>';
+
+      // Player cell
+      html += `<td class="player-td"><div class="tp-player-cell">`;
+      if(r.teamLogo) html += `<img class="tp-team-logo" src="${r.teamLogo}" alt="" onerror="this.style.display='none'">`;
+      html += `<img class="tp-player-img" src="${headshotUrl(r.id)}" alt="" onerror="this.style.display='none'">`;
+      html += `<div class="tp-player-info"><div class="tp-player-name">${r.name}</div>`;
+      if(isPitcher){
+        html += `<div class="tp-player-meta">${r.teamAbbrev} &middot; ${r.hand}</div>`;
+      } else {
+        html += `<div class="tp-player-meta">${r.teamAbbrev} &middot; ${r.stand} ${r.pos}</div>`;
+      }
+      html += '</div></div></td>';
+
+      // Opponent cell
+      html += `<td class="opp-td"><div class="tp-opp-cell">`;
+      if(r.oppLogo) html += `<img class="tp-opp-logo" src="${r.oppLogo}" alt="" onerror="this.style.display='none'">`;
+      if(isPitcher){
+        html += `<span class="tp-opp-name">${r.oppAbbrev}</span>`;
+      } else {
+        html += `<span class="tp-opp-name">${r.oppName || r.oppAbbrev}</span>`;
+      }
+      html += '</div></td>';
+
+      // Pct cells — always maxK+1 cells
+      for(let k = 0; k <= maxK; k++){
+        const pct = r.dist[k] || 0;
+        html += `<td><span class="tp-pct ${pctClass(pct)}">${fmtPct(pct)}</span></td>`;
+      }
+
+      // Expected
+      html += `<td class="exp-td">${r.lam.toFixed(1)}</td>`;
+      html += '</tr>';
+    });
+
+    if(!rows.length){
+      html += `<tr><td colspan="${maxK + 4}" style="text-align:center; opacity:0.4; padding:20px;">No data available</td></tr>`;
+    }
+
+    html += '</tbody></table></div>';
+
+    document.getElementById('tp-table-area').innerHTML = html;
+
+    // Sort click handlers
+    document.querySelectorAll('.tp-tbl th[data-sort]').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const col = th.dataset.sort;
+        if(sortCol === col) sortDir *= -1;
+        else { sortCol = col; sortDir = (col==='name'||col==='opp') ? 1 : -1; }
+        renderTable();
       });
     });
   }
