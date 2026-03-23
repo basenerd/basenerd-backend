@@ -1313,113 +1313,152 @@
   </div>
 {% endif %}
 
-<!-- TOP: Game hero -->
+<!-- TOP: Game hero scoreboard -->
 <div class="card game-hero">
-  <div class="game-hero-inner" style="gap:14px; align-items:stretch;">
+  <div class="game-hero-inner">
 
-    <!-- LEFT: meta -->
-    <div class="game-hero-meta" style="min-width: 280px;">
-      <div class="game-hero-title" style="display:flex; align-items:center; gap:10px;">
-        <span class="mono">{{ away.abbrev }}</span>
-        <span class="muted">@</span>
-        <span class="mono">{{ home.abbrev }}</span>
+    <!-- Top bar: status + venue -->
+    <div class="game-hero-topbar">
+      <span class="pill-status {% if is_live %}live{% elif is_final %}final{% elif is_warmup %}warmup{% else %}pregame{% endif %}">
+        {{ game.statusPill }}
+      </span>
+      <span class="game-hero-venue">
+        {% if game.when %}{{ game.when }}{% endif %}
+        {% if game.when and game.venue %} · {% endif %}
+        {% if game.venue %}{{ game.venue }}{% endif %}
+      </span>
+    </div>
 
-        <!-- live mini: inning / state (filled by JS when GameCast is running) -->
-        <span id="hero-live-pill" class="pill-lite" style="margin-left:auto; display:none;">
-          <span class="mono muted" id="hero-live-inning">—</span>
+    <!-- Scoreboard -->
+    <div class="game-hero-scoreboard">
+      <!-- Away team -->
+      <div class="game-hero-team">
+        {% if away.logo_url %}<img class="team-logo-hero" src="{{ away.logo_url }}" alt="{{ away.abbrev }}">{% endif %}
+        <span class="team-abbrev-hero mono">{{ away.abbrev }}</span>
+        {% if away.record %}<span class="team-record mono">{{ away.record }}</span>{% endif %}
+      </div>
+
+      <!-- Center: scores + inning -->
+      <div class="game-hero-center">
+        <div class="game-hero-scores">
+          <span class="score-num" id="hero-away-score">{{ dash(away.score if away.score is defined else away.runs if away.runs is defined else none) }}</span>
+          <span class="score-dash">–</span>
+          <span class="score-num" id="hero-home-score">{{ dash(home.score if home.score is defined else home.runs if home.runs is defined else none) }}</span>
+        </div>
+        <span class="game-hero-inning" id="hero-live-inning">
+          {% if is_final %}Final{% elif is_live %}Live{% elif is_warmup %}Warmup{% endif %}
         </span>
       </div>
 
-      <div class="game-hero-sub" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-        <span class="pill-status">{{ game.statusPill }}</span>
-        {% if game.when %}<span class="muted">•</span><span>{{ game.when }}</span>{% endif %}
-        {% if game.venue %}<span class="muted">•</span><span>{{ game.venue }}</span>{% endif %}
-      </div>
-
-      <div class="game-hero-notes" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-        {% if away.record %}<span class="mono muted">{{ away.abbrev }} {{ away.record }}</span>{% endif %}
-        {% if home.record %}<span class="muted">•</span><span class="mono muted">{{ home.abbrev }} {{ home.record }}</span>{% endif %}
-      </div>
-
-      <!-- Probables: show ONLY before first pitch -->
-      {% if (not is_live) and (not is_final) and game.probables %}
-        <div class="game-hero-row" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-          <span class="mono muted">PP:</span>
-          <span class="mono">{% if game.probables.away %}{{ away.abbrev }} {{ game.probables.away }}{% else %}{{ away.abbrev }} TBD{% endif %}</span>
-          <span class="muted">•</span>
-          <span class="mono">{% if game.probables.home %}{{ home.abbrev }} {{ game.probables.home }}{% else %}{{ home.abbrev }} TBD{% endif %}</span>
-        </div>
-      {% endif %}
-
-      {% if is_final and game.decisions %}
-        {% set wname = game.decisions.winner if game.decisions.winner is defined else game.decisions.w %}
-        {% set lname = game.decisions.loser if game.decisions.loser is defined else game.decisions.l %}
-        {% set sname = game.decisions.save if game.decisions.save is defined else game.decisions.s %}
-        <div class="game-hero-row" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-          <span class="pill-lite"><span class="mono muted">W</span> {{ dash(wname) }}</span>
-          <span class="pill-lite"><span class="mono muted">L</span> {{ dash(lname) }}</span>
-          <span class="pill-lite"><span class="mono muted">SV</span> {{ dash(sname) }}</span>
-        </div>
-      {% endif %}
-
-      <!-- Live: last play (filled by JS). Hidden until we have GameCast data -->
-      <div id="hero-lastplay-wrap" style="margin-top:10px; display:none;">
-        <div class="mono muted" style="font-size:12px; letter-spacing:.04em; text-transform:uppercase;">
-          Last play
-        </div>
-        <div id="hero-lastplay" style="margin-top:4px; line-height:1.2;"></div>
+      <!-- Home team -->
+      <div class="game-hero-team">
+        {% if home.logo_url %}<img class="team-logo-hero" src="{{ home.logo_url }}" alt="{{ home.abbrev }}">{% endif %}
+        <span class="team-abbrev-hero mono">{{ home.abbrev }}</span>
+        {% if home.record %}<span class="team-record mono">{{ home.record }}</span>{% endif %}
       </div>
     </div>
 
-    <!-- RIGHT: score -->
-    <div class="game-hero-score" style="flex:1; display:flex; flex-direction:column; gap:10px; justify-content:center;">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <!-- away -->
-        <div class="team-score" style="display:flex; align-items:center; gap:10px; min-width:0;">
-          {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" alt="{{ away.abbrev }} logo">{% endif %}
-          <div class="team-score-meta" style="min-width:0;">
-            <div class="team-score-line" style="display:flex; align-items:baseline; gap:10px;">
-              <span class="mono team-abbrev">{{ away.abbrev }}</span>
-              <span class="mono team-runs">{{ dash(away.score if away.score is defined else away.runs if away.runs is defined else none) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="team-score vs muted" style="font-weight:600;">@</div>
-
-        <!-- home -->
-        <div class="team-score" style="display:flex; align-items:center; gap:10px; min-width:0; justify-content:flex-end;">
-          <div class="team-score-meta" style="min-width:0;">
-            <div class="team-score-line" style="display:flex; align-items:baseline; gap:10px; justify-content:flex-end;">
-              <span class="mono team-runs">{{ dash(home.score if home.score is defined else home.runs if home.runs is defined else none) }}</span>
-              <span class="mono team-abbrev">{{ home.abbrev }}</span>
-            </div>
-          </div>
-          {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" alt="{{ home.abbrev }} logo">{% endif %}
-        </div>
+    <!-- Live indicators: bases + outs (hidden until live data) -->
+    <div class="game-hero-live-row" id="hero-mini-wrap" style="display:none;">
+      <div class="hero-bases-diamond" id="hero-mini-bases">
+        <span class="hb b2"></span>
+        <span class="hb b3"></span>
+        <span class="hb b1"></span>
       </div>
-
-      <!-- Live mini indicators (bases + outs), filled by JS; hidden until live data available -->
-      <div id="hero-mini-wrap" style="display:none; align-items:center; justify-content:flex-end; gap:10px;">
-        <div id="hero-mini-bases" style="display:flex; align-items:center; gap:6px;"></div>
-        <div class="pill-lite" style="display:flex; align-items:center; gap:8px;">
-          <span class="mono muted">OUTS</span>
-          <span class="mono" id="hero-mini-outs">0</span>
-        </div>
+      <div class="hero-outs" id="hero-mini-outs-wrap">
+        <span class="hero-outs-label mono">OUTS</span>
+        <span class="out-dot" id="hero-out1"></span>
+        <span class="out-dot" id="hero-out2"></span>
+        <span class="out-dot" id="hero-out3"></span>
       </div>
+    </div>
 
-      <!-- Hero Win Probability Bar -->
-      <div id="hero-wp-section" style="display:none;">
-        <div class="wp-bar-wrap" id="hero-wp-bar">
-          <div class="wp-bar-side away" id="hero-wp-away" style="width:50%;">
-            <span class="wp-bar-label" id="hero-wp-away-label">—</span>
-          </div>
-          <div class="wp-bar-side home" id="hero-wp-home" style="width:50%;">
-            <span class="wp-bar-label" id="hero-wp-home-label">—</span>
-          </div>
+    <!-- Win Probability Bar -->
+    <div id="hero-wp-section" style="display:none;">
+      <div class="wp-bar-wrap" id="hero-wp-bar">
+        <div class="wp-bar-side away" id="hero-wp-away" style="width:50%;">
+          <span class="wp-bar-label" id="hero-wp-away-label">—</span>
+        </div>
+        <div class="wp-bar-side home" id="hero-wp-home" style="width:50%;">
+          <span class="wp-bar-label" id="hero-wp-home-label">—</span>
         </div>
       </div>
     </div>
+
+    <!-- Info row: probables / decisions / last play -->
+    {% if (not is_live) and (not is_final) and game.probables %}
+      <div class="game-hero-info">
+        <span class="pill-lite"><span class="label">SP</span> {{ away.abbrev }} {{ game.probables.away if game.probables.away else 'TBD' }}</span>
+        <span class="pill-lite"><span class="label">SP</span> {{ home.abbrev }} {{ game.probables.home if game.probables.home else 'TBD' }}</span>
+      </div>
+    {% endif %}
+
+    {% if is_final and game.decisions %}
+      {% set wname = game.decisions.winner if game.decisions.winner is defined else game.decisions.w %}
+      {% set lname = game.decisions.loser if game.decisions.loser is defined else game.decisions.l %}
+      {% set sname = game.decisions.save if game.decisions.save is defined else game.decisions.s %}
+      <div class="game-hero-info">
+        <span class="pill-lite"><span class="label">W</span> {{ dash(wname) }}</span>
+        <span class="pill-lite"><span class="label">L</span> {{ dash(lname) }}</span>
+        {% if sname and sname != '-' and sname != 'None' %}
+          <span class="pill-lite"><span class="label">SV</span> {{ dash(sname) }}</span>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <!-- Last play (filled by JS, hidden until live) -->
+    <div class="game-hero-info" id="hero-lastplay-wrap" style="display:none;">
+      <span class="last-play" id="hero-lastplay">—</span>
+    </div>
+
+    <!-- Integrated Linescore -->
+    {% set innings = (game.linescore.innings if game.linescore and game.linescore.innings is defined else []) %}
+    {% if innings %}
+      <div class="game-hero-linescore">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              {% for inn in innings %}
+                <th class="mono">{{ inn.num }}</th>
+              {% endfor %}
+              <th class="mono">R</th>
+              <th class="mono">H</th>
+              <th class="mono">E</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">
+                {% if away.logo_url %}<img class="ls-team-logo" src="{{ away.logo_url }}">{% endif %}
+                {{ away.abbrev }}
+              </td>
+              {% for inn in innings %}
+                {% set aruns = inn.away.runs if inn.away is defined else none %}
+                <td class="mono {% if aruns is not none and aruns|int == 0 %}ls-zero{% endif %}">{{ dash(aruns) }}</td>
+              {% endfor %}
+              <td class="mono ls-rhe">{{ dash(game.linescore.teams.away.runs) }}</td>
+              <td class="mono ls-rhe">{{ dash(game.linescore.teams.away.hits) }}</td>
+              <td class="mono ls-rhe">{{ dash(game.linescore.teams.away.errors) }}</td>
+            </tr>
+            <tr>
+              <td class="mono">
+                {% if home.logo_url %}<img class="ls-team-logo" src="{{ home.logo_url }}">{% endif %}
+                {{ home.abbrev }}
+              </td>
+              {% for inn in innings %}
+                {% set hruns = inn.home.runs if inn.home is defined else none %}
+                <td class="mono {% if hruns is not none and hruns|int == 0 %}ls-zero{% endif %}">{{ dash(hruns) }}</td>
+              {% endfor %}
+              <td class="mono ls-rhe">{{ dash(game.linescore.teams.home.runs) }}</td>
+              <td class="mono ls-rhe">{{ dash(game.linescore.teams.home.hits) }}</td>
+              <td class="mono ls-rhe">{{ dash(game.linescore.teams.home.errors) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+
   </div>
 </div>
 
@@ -1442,66 +1481,63 @@
   // Hook GameCast JSON to the hero (no new endpoints)
   // Requires your existing GAME_PK/GC_URL/IS_LIVE vars + polling to be active.
 
-  function heroBasesHTML(runners){
-    const on1 = !!(runners && runners.first);
-    const on2 = !!(runners && runners.second);
-    const on3 = !!(runners && runners.third);
-
-    const sq = (on) => `<span style="
-      width:10px;height:10px;border-radius:3px;
-      border:1px solid rgba(148,163,184,.45);
-      display:inline-block;
-      background:${on ? 'rgba(250, 204, 21, .95)' : 'rgba(255,255,255,.6)'};
-      transform: rotate(45deg);
-    "></span>`;
-
-    return `
-      <span class="mono muted" style="font-size:12px; letter-spacing:.04em;">BASES</span>
-      ${sq(on3)} ${sq(on2)} ${sq(on1)}
-    `;
-  }
-
   // Patch into your existing fetchGameCast without rewriting everything:
   // Call updateHeroFromGamecast(data) after you parse JSON.
   function updateHeroFromGamecast(data){
     try{
       if(!data || !data.ok) return;
 
+      // Update scores
+      const awayScore = document.getElementById("hero-away-score");
+      const homeScore = document.getElementById("hero-home-score");
+      if(awayScore && data.score) awayScore.textContent = data.score.away ?? 0;
+      if(homeScore && data.score) homeScore.textContent = data.score.home ?? 0;
+
       // last play
       const lpWrap = document.getElementById("hero-lastplay-wrap");
       const lp = document.getElementById("hero-lastplay");
-      if(lpWrap && lp){
-        lpWrap.style.display = "block";
-        lp.textContent = data.lastPlay || "—";
+      if(lpWrap && lp && data.lastPlay){
+        lpWrap.style.display = "flex";
+        lp.textContent = data.lastPlay;
       }
 
-      // inning pill
-      const pill = document.getElementById("hero-live-pill");
+      // inning text
       const inn = document.getElementById("hero-live-inning");
-      if(pill && inn){
+      if(inn){
         const ds = (data.detailedState || "").toLowerCase();
         if(ds.includes("warmup") || ds.includes("pre-game")){
-          pill.style.display = "inline-flex";
           inn.textContent = "Warmup";
+        } else if(ds.includes("final") || ds.includes("game over") || ds.includes("completed")){
+          inn.textContent = "Final";
         } else {
-          pill.style.display = "inline-flex";
           const dh = data.displayHalf || data.half || "";
           let heroHalf;
           if(dh === "Mid" || dh === "End") heroHalf = dh;
           else heroHalf = dh.startsWith("Top") ? "Top" : (dh.startsWith("Bottom") ? "Bot" : "");
-          inn.textContent = data.inning ? `${heroHalf} ${data.inning}`.trim() : "—";
+          inn.textContent = data.inning ? `${heroHalf} ${data.inning}`.trim() : "Live";
         }
       }
 
-      // mini bases/outs
+      // Bases diamond
       const miniWrap = document.getElementById("hero-mini-wrap");
-      const miniBases = document.getElementById("hero-mini-bases");
-      const miniOuts = document.getElementById("hero-mini-outs");
-      if(miniWrap && miniBases && miniOuts){
+      if(miniWrap){
         miniWrap.style.display = "flex";
-        miniBases.innerHTML = heroBasesHTML(data.runners);
-        miniOuts.textContent = (data.outs ?? 0);
+        const bases = document.querySelectorAll("#hero-mini-bases .hb");
+        const runners = data.runners || {};
+        bases.forEach(b => {
+          if(b.classList.contains("b1")) b.classList.toggle("on", !!runners.first);
+          if(b.classList.contains("b2")) b.classList.toggle("on", !!runners.second);
+          if(b.classList.contains("b3")) b.classList.toggle("on", !!runners.third);
+        });
+
+        // Outs
+        const outs = data.outs ?? 0;
+        for(let i = 1; i <= 3; i++){
+          const dot = document.getElementById("hero-out" + i);
+          if(dot) dot.classList.toggle("on", i <= outs);
+        }
       }
+
       // Update hero win probability bar
       updateWinProbBar(data, "hero");
 
@@ -1582,51 +1618,8 @@
     }
   }
 </script>
-{# -----------------------------
-   Linescore
-   ----------------------------- #}
-{% set innings = (game.linescore.innings if game.linescore and game.linescore.innings is defined else []) %}
-{% if innings %}
-  <div class="card" style="margin-top:14px;">
-    <div class="card-header">
-      <div class="card-title">Linescore</div>
-    </div>
-
-    <div style="padding: 0 14px 14px 14px; overflow-x:auto;">
-      <table class="tbl">
-        <thead>
-          <tr>
-            <th></th>
-            {% for inn in innings %}
-              <th class="mono" style="text-align:center;">{{ inn.num }}</th>
-            {% endfor %}
-            <th class="mono" style="text-align:center;">R</th>
-            <th class="mono" style="text-align:center;">H</th>
-            <th class="mono" style="text-align:center;">E</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="mono">
-              {% if away.logo_url %}<img class="teamlogo" src="{{ away.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
-              {{ away.abbrev }}
-            </td>
-            {% for inn in innings %}
-              <td class="mono" style="text-align:center;">{{ dash(inn.away.runs if inn.away is defined else none) }}</td>
-            {% endfor %}
-            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.away.runs) }}</td>
-            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.away.hits) }}</td>
-            <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.away.errors) }}</td>
-          </tr>
-
-          <tr>
-            <td class="mono">
-              {% if home.logo_url %}<img class="teamlogo" src="{{ home.logo_url }}" style="height:18px; vertical-align:middle; margin-right:6px;">{% endif %}
-              {{ home.abbrev }}
-            </td>
-            {% for inn in innings %}
-              <td class="mono" style="text-align:center;">{{ dash(inn.home.runs if inn.home is defined else none) }}</td>
-            {% endfor %}
+{# Linescore is now integrated into the hero scoreboard above #}
+{% if false %}
             <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.home.runs) }}</td>
             <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.home.hits) }}</td>
             <td class="mono" style="text-align:center;">{{ dash(game.linescore.teams.home.errors) }}</td>
