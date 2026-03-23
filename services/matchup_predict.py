@@ -13,10 +13,12 @@ import os
 import json
 import logging
 from datetime import date
+from functools import lru_cache
 
 import joblib
 import numpy as np
 import pandas as pd
+import requests
 
 log = logging.getLogger(__name__)
 
@@ -228,42 +230,213 @@ def _get_batter_pitch_type_features(batter_id, season, pitcher_usage):
     return features
 
 
-def _get_pitcher_features(pitcher_id, season):
-    """Look up pitcher aggregate + arsenal features."""
-    if _pitcher_arsenal is None or _pitcher_arsenal.empty:
-        result = dict(_LEAGUE_AVG_PITCHER)
-        result.update({
-            "p_usage_fastball": 0.55, "p_usage_breaking": 0.30, "p_usage_offspeed": 0.15,
-            "p_pitch1_usage": 0.40, "p_pitch1_velo": 93.5, "p_pitch1_whiff": 0.20, "p_pitch1_stuff": 100.0,
-            "p_pitch2_usage": 0.25, "p_pitch2_velo": 85.0, "p_pitch2_whiff": 0.30, "p_pitch2_stuff": 100.0,
-            "p_pitch3_usage": 0.15, "p_pitch3_velo": 84.0, "p_pitch3_whiff": 0.25, "p_pitch3_stuff": 100.0,
+_API_BASE = "https://statsapi.mlb.com/api/v1"
+
+# Cache for live API pitcher lookups (cleared on app restart)
+_api_pitcher_cache = {}
+
+
+def _fetch_pitcher_from_api(pitcher_id, season):
+    """
+    Fetch pitcher arsenal + season stats from the MLB API.
+    Returns a DataFrame matching pitcher_arsenal.parquet schema, or None.
+    """
+    cache_key = (pitcher_id, season)
+    if cache_key in _api_pitcher_cache:
+        return _api_pitcher_cache[cache_key]
+
+    try:
+        url = (
+            f"{_API_BASE}/people/{pitcher_id}/stats"
+            f"?stats=statsSingleSeason,expectedStatistics,pitchArsenal"
+            f"&season={season}&group=pitching"
+        )
+        resp = requests.get(url, timeout=8)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        log.warning("MLB API fetch for pitcher %s failed: %s", pitcher_id, e)
+        _api_pitcher_cache[cache_key] = None
+        return None
+
+    # Parse pitchArsenal
+    arsenal_rows = []
+    season_stats = {}
+    xstats = {}
+
+    for sg in data.get("stats", []):
+        display = sg.get("type", {}).get("displayName", "")
+        splits = sg.get("splits", [])
+
+        if display == "pitchArsenal":
+            for s in splits:
+                st = s.get("stat", {})
+                pt_info = st.get("type", {})
+                arsenal_rows.append({
+                    "pitch_type": pt_info.get("code", "??"),
+                    "avg_velo": st.get("averageSpeed"),
+                    "n": st.get("count", 0),
+                    "usage": st.get("percentage", 0),
+                })
+
+        elif display == "statsSingleSeason":
+            for s in splits:
+                season_stats = s.get("stat", {})
+
+        elif display == "expectedStatistics":
+            for s in splits:
+                xstats = s.get("stat", {})
+
+    if not arsenal_rows:
+        _api_pitcher_cache[cache_key] = None
+        return None
+
+    # Build a mini DataFrame matching parquet schema
+    total_pitches = sum(r["n"] for r in arsenal_rows)
+    bf = int(season_stats.get("battersFaced", 0)) or 1
+    k_total = int(season_stats.get("strikeOuts", 0))
+    bb_total = int(season_stats.get("baseOnBalls", 0))
+
+    # Derive aggregate rates from season stats
+    k_rate = k_total / bf if bf > 0 else 0.225
+    bb_rate = bb_total / bf if bf > 0 else 0.082
+
+    # xwOBA from expected stats
+    xwoba_val = None
+    try:
+        xwoba_val = float(xstats.get("woba", 0.315))
+    except (TypeError, ValueError):
+        xwoba_val = 0.315
+
+    rows = []
+    for ar in arsenal_rows:
+        rows.append({
+            "pitcher": pitcher_id,
+            "season": season,
+            "stand": "ALL",
+            "pitch_type": ar["pitch_type"],
+            "n": ar["n"],
+            "usage": ar["usage"],
+            "avg_velo": ar["avg_velo"],
+            "avg_spin": None,
+            "avg_hb": None,
+            "avg_ivb": None,
+            "avg_stuff_plus": None,
+            "avg_control_plus": None,
+            # We don't have per-pitch whiff/chase/zone from the API,
+            # so we estimate from overall K rate + pitch type heuristics
+            "whiff_rate": _estimate_pitch_whiff(ar["pitch_type"], k_rate),
+            "zone_rate": 0.45,  # league average fallback
+            "chase_rate": 0.295,
+            "xwoba": xwoba_val,
         })
-        return result, {"fastball": 0.55, "breaking": 0.30, "offspeed": 0.15}, []
 
-    pa = _pitcher_arsenal
-    mask = (pa["pitcher"] == pitcher_id) & (pa["stand"] == "ALL")
+    df = pd.DataFrame(rows)
+    _api_pitcher_cache[cache_key] = df
+    return df
 
-    df_season = pa[mask & (pa["season"] == season)]
-    if df_season.empty:
-        df_season = pa[mask].sort_values("season", ascending=False)
+
+def _estimate_pitch_whiff(pitch_type, overall_k_rate):
+    """Estimate per-pitch whiff rate from pitch type and overall K rate."""
+    # Relative whiff multipliers by pitch category
+    # Breaking/offspeed pitch types tend to have higher whiff rates
+    multipliers = {
+        "FF": 0.85, "SI": 0.65, "FC": 0.90,
+        "SL": 1.25, "CU": 1.15, "CH": 1.20,
+        "FS": 1.15, "ST": 1.30, "SV": 1.20,
+        "KC": 1.15, "KN": 0.90,
+    }
+    base_whiff = overall_k_rate * 1.1  # K rate is correlated but not equal to whiff rate
+    mult = multipliers.get(pitch_type, 1.0)
+    return min(base_whiff * mult, 0.55)
+
+
+_stuff_plus_cache = {}
+
+
+def _get_stuff_plus_from_live(pitcher_id):
+    """
+    Look up average stuff+ for a pitcher from statcast_pitches_live (2026 spring data).
+    Returns a dict {pitch_type: avg_stuff_plus} or empty dict.
+    """
+    if pitcher_id in _stuff_plus_cache:
+        return _stuff_plus_cache[pitcher_id]
+
+    try:
+        import psycopg
+        db_url = os.environ.get("DATABASE_URL") or os.environ.get("DATABASE_URL_PG") or ""
+        if not db_url:
+            return {}
+        with psycopg.connect(db_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT pitch_type, AVG(stuff_plus) AS avg_stuff
+                    FROM statcast_pitches_live
+                    WHERE pitcher = %s AND stuff_plus IS NOT NULL
+                    GROUP BY pitch_type
+                """, (pitcher_id,))
+                rows = cur.fetchall()
+                result = {row[0]: float(row[1]) for row in rows}
+                _stuff_plus_cache[pitcher_id] = result
+                return result
+    except Exception as e:
+        log.debug("stuff+ live lookup failed for %s: %s", pitcher_id, e)
+        _stuff_plus_cache[pitcher_id] = {}
+        return {}
+
+
+def _get_pitcher_features(pitcher_id, season):
+    """
+    Look up pitcher aggregate + arsenal features.
+
+    Data sources (in priority order):
+    1. pitcher_arsenal.parquet (Statcast-derived, has whiff/chase/zone per pitch)
+    2. MLB API pitchArsenal + season stats (fallback for pitchers not in parquet)
+    3. League-average defaults
+
+    Stuff+ is enriched from statcast_pitches_live when parquet values are NULL.
+    """
+    _DEFAULT_RESULT = dict(_LEAGUE_AVG_PITCHER)
+    _DEFAULT_RESULT.update({
+        "p_usage_fastball": 0.55, "p_usage_breaking": 0.30, "p_usage_offspeed": 0.15,
+        "p_pitch1_usage": 0.40, "p_pitch1_velo": 93.5, "p_pitch1_whiff": 0.20, "p_pitch1_stuff": 100.0,
+        "p_pitch2_usage": 0.25, "p_pitch2_velo": 85.0, "p_pitch2_whiff": 0.30, "p_pitch2_stuff": 100.0,
+        "p_pitch3_usage": 0.15, "p_pitch3_velo": 84.0, "p_pitch3_whiff": 0.25, "p_pitch3_stuff": 100.0,
+    })
+    _DEFAULT_USAGE = {"fastball": 0.55, "breaking": 0.30, "offspeed": 0.15}
+
+    # --- Try parquet first ---
+    df_season = None
+    source = "parquet"
+
+    if _pitcher_arsenal is not None and not _pitcher_arsenal.empty:
+        pa = _pitcher_arsenal
+        mask = (pa["pitcher"] == pitcher_id) & (pa["stand"] == "ALL")
+        df_season = pa[mask & (pa["season"] == season)]
         if df_season.empty:
-            result = dict(_LEAGUE_AVG_PITCHER)
-            result.update({
-                "p_usage_fastball": 0.55, "p_usage_breaking": 0.30, "p_usage_offspeed": 0.15,
-                "p_pitch1_usage": 0.40, "p_pitch1_velo": 93.5, "p_pitch1_whiff": 0.20, "p_pitch1_stuff": 100.0,
-                "p_pitch2_usage": 0.25, "p_pitch2_velo": 85.0, "p_pitch2_whiff": 0.30, "p_pitch2_stuff": 100.0,
-                "p_pitch3_usage": 0.15, "p_pitch3_velo": 84.0, "p_pitch3_whiff": 0.25, "p_pitch3_stuff": 100.0,
-            })
-            return result, {"fastball": 0.55, "breaking": 0.30, "offspeed": 0.15}, []
-        latest = df_season["season"].iloc[0]
-        df_season = df_season[df_season["season"] == latest]
+            df_season = pa[mask].sort_values("season", ascending=False)
+            if not df_season.empty:
+                latest = df_season["season"].iloc[0]
+                df_season = df_season[df_season["season"] == latest]
+
+    # --- Fall back to MLB API if parquet has no data ---
+    if df_season is None or df_season.empty:
+        source = "api"
+        # Try current season first, then previous
+        for try_season in [season, season - 1]:
+            df_season = _fetch_pitcher_from_api(pitcher_id, try_season)
+            if df_season is not None and not df_season.empty:
+                break
+
+    # --- Final fallback: league average ---
+    if df_season is None or df_season.empty:
+        log.info("No data for pitcher %s — using league average", pitcher_id)
+        return dict(_DEFAULT_RESULT), dict(_DEFAULT_USAGE), []
 
     n = df_season["n"].values.astype(float)
     total = n.sum()
     if total == 0:
-        result = dict(_LEAGUE_AVG_PITCHER)
-        result.update({"p_usage_fastball": 0.55, "p_usage_breaking": 0.30, "p_usage_offspeed": 0.15})
-        return result, {"fastball": 0.55, "breaking": 0.30, "offspeed": 0.15}, []
+        return dict(_DEFAULT_RESULT), dict(_DEFAULT_USAGE), []
 
     def _wavg(col):
         vals = pd.to_numeric(df_season[col], errors="coerce")
@@ -284,6 +457,23 @@ def _get_pitcher_features(pitcher_id, season):
     ]:
         val = _wavg(col) if col in df_season.columns else None
         result[feat] = val if val is not None else default
+
+    # --- Enrich stuff+ from statcast_pitches_live if still NULL ---
+    live_stuff = _get_stuff_plus_from_live(pitcher_id)
+    if result["p_avg_stuff_plus"] == 100.0 and live_stuff:
+        stuff_vals = []
+        stuff_weights = []
+        for _, row in df_season.iterrows():
+            pt = row.get("pitch_type", "")
+            if pt in live_stuff:
+                stuff_vals.append(live_stuff[pt])
+                stuff_weights.append(float(row["n"]))
+        if stuff_vals:
+            result["p_avg_stuff_plus"] = float(
+                np.average(stuff_vals, weights=stuff_weights)
+            )
+            log.debug("Enriched stuff+ for %s from live: %.1f",
+                      pitcher_id, result["p_avg_stuff_plus"])
 
     result["p_num_pitches"] = int(df_season["pitch_type"].nunique()) if "pitch_type" in df_season.columns else 5
     result["p_total_thrown"] = int(total)
@@ -306,14 +496,15 @@ def _get_pitcher_features(pitcher_id, season):
         usage = float(row["n"]) / total
         velo = float(row["avg_velo"]) if pd.notna(row.get("avg_velo")) else 93.5
         whiff = float(row["whiff_rate"]) if pd.notna(row.get("whiff_rate")) else 0.245
-        stuff = float(row["avg_stuff_plus"]) if pd.notna(row.get("avg_stuff_plus")) else 100.0
+        pt = row.get("pitch_type", "??")
+        stuff = float(row["avg_stuff_plus"]) if pd.notna(row.get("avg_stuff_plus")) else live_stuff.get(pt, 100.0)
         result[f"p_pitch{rank}_usage"] = usage
         result[f"p_pitch{rank}_velo"] = velo
         result[f"p_pitch{rank}_whiff"] = whiff
         result[f"p_pitch{rank}_stuff"] = stuff
         arsenal_list.append({
-            "pitch_type": row.get("pitch_type", "??"),
-            "name": PITCH_NAMES.get(row.get("pitch_type", ""), row.get("pitch_type", "")),
+            "pitch_type": pt,
+            "name": PITCH_NAMES.get(pt, pt),
             "usage": round(usage, 3),
             "velo": round(velo, 1),
             "whiff": round(whiff, 3),

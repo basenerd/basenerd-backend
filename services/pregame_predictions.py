@@ -109,8 +109,8 @@ def _pitcher_expected_statline(batters, is_spring):
 
     # Estimated batters faced:
     # Regular season starter avg ~24 BF, ~5.1 IP (2024 MLB avg)
-    # Spring training starter ~12 BF, ~2.2 IP (short outings)
-    est_bf = 12 if is_spring else 24
+    # Spring training: ramps up through March. Late spring ~18 BF.
+    est_bf = 18 if is_spring else 24
     est_outs = est_bf * avg_out
     ip_str = _outs_to_ip(round(est_outs))
 
@@ -388,9 +388,9 @@ def get_pregame_predictions(game_pk, season=2026):
                 grade = _matchup_grade(summary)
 
                 # Expected PA: top of lineup gets more, bottom less
-                # Regular season ~4.0 avg, spring training ~2.4 avg
+                # Regular season ~4.0 avg, spring training ~3.0 avg (late ST)
                 base_pa = 4.2 if batter["spot"] <= 5 else 3.8
-                est_pa = base_pa * (0.6 if is_spring else 1.0)
+                est_pa = base_pa * (0.75 if is_spring else 1.0)
                 statline = _batter_expected_statline(probs, summary, est_pa)
 
                 # Determine hot/cold from recent form
