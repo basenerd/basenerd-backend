@@ -957,7 +957,27 @@ def home():
         print(f"[home] load_articles failed: {e}")
         articles = []
 
-    return render_template("home.html", title="Basenerd", articles=articles)
+    # Today's games for the live scoreboard bar
+    user_tz = "America/Phoenix"
+    today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
+    try:
+        today_games = get_games_for_date(today_ymd, tz_name=user_tz)
+    except Exception:
+        today_games = []
+
+    return render_template("home.html", title="Basenerd", articles=articles, today_games=today_games)
+
+
+@app.get("/api/home-live-games")
+def home_live_games():
+    """Lightweight JSON endpoint for the home page live games bar (polled every 30s)."""
+    user_tz = "America/Phoenix"
+    today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
+    try:
+        games_list = get_games_for_date(today_ymd, tz_name=user_tz)
+    except Exception:
+        games_list = []
+    return jsonify(games_list)
 
 
 from datetime import datetime

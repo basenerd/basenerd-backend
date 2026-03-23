@@ -452,6 +452,62 @@
     to{ opacity:1; transform:translateY(0); }
   }
 
+  /* Win Probability Bar */
+  .wp-bar-wrap{
+    margin-top:10px;
+    display:flex;
+    align-items:center;
+    gap:0;
+    height:28px;
+    border-radius:8px;
+    overflow:hidden;
+    border:1px solid rgba(148,163,184,.2);
+    position:relative;
+  }
+  .wp-bar-wrap.hidden{ display:none; }
+  .wp-bar-side{
+    height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition: width 0.6s ease;
+    position:relative;
+    overflow:hidden;
+  }
+  .wp-bar-side.away{
+    border-radius:8px 0 0 8px;
+  }
+  .wp-bar-side.home{
+    border-radius:0 8px 8px 0;
+  }
+  .wp-bar-label{
+    font-size:11px;
+    font-weight:800;
+    font-family:var(--mono);
+    color:#fff;
+    white-space:nowrap;
+    padding:0 8px;
+    text-shadow:0 1px 2px rgba(0,0,0,.3);
+    z-index:1;
+  }
+  .wp-bar-label.small-pct{ font-size:10px; }
+  .wp-bar-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:4px;
+  }
+  .wp-bar-title{
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    opacity:.5;
+  }
+
+  /* Hero win prob bar */
+  #hero-wp-bar{ margin-top:8px; }
+
   #tab-gamecast .gc-midgrid{
     display:grid;
     grid-template-columns: 1fr 1fr;
@@ -1351,6 +1407,18 @@
           <span class="mono" id="hero-mini-outs">0</span>
         </div>
       </div>
+
+      <!-- Hero Win Probability Bar -->
+      <div id="hero-wp-section" style="display:none;">
+        <div class="wp-bar-wrap" id="hero-wp-bar">
+          <div class="wp-bar-side away" id="hero-wp-away" style="width:50%;">
+            <span class="wp-bar-label" id="hero-wp-away-label">—</span>
+          </div>
+          <div class="wp-bar-side home" id="hero-wp-home" style="width:50%;">
+            <span class="wp-bar-label" id="hero-wp-home-label">—</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1434,9 +1502,83 @@
         miniBases.innerHTML = heroBasesHTML(data.runners);
         miniOuts.textContent = (data.outs ?? 0);
       }
+      // Update hero win probability bar
+      updateWinProbBar(data, "hero");
+
     }catch(e){
       // silent: hero should never break GameCast
       console.warn("[Hero] update failed", e);
+    }
+  }
+
+  /* ── Win Probability (logistic model, matches Python _win_prob) ── */
+  const AWAY_ABBREV = {{ (away.abbrev or '')|tojson }};
+  const HOME_ABBREV = {{ (home.abbrev or '')|tojson }};
+
+  function calcWinProb(scoreDiff, inning, half, outs){
+    // scoreDiff = home_runs - away_runs (positive = home leads)
+    // Returns home win probability 0-1
+    const halfInningsLeft = Math.max(1, (9 - inning) * 2 + (half === "bottom" || half === "Bottom" || half === "Bot" ? 1 : 0) - (outs / 3));
+    const inningsLeft = halfInningsLeft / 2.0;
+    const k = 0.34;
+    const wp = 1.0 / (1.0 + Math.pow(10, -k * scoreDiff / Math.max(0.5, Math.sqrt(inningsLeft))));
+    return Math.min(0.95, Math.max(0.05, wp));
+  }
+
+  function updateWinProbBar(data, prefix){
+    const section = document.getElementById(prefix + "-wp-section");
+    if(!section) return;
+
+    const ds = (data.detailedState || "").toLowerCase();
+    const isFinal = ds.includes("final") || ds.includes("game over") || ds.includes("completed");
+    const isLive = ds.includes("in progress") || ds.includes("live") || ds.includes("game delayed");
+
+    if(!isLive && !isFinal){
+      section.style.display = "none";
+      return;
+    }
+
+    section.style.display = "block";
+
+    const awayRuns = (data.score && data.score.away != null) ? data.score.away : 0;
+    const homeRuns = (data.score && data.score.home != null) ? data.score.home : 0;
+    const inning = data.inning || 9;
+    const outs = data.outs || 0;
+    const dh = (data.displayHalf || data.half || "").toLowerCase();
+    const isBottom = dh.includes("bot") || dh.includes("bottom");
+
+    let homeWP;
+    if(isFinal){
+      homeWP = homeRuns > awayRuns ? 1.0 : (homeRuns < awayRuns ? 0.0 : 0.5);
+    } else {
+      const scoreDiff = homeRuns - awayRuns;
+      homeWP = calcWinProb(scoreDiff, inning, isBottom ? "bottom" : "top", outs);
+    }
+    const awayWP = 1.0 - homeWP;
+
+    const awayPct = Math.round(awayWP * 100);
+    const homePct = Math.round(homeWP * 100);
+
+    const awayBar = document.getElementById(prefix + "-wp-away");
+    const homeBar = document.getElementById(prefix + "-wp-home");
+    const awayLabel = document.getElementById(prefix + "-wp-away-label");
+    const homeLabel = document.getElementById(prefix + "-wp-home-label");
+
+    if(awayBar && homeBar){
+      const awayColor = window.getTeamColor(AWAY_ABBREV, '#64748b');
+      const homeColor = window.getTeamColor(HOME_ABBREV, '#64748b');
+      awayBar.style.background = awayColor;
+      homeBar.style.background = homeColor;
+      awayBar.style.width = Math.max(awayPct, 5) + "%";
+      homeBar.style.width = Math.max(homePct, 5) + "%";
+    }
+    if(awayLabel){
+      awayLabel.textContent = awayPct <= 5 ? "" : AWAY_ABBREV + " " + awayPct + "%";
+      awayLabel.classList.toggle("small-pct", awayPct < 20);
+    }
+    if(homeLabel){
+      homeLabel.textContent = homePct <= 5 ? "" : HOME_ABBREV + " " + homePct + "%";
+      homeLabel.classList.toggle("small-pct", homePct < 20);
     }
   }
 </script>
@@ -1560,6 +1702,21 @@
 
       <div class="mono" id="gc-lastplay" style="margin-top:10px; padding:10px 12px; border:1px solid rgba(148,163,184,.25); border-radius:12px; background:rgba(15,23,42,.02);">
         —
+      </div>
+
+      <!-- Win Probability Bar -->
+      <div id="gc-wp-section" style="display:none;">
+        <div class="wp-bar-header">
+          <div class="wp-bar-title">Win Probability</div>
+        </div>
+        <div class="wp-bar-wrap" id="gc-wp-bar">
+          <div class="wp-bar-side away" id="gc-wp-away" style="width:50%;">
+            <span class="wp-bar-label" id="gc-wp-away-label">—</span>
+          </div>
+          <div class="wp-bar-side home" id="gc-wp-home" style="width:50%;">
+            <span class="wp-bar-label" id="gc-wp-home-label">—</span>
+          </div>
+        </div>
       </div>
 
 
@@ -4244,6 +4401,9 @@ async function __gc_maybe_show_bip_takeover(bip, endsInning){
       const homeRuns = document.getElementById("gc-home-runs");
       if(awayRuns) awayRuns.textContent = (data.score && data.score.away != null) ? data.score.away : "0";
       if(homeRuns) homeRuns.textContent = (data.score && data.score.home != null) ? data.score.home : "0";
+
+      // Update GameCast win probability bar
+      updateWinProbBar(data, "gc");
 
       setDots(document.getElementById("gc-balls"), data.balls || 0, "ball");
       setDots(document.getElementById("gc-strikes"), data.strikes || 0, "strike");

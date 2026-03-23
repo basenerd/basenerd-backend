@@ -3607,6 +3607,15 @@ def get_games_for_date(
             balls_now = _safe_int(ls.get("balls"))
             strikes_now = _safe_int(ls.get("strikes"))
 
+            current_inning = _safe_int(ls.get("currentInning"))
+            is_top_inning = ls.get("isTopInning")
+            inning_half = "top" if is_top_inning else "bottom"
+            inning_state = (ls.get("inningState") or "").strip().lower()
+            if inning_state == "middle":
+                inning_half = "mid"
+            elif inning_state == "end":
+                inning_half = "end"
+
             card = {
                 "gamePk": g.get("gamePk"),
                 "date": date_ymd,
@@ -3619,6 +3628,8 @@ def get_games_for_date(
                 "isSpring": is_spring,
 
                 "isLive": is_live,
+                "currentInning": current_inning,
+                "inningHalf": inning_half,
                 "outs": outs_now,
                 "balls": balls_now,
                 "strikes": strikes_now,

@@ -44,38 +44,234 @@
 </div>
 
 <!-- ===================== -->
-<!-- WBC BANNER            -->
+<!-- TODAY'S PROJECTIONS   -->
 <!-- ===================== -->
-<a href="/wbc" class="wbc-home-banner" style="display:block; text-decoration:none; margin-top:14px;">
+<a href="/todays-projections" class="projections-home-banner" style="display:block; text-decoration:none; margin-top:14px;">
   <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
     <div style="display:flex; align-items:center; gap:14px;">
-      <img src="{{ url_for('static', filename='WBC-Symbol.png') }}" alt="WBC" style="height:48px; width:auto; flex:0 0 auto;">
+      <div style="font-size:36px; flex:0 0 auto;">&#128202;</div>
       <div>
-        <div style="font-size:11px; font-weight:900; letter-spacing:1.5px; opacity:0.75; text-transform:uppercase; margin-bottom:3px;">Now Underway</div>
-        <div style="font-size:20px; font-weight:900; letter-spacing:0.2px;">2026 World Baseball Classic</div>
-        <div style="font-size:12px; opacity:0.75; margin-top:3px;">Games · Pool Standings · All 20 National Teams</div>
+        <div style="font-size:11px; font-weight:900; letter-spacing:1.5px; opacity:0.75; text-transform:uppercase; margin-bottom:3px;">Updated Daily</div>
+        <div style="font-size:20px; font-weight:900; letter-spacing:0.2px;">Today's Projections</div>
+        <div style="font-size:12px; opacity:0.75; margin-top:3px;">Stat probabilities for every pitcher and hitter in today's games</div>
       </div>
     </div>
-    <div style="font-size:13px; font-weight:900; opacity:0.85; white-space:nowrap;">View WBC →</div>
+    <div style="font-size:13px; font-weight:900; opacity:0.85; white-space:nowrap;">View Projections →</div>
   </div>
 </a>
 
 <style>
-  .wbc-home-banner {
-    background: linear-gradient(135deg, #002868 0%, #003d99 50%, #BF0A30 100%);
-    border: 1px solid rgba(255,255,255,0.15);
+  .projections-home-banner {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    border: 1px solid rgba(240,192,64,0.25);
     border-radius: 12px;
     padding: 16px 20px;
     color: #fff;
     transition: transform .08s ease, box-shadow .08s ease;
   }
-  .wbc-home-banner:hover {
+  .projections-home-banner:hover {
     transform: translateY(-1px);
-    box-shadow: 0 8px 24px rgba(0,40,104,0.35);
+    box-shadow: 0 8px 24px rgba(240,192,64,0.2);
     color: #fff;
     text-decoration: none;
   }
 </style>
+
+<!-- ===================== -->
+<!-- LIVE GAMES BAR        -->
+<!-- ===================== -->
+{% set live_games = today_games|selectattr('detailedState', 'defined')|list %}
+<div id="home-live-bar" class="card" style="margin-top:14px; display:none;">
+  <div class="card-header" style="padding-bottom:0;">
+    <div>
+      <div class="card-title" style="display:flex; align-items:center; gap:8px;">
+        <span class="live-dot"></span> Live Games
+      </div>
+    </div>
+    <a href="/games" class="small" style="white-space:nowrap;">All Games →</a>
+  </div>
+  <div class="card-body" style="padding:10px 14px 14px;">
+    <div id="home-live-games" class="home-live-grid"></div>
+  </div>
+</div>
+
+<style>
+  .live-dot{
+    width:8px; height:8px; border-radius:50%;
+    background:#ef4444;
+    display:inline-block;
+    animation: livePulse 1.5s ease-in-out infinite;
+  }
+  @keyframes livePulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:.4; }
+  }
+  .home-live-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap:10px;
+  }
+  .home-live-game{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    padding:10px 12px;
+    border:1px solid rgba(226,232,240,.9);
+    border-radius:10px;
+    text-decoration:none;
+    color:inherit;
+    transition: transform .08s, box-shadow .08s;
+  }
+  .home-live-game:hover{
+    transform:translateY(-1px);
+    box-shadow:0 4px 12px rgba(0,0,0,.08);
+    text-decoration:none;
+    color:inherit;
+  }
+  .home-live-teams{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .home-live-team{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-weight:700;
+    font-size:13px;
+  }
+  .home-live-team img{ width:20px; height:20px; }
+  .home-live-score{
+    font-family:var(--mono);
+    font-size:15px;
+    font-weight:800;
+  }
+  .home-live-inning{
+    font-size:11px;
+    font-weight:700;
+    opacity:.6;
+    text-align:center;
+  }
+  .home-live-wp{
+    display:flex;
+    height:18px;
+    border-radius:6px;
+    overflow:hidden;
+    border:1px solid rgba(148,163,184,.15);
+  }
+  .home-live-wp-side{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:width 0.6s ease;
+    overflow:hidden;
+  }
+  .home-live-wp-label{
+    font-size:9px;
+    font-weight:800;
+    font-family:var(--mono);
+    color:#fff;
+    white-space:nowrap;
+    text-shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+  @media(max-width:640px){
+    .home-live-grid{ grid-template-columns: 1fr; }
+  }
+</style>
+
+<script>
+(function(){
+  const ALL_GAMES = {{ today_games | tojson }};
+  const TEAM_COLORS = {
+    ARI:'#A71930', ATL:'#CE1141', BAL:'#DF4601', BOS:'#BD3039', CHC:'#0E3386',
+    CWS:'#27251F', CIN:'#C6011F', CLE:'#00385D', COL:'#333366', DET:'#0C2340',
+    HOU:'#EB6E1F', KC:'#004687', LAA:'#BA0021', LAD:'#005A9C', MIA:'#00A3E0',
+    MIL:'#FFC52F', MIN:'#002B5C', NYM:'#FF5910', NYY:'#003087', OAK:'#003831',
+    PHI:'#E81828', PIT:'#FDB827', SD:'#2F241D', SF:'#FD5A1E', SEA:'#0C2C56',
+    STL:'#C41E3A', TB:'#092C5C', TEX:'#003278', TOR:'#134A8E', WSH:'#AB0003',
+    ATH:'#003831', WSN:'#AB0003'
+  };
+  function teamColor(a){ return TEAM_COLORS[(a||'').toUpperCase()] || '#64748b'; }
+
+  function calcWP(scoreDiff, inning, isBottom, outs){
+    const hi = Math.max(1, (9 - inning)*2 + (isBottom?1:0) - (outs/3));
+    const il = hi/2;
+    const wp = 1/(1+Math.pow(10, -0.34*scoreDiff/Math.max(0.5,Math.sqrt(il))));
+    return Math.min(0.95, Math.max(0.05, wp));
+  }
+
+  function renderLiveGames(){
+    const liveGames = ALL_GAMES.filter(g => {
+      const ds = (g.detailedState||'').toLowerCase();
+      return (ds.includes('in progress') || ds.includes('live') || ds.includes('warmup') || ds.includes('game delayed'))
+        && !ds.includes('final') && !ds.includes('game over');
+    });
+
+    const bar = document.getElementById('home-live-bar');
+    const container = document.getElementById('home-live-games');
+    if(!liveGames.length){ bar.style.display = 'none'; return; }
+    bar.style.display = 'block';
+
+    container.innerHTML = liveGames.map(g => {
+      const awayAbbrev = g.away?.abbrev || '?';
+      const homeAbbrev = g.home?.abbrev || '?';
+      const awayScore = g.away?.score ?? '—';
+      const homeScore = g.home?.score ?? '—';
+      const awayLogo = g.away?.logo || '';
+      const homeLogo = g.home?.logo || '';
+
+      // Win prob
+      let wpHTML = '';
+      if(typeof g.away?.score === 'number' && typeof g.home?.score === 'number'){
+        const diff = g.home.score - g.away.score;
+        const inn = g.currentInning || 5;
+        const isBot = (g.inningHalf||'').toLowerCase().includes('bot');
+        const outs = g.outs || 0;
+        const homeWP = calcWP(diff, inn, isBot, outs);
+        const awayPct = Math.round((1-homeWP)*100);
+        const homePct = Math.round(homeWP*100);
+        wpHTML = `
+          <div class="home-live-wp">
+            <div class="home-live-wp-side" style="width:${Math.max(awayPct,5)}%;background:${teamColor(awayAbbrev)}">
+              <span class="home-live-wp-label">${awayPct>15?awayPct+'%':''}</span>
+            </div>
+            <div class="home-live-wp-side" style="width:${Math.max(homePct,5)}%;background:${teamColor(homeAbbrev)}">
+              <span class="home-live-wp-label">${homePct>15?homePct+'%':''}</span>
+            </div>
+          </div>`;
+      }
+
+      return `
+        <a class="home-live-game" href="/game/${g.gamePk}">
+          <div class="home-live-teams">
+            <div class="home-live-team">
+              ${awayLogo?`<img src="${awayLogo}" alt="">`:''} ${awayAbbrev}
+            </div>
+            <div class="home-live-score">${awayScore} - ${homeScore}</div>
+            <div class="home-live-team" style="justify-content:flex-end;">
+              ${homeAbbrev} ${homeLogo?`<img src="${homeLogo}" alt="">`:''}
+            </div>
+          </div>
+          <div class="home-live-inning">${g.statusPill || g.detailedState || ''}</div>
+          ${wpHTML}
+        </a>`;
+    }).join('');
+  }
+
+  renderLiveGames();
+  // Refresh live games every 30s
+  setInterval(()=>{
+    fetch('/api/home-live-games')
+      .then(r=>r.json())
+      .then(games=>{
+        ALL_GAMES.length = 0;
+        games.forEach(g=>ALL_GAMES.push(g));
+        renderLiveGames();
+      }).catch(()=>{});
+  }, 30000);
+})();
+</script>
 
 <!-- ===================== -->
 <!-- FEATURE CARDS         -->
