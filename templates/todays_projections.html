@@ -43,11 +43,13 @@
   }
   .tp-stat-btn{
     padding:6px 14px; font-size:0.75rem; font-weight:700; cursor:pointer;
-    background:transparent; color:rgba(255,255,255,0.5); border:none;
+    background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.6); border:none;
+    border-right:1px solid rgba(255,255,255,0.08);
     transition: all 0.15s; white-space:nowrap;
   }
-  .tp-stat-btn.active{ background:rgba(255,255,255,0.15); color:#fff; }
-  .tp-stat-btn:hover:not(.active){ background:rgba(255,255,255,0.05); }
+  .tp-stat-btn:last-child{ border-right:none; }
+  .tp-stat-btn.active{ background:rgba(240,192,64,0.2); color:#f0c040; }
+  .tp-stat-btn:hover:not(.active){ background:rgba(255,255,255,0.08); }
 
   /* Table */
   .tp-tbl-wrap{
@@ -132,7 +134,7 @@
 
   /* Pct cell coloring — background tint for magnitude, text always visible */
   .tp-pct{
-    font-size:0.78rem; font-weight:600; color:#fff;
+    font-size:0.78rem; font-weight:700; color:#111;
     display:inline-block; padding:2px 4px; border-radius:4px;
     min-width:36px; text-align:center;
   }
