@@ -34,17 +34,14 @@ if _env_path.exists():
             _k, _v = _line.split("=", 1)
             os.environ.setdefault(_k.strip(), _v.strip())
 
-_DATABASE_URL = os.environ.get("DATABASE_URL", "")
-_table_ensured = False
+# Render internal hostname (no .oregon-postgres.render.com suffix)
+_RENDER_INTERNAL_DB = (
+    "postgresql://basenerd_user:d5LmELIOiEszYPBSLSDT1oIi79gkgDV6"
+    "@dpg-d5i0tku3jp1c73f1d3gg-a/basenerd"
+)
 
-# ── Startup check ──────────────────────────────────────────────────────
-# Fail LOUD at import time so duplicates are impossible to miss.
-if not _DATABASE_URL:
-    log.error("FATAL: DATABASE_URL is not set — notification dedup DISABLED. "
-              "Emails WILL be duplicated. Set DATABASE_URL in Render env vars.")
-    print("FATAL: DATABASE_URL not set — dedup disabled, emails will duplicate!",
-          file=sys.stderr)
-    # Don't sys.exit — let the caller decide, but make it unmissable in logs.
+_DATABASE_URL = os.environ.get("DATABASE_URL", "") or _RENDER_INTERNAL_DB
+_table_ensured = False
 
 _db_available = False
 if _DATABASE_URL:
