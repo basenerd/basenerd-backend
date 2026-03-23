@@ -580,7 +580,13 @@ def _load_x_models() -> Dict[str, Any] | None:
         combined_path = _resolve_model_path("xba_xslg_model.joblib")
         if combined_path:
             bundle = joblib.load(combined_path)
+            # Patch HistGradientBoosting model for sklearn version mismatch:
+            # models trained on sklearn 1.3.x lack _preprocessor attr in 1.8.x
+            _mdl = bundle["model"] if isinstance(bundle, dict) and "model" in bundle else bundle
+            if hasattr(_mdl, "_preprocess_X") and not hasattr(_mdl, "_preprocessor"):
+                _mdl._preprocessor = None
             _X_MODELS = {"bundle": bundle, "meta": meta, "mode": "combined"}
+            print("[x_models] combined model loaded OK")
             return _X_MODELS
 
         # 2) Fallback to legacy separate models
@@ -602,12 +608,39 @@ def _load_x_models() -> Dict[str, Any] | None:
         _X_MODELS = None
         return None
 
+def _encode_bb_type(trajectory: Optional[str], launch_angle: Optional[float]) -> int:
+    """Encode batted ball type as integer for the xBA/xSLG model.
+
+    Uses MLB API trajectory string when available, otherwise derives from
+    launch angle using standard Statcast classification.
+    Alphabetical label encoding: fly_ball=0, ground_ball=1, line_drive=2, popup=3.
+    """
+    _BB_MAP = {"fly_ball": 0, "ground_ball": 1, "line_drive": 2, "popup": 3}
+    if trajectory:
+        t = str(trajectory).lower().strip()
+        if t in _BB_MAP:
+            return _BB_MAP[t]
+    # Derive from launch angle
+    if launch_angle is not None:
+        la = float(launch_angle)
+        if la < 10:
+            return 1   # ground_ball
+        elif la < 25:
+            return 2   # line_drive
+        elif la < 50:
+            return 0   # fly_ball
+        else:
+            return 3   # popup
+    return 0  # default fly_ball
+
+
 def predict_xba_xslg(
     launch_speed: Optional[float],
     launch_angle: Optional[float],
     spray_angle: Optional[float],
     stand: Optional[str],
     p_throws: Optional[str],
+    trajectory: Optional[str] = None,
 ) -> tuple[Optional[float], Optional[float]]:
     """Return (xBA, xSLG) for a single batted ball.
 
@@ -652,17 +685,12 @@ def predict_xba_xslg(
                 m = bundle
                 feats = ["launch_speed", "launch_angle", "spray_angle", "stand", "p_throws"]
 
-            # NOTE: encode stand/p_throws as 0/1 to match training (recommended)
-            # Provide values for either feature set:
-            # - older combined training scripts used bb_type (0-3) + stand (0/1)
-            # - some pipelines use p_throws (0/1) + stand (0/1)
             row = {
                 "launch_speed": float(launch_speed),
                 "launch_angle": float(launch_angle),
                 "spray_angle": float(spray_angle),
                 "stand": 0 if stand == "R" else 1,
-                # If model expects bb_type but we don't have it live, default to fly_ball=2
-                "bb_type": 2,
+                "bb_type": _encode_bb_type(trajectory, launch_angle),
                 "p_throws": 0 if p_throws == "R" else 1,
             }
 
@@ -4638,7 +4666,8 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
             stand = ((matchup_p.get("batSide") or {}).get("code") or (matchup_p.get("batSide") or {}).get("description") or None)
             p_throws = ((matchup_p.get("pitchHand") or {}).get("code") or (matchup_p.get("pitchHand") or {}).get("description") or None)
 
-            model_xba, model_xslg = predict_xba_xslg(evv, la, spray, stand, p_throws)
+            traj = hit.get("trajectory")  # e.g. "fly_ball", "line_drive"
+            model_xba, model_xslg = predict_xba_xslg(evv, la, spray, stand, p_throws, trajectory=traj)
             if model_xba is not None:
                 xba = model_xba
 
@@ -4653,6 +4682,7 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                 "xBA": xba,
                 "xSLG": model_xslg,
                 "distance": _safe_float(hit.get("totalDistance"), default=None),
+                "bbType": traj,
                 "evStyle": _grad_style(evv, 88.0, span=12.0),
                 "evFire": (evv is not None and evv >= 100.0),
                 "directionLabel": _spray_label(spray),
