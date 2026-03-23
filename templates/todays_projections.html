@@ -181,6 +181,11 @@
   </div>
   <span class="tp-controls-label">Stat:</span>
   <div class="tp-stat-toggle" id="tp-stat-toggle"></div>
+  <span class="tp-controls-label">Mode:</span>
+  <div class="tp-view-tabs">
+    <button class="tp-view-btn tp-mode-btn active" data-mode="exact">Exact</button>
+    <button class="tp-view-btn tp-mode-btn" data-mode="cumul">Over</button>
+  </div>
 </div>
 
 <div id="tp-table-area"></div>
@@ -271,6 +276,7 @@
   let currentView = 'pitchers';
   let currentPStat = 'k';
   let currentBStat = 'h';
+  let currentMode = 'exact'; // 'exact' or 'cumul'
   let sortCol = 'exp';
   let sortDir = -1; // -1 = desc
 
@@ -366,14 +372,25 @@
     buildStatToggle();
     renderTable();
 
-    // View toggle
-    document.querySelectorAll('.tp-view-btn').forEach(btn=>{
+    // View toggle (Pitchers / Batters)
+    document.querySelectorAll('.tp-view-btn:not(.tp-mode-btn)').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        document.querySelectorAll('.tp-view-btn').forEach(b=>b.classList.remove('active'));
+        document.querySelectorAll('.tp-view-btn:not(.tp-mode-btn)').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
         currentView = btn.dataset.view;
         sortCol = 'exp'; sortDir = -1;
         buildStatToggle();
+        renderTable();
+      });
+    });
+
+    // Mode toggle (Exact / Over)
+    document.querySelectorAll('.tp-mode-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('.tp-mode-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMode = btn.dataset.mode;
+        sortCol = 'exp'; sortDir = -1;
         renderTable();
       });
     });
@@ -406,10 +423,24 @@
     const maxK = stat.maxK;
     const players = isPitcher ? allPitchers : allBatters;
 
+    const isCumul = currentMode === 'cumul';
+
     // Compute distributions
     const rows = players.map(p => {
       const lam = p.lambdas[statKey] || 0;
-      const dist = computeDist(lam, maxK);
+      const exactDist = computeDist(lam, maxK);
+      let dist;
+      if(isCumul){
+        // cumul[k] = P(X >= k) = 1 - sum(P(0)..P(k-1))
+        dist = [];
+        let cumSum = 0;
+        for(let k = 0; k <= maxK; k++){
+          dist.push((1 - cumSum) * 100);
+          cumSum += exactDist[k] / 100;
+        }
+      } else {
+        dist = exactDist;
+      }
       return { ...p, dist, lam };
     });
 
@@ -433,7 +464,7 @@
     html += `<th class="opp-col ${sc('opp')}" data-sort="opp">${isPitcher ? 'Opponent' : 'vs Pitcher'} <span class="sort-arrow">${arrow('opp')}</span></th>`;
 
     for(let k = 0; k <= maxK; k++){
-      const label = k === maxK ? `${k}+` : k;
+      const label = isCumul ? `${k}+` : (k === maxK ? `${k}+` : k);
       html += `<th class="num-col ${sc(String(k))}" data-sort="${k}">${label} <span class="sort-arrow">${arrow(String(k))}</span></th>`;
     }
     html += `<th class="exp-col ${sc('exp')}" data-sort="exp">Exp <span class="sort-arrow">${arrow('exp')}</span></th>`;
