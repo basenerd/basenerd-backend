@@ -122,13 +122,12 @@
     font-size:0.78rem; font-weight:600;
   }
 
-  /* Pct cell coloring */
+  /* Pct cell coloring — background tint for magnitude, text always visible */
   .tp-pct{
-    font-size:0.78rem; font-weight:600;
+    font-size:0.78rem; font-weight:600; color:#fff;
+    display:inline-block; padding:2px 4px; border-radius:4px;
+    min-width:36px; text-align:center;
   }
-  .tp-pct-high{ color:#51cf66; }
-  .tp-pct-med{ color:rgba(255,255,255,0.7); }
-  .tp-pct-low{ opacity:0.35; }
 
   @media(max-width:640px){
     .tp-controls{ gap:8px; }
@@ -241,10 +240,11 @@
     if(pct >= 0.1) return pct.toFixed(1) + '%';
     return '&lt;1%';
   }
-  function pctClass(pct){
-    if(pct >= 20) return 'tp-pct-high';
-    if(pct >= 5)  return 'tp-pct-med';
-    return 'tp-pct-low';
+  function pctBg(pct){
+    // Green-tinted background that scales with probability
+    // High values get more opaque background, low values are subtle
+    const alpha = Math.min(0.35, pct / 80);
+    return `background:rgba(81,207,102,${alpha.toFixed(3)})`;
   }
   function headshotUrl(pid){
     return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_80,q_auto:best/v1/people/${pid}/headshot/67/current`;
@@ -455,7 +455,7 @@
       // Pct cells — always maxK+1 cells
       for(let k = 0; k <= maxK; k++){
         const pct = r.dist[k] || 0;
-        html += `<td><span class="tp-pct ${pctClass(pct)}">${fmtPct(pct)}</span></td>`;
+        html += `<td><span class="tp-pct" style="${pctBg(pct)}">${fmtPct(pct)}</span></td>`;
       }
 
       // Expected
