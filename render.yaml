@@ -13,6 +13,15 @@ services:
     schedule: "*/15 * * * *"  # Every 15 minutes
     startCommand: "python scripts/daily_pitcher_emails.py"
     plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
 
   - type: cron
     name: lineup-emails
@@ -20,6 +29,13 @@ services:
     schedule: "*/15 * * * *"  # Every 15 minutes
     dockerCommand: "python scripts/auto_lineup_emails.py"
     plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
 
   - type: worker
     name: hr-monitor
@@ -27,6 +43,8 @@ services:
     dockerCommand: "python scripts/hr_monitor.py --daemon"
     plan: free
     envVars:
+      - key: DATABASE_URL
+        sync: false
       - key: GMAIL_USER
         sync: false
       - key: GMAIL_APP_PASSWORD

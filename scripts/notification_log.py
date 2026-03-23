@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from pathlib import Path
 
 import psycopg
@@ -35,6 +36,26 @@ if _env_path.exists():
 
 _DATABASE_URL = os.environ.get("DATABASE_URL", "")
 _table_ensured = False
+
+# ── Startup check ──────────────────────────────────────────────────────
+# Fail LOUD at import time so duplicates are impossible to miss.
+if not _DATABASE_URL:
+    log.error("FATAL: DATABASE_URL is not set — notification dedup DISABLED. "
+              "Emails WILL be duplicated. Set DATABASE_URL in Render env vars.")
+    print("FATAL: DATABASE_URL not set — dedup disabled, emails will duplicate!",
+          file=sys.stderr)
+    # Don't sys.exit — let the caller decide, but make it unmissable in logs.
+
+_db_available = False
+if _DATABASE_URL:
+    try:
+        with psycopg.connect(_DATABASE_URL) as _conn:
+            _conn.execute("SELECT 1")
+        _db_available = True
+        log.info("notification_log: DB connected OK")
+    except Exception as _e:
+        log.error("FATAL: Cannot connect to DATABASE_URL — dedup DISABLED: %s", _e)
+        print(f"FATAL: DB connection failed — dedup disabled: {_e}", file=sys.stderr)
 
 
 def _get_conn():
@@ -63,7 +84,14 @@ def _ensure_table(conn):
 
 
 def already_sent(notif_type: str, game_pk: int, entity_key: str) -> bool:
-    """Check if this notification was already sent."""
+    """Check if this notification was already sent.
+
+    If DB is unavailable, returns True (block sending) to prevent duplicates.
+    """
+    if not _db_available:
+        log.error("DB unavailable — blocking send to prevent duplicate "
+                  "(type=%s, game_pk=%s, key=%s)", notif_type, game_pk, entity_key)
+        return True  # BLOCK sending when DB is down
     try:
         with _get_conn() as conn:
             _ensure_table(conn)
@@ -73,12 +101,15 @@ def already_sent(notif_type: str, game_pk: int, entity_key: str) -> bool:
             ).fetchone()
             return row is not None
     except Exception as e:
-        log.warning("notification_log check failed (will proceed): %s", e)
-        return False
+        log.error("notification_log check FAILED — blocking send to prevent "
+                  "duplicate: %s", e)
+        return True  # BLOCK sending on error
 
 
 def mark_sent(notif_type: str, game_pk: int, entity_key: str):
     """Record that this notification was sent."""
+    if not _db_available:
+        return
     try:
         with _get_conn() as conn:
             _ensure_table(conn)
@@ -90,11 +121,13 @@ def mark_sent(notif_type: str, game_pk: int, entity_key: str):
             )
             conn.commit()
     except Exception as e:
-        log.warning("notification_log insert failed: %s", e)
+        log.error("notification_log insert FAILED: %s", e)
 
 
 def delete_entry(notif_type: str, game_pk: int, entity_key: str):
     """Remove an entry (used for lineup change re-sends)."""
+    if not _db_available:
+        return
     try:
         with _get_conn() as conn:
             _ensure_table(conn)
@@ -104,11 +137,13 @@ def delete_entry(notif_type: str, game_pk: int, entity_key: str):
             )
             conn.commit()
     except Exception as e:
-        log.warning("notification_log delete failed: %s", e)
+        log.error("notification_log delete FAILED: %s", e)
 
 
 def get_entity_key(notif_type: str, game_pk: int) -> str | None:
     """Get the stored entity_key for a type+game_pk (used for lineup hash comparison)."""
+    if not _db_available:
+        return "DB_UNAVAILABLE"  # non-None → treat as "already sent"
     try:
         with _get_conn() as conn:
             _ensure_table(conn)
@@ -118,5 +153,5 @@ def get_entity_key(notif_type: str, game_pk: int) -> str | None:
             ).fetchone()
             return row[0] if row else None
     except Exception as e:
-        log.warning("notification_log lookup failed: %s", e)
-        return None
+        log.error("notification_log lookup FAILED: %s", e)
+        return "DB_ERROR"  # non-None → treat as "already sent"
