@@ -20,6 +20,7 @@ Output: reports/lineups/<YYYYMMDD>/<Away>_at_<Home>_<game_pk>.pdf/.png
 from __future__ import annotations
 
 import argparse
+import hashlib
 import logging
 import os
 import smtplib
@@ -63,14 +64,32 @@ log = logging.getLogger("lineup_emails")
 
 
 # ---------------------------------------------------------------------------
-# Check if lineup graphic already exists on disk
+# Dedup via notification_log DB table (survives ephemeral containers)
 # ---------------------------------------------------------------------------
-def _game_already_processed(game_pk: int, date_str: str) -> bool:
-    """Check if a PNG for this game already exists."""
-    date_dir = REPORTS_DIR / date_str.replace("-", "")
-    if not date_dir.exists():
+from notification_log import already_sent, mark_sent, get_entity_key, delete_entry
+
+
+def _lineup_hash(game: dict) -> str:
+    """Hash the lineup player IDs to detect changes."""
+    lineups = game.get("lineups") or {}
+    away_ids = [str((p.get("id") or "")) for p in (lineups.get("awayPlayers") or [])]
+    home_ids = [str((p.get("id") or "")) for p in (lineups.get("homePlayers") or [])]
+    raw = ",".join(away_ids) + "|" + ",".join(home_ids)
+    return hashlib.md5(raw.encode()).hexdigest()
+
+
+def _game_already_processed(game_pk: int, date_str: str, lineup_hash: str) -> bool:
+    """Check DB for this game. Returns True if already sent with same lineup."""
+    prev_hash = get_entity_key("lineup", game_pk)
+    if prev_hash is None:
+        return False  # Never sent
+    if prev_hash != lineup_hash:
+        # Lineup changed — delete old entry so we re-send
+        log.info("  Lineup changed for game %d (hash %s → %s), will re-send",
+                 game_pk, prev_hash[:8], lineup_hash[:8])
+        delete_entry("lineup", game_pk, prev_hash)
         return False
-    return any(date_dir.glob(f"*_{game_pk}.png"))
+    return True  # Same lineup already sent
 
 
 # ---------------------------------------------------------------------------
@@ -196,19 +215,22 @@ def process_date(date_str: str) -> int:
         log.info("No games scheduled for %s", date_str)
         return 0
 
-    # Only process games that have at least one lineup posted
+    # Only process games where BOTH teams have complete lineups
     with_lineups = [
         g for g in games
-        if g["has_away_lineup"] or g["has_home_lineup"]
-    ]
-    # Skip games we already processed
-    pending = [
-        g for g in with_lineups
-        if not _game_already_processed(g["game_pk"], date_str)
+        if g["has_away_lineup"] and g["has_home_lineup"]
     ]
 
+    # Compute lineup hashes and skip games we already processed (same lineup)
+    pending = []
+    for g in with_lineups:
+        lh = _lineup_hash(g["raw"])
+        g["_lineup_hash"] = lh
+        if not _game_already_processed(g["game_pk"], date_str, lh):
+            pending.append(g)
+
     log.info(
-        "%s: %d games total, %d with lineups, %d already done, %d to generate",
+        "%s: %d games total, %d with both lineups, %d already done, %d to generate",
         date_str, len(games), len(with_lineups),
         len(with_lineups) - len(pending), len(pending),
     )
@@ -218,6 +240,8 @@ def process_date(date_str: str) -> int:
         log.info("Processing: %s @ %s (game_pk=%d)",
                  g["away_abbrev"], g["home_abbrev"], g["game_pk"])
         if process_game(g, date_str):
+            # Record in DB so we don't re-send
+            mark_sent("lineup", g["game_pk"], g["_lineup_hash"])
             total += 1
 
     return total

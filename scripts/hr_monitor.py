@@ -32,6 +32,7 @@ import requests
 # ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "scripts"))
 
 # Load .env
 env_path = ROOT / ".env"
@@ -49,7 +50,10 @@ GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 NOTIFY_EMAIL = "nicklabella6@gmail.com"
 
 # Track which HRs we've already processed: set of (game_pk, play_index)
+# In-memory cache (fast) backed by DB (survives restarts)
 _seen_hrs: set[tuple[int, int]] = set()
+
+from notification_log import already_sent as _db_already_sent, mark_sent as _db_mark_sent
 
 # MLB team ID -> abbreviation mapping
 _TEAM_ABBREV: dict[int, str] = {}
@@ -225,6 +229,10 @@ def extract_home_runs(feed: dict, game_pk: int) -> list[dict]:
 
         key = (game_pk, idx)
         if key in _seen_hrs:
+            continue
+        # Check DB (survives process restarts)
+        if _db_already_sent("home_run", game_pk, str(idx)):
+            _seen_hrs.add(key)  # cache locally too
             continue
 
         # Extract batter + pitcher info
@@ -435,6 +443,7 @@ def poll_once(date_str: str) -> int:
                 log.error("  Failed to generate/send graphic: %s", e)
 
             _seen_hrs.add(hr["key"])
+            _db_mark_sent("home_run", hr["key"][0], str(hr["key"][1]))
             new_hr_count += 1
 
     return new_hr_count

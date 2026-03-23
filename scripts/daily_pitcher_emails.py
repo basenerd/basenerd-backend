@@ -38,6 +38,7 @@ from generate_pitcher_report_pdf import (
     _extract_game_info,
     generate_report,
 )
+from notification_log import already_sent, mark_sent
 
 # Load .env
 env_path = ROOT / ".env"
@@ -300,12 +301,19 @@ def process_games(date_str: str, window_min: int) -> int:
             pid = p["pitcher_id"]
             name = p["pitcher_name"]
             mins_ago = (datetime.now(timezone.utc) - p["last_pitch_utc"]).total_seconds() / 60
+
+            # Skip if we already emailed this pitcher+game combo
+            if already_sent("pitcher_report", gp, str(pid)):
+                log.info("  %s already sent, skipping", name)
+                continue
+
             log.info("  %s (last pitch %.0f min ago)", name, mins_ago)
 
             try:
                 pdf_path = generate_report(pid, gp)
                 if pdf_path:
                     reports.append((name, pdf_path))
+                    mark_sent("pitcher_report", gp, str(pid))
                     upload_to_github(pdf_path, game_info.get("date", date_str))
             except Exception as e:
                 log.error("    Failed %s: %s", name, e)
