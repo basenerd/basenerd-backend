@@ -14,19 +14,22 @@
     display:flex; align-items:center; gap:14px; flex-wrap:wrap;
     margin-top:16px; margin-bottom:14px;
     padding:12px 16px;
-    background:rgba(255,255,255,0.02);
-    border:1px solid rgba(255,255,255,0.08);
+    background:rgba(0,0,0,0.015);
+    border:1px solid var(--border, rgba(0,0,0,0.08));
     border-radius:10px;
   }
   .tp-controls-label{
     font-size:0.72rem; font-weight:700; color:#555; text-transform:uppercase;
     letter-spacing:0.5px; margin-right:4px;
   }
+  .tp-controls-row{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
 
   /* View toggle */
   .tp-view-tabs{
     display:flex; gap:0; border-radius:8px; overflow:hidden;
-    border:1px solid rgba(255,255,255,0.15);
+    border:1px solid var(--border, rgba(0,0,0,0.1));
   }
   .tp-view-btn{
     padding:7px 18px; font-size:0.8rem; font-weight:700; cursor:pointer;
@@ -34,22 +37,22 @@
     transition: all 0.15s;
   }
   .tp-view-btn.active{ background:rgba(240,192,64,0.25); color:#b8860b; }
-  .tp-view-btn:hover:not(.active){ background:rgba(255,255,255,0.05); }
+  .tp-view-btn:hover:not(.active){ background:rgba(0,0,0,0.04); }
 
   /* Stat toggle */
   .tp-stat-toggle{
     display:flex; gap:0; border-radius:6px; overflow:hidden;
-    border:1px solid rgba(255,255,255,0.15);
+    border:1px solid var(--border, rgba(0,0,0,0.1));
   }
   .tp-stat-btn{
     padding:6px 14px; font-size:0.75rem; font-weight:700; cursor:pointer;
-    background:rgba(255,255,255,0.04); color:#111; border:none;
-    border-right:1px solid rgba(255,255,255,0.08);
+    background:rgba(0,0,0,0.02); color:#111; border:none;
+    border-right:1px solid var(--border, rgba(0,0,0,0.06));
     transition: all 0.15s; white-space:nowrap;
   }
   .tp-stat-btn:last-child{ border-right:none; }
   .tp-stat-btn.active{ background:rgba(240,192,64,0.25); color:#b8860b; }
-  .tp-stat-btn:hover:not(.active){ background:rgba(255,255,255,0.08); }
+  .tp-stat-btn:hover:not(.active){ background:rgba(0,0,0,0.05); }
 
   /* Table */
   .tp-tbl-wrap{
@@ -61,7 +64,7 @@
   .tp-tbl th{
     text-align:center; padding:8px 5px; font-size:0.7rem; font-weight:700;
     text-transform:uppercase; letter-spacing:0.3px; opacity:0.5;
-    border-bottom:2px solid rgba(255,255,255,0.08);
+    border-bottom:2px solid var(--border, rgba(0,0,0,0.08));
     white-space:nowrap; cursor:pointer; user-select:none;
     position:relative;
   }
@@ -76,7 +79,7 @@
     min-width:50px; width:50px;
   }
   .tp-tbl th.exp-col{
-    min-width:54px; border-left:2px solid rgba(255,255,255,0.06);
+    min-width:54px; border-left:2px solid rgba(0,0,0,0.06);
   }
   .tp-tbl th .sort-arrow{
     font-size:0.6rem; margin-left:2px; opacity:0.4;
@@ -84,7 +87,7 @@
   .tp-tbl th.sorted .sort-arrow{ opacity:1; color:#f0c040; }
 
   .tp-tbl td{
-    padding:8px 5px; border-bottom:1px solid rgba(255,255,255,0.04);
+    padding:8px 5px; border-bottom:1px solid rgba(0,0,0,0.04);
     text-align:center; font-variant-numeric:tabular-nums;
   }
   .tp-tbl td.player-td{
@@ -94,11 +97,11 @@
     text-align:left;
   }
   .tp-tbl td.exp-td{
-    border-left:2px solid rgba(255,255,255,0.06);
+    border-left:2px solid rgba(0,0,0,0.06);
     font-weight:800; color:#f0c040;
   }
   .tp-tbl tbody tr:hover{
-    background:rgba(255,255,255,0.03);
+    background:rgba(0,0,0,0.02);
   }
 
   /* Player cell */
@@ -110,7 +113,7 @@
   }
   .tp-player-img{
     width:32px; height:32px; border-radius:50%; object-fit:cover;
-    border:1.5px solid rgba(255,255,255,0.08); flex-shrink:0;
+    border:1.5px solid rgba(0,0,0,0.08); flex-shrink:0;
   }
   .tp-player-info{ min-width:0; }
   .tp-player-name{
@@ -140,19 +143,62 @@
   }
 
   @media(max-width:640px){
-    .tp-controls{ gap:8px; }
-    .tp-stat-btn{ padding:4px 8px; font-size:0.65rem; }
-    .tp-view-btn{ padding:5px 10px; font-size:0.7rem; }
+    /* Controls: stack vertically */
+    .tp-controls{
+      flex-direction:column; align-items:stretch; gap:10px;
+      padding:10px 12px;
+    }
+    .tp-controls-label{ margin-bottom:2px; }
+    .tp-controls-row{
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    }
+
+    /* Stat toggle: allow wrapping */
+    .tp-stat-toggle{ flex-wrap:wrap; gap:4px; }
+    .tp-stat-btn{
+      padding:8px 12px; font-size:0.72rem;
+      min-height:38px;
+    }
+    .tp-view-btn{
+      padding:8px 14px; font-size:0.75rem;
+      min-height:38px;
+    }
+
+    /* Header: stack title and date form */
+    .tp-header{ flex-direction:column; align-items:stretch; }
+    .tp-date-form{ width:100%; justify-content:center; }
+
+    /* Table */
     .tp-tbl{ font-size:0.72rem; }
-    .tp-tbl th{ padding:5px 3px; font-size:0.6rem; }
-    .tp-tbl td{ padding:6px 3px; }
-    .tp-tbl th.num-col{ min-width:40px; width:40px; }
-    .tp-tbl th.player-col{ min-width:150px; }
+    .tp-tbl th{ padding:6px 4px; font-size:0.62rem; }
+    .tp-tbl td{ padding:6px 4px; }
+    .tp-tbl th.num-col{ min-width:42px; width:42px; }
+    .tp-tbl th.player-col{ min-width:140px; }
     .tp-tbl th.opp-col{ min-width:70px; }
-    .tp-player-img{ width:26px; height:26px; }
-    .tp-team-logo{ width:18px; height:18px; }
-    .tp-player-name{ font-size:0.72rem; }
-    .tp-pct{ font-size:0.7rem; }
+
+    /* Sticky player column */
+    .tp-tbl th.player-col,
+    .tp-tbl td.player-td{
+      position:sticky; left:0; z-index:2;
+      background:var(--card, #fff);
+      box-shadow:2px 0 4px rgba(0,0,0,0.06);
+    }
+
+    .tp-player-img{ width:24px; height:24px; }
+    .tp-team-logo{ width:16px; height:16px; }
+    .tp-player-name{ font-size:0.7rem; max-width:90px; }
+    .tp-player-meta{ font-size:0.6rem; }
+    .tp-pct{ font-size:0.68rem; min-width:32px; padding:2px 3px; }
+    .tp-opp-name{ font-size:0.7rem; }
+    .tp-opp-logo{ width:16px; height:16px; }
+  }
+
+  @media(max-width:400px){
+    .tp-stat-btn{ padding:6px 8px; font-size:0.65rem; }
+    .tp-view-btn{ padding:6px 10px; font-size:0.68rem; }
+    .tp-tbl th.player-col{ min-width:120px; }
+    .tp-player-name{ max-width:70px; }
+    .tp-player-img{ display:none; }
   }
 </style>
 
@@ -174,17 +220,21 @@
 <div id="tp-loading" class="tp-loading">Loading games and projections...</div>
 
 <div id="tp-controls" class="tp-controls" style="display:none">
-  <span class="tp-controls-label">View:</span>
-  <div class="tp-view-tabs">
-    <button class="tp-view-btn active" data-view="pitchers">Pitchers</button>
-    <button class="tp-view-btn" data-view="batters">Batters</button>
+  <div class="tp-controls-row">
+    <span class="tp-controls-label">View:</span>
+    <div class="tp-view-tabs">
+      <button class="tp-view-btn active" data-view="pitchers">Pitchers</button>
+      <button class="tp-view-btn" data-view="batters">Batters</button>
+    </div>
+    <span class="tp-controls-label">Mode:</span>
+    <div class="tp-view-tabs">
+      <button class="tp-view-btn tp-mode-btn active" data-mode="exact">Exact</button>
+      <button class="tp-view-btn tp-mode-btn" data-mode="cumul">Over</button>
+    </div>
   </div>
-  <span class="tp-controls-label">Stat:</span>
-  <div class="tp-stat-toggle" id="tp-stat-toggle"></div>
-  <span class="tp-controls-label">Mode:</span>
-  <div class="tp-view-tabs">
-    <button class="tp-view-btn tp-mode-btn active" data-mode="exact">Exact</button>
-    <button class="tp-view-btn tp-mode-btn" data-mode="cumul">Over</button>
+  <div class="tp-controls-row">
+    <span class="tp-controls-label">Stat:</span>
+    <div class="tp-stat-toggle" id="tp-stat-toggle"></div>
   </div>
 </div>
 

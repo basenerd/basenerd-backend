@@ -1067,62 +1067,92 @@
     width:10px; height:10px; border-radius:3px;
   }
 
-  /* ---- Stat Probability Distribution ---- */
+  /* ---- Stat Probability Distribution (table style) ---- */
   .pv-dist{
-    margin-top:16px; padding:14px; background:rgba(255,255,255,0.02);
-    border:1px solid rgba(255,255,255,0.06); border-radius:10px;
+    margin-top:16px; padding:14px;
+    background:rgba(0,0,0,0.015);
+    border:1px solid var(--border, rgba(0,0,0,0.08)); border-radius:10px;
   }
   .pv-dist-header{
-    display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    margin-bottom:10px; flex-wrap:wrap;
   }
   .pv-dist-title{ font-weight:800; font-size:0.9rem; }
   .pv-dist-toggle{
     display:flex; gap:0; border-radius:6px; overflow:hidden;
-    border:1px solid rgba(255,255,255,0.1);
+    border:1px solid var(--border, rgba(0,0,0,0.1));
   }
   .pv-dist-btn{
-    padding:4px 10px; font-size:0.68rem; font-weight:700; cursor:pointer;
-    background:transparent; color:rgba(255,255,255,0.5); border:none;
+    padding:5px 12px; font-size:0.7rem; font-weight:700; cursor:pointer;
+    background:rgba(0,0,0,0.02); color:#111; border:none;
+    border-right:1px solid var(--border, rgba(0,0,0,0.06));
     transition: all 0.15s;
   }
+  .pv-dist-btn:last-child{ border-right:none; }
   .pv-dist-btn.active{
-    background:rgba(255,255,255,0.12); color:#fff;
+    background:rgba(240,192,64,0.25); color:#b8860b;
   }
-  .pv-dist-btn:hover:not(.active){ background:rgba(255,255,255,0.05); }
-  .pv-dist-grid{
-    display:flex; gap:2px; align-items:flex-end; min-height:100px;
+  .pv-dist-btn:hover:not(.active){ background:rgba(0,0,0,0.04); }
+
+  .pv-dist-mode-toggle{
+    display:flex; gap:0; border-radius:6px; overflow:hidden;
+    border:1px solid var(--border, rgba(0,0,0,0.1));
   }
-  .pv-dist-col{
-    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
-    min-width:0;
+  .pv-dist-mode-btn{
+    padding:5px 12px; font-size:0.7rem; font-weight:700; cursor:pointer;
+    background:transparent; color:#111; border:none;
+    transition: all 0.15s;
   }
-  .pv-dist-bar{
-    width:100%; border-radius:4px 4px 0 0; min-height:2px;
-    transition: height 0.3s, background 0.3s;
+  .pv-dist-mode-btn.active{
+    background:rgba(240,192,64,0.25); color:#b8860b;
   }
-  .pv-dist-val{
-    font-size:0.62rem; font-weight:700; color:rgba(255,255,255,0.7);
-    font-variant-numeric:tabular-nums;
+  .pv-dist-mode-btn:hover:not(.active){ background:rgba(0,0,0,0.04); }
+
+  /* Distribution table */
+  .pv-dist-tbl-wrap{
+    overflow-x:auto; -webkit-overflow-scrolling:touch; margin-top:8px;
   }
-  .pv-dist-lbl{
-    font-size:0.65rem; font-weight:800; color:rgba(255,255,255,0.4);
-    font-variant-numeric:tabular-nums;
+  .pv-dist-tbl{
+    width:100%; border-collapse:collapse; font-size:0.78rem;
   }
+  .pv-dist-tbl th{
+    text-align:center; padding:6px 4px; font-size:0.65rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.3px; opacity:0.5;
+    border-bottom:2px solid var(--border, rgba(0,0,0,0.08));
+    white-space:nowrap;
+  }
+  .pv-dist-tbl td{
+    padding:6px 4px; text-align:center; font-variant-numeric:tabular-nums;
+    border-bottom:1px solid rgba(0,0,0,0.04);
+  }
+  .pv-dist-tbl td.pv-exp-td{
+    border-left:2px solid rgba(0,0,0,0.06);
+    font-weight:800; color:#b8860b;
+  }
+  .pv-dist-tbl th.pv-exp-th{
+    border-left:2px solid rgba(0,0,0,0.06);
+  }
+  .pv-dist-pct{
+    font-size:0.76rem; font-weight:700; color:#111;
+    display:inline-block; padding:2px 5px; border-radius:4px;
+    min-width:36px; text-align:center;
+  }
+
   .pv-dist-expected{
     margin-top:8px; font-size:0.72rem; opacity:0.5; text-align:center;
   }
-  .pv-dist-expected span{ font-weight:800; color:#f0c040; opacity:1; }
+  .pv-dist-expected span{ font-weight:800; color:#b8860b; opacity:1; }
 
   .pv-dist-tabs{
-    display:flex; gap:4px; margin-bottom:10px;
+    display:flex; gap:4px; margin-bottom:10px; flex-wrap:wrap;
   }
   .pv-dist-tab{
-    padding:3px 8px; font-size:0.65rem; font-weight:700; cursor:pointer;
-    background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.4); border:none;
+    padding:4px 10px; font-size:0.68rem; font-weight:700; cursor:pointer;
+    background:rgba(0,0,0,0.03); color:rgba(0,0,0,0.4); border:none;
     border-radius:4px; transition: all 0.15s;
   }
   .pv-dist-tab.active{
-    background:rgba(240,192,64,0.15); color:#f0c040;
+    background:rgba(240,192,64,0.2); color:#b8860b;
   }
 
   @media(max-width:640px){
@@ -1140,8 +1170,14 @@
     .pv-bullpen-grid{ grid-template-columns: 1fr; }
     .pv-bp-card{ padding:8px 10px; }
     .pv-bp-avatar{ width:32px; height:32px; }
-    .pv-dist-btn{ padding:3px 7px; font-size:0.62rem; }
-    .pv-dist-val{ font-size:0.56rem; }
+    .pv-dist-btn{ padding:4px 8px; font-size:0.65rem; min-height:34px; }
+    .pv-dist-mode-btn{ padding:4px 8px; font-size:0.65rem; min-height:34px; }
+    .pv-dist-header{ flex-direction:column; align-items:stretch; }
+    .pv-dist-tbl{ font-size:0.7rem; }
+    .pv-dist-tbl th{ padding:5px 3px; font-size:0.58rem; }
+    .pv-dist-tbl td{ padding:5px 3px; }
+    .pv-dist-pct{ font-size:0.68rem; min-width:30px; padding:2px 3px; }
+    .pv-dist-tab{ padding:5px 8px; font-size:0.62rem; min-height:32px; }
   }
 
   /* Umpire report responsive */
@@ -5707,23 +5743,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
     return Math.exp(logP);
   }
 
-  function computeDistribution(lambda, maxK){
-    // Returns array of {k, pct} from 0..maxK
-    const dist = [];
-    let cumulative = 0;
-    for(let k = 0; k <= maxK; k++){
-      const p = poissonPMF(lambda, k);
-      dist.push({k, pct: p * 100});
-      cumulative += p;
-    }
-    // Add "maxK+" bucket for remainder
-    const remainder = (1 - cumulative) * 100;
-    if(remainder > 0.5){
-      dist.push({k: maxK + 1, pct: remainder, plus: true});
-    }
-    return dist;
-  }
-
   // Pitcher stat configs
   const PITCHER_STATS = [
     {key:'k', label:'Strikeouts', color:'#ff6b6b', maxK:12},
@@ -5786,41 +5805,89 @@ document.addEventListener("DOMContentLoaded", ()=>{
     if(!el || !lambdas) return;
 
     const activeStat = stats[0].key;
+    let currentMode = 'exact';
+
+    function _fmtPct(pct){
+      if(pct >= 10) return pct.toFixed(0) + '%';
+      if(pct >= 1)  return pct.toFixed(1) + '%';
+      if(pct >= 0.1) return pct.toFixed(1) + '%';
+      return '&lt;1%';
+    }
+    function _pctBg(pct){
+      const alpha = Math.min(0.35, pct / 80);
+      return `background:rgba(81,207,102,${alpha.toFixed(3)})`;
+    }
 
     function render(statKey){
       const stat = stats.find(s=>s.key===statKey);
       const lambda = lambdas[statKey] || 0;
-      const dist = computeDistribution(lambda, stat.maxK);
-      const maxPct = Math.max(...dist.map(d=>d.pct), 1);
+      const maxK = stat.maxK;
+      const isCumul = currentMode === 'cumul';
+
+      // Compute exact distribution
+      const exactDist = [];
+      for(let k = 0; k <= maxK; k++){
+        exactDist.push(poissonPMF(lambda, k) * 100);
+      }
+
+      // Build display distribution
+      let dist;
+      if(isCumul){
+        dist = [];
+        let cumSum = 0;
+        for(let k = 0; k <= maxK; k++){
+          dist.push((1 - cumSum) * 100);
+          cumSum += exactDist[k] / 100;
+        }
+      } else {
+        dist = exactDist;
+      }
 
       let html = `<div class="pv-dist-header">
         <div class="pv-dist-title">${playerLabel} Projections</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <div class="pv-dist-mode-toggle">
+            <button class="pv-dist-mode-btn ${currentMode==='exact'?'active':''}" data-mode="exact">Exact</button>
+            <button class="pv-dist-mode-btn ${currentMode==='cumul'?'active':''}" data-mode="cumul">Over</button>
+          </div>
+        </div>
       </div>`;
+
+      // Stat toggle
       html += '<div class="pv-dist-toggle">';
       stats.forEach(s=>{
         html += `<button class="pv-dist-btn ${s.key===statKey?'active':''}" data-stat="${s.key}">${s.label}</button>`;
       });
       html += '</div>';
 
-      html += '<div class="pv-dist-grid">';
-      dist.forEach(d=>{
-        const barH = Math.max(2, (d.pct / maxPct) * 80);
-        const lbl = d.plus ? `${d.k-1}+` : d.k;
-        const pctStr = d.pct >= 1 ? d.pct.toFixed(0)+'%' : d.pct < 0.1 ? '<1%' : d.pct.toFixed(1)+'%';
-        html += `<div class="pv-dist-col">
-          <div class="pv-dist-val">${pctStr}</div>
-          <div class="pv-dist-bar" style="height:${barH}px;background:${stat.color}"></div>
-          <div class="pv-dist-lbl">${lbl}</div>
-        </div>`;
-      });
-      html += '</div>';
-      html += `<div class="pv-dist-expected">Expected: <span>${lambda.toFixed(1)} ${stat.label}</span></div>`;
+      // Table
+      html += '<div class="pv-dist-tbl-wrap"><table class="pv-dist-tbl"><thead><tr>';
+      for(let k = 0; k <= maxK; k++){
+        const label = isCumul ? `${k}+` : (k === maxK ? `${k}+` : k);
+        html += `<th>${label}</th>`;
+      }
+      html += '<th class="pv-exp-th">Exp</th>';
+      html += '</tr></thead><tbody><tr>';
+      for(let k = 0; k <= maxK; k++){
+        const pct = dist[k] || 0;
+        html += `<td><span class="pv-dist-pct" style="${_pctBg(pct)}">${_fmtPct(pct)}</span></td>`;
+      }
+      html += `<td class="pv-exp-td">${lambda.toFixed(1)}</td>`;
+      html += '</tr></tbody></table></div>';
 
       el.innerHTML = html;
 
-      // Bind toggle buttons
+      // Bind stat toggle buttons
       el.querySelectorAll('.pv-dist-btn').forEach(btn=>{
         btn.addEventListener('click', ()=> render(btn.dataset.stat));
+      });
+
+      // Bind mode toggle buttons
+      el.querySelectorAll('.pv-dist-mode-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          currentMode = btn.dataset.mode;
+          render(statKey);
+        });
       });
     }
 
