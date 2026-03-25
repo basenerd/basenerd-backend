@@ -431,6 +431,231 @@
       grid-template-columns: 90px 1fr 48px;
     }
   }
+
+  /* ==============================
+     SWING PROFILE STYLES
+     ============================== */
+  .swing-profile-section {
+    margin-top: 2.5rem;
+  }
+
+  .sp-top-row {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .sp-bat-path-card,
+  .sp-metrics-card,
+  .sp-la-dist-card,
+  .sp-scatter-card {
+    border: 1px solid rgba(226,232,240,.9);
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px 16px;
+    overflow: hidden;
+  }
+
+  .sp-bat-path-title,
+  .sp-metrics-title,
+  .sp-la-dist-title,
+  .sp-scatter-title {
+    font-weight: 900;
+    font-size: 14px;
+    color: #111827;
+    margin-bottom: 2px;
+  }
+
+  .sp-bat-path-subtitle,
+  .sp-la-dist-subtitle,
+  .sp-scatter-subtitle {
+    font-size: 11px;
+    color: #6b7280;
+    font-family: var(--mono);
+    margin-bottom: 10px;
+  }
+
+  .sp-bat-svg {
+    width: 100%;
+    max-width: 420px;
+    display: block;
+    margin: 0 auto;
+  }
+
+  /* Metrics grid */
+  .sp-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .sp-metric {
+    text-align: center;
+    padding: 10px 6px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #f1f5f9;
+  }
+
+  .sp-metric-value {
+    font-size: 22px;
+    font-weight: 900;
+    color: #111827;
+    font-family: var(--mono);
+    line-height: 1.1;
+  }
+
+  .sp-metric-unit {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    margin-left: 1px;
+  }
+
+  .sp-metric-label {
+    font-size: 10px;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+
+  /* Batted ball distribution bars */
+  .sp-bb-dist,
+  .sp-spray-dir {
+    margin-top: 14px;
+  }
+
+  .sp-bb-dist-title {
+    font-size: 11px;
+    font-weight: 800;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .sp-bb-bar-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 42px;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+
+  .sp-bb-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #374151;
+    font-family: var(--mono);
+  }
+
+  .sp-bb-track {
+    height: 14px;
+    background: #f1f5f9;
+    border-radius: 7px;
+    overflow: hidden;
+  }
+
+  .sp-bb-fill {
+    height: 100%;
+    border-radius: 7px;
+    transition: width 0.6s ease;
+  }
+
+  .sp-bb-gb { background: linear-gradient(90deg, #f59e0b, #d97706); }
+  .sp-bb-ld { background: linear-gradient(90deg, #10b981, #059669); }
+  .sp-bb-fb { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+  .sp-bb-pu { background: linear-gradient(90deg, #a855f7, #7c3aed); }
+
+  .sp-bb-val {
+    font-size: 11px;
+    font-weight: 700;
+    color: #374151;
+    font-family: var(--mono);
+    text-align: right;
+  }
+
+  /* Spray direction stacked bar */
+  .sp-spray-bars {
+    display: flex;
+    height: 22px;
+    border-radius: 11px;
+    overflow: hidden;
+    gap: 2px;
+  }
+
+  .sp-spray-seg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    min-width: 30px;
+  }
+
+  .sp-spray-seg span {
+    font-size: 9px;
+    font-weight: 700;
+    color: #374151;
+    margin-top: 4px;
+    white-space: nowrap;
+    font-family: var(--mono);
+  }
+
+  .sp-spray-fill {
+    width: 100%;
+    height: 22px;
+    border-radius: 4px;
+  }
+
+  .sp-spray-pull { background: linear-gradient(90deg, #ef4444, #dc2626); }
+  .sp-spray-cent { background: linear-gradient(90deg, #6b7280, #4b5563); }
+  .sp-spray-oppo { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+
+  /* LA distribution chart */
+  .sp-la-dist-svg,
+  .sp-scatter-svg {
+    width: 100%;
+    display: block;
+  }
+
+  /* EV/LA scatter legend */
+  .sp-scatter-legend {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #6b7280;
+    font-family: var(--mono);
+  }
+
+  .sp-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 3px;
+    vertical-align: middle;
+  }
+
+  /* Mobile overrides */
+  @media (max-width: 640px) {
+    .sp-top-row {
+      grid-template-columns: 1fr;
+    }
+
+    .sp-metrics-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .sp-metric-value {
+      font-size: 18px;
+    }
+  }
 </style>
 
 <!-- =======================
@@ -1299,6 +1524,195 @@
         </table>
     </div>
 </div>
+
+<!-- ============================
+     SWING PROFILE
+     ============================ -->
+{% set sp = swing_profile if swing_profile is defined else {} %}
+{% if sp.get('available', false) %}
+<div class="swing-profile-section" style="margin-top: 3rem;">
+
+  <div class="card-title" style="margin-bottom: 1rem; border-bottom: 1px dashed var(--border); padding-bottom: 0.75rem; font-size: 16px;">
+    Swing Profile
+  </div>
+
+  <!-- Bat Path + Key Metrics row -->
+  <div class="sp-top-row">
+
+    <!-- LEFT: Bat Path SVG visualization -->
+    <div class="sp-bat-path-card">
+      <div class="sp-bat-path-title">Bat Path</div>
+      <div class="sp-bat-path-subtitle">Avg launch angle: <strong>{{ sp.avg_la }}°</strong> &nbsp;|&nbsp; Range: {{ sp.p10_la }}° to {{ sp.p90_la }}°</div>
+
+      <svg id="batPathSvg" viewBox="0 0 400 260" class="sp-bat-svg" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <!-- Bat gradient -->
+          <linearGradient id="batWood" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#8B6914"/>
+            <stop offset="30%" stop-color="#C4973B"/>
+            <stop offset="60%" stop-color="#D4A84B"/>
+            <stop offset="100%" stop-color="#A0782C"/>
+          </linearGradient>
+          <linearGradient id="batHandle" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#2c2c2c"/>
+            <stop offset="50%" stop-color="#444"/>
+            <stop offset="100%" stop-color="#2c2c2c"/>
+          </linearGradient>
+          <!-- Launch angle arc gradient -->
+          <linearGradient id="arcGrad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="rgba(59,130,246,0.08)"/>
+            <stop offset="100%" stop-color="rgba(59,130,246,0.25)"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Ground line -->
+        <line x1="30" y1="200" x2="380" y2="200" stroke="#d1d5db" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="385" y="204" font-size="9" fill="#9ca3af" text-anchor="start">0°</text>
+
+        <!-- Strike zone hint (side view) -->
+        <rect x="85" y="138" width="30" height="62" rx="2" fill="none" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="3,2"/>
+        <text x="100" y="132" font-size="8" fill="#c4c4c4" text-anchor="middle">zone</text>
+
+        <!-- Home plate marker -->
+        <polygon points="95,200 105,200 100,206" fill="#94a3b8" stroke="#64748b" stroke-width="0.5"/>
+
+        <!-- Launch angle range arc (p10 to p90) -->
+        {% set cx = 100 %}
+        {% set cy = 200 %}
+        {% set r_inner = 100 %}
+        {% set r_outer = 180 %}
+        <path id="laRangeArc" fill="url(#arcGrad)" stroke="none" opacity="0.7"/>
+
+        <!-- Average launch angle line -->
+        <line id="avgLaLine" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+        <text id="avgLaLabel" font-size="11" fill="#3b82f6" font-weight="700"></text>
+
+        <!-- THE BAT — drawn at average launch angle -->
+        <g id="batGroup">
+          <!-- Bat barrel (the thick end) -->
+          <rect class="bat-barrel" rx="6" fill="url(#batWood)" stroke="#7a5a10" stroke-width="0.8"/>
+          <!-- Bat taper -->
+          <polygon class="bat-taper" fill="url(#batWood)" stroke="#7a5a10" stroke-width="0.5"/>
+          <!-- Bat handle -->
+          <rect class="bat-handle" rx="3" fill="url(#batHandle)" stroke="#222" stroke-width="0.5"/>
+          <!-- Knob -->
+          <ellipse class="bat-knob" fill="#333" stroke="#111" stroke-width="0.5"/>
+        </g>
+
+        <!-- Ball trail dots along avg launch angle -->
+        <g id="ballTrail"></g>
+
+        <!-- Angle reference lines: 10°, 20°, 30° -->
+        {% for deg in [10, 20, 30, 45] %}
+          <line x1="{{ cx }}" y1="{{ cy }}"
+                x2="{{ cx + 160 * 0.9397 }}" y2="{{ cy - 160 * (deg * 3.14159 / 180)|round(4) * 0 }}"
+                stroke="#e5e7eb" stroke-width="0.5" stroke-dasharray="2,4" class="sp-ref-line" data-deg="{{ deg }}"/>
+          <text class="sp-ref-label" data-deg="{{ deg }}" font-size="8" fill="#c4c4c4"></text>
+        {% endfor %}
+      </svg>
+    </div>
+
+    <!-- RIGHT: Key swing metrics -->
+    <div class="sp-metrics-card">
+      <div class="sp-metrics-title">Key Metrics</div>
+      <div class="sp-metrics-grid">
+        <div class="sp-metric">
+          <div class="sp-metric-value">{{ sp.avg_ev }}<span class="sp-metric-unit">mph</span></div>
+          <div class="sp-metric-label">Avg Exit Velo</div>
+        </div>
+        <div class="sp-metric">
+          <div class="sp-metric-value">{{ sp.max_ev }}<span class="sp-metric-unit">mph</span></div>
+          <div class="sp-metric-label">Max Exit Velo</div>
+        </div>
+        <div class="sp-metric">
+          <div class="sp-metric-value">{{ sp.avg_la }}°</div>
+          <div class="sp-metric-label">Avg Launch Angle</div>
+        </div>
+        <div class="sp-metric">
+          <div class="sp-metric-value">{{ sp.barrel_pct }}<span class="sp-metric-unit">%</span></div>
+          <div class="sp-metric-label">Barrel Rate</div>
+        </div>
+        <div class="sp-metric">
+          <div class="sp-metric-value">{{ sp.hardhit_pct }}<span class="sp-metric-unit">%</span></div>
+          <div class="sp-metric-label">Hard Hit Rate</div>
+        </div>
+        <div class="sp-metric">
+          <div class="sp-metric-value">{{ sp.sweet_spot_pct }}<span class="sp-metric-unit">%</span></div>
+          <div class="sp-metric-label">Sweet Spot%</div>
+        </div>
+      </div>
+
+      <!-- Batted ball distribution -->
+      <div class="sp-bb-dist">
+        <div class="sp-bb-dist-title">Batted Ball Distribution</div>
+        <div class="sp-bb-bars">
+          <div class="sp-bb-bar-row">
+            <span class="sp-bb-label">GB</span>
+            <div class="sp-bb-track"><div class="sp-bb-fill sp-bb-gb" style="width: {{ sp.gb_pct }}%;"></div></div>
+            <span class="sp-bb-val">{{ sp.gb_pct }}%</span>
+          </div>
+          <div class="sp-bb-bar-row">
+            <span class="sp-bb-label">LD</span>
+            <div class="sp-bb-track"><div class="sp-bb-fill sp-bb-ld" style="width: {{ sp.ld_pct }}%;"></div></div>
+            <span class="sp-bb-val">{{ sp.ld_pct }}%</span>
+          </div>
+          <div class="sp-bb-bar-row">
+            <span class="sp-bb-label">FB</span>
+            <div class="sp-bb-track"><div class="sp-bb-fill sp-bb-fb" style="width: {{ sp.fb_pct }}%;"></div></div>
+            <span class="sp-bb-val">{{ sp.fb_pct }}%</span>
+          </div>
+          <div class="sp-bb-bar-row">
+            <span class="sp-bb-label">PU</span>
+            <div class="sp-bb-track"><div class="sp-bb-fill sp-bb-pu" style="width: {{ [sp.pu_pct * 3, 100] | min }}%;"></div></div>
+            <span class="sp-bb-val">{{ sp.pu_pct }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Spray direction -->
+      <div class="sp-spray-dir">
+        <div class="sp-bb-dist-title">Spray Direction</div>
+        <div class="sp-spray-bars">
+          <div class="sp-spray-seg" style="flex: {{ sp.pull_pct }};">
+            <div class="sp-spray-fill sp-spray-pull"></div>
+            <span>Pull {{ sp.pull_pct }}%</span>
+          </div>
+          <div class="sp-spray-seg" style="flex: {{ sp.cent_pct }};">
+            <div class="sp-spray-fill sp-spray-cent"></div>
+            <span>Cent {{ sp.cent_pct }}%</span>
+          </div>
+          <div class="sp-spray-seg" style="flex: {{ sp.oppo_pct }};">
+            <div class="sp-spray-fill sp-spray-oppo"></div>
+            <span>Oppo {{ sp.oppo_pct }}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Launch Angle Distribution chart -->
+  <div class="sp-la-dist-card" style="margin-top: 16px;">
+    <div class="sp-la-dist-title">Launch Angle Distribution</div>
+    <div class="sp-la-dist-subtitle">Frequency by 5° buckets &nbsp;|&nbsp; {{ sp.batted_balls }} batted balls</div>
+    <svg id="laDistSvg" viewBox="0 0 600 140" class="sp-la-dist-svg" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <!-- EV vs LA scatter -->
+  <div class="sp-scatter-card" style="margin-top: 16px;">
+    <div class="sp-scatter-title">Exit Velocity vs Launch Angle</div>
+    <div class="sp-scatter-subtitle">Each dot = one batted ball &nbsp;|&nbsp; Color = outcome</div>
+    <svg id="evLaSvg" viewBox="0 0 600 320" class="sp-scatter-svg" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="sp-scatter-legend">
+      <span><span class="sp-dot" style="background:#ef4444;"></span> HR</span>
+      <span><span class="sp-dot" style="background:#a855f7;"></span> 3B</span>
+      <span><span class="sp-dot" style="background:#3b82f6;"></span> 2B</span>
+      <span><span class="sp-dot" style="background:#10b981;"></span> 1B</span>
+      <span><span class="sp-dot" style="background:#94a3b8;"></span> Out</span>
+    </div>
+  </div>
+
+</div>
+{% endif %}
 
       <!-- ============================
            PITCHING VIEW (NEW)
@@ -2192,6 +2606,271 @@
     }else if(hasPitching && !hasHitting){
       loadPitchingAll();
     }
+  }
+})();
+
+// ============================
+// SWING PROFILE VISUALIZATIONS
+// ============================
+(function(){
+  const sp = {{ swing_profile | default({}) | tojson }};
+  if(!sp || !sp.available) return;
+
+  const DEG = Math.PI / 180;
+  const CX = 100, CY = 200; // bat origin point
+
+  // --- Bat Path SVG ---
+  const svg = document.getElementById("batPathSvg");
+  if(!svg) return;
+
+  // Draw reference angle lines
+  [10, 20, 30, 45].forEach(deg => {
+    const lines = svg.querySelectorAll('.sp-ref-line[data-deg="'+deg+'"]');
+    const labels = svg.querySelectorAll('.sp-ref-label[data-deg="'+deg+'"]');
+    const rad = deg * DEG;
+    const len = 170;
+    const x2 = CX + len * Math.cos(rad);
+    const y2 = CY - len * Math.sin(rad);
+    lines.forEach(l => { l.setAttribute("x1", CX); l.setAttribute("y1", CY); l.setAttribute("x2", x2); l.setAttribute("y2", y2); });
+    labels.forEach(t => { t.setAttribute("x", x2 + 4); t.setAttribute("y", y2 + 3); t.textContent = deg + "°"; });
+  });
+
+  // Draw launch angle range arc (p10 to p90)
+  const p10 = Math.max(sp.p10_la, -15) * DEG;
+  const p90 = Math.min(sp.p90_la, 55) * DEG;
+  const rIn = 60, rOut = 200;
+
+  function arcPt(r, angle){ return [CX + r * Math.cos(angle), CY - r * Math.sin(angle)]; }
+  const a1 = arcPt(rIn, p10), a2 = arcPt(rOut, p10);
+  const a3 = arcPt(rOut, p90), a4 = arcPt(rIn, p90);
+  const largeArc = (p90 - p10) > Math.PI ? 1 : 0;
+  const arcPath = `M${a1[0]},${a1[1]} L${a2[0]},${a2[1]} A${rOut},${rOut} 0 ${largeArc} 0 ${a3[0]},${a3[1]} L${a4[0]},${a4[1]} A${rIn},${rIn} 0 ${largeArc} 1 ${a1[0]},${a1[1]} Z`;
+  document.getElementById("laRangeArc").setAttribute("d", arcPath);
+
+  // Draw average launch angle line
+  const avgRad = sp.avg_la * DEG;
+  const lineLen = 200;
+  const avgLine = document.getElementById("avgLaLine");
+  avgLine.setAttribute("x1", CX);
+  avgLine.setAttribute("y1", CY);
+  avgLine.setAttribute("x2", CX + lineLen * Math.cos(avgRad));
+  avgLine.setAttribute("y2", CY - lineLen * Math.sin(avgRad));
+
+  const avgLabel = document.getElementById("avgLaLabel");
+  avgLabel.setAttribute("x", CX + (lineLen + 12) * Math.cos(avgRad));
+  avgLabel.setAttribute("y", CY - (lineLen + 12) * Math.sin(avgRad) + 4);
+  avgLabel.textContent = sp.avg_la + "°";
+
+  // Draw the bat at the average launch angle
+  const batAngle = sp.avg_la;
+  const batRad = batAngle * DEG;
+  const batG = document.getElementById("batGroup");
+  // Position bat centered at home plate, angled at avg LA
+  const batRotate = -batAngle; // SVG rotation is clockwise
+  batG.setAttribute("transform", `translate(${CX}, ${CY}) rotate(${batRotate})`);
+
+  // Barrel (thick end, far from knob)
+  const barrel = batG.querySelector(".bat-barrel");
+  barrel.setAttribute("x", 45); barrel.setAttribute("y", -9);
+  barrel.setAttribute("width", 75); barrel.setAttribute("height", 18);
+
+  // Taper connecting barrel to handle
+  const taper = batG.querySelector(".bat-taper");
+  taper.setAttribute("points", "45,-9 30,-5.5 30,5.5 45,9");
+
+  // Handle
+  const handle = batG.querySelector(".bat-handle");
+  handle.setAttribute("x", -10); handle.setAttribute("y", -5.5);
+  handle.setAttribute("width", 42); handle.setAttribute("height", 11);
+
+  // Knob
+  const knob = batG.querySelector(".bat-knob");
+  knob.setAttribute("cx", -13); knob.setAttribute("cy", 0);
+  knob.setAttribute("rx", 5); knob.setAttribute("ry", 7);
+
+  // Ball trail dots along the avg launch angle
+  const trail = document.getElementById("ballTrail");
+  [140, 170, 200, 230, 260].forEach((dist, i) => {
+    const bx = CX + dist * Math.cos(avgRad);
+    const by = CY - dist * Math.sin(avgRad);
+    const opacity = 0.7 - i * 0.12;
+    const r = 5.5 - i * 0.6;
+    // Baseball circle
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c.setAttribute("cx", bx); c.setAttribute("cy", by);
+    c.setAttribute("r", r);
+    c.setAttribute("fill", "#fff"); c.setAttribute("stroke", "#dc2626");
+    c.setAttribute("stroke-width", "1.2"); c.setAttribute("opacity", opacity);
+    trail.appendChild(c);
+    // Seam lines
+    const seam = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    const sr = r * 0.5;
+    seam.setAttribute("d", `M${bx-sr},${by-sr*0.3} Q${bx},${by-sr*1.2} ${bx+sr},${by-sr*0.3} M${bx-sr},${by+sr*0.3} Q${bx},${by+sr*1.2} ${bx+sr},${by+sr*0.3}`);
+    seam.setAttribute("fill", "none"); seam.setAttribute("stroke", "#dc2626");
+    seam.setAttribute("stroke-width", "0.6"); seam.setAttribute("opacity", opacity * 0.7);
+    trail.appendChild(seam);
+  });
+
+  // --- Launch Angle Distribution Bar Chart ---
+  const laSvg = document.getElementById("laDistSvg");
+  if(laSvg && sp.la_buckets){
+    const bks = sp.la_buckets;
+    const maxPct = Math.max(...bks.map(b => b.pct), 1);
+    const barW = 22, gap = 3, padL = 40, padB = 28, chartH = 100;
+    const totalW = padL + bks.length * (barW + gap);
+    laSvg.setAttribute("viewBox", `0 0 ${totalW + 20} ${chartH + padB + 10}`);
+
+    // Axis
+    const axis = document.createElementNS("http://www.w3.org/2000/svg","line");
+    axis.setAttribute("x1",padL); axis.setAttribute("y1",chartH);
+    axis.setAttribute("x2",totalW); axis.setAttribute("y2",chartH);
+    axis.setAttribute("stroke","#d1d5db"); axis.setAttribute("stroke-width","1");
+    laSvg.appendChild(axis);
+
+    bks.forEach((b, i) => {
+      const x = padL + i * (barW + gap);
+      const h = (b.pct / maxPct) * chartH * 0.9;
+      const y = chartH - h;
+
+      // Color by LA zone
+      let fill = "#94a3b8"; // default gray
+      if(b.la < 10) fill = "#f59e0b"; // GB (amber)
+      else if(b.la < 25) fill = "#10b981"; // LD (green)
+      else if(b.la < 50) fill = "#3b82f6"; // FB (blue)
+      else fill = "#a855f7"; // PU (purple)
+
+      const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+      rect.setAttribute("x",x); rect.setAttribute("y",y);
+      rect.setAttribute("width",barW); rect.setAttribute("height",h);
+      rect.setAttribute("rx","2"); rect.setAttribute("fill",fill); rect.setAttribute("opacity","0.85");
+      laSvg.appendChild(rect);
+
+      // Value label on top of bar (only if > 2%)
+      if(b.pct > 2) {
+        const vt = document.createElementNS("http://www.w3.org/2000/svg","text");
+        vt.setAttribute("x", x + barW/2); vt.setAttribute("y", y - 3);
+        vt.setAttribute("text-anchor","middle"); vt.setAttribute("font-size","8");
+        vt.setAttribute("fill","#6b7280"); vt.textContent = b.pct + "%";
+        laSvg.appendChild(vt);
+      }
+
+      // X-axis label (every other bucket)
+      if(i % 2 === 0) {
+        const xt = document.createElementNS("http://www.w3.org/2000/svg","text");
+        xt.setAttribute("x", x + barW/2); xt.setAttribute("y", chartH + 14);
+        xt.setAttribute("text-anchor","middle"); xt.setAttribute("font-size","9");
+        xt.setAttribute("fill","#9ca3af"); xt.textContent = b.la + "°";
+        laSvg.appendChild(xt);
+      }
+    });
+
+    // Legend
+    const lgY = chartH + 25;
+    [{l:"GB",c:"#f59e0b"},{l:"LD",c:"#10b981"},{l:"FB",c:"#3b82f6"},{l:"PU",c:"#a855f7"}].forEach((item,i) => {
+      const lx = padL + i * 55;
+      const r2 = document.createElementNS("http://www.w3.org/2000/svg","rect");
+      r2.setAttribute("x",lx); r2.setAttribute("y",lgY-6); r2.setAttribute("width",10); r2.setAttribute("height",10);
+      r2.setAttribute("rx","2"); r2.setAttribute("fill",item.c); r2.setAttribute("opacity","0.85");
+      laSvg.appendChild(r2);
+      const t2 = document.createElementNS("http://www.w3.org/2000/svg","text");
+      t2.setAttribute("x",lx+14); t2.setAttribute("y",lgY+3);
+      t2.setAttribute("font-size","9"); t2.setAttribute("fill","#6b7280"); t2.textContent = item.l;
+      laSvg.appendChild(t2);
+    });
+  }
+
+  // --- EV vs LA Scatter ---
+  const scSvg = document.getElementById("evLaSvg");
+  if(scSvg && sp.ev_la_points){
+    const pts = sp.ev_la_points;
+    const padL = 45, padR = 15, padT = 15, padB = 35;
+    const W = 600, H = 320;
+    const cW = W - padL - padR, cH = H - padT - padB;
+
+    // Ranges
+    const evMin = 40, evMax = 120;
+    const laMin = -40, laMax = 70;
+
+    function sx(ev){ return padL + ((ev - evMin) / (evMax - evMin)) * cW; }
+    function sy(la){ return padT + cH - ((la - laMin) / (laMax - laMin)) * cH; }
+
+    // Grid lines
+    for(let ev = 50; ev <= 110; ev += 10){
+      const x = sx(ev);
+      const gl = document.createElementNS("http://www.w3.org/2000/svg","line");
+      gl.setAttribute("x1",x); gl.setAttribute("y1",padT);
+      gl.setAttribute("x2",x); gl.setAttribute("y2",padT+cH);
+      gl.setAttribute("stroke","#f1f5f9"); gl.setAttribute("stroke-width","1");
+      scSvg.appendChild(gl);
+      const t = document.createElementNS("http://www.w3.org/2000/svg","text");
+      t.setAttribute("x",x); t.setAttribute("y",padT+cH+16);
+      t.setAttribute("text-anchor","middle"); t.setAttribute("font-size","10"); t.setAttribute("fill","#9ca3af");
+      t.textContent = ev;
+      scSvg.appendChild(t);
+    }
+    for(let la = -20; la <= 60; la += 10){
+      const y = sy(la);
+      const gl = document.createElementNS("http://www.w3.org/2000/svg","line");
+      gl.setAttribute("x1",padL); gl.setAttribute("y1",y);
+      gl.setAttribute("x2",padL+cW); gl.setAttribute("y2",y);
+      gl.setAttribute("stroke","#f1f5f9"); gl.setAttribute("stroke-width","1");
+      scSvg.appendChild(gl);
+      const t = document.createElementNS("http://www.w3.org/2000/svg","text");
+      t.setAttribute("x",padL-6); t.setAttribute("y",y+4);
+      t.setAttribute("text-anchor","end"); t.setAttribute("font-size","10"); t.setAttribute("fill","#9ca3af");
+      t.textContent = la + "°";
+      scSvg.appendChild(t);
+    }
+
+    // Barrel zone overlay (EV >= 98, LA 26-30 base)
+    const bx1 = sx(98), by1 = sy(50), by2 = sy(8);
+    const bRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+    bRect.setAttribute("x", bx1); bRect.setAttribute("y", by1);
+    bRect.setAttribute("width", sx(evMax) - bx1); bRect.setAttribute("height", by2 - by1);
+    bRect.setAttribute("fill", "#ef4444"); bRect.setAttribute("opacity", "0.06");
+    bRect.setAttribute("rx", "4");
+    scSvg.appendChild(bRect);
+    const bLabel = document.createElementNS("http://www.w3.org/2000/svg","text");
+    bLabel.setAttribute("x", bx1 + 4); bLabel.setAttribute("y", by1 + 12);
+    bLabel.setAttribute("font-size","9"); bLabel.setAttribute("fill","#ef4444"); bLabel.setAttribute("opacity","0.5");
+    bLabel.textContent = "Barrel Zone";
+    scSvg.appendChild(bLabel);
+
+    // Axis labels
+    const xlbl = document.createElementNS("http://www.w3.org/2000/svg","text");
+    xlbl.setAttribute("x", padL + cW/2); xlbl.setAttribute("y", H - 3);
+    xlbl.setAttribute("text-anchor","middle"); xlbl.setAttribute("font-size","11"); xlbl.setAttribute("fill","#6b7280");
+    xlbl.textContent = "Exit Velocity (mph)";
+    scSvg.appendChild(xlbl);
+
+    const ylbl = document.createElementNS("http://www.w3.org/2000/svg","text");
+    ylbl.setAttribute("x", 12); ylbl.setAttribute("y", padT + cH/2);
+    ylbl.setAttribute("text-anchor","middle"); ylbl.setAttribute("font-size","11"); ylbl.setAttribute("fill","#6b7280");
+    ylbl.setAttribute("transform", `rotate(-90, 12, ${padT + cH/2})`);
+    ylbl.textContent = "Launch Angle (°)";
+    scSvg.appendChild(ylbl);
+
+    // Plot points (outs first, then hits on top)
+    const eventColor = {
+      "home_run": "#ef4444",
+      "triple": "#a855f7",
+      "double": "#3b82f6",
+      "single": "#10b981"
+    };
+    const sorted = [...pts].sort((a,b) => {
+      const oa = eventColor[a.event] ? 1 : 0;
+      const ob = eventColor[b.event] ? 1 : 0;
+      return oa - ob;
+    });
+    sorted.forEach(p => {
+      const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx", sx(p.ev)); c.setAttribute("cy", sy(p.la));
+      c.setAttribute("r", eventColor[p.event] ? "4.5" : "3");
+      c.setAttribute("fill", eventColor[p.event] || "#94a3b8");
+      c.setAttribute("opacity", eventColor[p.event] ? "0.85" : "0.4");
+      c.setAttribute("stroke", "#fff"); c.setAttribute("stroke-width", "0.5");
+      scSvg.appendChild(c);
+    });
   }
 })();
 </script>

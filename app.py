@@ -5,6 +5,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request, jsonify
 from services.spray_db import fetch_player_spray
 from services.savant_profile import get_player_savant_profile
+from services.swing_profile import get_swing_profile
 from services.mlb_api import (
     get_random_player_id,
     get_player_full,
@@ -334,6 +335,13 @@ def player_spray_json(player_id: int):
 
     points = fetch_player_spray(player_id, season, limit=1000)
     return jsonify({"player_id": player_id, "season": season, "points": points})
+
+@app.get("/player/<int:player_id>/swing_profile.json")
+def player_swing_profile_json(player_id: int):
+    season = request.args.get("season", type=int) or datetime.utcnow().year
+    data = get_swing_profile(player_id, season)
+    return jsonify(data)
+
 @app.get("/player/<int:player_id>/pitching_games.json")
 def player_pitching_games_json(player_id: int):
     season = request.args.get("season", type=int) or datetime.utcnow().year
@@ -2876,6 +2884,10 @@ def player(player_id: int):
     print("DEBUG: savant_profile available =", savant_profile.get("available"), "groups =", len(savant_profile.get("groups", [])))
     hitter_pitch_profile = get_hitter_pitch_profile(player_id, season_for_scouting)
     spray_data = fetch_player_spray(player_id, season_for_scouting, limit=1000)
+    try:
+        swing_profile = get_swing_profile(player_id, season_for_scouting)
+    except Exception:
+        swing_profile = {"available": False}
     
     return render_template(
         "player.html",
@@ -2922,7 +2934,8 @@ def player(player_id: int):
         savant_profile=savant_profile,
         stadium_svg=stadium_svg,
         hitter_pitch_profile=hitter_pitch_profile,
-        spray_data=spray_data
+        spray_data=spray_data,
+        swing_profile=swing_profile
     )
     
 @app.get("/articles")
