@@ -3574,7 +3574,7 @@ def get_games_for_date(
 
             is_live = (abstract == "live") or ("in progress" in detailed) or ("live" in detailed)
 
-            # Live: show current batter/pitcher (expensive; avoid for global ticker)
+            # Live: show current batter/pitcher on correct team row
             if is_live:
                 if include_live_context:
                     try:
@@ -3585,8 +3585,18 @@ def get_games_for_date(
                             p = (gc.get("pitcher") or {})
                             batter_nm = b.get("shortName") or _short_name(b.get("name") or "")
                             pitcher_nm = p.get("shortName") or _short_name(p.get("name") or "")
-                            away_slot = f"H: {batter_nm}" if batter_nm else "H: —"
-                            home_slot = f"P: {pitcher_nm}" if pitcher_nm else "P: —"
+                            batter_lbl = f"H: {batter_nm}" if batter_nm else "H: —"
+                            pitcher_lbl = f"P: {pitcher_nm}" if pitcher_nm else "P: —"
+                            # Top of inning: away bats, home pitches
+                            # Bottom: home bats, away pitches
+                            _ls = g.get("linescore") or {}
+                            _is_top = _ls.get("isTopInning")
+                            if _is_top:
+                                away_slot = batter_lbl
+                                home_slot = pitcher_lbl
+                            else:
+                                away_slot = pitcher_lbl
+                                home_slot = batter_lbl
                         else:
                             away_slot = "H: —"
                             home_slot = "P: —"
