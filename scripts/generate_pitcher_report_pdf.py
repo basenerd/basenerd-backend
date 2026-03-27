@@ -96,22 +96,50 @@ def _game_status(feed: dict) -> str:
     return ((feed.get("gameData") or {}).get("status") or {}).get("abstractGameState", "")
 
 def _is_pitcher_done(feed: dict, pitcher_id: int) -> bool:
-    """Return True if the pitcher is no longer the active pitcher on the mound.
+    """Return True if the pitcher's outing is fully over.
 
     A pitcher is considered done if:
       - The game state is 'Final' (everyone is done), OR
-      - The pitcher is NOT the current pitcher in the linescore defense.
-    Returns False if the game is live and the pitcher is still on the mound.
+      - A different pitcher has thrown pitches for the same team after this
+        pitcher's last play (confirmed in-game substitution via play-by-play).
+
+    Uses play-by-play instead of linescore.defense.pitcher, because between
+    half-innings the defense slot switches to the OTHER team's pitcher, which
+    would falsely mark a starter as done after just one inning.
     """
     state = _game_status(feed).lower()
     if state == "final":
         return True
     if state == "preview":
         return False  # game hasn't started
-    # Game is live — check if this pitcher is currently on the mound
-    defense = ((feed.get("liveData") or {}).get("linescore") or {}).get("defense") or {}
-    current_pitcher_id = (defense.get("pitcher") or {}).get("id")
-    return current_pitcher_id != pitcher_id
+
+    # Game is live — walk the play-by-play to detect a real pitching change.
+    all_plays = (((feed.get("liveData") or {}).get("plays") or {}).get("allPlays") or [])
+
+    # Find the half-inning type ("top"/"bottom") for this pitcher and their last play index.
+    pitcher_half = None
+    last_play_idx = -1
+    for i, play in enumerate(all_plays):
+        pid = ((play.get("matchup") or {}).get("pitcher") or {}).get("id")
+        if pid == pitcher_id:
+            last_play_idx = i
+            if pitcher_half is None:
+                pitcher_half = ((play.get("about") or {}).get("halfInning") or "").lower()
+
+    if last_play_idx == -1:
+        return False  # pitcher hasn't thrown a pitch yet
+
+    # Check if any subsequent plays in the SAME half-inning type use a different pitcher.
+    # That confirms a true in-game substitution (not just a between-inning linescore flip).
+    for play in all_plays[last_play_idx + 1:]:
+        half = ((play.get("about") or {}).get("halfInning") or "").lower()
+        if half != pitcher_half:
+            continue
+        pid = ((play.get("matchup") or {}).get("pitcher") or {}).get("id")
+        if pid and pid != pitcher_id:
+            return True  # a different pitcher replaced them
+
+    return False  # no replacement found yet
 
 
 # ---------------------------------------------------------------------------
