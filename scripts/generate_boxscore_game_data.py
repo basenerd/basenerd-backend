@@ -19,8 +19,8 @@ import time
 import requests
 
 BASE = "https://statsapi.mlb.com/api/v1"
-MIN_PA = 2000
-MIN_SEASONS = 5
+MIN_PA = 1000
+MIN_SEASONS = 3
 START_YEAR = 2000
 END_YEAR = 2026
 BATCH_SIZE = 50

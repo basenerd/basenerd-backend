@@ -28,8 +28,9 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://basenerd_user:d5LmELIOiEszYPBSLSDT1oIi79gkgDV6@dpg-d5i0tku3jp1c73f1d3gg-a.oregon-postgres.render.com/basenerd",
 )
-MODEL_PATH = "models/stuff_model.pkl"
-META_PATH = "models/stuff_model_meta.json"
+REGISTRY_PATH = "models/stuff_models/registry.json"
+MODEL_PATH = "models/stuff_model.pkl"       # legacy fallback
+META_PATH = "models/stuff_model_meta.json"  # legacy fallback
 
 OUTPUT_DIR = "visuals/stuff_plus"
 
@@ -99,12 +100,14 @@ def fetch_and_score():
     print("Fetching 2025 regular-season pitches...")
     sql = """
         SELECT
+            pitcher, player_name, game_date, game_pk,
+            at_bat_number, pitch_number,
             release_speed, release_spin_rate, release_extension,
             release_pos_x, release_pos_z, release_pos_y,
             pfx_x, pfx_z,
             vx0, vy0, vz0, ax, ay, az,
             sz_top, sz_bot,
-            pitch_type, p_throws
+            pitch_type, pitch_name, p_throws
         FROM statcast_pitches
         WHERE game_type = 'R'
           AND game_year = 2025
@@ -127,27 +130,73 @@ def fetch_and_score():
     df["ivb_in"] = df["pfx_z"] * 12.0
     df["hb_in"] = df["pfx_x"] * 12.0
 
-    # Score stuff+
+    # Score stuff+ using per-type models (v5) or legacy single model
     print("Scoring stuff+...")
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        pipe = joblib.load(MODEL_PATH)
-    with open(META_PATH) as f:
-        meta = json.load(f)
+    df["stuff_plus"] = np.nan
 
-    num_feats = meta["num_features"]
-    cat_feats = meta["cat_features"]
-    goodness_std = float(meta.get("goodness_std", 0.01)) or 0.01
-    center = float(meta.get("stuff_center", 100.0))
-    scale = float(meta.get("stuff_scale", 15.0))
+    if os.path.exists(REGISTRY_PATH):
+        with open(REGISTRY_PATH) as f:
+            registry = json.load(f)
+        models_dir = os.path.dirname(REGISTRY_PATH)
+        center = float(registry.get("stuff_center", 100.0))
+        scale = float(registry.get("stuff_scale", 15.0))
+        clip_lo = float(registry.get("stuff_clip_min", 40.0))
+        clip_hi = float(registry.get("stuff_clip_max", 160.0))
 
-    X = df[num_feats + cat_feats].copy()
-    for c in num_feats:
-        X[c] = pd.to_numeric(X[c], errors="coerce")
-    preds = pipe.predict(X)
-    goodness = -pd.Series(preds, index=X.index)
-    sp = center + scale * (goodness / goodness_std)
-    df["stuff_plus"] = sp.clip(40, 160)
+        loaded = {}
+        for pt, group in df.groupby("pitch_type"):
+            if pt in registry.get("pitch_type_models", {}):
+                info = registry["pitch_type_models"][pt]
+                cache_key = pt
+            else:
+                fallback_key = registry.get("fallback_model", "_global")
+                info = {
+                    "model_file": f"{fallback_key}.pkl",
+                    "meta_file": f"{fallback_key}_meta.json",
+                    "goodness_std": registry.get("global_goodness_std", 0.01),
+                }
+                cache_key = "_global"
+
+            if cache_key not in loaded:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    pipe = joblib.load(os.path.join(models_dir, info["model_file"]))
+                with open(os.path.join(models_dir, info["meta_file"])) as f:
+                    meta = json.load(f)
+                loaded[cache_key] = {
+                    "pipe": pipe, "meta": meta,
+                    "goodness_std": float(info["goodness_std"]) or 0.01,
+                }
+
+            mi = loaded[cache_key]
+            feature_cols = mi["meta"]["num_features"] + mi["meta"]["cat_features"]
+            X = group[feature_cols].copy()
+            for c in mi["meta"]["num_features"]:
+                X[c] = pd.to_numeric(X[c], errors="coerce")
+            preds = mi["pipe"].predict(X)
+            goodness = -pd.Series(preds, index=group.index)
+            sp = center + scale * (goodness / mi["goodness_std"])
+            df.loc[group.index, "stuff_plus"] = sp.clip(clip_lo, clip_hi)
+
+        print(f"  Scored with {len(loaded)} per-type models")
+    else:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            pipe = joblib.load(MODEL_PATH)
+        with open(META_PATH) as f:
+            meta = json.load(f)
+        num_feats = meta["num_features"]
+        cat_feats = meta["cat_features"]
+        goodness_std = float(meta.get("goodness_std", 0.01)) or 0.01
+        center = float(meta.get("stuff_center", 100.0))
+        scale = float(meta.get("stuff_scale", 15.0))
+        X = df[num_feats + cat_feats].copy()
+        for c in num_feats:
+            X[c] = pd.to_numeric(X[c], errors="coerce")
+        preds = pipe.predict(X)
+        goodness = -pd.Series(preds, index=X.index)
+        sp = center + scale * (goodness / goodness_std)
+        df["stuff_plus"] = sp.clip(40, 160)
 
     # Filter to common pitch types
     df = df[df["pitch_type"].isin(PITCH_TYPES.keys())].reset_index(drop=True)
@@ -476,6 +525,46 @@ def plot_extension_vaa_fastballs(df):
 # Main
 # ---------------------------------------------------------------------------
 
+def top_100_pitches(df):
+    """Print and save the top 100 pitches by Stuff+ score."""
+    cols = ["player_name", "game_date", "pitch_type", "pitch_name", "p_throws",
+            "release_speed", "release_spin_rate", "release_extension",
+            "ivb_in", "hb_in", "vert_approach_angle", "stuff_plus"]
+
+    top = df.nlargest(100, "stuff_plus")[cols].reset_index(drop=True)
+    top.index = top.index + 1  # 1-based rank
+    top.index.name = "Rank"
+
+    # Format for display
+    disp = top.copy()
+    disp.columns = ["Pitcher", "Date", "Type", "Pitch Name", "Hand",
+                     "Velo", "Spin", "Ext", "IVB", "HB", "VAA", "Stuff+"]
+    disp["Velo"] = disp["Velo"].round(1)
+    disp["Spin"] = disp["Spin"].apply(lambda v: f"{v:.0f}" if pd.notna(v) else "")
+    disp["Ext"] = disp["Ext"].round(1)
+    disp["IVB"] = disp["IVB"].round(1)
+    disp["HB"] = disp["HB"].round(1)
+    disp["VAA"] = disp["VAA"].round(1)
+    disp["Stuff+"] = disp["Stuff+"].round(1)
+
+    print("\n" + "=" * 120)
+    print("TOP 100 PITCHES BY STUFF+ (2025 Regular Season)")
+    print("=" * 120)
+    with pd.option_context("display.max_rows", 100, "display.width", 140,
+                           "display.max_colwidth", 25):
+        print(disp.to_string())
+
+    # Save CSV
+    path = os.path.join(OUTPUT_DIR, "top_100_pitches.csv")
+    try:
+        disp.to_csv(path)
+        print(f"\n  Saved {path}")
+    except PermissionError:
+        alt = os.path.join(OUTPUT_DIR, "top_100_pitches_v5.csv")
+        disp.to_csv(alt)
+        print(f"\n  Saved {alt} (original was locked)")
+
+
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -488,6 +577,7 @@ def main():
     plot_movement_stuff(df)
     plot_vaa_spin_fastballs(df)
     plot_extension_vaa_fastballs(df)
+    top_100_pitches(df)
 
     print(f"\nAll charts saved to {OUTPUT_DIR}/")
 
