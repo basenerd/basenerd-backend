@@ -3,7 +3,7 @@ services:
     name: basenerd-backend
     runtime: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn app:app"
+    startCommand: "gunicorn app:app --workers 1 --max-requests 200 --max-requests-jitter 20"
     plan: free
 
   - type: cron
@@ -35,6 +35,28 @@ services:
       - key: GMAIL_USER
         sync: false
       - key: GMAIL_APP_PASSWORD
+        sync: false
+
+  - type: cron
+    name: season-projection
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    schedule: "30 6 * * *"  # 6:30 AM UTC = 1:30 AM ET, after all games finish
+    startCommand: "python scripts/update_season_projection.py"
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+
+  - type: cron
+    name: umpire-metrics
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    schedule: "0 7 * * *"  # 7:00 AM UTC = 2:00 AM ET
+    startCommand: "python scripts/build_umpire_metrics_api.py"
+    plan: free
+    envVars:
+      - key: DATABASE_URL
         sync: false
 
   - type: worker

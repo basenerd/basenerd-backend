@@ -19,8 +19,8 @@ def fetch_standings_ranked(season: int) -> list[dict]:
     sql = """
     SELECT
       s.season,
-      ssf.league,
-      ssf.division,
+      s.league,
+      s.division,
       s.team_id,
       s.team_abbrev,
       s.team_name,
@@ -33,18 +33,12 @@ def fetch_standings_ranked(season: int) -> list[dict]:
       s.ra,
       (s.rs - s.ra) AS run_differential,
       s.streak,
-
-      -- NEW (must exist in DB)
       s.division_rank,
       s.wild_card_rank,
-
       s.last_updated
     FROM standings s
-    JOIN standings_season_final ssf
-      ON ssf.team_id = s.team_id
-     AND ssf.season = s.season
     WHERE s.season = %s
-    ORDER BY ssf.league, ssf.division, s.division_rank NULLS LAST, s.pct DESC;
+    ORDER BY s.league, s.division, s.division_rank NULLS LAST, s.pct DESC;
     """
 
     with psycopg.connect(_db_url()) as conn:

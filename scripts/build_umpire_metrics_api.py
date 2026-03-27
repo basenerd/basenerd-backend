@@ -184,8 +184,9 @@ def process_game_feed(game_pk):
 
 def build():
     # Configurable: which seasons and game types to process
+    # Only rebuild the current regular season nightly; historical data is preserved below.
     season_configs = [
-        (2026, "S"),  # 2026 spring training
+        (2026, "R"),  # 2026 regular season
     ]
 
     # Collect all game-level umpire data
@@ -327,7 +328,17 @@ def build():
             "abs_overturned": d["abs_overturned"],
         })
 
-    result = pd.DataFrame(rows)
+    new_data = pd.DataFrame(rows)
+
+    # Merge with existing historical data — only replace seasons we just rebuilt
+    rebuilt_seasons = {s for s, _ in season_configs}
+    if os.path.exists(OUTPUT_PATH) and not new_data.empty:
+        existing = pd.read_parquet(OUTPUT_PATH)
+        existing = existing[~existing["season"].isin(rebuilt_seasons)]
+        result = pd.concat([existing, new_data], ignore_index=True)
+    else:
+        result = new_data
+
     result = result.sort_values(["season", "hp_umpire_id"]).reset_index(drop=True)
 
     os.makedirs(DATA_DIR, exist_ok=True)

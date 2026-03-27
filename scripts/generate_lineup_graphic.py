@@ -287,6 +287,11 @@ def _extract_game_data(game: dict) -> Optional[dict]:
     away_team = (teams.get("away") or {}).get("team") or {}
     home_team = (teams.get("home") or {}).get("team") or {}
 
+    away_lr = (teams.get("away") or {}).get("leagueRecord") or {}
+    home_lr = (teams.get("home") or {}).get("leagueRecord") or {}
+    away_record = f"{away_lr.get('wins', 0)}-{away_lr.get('losses', 0)}" if away_lr else ""
+    home_record = f"{home_lr.get('wins', 0)}-{home_lr.get('losses', 0)}" if home_lr else ""
+
     away_pp = (teams.get("away") or {}).get("probablePitcher") or {}
     home_pp = (teams.get("home") or {}).get("probablePitcher") or {}
 
@@ -322,12 +327,14 @@ def _extract_game_data(game: dict) -> Optional[dict]:
             "full_name": away_team.get("name", ""),
             "abbrev": away_team.get("abbreviation", ""),
             "id": away_team.get("id"),
+            "record": away_record,
         },
         "home": {
             "name": home_team.get("teamName", ""),
             "full_name": home_team.get("name", ""),
             "abbrev": home_team.get("abbreviation", ""),
             "id": home_team.get("id"),
+            "record": home_record,
         },
         "away_pitcher": {
             "id": away_pp.get("id"),
@@ -543,7 +550,14 @@ def generate_lineup_graphic(game_data: dict, out_dir: Optional[Path] = None) -> 
         away_fsz -= 1
     c.setFillColor(WHITE)
     c.setFont(FONT_BOLD, away_fsz)
-    c.drawString(tx_l, hdr_mid - away_fsz * 0.35, away_name)
+    c.drawString(tx_l, hdr_mid - away_fsz * 0.35 + 8, away_name)
+
+    # Away record below team name
+    away_record = away.get("record", "")
+    if away_record:
+        c.setFillColor(TEXT_SECONDARY)
+        c.setFont(FONT_REG_BOLD, 13)
+        c.drawString(tx_l, hdr_mid - away_fsz * 0.35 - 12, away_record)
 
     # Home side — right-aligned, filling full height
     _draw_team_logo(c, home["abbrev"], M + cw - logo_pad - logo_sz, hdr_mid - logo_sz / 2, logo_sz, team_id=home.get("id"))
@@ -558,7 +572,14 @@ def generate_lineup_graphic(game_data: dict, out_dir: Optional[Path] = None) -> 
         home_fsz -= 1
     c.setFillColor(WHITE)
     c.setFont(FONT_BOLD, home_fsz)
-    c.drawRightString(tx_r, hdr_mid - home_fsz * 0.35, home_name)
+    c.drawRightString(tx_r, hdr_mid - home_fsz * 0.35 + 8, home_name)
+
+    # Home record below team name
+    home_record = home.get("record", "")
+    if home_record:
+        c.setFillColor(TEXT_SECONDARY)
+        c.setFont(FONT_REG_BOLD, 13)
+        c.drawRightString(tx_r, hdr_mid - home_fsz * 0.35 - 12, home_record)
 
     # Center — game details prominent
     cx = M + cw / 2
@@ -649,18 +670,27 @@ def generate_lineup_graphic(game_data: dict, out_dir: Optional[Path] = None) -> 
         # Logo + team name in header
         slg = 26
         slg_y = ch_y + (col_hdr_h - slg) / 2
+        rec = tinfo.get("record", "")
         if side == 0:
             _draw_team_logo(c, tinfo["abbrev"], x0 + 10, slg_y, slg, team_id=tinfo.get("id"))
             c.setFillColor(WHITE)
             c.setFont(FONT_BOLD, 17)
             c.drawString(x0 + 10 + slg + 6, ch_y + 11,
                          f"{tinfo['name'].upper()} LINEUP")
+            if rec:
+                c.setFillColor(TEXT_SECONDARY)
+                c.setFont(FONT_REG, 10)
+                c.drawString(x0 + 10 + slg + 6, ch_y + 1, rec)
         else:
             _draw_team_logo(c, tinfo["abbrev"], x0 + col_w - 10 - slg, slg_y, slg, team_id=tinfo.get("id"))
             c.setFillColor(WHITE)
             c.setFont(FONT_BOLD, 17)
             c.drawRightString(x0 + col_w - 10 - slg - 6, ch_y + 11,
                               f"{tinfo['name'].upper()} LINEUP")
+            if rec:
+                c.setFillColor(TEXT_SECONDARY)
+                c.setFont(FONT_REG, 10)
+                c.drawRightString(x0 + col_w - 10 - slg - 6, ch_y + 1, rec)
 
         if not lineup:
             c.setFillColor(TEXT_MUTED)

@@ -58,7 +58,7 @@ def build():
         strikes
     FROM statcast_pitches
     WHERE game_type = 'R'
-      AND game_year BETWEEN 2021 AND 2025
+      AND game_year BETWEEN 2021 AND 2026
       AND description IN ('called_strike', 'ball', 'blocked_ball')
       AND plate_x IS NOT NULL
       AND plate_z IS NOT NULL
