@@ -28,7 +28,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='basenerd-favicon.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='basenerd-favicon.png') }}">
 
-    <!-- Mobile nav + Opening Day countdown styles (one-time, global) -->
+    <!-- Mobile nav styles (one-time, global) -->
     <style>
       /* ----------------------------- */
       /* MOBILE SIDENAV (OFF-CANVAS)   */
@@ -110,9 +110,6 @@
         body{ padding-top:56px; }
       }
 
-      /* ----------------------------- */
-      /* OPENING DAY COUNTDOWN (HOME)  */
-      /* ----------------------------- */
       /* ----------------------------- */
       /* GLOBAL GAME TICKER            */
       /* ----------------------------- */
@@ -265,79 +262,6 @@
         opacity:.6;
       }
 
-      .opening-day-countdown{
-        margin: 10px auto 10px auto;
-        max-width: 980px;
-        padding: 10px 14px;
-        border-radius: 14px;
-        background: rgba(255,255,255,.06);
-        border: 1px solid rgba(255,255,255,.10);
-        text-align:center;
-      }
-      .opening-day-countdown .odc-label{
-        font-weight: 900;
-        letter-spacing:.2px;
-        opacity:.95;
-      }
-      .opening-day-countdown .odc-time{
-        margin-top: 6px;
-        display:flex;
-        gap:14px;
-        justify-content:center;
-        flex-wrap:wrap;
-        font-size: 14px;
-      }
-      .opening-day-countdown .odc-time b{
-        font-size: 18px;
-      }
-      .opening-day-countdown .odc-sub{
-        margin-top: 6px;
-        opacity: .8;
-        font-size: 12px;
-      }
-
-      /* BUY A COFFEE */
-      .buy-coffee{
-        margin-top: 12px;
-        border-top: 1px solid rgba(255,255,255,.10);
-        padding-top: 12px;
-      }
-      .buy-coffee-link{
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        background: rgba(255,255,255,.06);
-        border: 1px solid rgba(255,255,255,.12);
-        border-radius: 8px;
-        padding: 8px 16px;
-        color: inherit;
-        text-decoration: none;
-        transition: background .15s, border-color .15s;
-      }
-      .buy-coffee-link:hover{
-        background: rgba(255,255,255,.12);
-        border-color: rgba(255,255,255,.22);
-        text-decoration: none;
-        color: inherit;
-      }
-      .buy-coffee-icon{
-        font-size: 22px;
-      }
-      .buy-coffee-text{
-        display: flex;
-        flex-direction: column;
-        text-align: left;
-        font-size: 13px;
-        line-height: 1.35;
-      }
-      .buy-coffee-text strong{
-        font-size: 14px;
-      }
-      .buy-coffee-text small{
-        opacity: .7;
-        font-size: 11px;
-        margin-top: 2px;
-      }
       /* ----------------------------- */
       /* PULL-TO-REFRESH INDICATOR     */
       /* ----------------------------- */
@@ -663,29 +587,6 @@
             <button class="ticker-arrow ticker-arrow-right" id="tickerRight" type="button" aria-label="Scroll right">&#8250;</button>
           </div>
 
-          <!-- Opening Day countdown (HOME ONLY) -->
-          {% if request.path == "/" %}
-            <div id="openingDayCountdown" class="opening-day-countdown">
-              <div class="odc-label">Countdown to Opening Day</div>
-              <div class="odc-time">
-                <span><b id="odcDays">--</b> days</span>
-                <span><b id="odcHours">--</b> hours</span>
-                <span><b id="odcMins">--</b> min</span>
-                <span><b id="odcSecs">--</b> sec</span>
-              </div>
-              <div class="odc-sub">First pitch: March 25, 8:05 PM ET</div>
-
-              <div class="buy-coffee">
-                <a href="https://venmo.com/u/NickLabella" target="_blank" rel="noopener" class="buy-coffee-link">
-                  <span class="buy-coffee-icon">&#9749;</span>
-                  <span class="buy-coffee-text">
-                    <strong>Buy the developer a coffee</strong>
-                    <small>All donations go directly back into improving Basenerd</small>
-                  </span>
-                </a>
-              </div>
-            </div>
-          {% endif %}
 
           <div class="container">
             {% block content %}{% endblock %}
@@ -784,7 +685,7 @@
       </nav>
     </div>
 
-    <!-- Mobile nav + countdown scripts (one-time, global) -->
+    <!-- Mobile nav scripts (one-time, global) -->
     <script>
       // Mobile sidebar toggle
       (function () {
@@ -895,46 +796,6 @@
         }, { passive: true });
       })();
 
-      // Opening Day countdown (home only)
-      (function () {
-        const root = document.getElementById("openingDayCountdown");
-        if (!root) return;
-
-        // March 25, 8:05 PM ET. Late March is typically DST in ET (-04:00).
-        const target = new Date("2026-03-25T20:05:00-04:00");
-
-        const dEl = document.getElementById("odcDays");
-        const hEl = document.getElementById("odcHours");
-        const mEl = document.getElementById("odcMins");
-        const sEl = document.getElementById("odcSecs");
-
-        function tick(){
-          const now = new Date();
-          let ms = target - now;
-
-          if (ms <= 0) {
-            dEl.textContent = "0";
-            hEl.textContent = "0";
-            mEl.textContent = "0";
-            sEl.textContent = "0";
-            return;
-          }
-
-          const totalSec = Math.floor(ms / 1000);
-          const days = Math.floor(totalSec / 86400);
-          const hours = Math.floor((totalSec % 86400) / 3600);
-          const mins = Math.floor((totalSec % 3600) / 60);
-          const secs = totalSec % 60;
-
-          dEl.textContent = days;
-          hEl.textContent = hours;
-          mEl.textContent = mins;
-          sEl.textContent = secs;
-        }
-
-        tick();
-        setInterval(tick, 1000);
-      })();
 
       // Global game ticker
       (function () {

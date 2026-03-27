@@ -988,6 +988,118 @@ def home_live_games():
     return jsonify(games_list)
 
 
+@app.get("/api/home-weekly-leaders")
+def home_weekly_leaders():
+    """Weekly top performers pulled from statcast_pitches. Cached 1 hour."""
+    import time, psycopg
+
+    cache_key = "home_weekly_leaders"
+    now = time.time()
+    cached = getattr(app, "_weekly_leaders_cache", None)
+    if cached and now - cached[0] < 3600:
+        return jsonify(cached[1])
+
+    db_url = os.environ.get("DATABASE_URL") or os.environ.get("DATABASE_URL_PG") or ""
+    result = {"top_velos": [], "top_exit_velos": [], "top_hr_dist": [], "top_performers": []}
+
+    try:
+        with psycopg.connect(db_url, connect_timeout=8) as conn:
+            conn.execute("SET statement_timeout = '5000'")
+            with conn.cursor() as cur:
+                # 1. Top velocities (fastest pitch per pitcher-pitch_type combo)
+                cur.execute("""
+                    SELECT player_name, pitcher, pitch_type, MAX(release_speed) AS velo
+                    FROM statcast_pitches
+                    WHERE game_date >= CURRENT_DATE - INTERVAL '7 days'
+                      AND release_speed IS NOT NULL
+                    GROUP BY player_name, pitcher, pitch_type
+                    ORDER BY velo DESC
+                    LIMIT 5
+                """)
+                rows = cur.fetchall()
+                result["top_velos"] = [
+                    {"name": r[0] or str(r[1]), "id": r[1], "pitch_type": r[2] or "", "value": round(float(r[3]), 1)}
+                    for r in rows
+                ]
+
+                # 2. Top exit velocities (max per batter)
+                cur.execute("""
+                    SELECT batter, MAX(launch_speed) AS ev
+                    FROM statcast_pitches
+                    WHERE game_date >= CURRENT_DATE - INTERVAL '7 days'
+                      AND launch_speed IS NOT NULL
+                      AND events IS NOT NULL AND events != ''
+                    GROUP BY batter
+                    ORDER BY ev DESC
+                    LIMIT 5
+                """)
+                rows = cur.fetchall()
+                result["top_exit_velos"] = [
+                    {"id": r[0], "value": round(float(r[1]), 1)}
+                    for r in rows
+                ]
+
+                # 3. Longest home runs
+                cur.execute("""
+                    SELECT batter, hit_distance_sc, game_date, game_pk
+                    FROM statcast_pitches
+                    WHERE game_date >= CURRENT_DATE - INTERVAL '7 days'
+                      AND events = 'home_run'
+                      AND hit_distance_sc IS NOT NULL
+                    ORDER BY hit_distance_sc DESC
+                    LIMIT 5
+                """)
+                rows = cur.fetchall()
+                result["top_hr_dist"] = [
+                    {"id": r[0], "value": int(r[1]), "date": str(r[2])[:10], "game_pk": r[3]}
+                    for r in rows
+                ]
+
+                # 4. Top weekly hitters by xwOBA (min 10 PA)
+                cur.execute("""
+                    SELECT batter,
+                           AVG(estimated_woba_using_speedangle) AS xwoba,
+                           COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '') AS pa
+                    FROM statcast_pitches
+                    WHERE game_date >= CURRENT_DATE - INTERVAL '7 days'
+                      AND estimated_woba_using_speedangle IS NOT NULL
+                    GROUP BY batter
+                    HAVING COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '') >= 8
+                    ORDER BY xwoba DESC NULLS LAST
+                    LIMIT 5
+                """)
+                rows = cur.fetchall()
+                result["top_performers"] = [
+                    {"id": r[0], "value": round(float(r[1]), 3), "pa": int(r[2])}
+                    for r in rows
+                ]
+    except Exception as e:
+        print(f"[home_weekly_leaders] DB error: {e}")
+        return jsonify(result)
+
+    # Resolve batter names from MLB API (cached in mlb_api)
+    batter_ids = set()
+    for cat in ("top_exit_velos", "top_hr_dist", "top_performers"):
+        for entry in result[cat]:
+            if entry.get("id"):
+                batter_ids.add(int(entry["id"]))
+
+    name_map = {}
+    for pid in batter_ids:
+        try:
+            person = get_player(pid)
+            name_map[pid] = person.get("fullName") or str(pid)
+        except Exception:
+            name_map[pid] = str(pid)
+
+    for cat in ("top_exit_velos", "top_hr_dist", "top_performers"):
+        for entry in result[cat]:
+            entry["name"] = name_map.get(int(entry["id"]), str(entry["id"]))
+
+    app._weekly_leaders_cache = (now, result)
+    return jsonify(result)
+
+
 from datetime import datetime
 from flask import request, render_template
 
