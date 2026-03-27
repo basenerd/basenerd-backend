@@ -885,6 +885,15 @@
   }
   .pv-venue-name{ font-weight:700; opacity:0.85; }
   .pv-venue-loc{ opacity:0.5; }
+  .pv-field-zones{
+    width:100%; margin-top:10px; padding-top:10px;
+    border-top:1px solid rgba(255,255,255,0.07);
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  .pv-field-zones-lbl{
+    font-size:0.65rem; text-transform:uppercase; letter-spacing:.06em;
+    opacity:0.45; font-weight:700; align-self:flex-start;
+  }
   .pv-pitching-matchup{
     display:flex; align-items:center; justify-content:center; gap:20px;
     padding:14px 16px; margin-bottom:16px;
@@ -6159,8 +6168,132 @@ document.addEventListener("DOMContentLoaded", ()=>{
       }
       html += '</div>';
     }
+
+    // Directional HR factor field diagram
+    if(imp.lf_hr_factor !== undefined && imp.cf_hr_factor !== undefined && imp.rf_hr_factor !== undefined){
+      html += renderFieldZones(imp, !w.dome && w.wind_mph > 1, w.wind_dir, w.bearing || 180);
+    }
+
     html += '</div>';
     return html;
+  }
+
+  function _hrFactorColor(f){
+    const d = f - 1;
+    if(d >= 0.12) return '#51cf66';
+    if(d >= 0.06) return '#94d82d';
+    if(d >= 0.02) return '#c0eb75';
+    if(d >= -0.02) return '#868e96';
+    if(d >= -0.06) return '#ff922b';
+    if(d >= -0.12) return '#ff6b6b';
+    return '#fa5252';
+  }
+
+  function _hrFactorPct(f){
+    const p = Math.round((f - 1) * 100);
+    if(p > 0) return `+${p}%`;
+    if(p < 0) return `${p}%`;
+    return 'Avg';
+  }
+
+  function renderFieldZones(imp, hasWind, windDeg, bearing){
+    const lf = imp.lf_hr_factor, cf = imp.cf_hr_factor, rf = imp.rf_hr_factor;
+    const lfC = _hrFactorColor(lf), cfC = _hrFactorColor(cf), rfC = _hrFactorColor(rf);
+
+    // SVG coordinate system: cx,cy = home plate, +x = right, +y = down
+    // Angles in degrees where 0 = toward CF (up), positive = toward RF (right)
+    const cx = 110, cy = 118, r = 98;
+
+    function pt(angleDeg, radius){
+      const rad = angleDeg * Math.PI / 180;
+      return { x: cx + radius * Math.sin(rad), y: cy - radius * Math.cos(rad) };
+    }
+
+    function wedge(a1, a2){
+      const p1 = pt(a1, r), p2 = pt(a2, r);
+      const large = Math.abs(a2 - a1) > 180 ? 1 : 0;
+      return `M${cx},${cy} L${p1.x.toFixed(1)},${p1.y.toFixed(1)} A${r},${r} 0 ${large},1 ${p2.x.toFixed(1)},${p2.y.toFixed(1)} Z`;
+    }
+
+    // Zone boundaries: LF=-55 to -18, CF=-18 to +18, RF=+18 to +55
+    const lfPath = wedge(-55, -18);
+    const cfPath = wedge(-18,  18);
+    const rfPath = wedge( 18,  55);
+
+    // Label positions (midpoint of each zone at ~60% radius)
+    const lfLbl = pt(-37, 62), cfLbl = pt(0, 57), rfLbl = pt(37, 62);
+
+    // Small infield arc
+    const infP1 = pt(-55, 22), infP2 = pt(55, 22);
+
+    let svg = `<div class="pv-field-zones">
+      <div class="pv-field-zones-lbl">HR factors by field zone</div>
+      <svg viewBox="0 15 220 115" style="width:100%;max-width:340px;display:block;">
+        <defs>
+          <radialGradient id="fgrd" cx="50%" cy="100%" r="80%">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.04)"/>
+            <stop offset="100%" stop-color="rgba(255,255,255,0.01)"/>
+          </radialGradient>
+        </defs>`;
+
+    // Background field shape
+    const bgP1 = pt(-55, r), bgP2 = pt(55, r);
+    svg += `<path d="M${cx},${cy} L${bgP1.x.toFixed(1)},${bgP1.y.toFixed(1)} A${r},${r} 0 0,1 ${bgP2.x.toFixed(1)},${bgP2.y.toFixed(1)} Z" fill="url(#fgrd)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
+
+    // Colored zone fills
+    svg += `<path d="${lfPath}" fill="${lfC}" opacity="0.18"/>`;
+    svg += `<path d="${cfPath}" fill="${cfC}" opacity="0.18"/>`;
+    svg += `<path d="${rfPath}" fill="${rfC}" opacity="0.18"/>`;
+
+    // Zone stroke borders (the dividing lines only — foul lines already on bg shape)
+    const divL = pt(-18, r);
+    const divR = pt( 18, r);
+    svg += `<line x1="${cx}" y1="${cy}" x2="${divL.x.toFixed(1)}" y2="${divL.y.toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="3,3"/>`;
+    svg += `<line x1="${cx}" y1="${cy}" x2="${divR.x.toFixed(1)}" y2="${divR.y.toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="3,3"/>`;
+
+    // Infield arc
+    svg += `<path d="M${infP1.x.toFixed(1)},${infP1.y.toFixed(1)} A22,22 0 0,1 ${infP2.x.toFixed(1)},${infP2.y.toFixed(1)}" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>`;
+
+    // Zone labels: name + pct
+    function zLbl(p, name, factor, color){
+      const pct = _hrFactorPct(factor);
+      return `<text x="${p.x.toFixed(1)}" y="${(p.y - 7).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="9.5" font-weight="700" font-family="sans-serif" opacity="0.75">${name}</text>
+              <text x="${p.x.toFixed(1)}" y="${(p.y + 6).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="12" font-weight="800" font-family="monospace">${pct}</text>`;
+    }
+    svg += zLbl(lfLbl, 'LF', lf, lfC);
+    svg += zLbl(cfLbl, 'CF', cf, cfC);
+    svg += zLbl(rfLbl, 'RF', rf, rfC);
+
+    // Wind arrow (if applicable) — from HP toward where wind is going
+    if(hasWind){
+      const windToward = (windDeg + 180) % 360;
+      const arrowAngle = windToward - bearing;   // relative to CF=up
+      const arrowR = 28;
+      const tip = pt(arrowAngle, arrowR);
+      const tail = pt(arrowAngle, -arrowR * 0.35);  // negative = behind HP
+      const hw = 7, wingA = 0.52;
+      const rad = arrowAngle * Math.PI / 180;
+      const w1x = tip.x - hw * Math.sin(rad + wingA), w1y = tip.y + hw * Math.cos(rad + wingA);
+      const w2x = tip.x - hw * Math.sin(rad - wingA), w2y = tip.y + hw * Math.cos(rad - wingA);
+      svg += `<line x1="${tail.x.toFixed(1)}" y1="${tail.y.toFixed(1)}" x2="${tip.x.toFixed(1)}" y2="${tip.y.toFixed(1)}" stroke="#4dabf7" stroke-width="3" stroke-linecap="round" opacity="0.85"/>`;
+      svg += `<polygon points="${tip.x.toFixed(1)},${tip.y.toFixed(1)} ${w1x.toFixed(1)},${w1y.toFixed(1)} ${w2x.toFixed(1)},${w2y.toFixed(1)}" fill="#4dabf7" opacity="0.85"/>`;
+    }
+
+    // Home plate dot
+    svg += `<circle cx="${cx}" cy="${cy}" r="3.5" fill="rgba(255,255,255,0.6)"/>`;
+
+    // Outer arc zone color indicators (thin colored arc segments)
+    function arcSegment(a1, a2, color){
+      const rArc = r + 5;
+      const p1 = pt(a1, rArc), p2 = pt(a2, rArc);
+      return `<path d="M${p1.x.toFixed(1)},${p1.y.toFixed(1)} A${rArc},${rArc} 0 0,1 ${p2.x.toFixed(1)},${p2.y.toFixed(1)}" fill="none" stroke="${color}" stroke-width="4" opacity="0.7" stroke-linecap="round"/>`;
+    }
+    svg += arcSegment(-55, -18, lfC);
+    svg += arcSegment(-18,  18, cfC);
+    svg += arcSegment( 18,  55, rfC);
+
+    svg += `</svg></div>`;
+    return svg;
   }
 
   function gradeClass(g){
