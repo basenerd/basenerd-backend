@@ -298,11 +298,11 @@
   .sc-zone-cf{ left:50%; top:11%; }
   .sc-zone-rf{ left:80%; top:44%; }
 
-  /* Dome label shown instead of SVG chips when dome=true */
+  /* Small note at bottom of SVG area for dome games */
   .sc-dome-label{
-    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    font-size:0.8rem; font-weight:700; color:rgba(255,255,255,0.55);
-    letter-spacing:1px; text-transform:uppercase;
+    position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+    font-size:0.6rem; font-weight:600; color:rgba(255,255,255,0.38);
+    letter-spacing:0.5px; white-space:nowrap;
   }
 
   /* Env badge centred at the bottom of the image area */
@@ -846,26 +846,24 @@
     const svgUrl = stadiumSvgUrl(homeAbbrev);
 
     // Stadium visual: SVG + overlaid HR zone chips + env badge
-    let zoneHtml = '';
-    if(dome){
-      zoneHtml = `<div class="sc-dome-label">Controlled Environment</div>`;
-    } else {
-      zoneHtml = `
-        <div class="sc-zone-overlay">
-          <div class="sc-zone-chip sc-zone-lf ${zoneChipClass(lf)}">
-            <span class="sc-zone-chip-label">LF HR</span>
-            <span class="sc-zone-chip-val">${fmtFactor(lf)}</span>
-          </div>
-          <div class="sc-zone-chip sc-zone-cf ${zoneChipClass(cf)}">
-            <span class="sc-zone-chip-label">CF HR</span>
-            <span class="sc-zone-chip-val">${fmtFactor(cf)}</span>
-          </div>
-          <div class="sc-zone-chip sc-zone-rf ${zoneChipClass(rf)}">
-            <span class="sc-zone-chip-label">RF HR</span>
-            <span class="sc-zone-chip-val">${fmtFactor(rf)}</span>
-          </div>
-        </div>`;
-    }
+    // Zone chips always shown — even for domes, elevation + park dims create factors
+    const domeNote = dome ? `<div class="sc-dome-label">Park factors only · No wind</div>` : '';
+    const zoneHtml = `
+      <div class="sc-zone-overlay">
+        <div class="sc-zone-chip sc-zone-lf ${zoneChipClass(lf)}">
+          <span class="sc-zone-chip-label">LF HR</span>
+          <span class="sc-zone-chip-val">${fmtFactor(lf)}</span>
+        </div>
+        <div class="sc-zone-chip sc-zone-cf ${zoneChipClass(cf)}">
+          <span class="sc-zone-chip-label">CF HR</span>
+          <span class="sc-zone-chip-val">${fmtFactor(cf)}</span>
+        </div>
+        <div class="sc-zone-chip sc-zone-rf ${zoneChipClass(rf)}">
+          <span class="sc-zone-chip-label">RF HR</span>
+          <span class="sc-zone-chip-val">${fmtFactor(rf)}</span>
+        </div>
+        ${domeNote}
+      </div>`;
 
     // Weather footer items
     let weatherHtml = '';
@@ -889,11 +887,12 @@
           </div>
         </div>`;
     } else if(dome){
+      const xbhPct = xbh !== 1 ? ` · XBH Adj: ${xbh >= 1 ? '+' : ''}${Math.round((xbh-1)*100)}%` : '';
       weatherHtml = `
         <div class="sc-weather-row">
           <div class="sc-weather-item">
             <span class="sc-weather-label">Roof</span>
-            <span>Dome / Retractable closed</span>
+            <span>${label}${xbhPct}</span>
           </div>
         </div>`;
     }
