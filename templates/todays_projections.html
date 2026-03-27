@@ -449,6 +449,8 @@
     {key:'h',   label:'Hits',      maxK:4},
     {key:'hr',  label:'Home Runs', maxK:3},
     {key:'rbi', label:'RBIs',      maxK:5},
+    {key:'tb',  label:'Tot Bases', maxK:6},
+    {key:'rhr', label:'R+H+RBI',   maxK:8},
   ];
 
   // ---- Lambda computations ----
@@ -470,11 +472,14 @@
     const summary = b.summary||{};
     const sl = b.statline||{};
     if(!sl.pa) return null;
-    return {
-      h:   sl.pa * (summary.hit_pct||0),
-      hr:  sl.pa * (probs.HR||0),
-      rbi: sl.rbi || sl.pa * ((probs.HR||0)*1.5 + (probs['2B']||0)*0.5 + (probs['3B']||0)*0.8 + (probs['1B']||0)*0.15),
-    };
+    const h   = sl.pa * (summary.hit_pct||0);
+    const rbi = sl.rbi || sl.pa * ((probs.HR||0)*1.5 + (probs['2B']||0)*0.5 + (probs['3B']||0)*0.8 + (probs['1B']||0)*0.15);
+    // Runs estimated via run-expectancy weights per event
+    const r   = sl.pa * ((probs['1B']||0)*0.50 + (probs['2B']||0)*0.60 + (probs['3B']||0)*0.80 +
+                          (probs.HR||0)*1.40 + ((probs.BB||0)+(probs.IBB||0)+(probs.HBP||0))*0.35);
+    // Total bases: 1B×1 + 2B×2 + 3B×3 + HR×4
+    const tb  = sl.pa * ((probs['1B']||0)*1 + (probs['2B']||0)*2 + (probs['3B']||0)*3 + (probs.HR||0)*4);
+    return { h, hr: sl.pa * (probs.HR||0), rbi, tb, rhr: r + h + rbi };
   }
 
   // ---- Formatting ----
