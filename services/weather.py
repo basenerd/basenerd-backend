@@ -11,23 +11,54 @@ from datetime import datetime, timezone
 
 from services.venue_meta import get_venue_meta
 
-_ROOF_OVERRIDES_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "roof_overrides.json")
+import psycopg as _psycopg
+
+log = logging.getLogger(__name__)
+
+_DB_URL = lambda: os.environ.get("DATABASE_URL") or os.environ.get("DATABASE_URL_PG") or ""
+
+_ROOF_TABLE_CREATED = False
+
+def _ensure_roof_table(cur) -> None:
+    global _ROOF_TABLE_CREATED
+    if not _ROOF_TABLE_CREATED:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS roof_overrides (
+                game_pk TEXT PRIMARY KEY,
+                roof_open BOOLEAN NOT NULL
+            )
+        """)
+        _ROOF_TABLE_CREATED = True
 
 
 def load_roof_overrides() -> dict:
-    """Load roof override file; returns {str(game_pk): bool}."""
+    """Load roof overrides from PostgreSQL; returns {str(game_pk): bool}."""
     try:
-        with open(_ROOF_OVERRIDES_PATH, "r") as f:
-            return json.load(f)
+        with _psycopg.connect(_DB_URL(), connect_timeout=10) as conn:
+            with conn.cursor() as cur:
+                _ensure_roof_table(cur)
+                cur.execute("SELECT game_pk, roof_open FROM roof_overrides")
+                rows = cur.fetchall()
+                return {str(r[0]): bool(r[1]) for r in rows}
     except Exception:
         return {}
 
 
 def save_roof_overrides(overrides: dict) -> None:
-    with open(_ROOF_OVERRIDES_PATH, "w") as f:
-        json.dump(overrides, f, indent=2)
+    """Save roof overrides to PostgreSQL."""
+    try:
+        with _psycopg.connect(_DB_URL(), connect_timeout=10) as conn:
+            with conn.cursor() as cur:
+                _ensure_roof_table(cur)
+                cur.execute("DELETE FROM roof_overrides")
+                for game_pk, roof_open in overrides.items():
+                    cur.execute(
+                        "INSERT INTO roof_overrides (game_pk, roof_open) VALUES (%s, %s)",
+                        (str(game_pk), bool(roof_open))
+                    )
+    except Exception as e:
+        log.error("Failed to save roof overrides: %s", e)
 
-log = logging.getLogger(__name__)
 
 # Module-level cache: (venue_id, date_str, hour) → result dict
 _cache: dict = {}
