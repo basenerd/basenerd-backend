@@ -924,7 +924,7 @@
     display:flex; flex-direction:column;
   }
   .pv-gx-stadium-wrap{
-    position:relative; overflow:hidden; height:200px; flex-shrink:0;
+    position:relative; overflow:hidden; height:160px; flex-shrink:0;
     background:linear-gradient(160deg,#111827 0%,#0d1117 60%,#090d13 100%);
   }
   .pv-gx-stadium-wrap::after{
@@ -1032,8 +1032,8 @@
 
   .pv-batter-cell{ display:flex; align-items:center; gap:7px; }
   .pv-batter-cell img{ width:28px; height:28px; border-radius:50%; }
-  .pv-batter-name{ font-weight:700; white-space:nowrap; }
-  .pv-batter-meta{ font-size:0.7rem; opacity:0.5; }
+  .pv-batter-name{ font-weight:700; }
+  .pv-batter-meta{ font-size:0.68rem; opacity:0.5; margin-top:1px; }
 
   .pv-grade{
     display:inline-flex; align-items:center; justify-content:center;
@@ -6444,7 +6444,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const hh = Math.max(1, (hp / maxPct) * plotH);
       bars += `<rect x="${ax.toFixed(1)}" y="${(padT + plotH - ah).toFixed(1)}" width="${bw.toFixed(1)}" height="${ah.toFixed(1)}" fill="${awayColor}" opacity="0.85" rx="1"/>`;
       bars += `<rect x="${hx.toFixed(1)}" y="${(padT + plotH - hh).toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" fill="${homeColor}" opacity="0.85" rx="1"/>`;
-      bars += `<text x="${(gx + groupW / 2).toFixed(1)}" y="${(padT + plotH + 14).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="7.5">${i}</text>`;
+      bars += `<text x="${(gx + groupW / 2).toFixed(1)}" y="${(padT + plotH + 14).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-size="7.5">${i}</text>`;
     }
 
     el.innerHTML = `<div class="pv-hist-card">
@@ -6765,7 +6765,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
         <td>${b.spot}</td>
         <td><div class="pv-batter-cell">`;
       if(b.headshot) html += `<img src="${b.headshot}" alt="">`;
-      html += `<div><span class="pv-batter-name">${b.name}</span> <span class="pv-batter-meta">${b.stand} ${b.pos}</span></div>`;
+      html += `<div><div class="pv-batter-name">${b.name}</div><div class="pv-batter-meta">${b.stand} · ${b.pos}</div></div>`;
       html += `</div></td>`;
       html += `<td class="num"><span class="pv-grade ${gradeClass(grade)}">${grade}</span></td>`;
       const _f3 = v => v != null ? v.toFixed(3).replace(/^0/,'') : '-';
