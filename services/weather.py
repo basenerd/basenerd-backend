@@ -36,6 +36,16 @@ _WMO = {
 _HR_SPRAY_DIST = [(-38, 0.20), (-22, 0.28), (-8, 0.22), (8, 0.15), (22, 0.10), (38, 0.05)]
 _XBH_SPRAY_DIST = [(-38, 0.15), (-22, 0.25), (-8, 0.25), (8, 0.18), (22, 0.12), (38, 0.05)]
 
+# League-average fence distances used as the neutral baseline for dimension factors
+_LF_AVG_DIST = 331
+_CF_AVG_DIST = 404
+_RF_AVG_DIST = 328
+
+# Representative spray angles for each field zone
+_LF_SPRAY = -30   # pulled for RHBs, oppo for LHBs
+_CF_SPRAY =   0
+_RF_SPRAY = +30   # pulled for LHBs, oppo for RHBs
+
 
 # ---------------------------------------------------------------------------
 # Physics helpers
@@ -55,6 +65,24 @@ def _air_density_factor(temp_f: float, alt_ft: float) -> float:
     pressure_factor = (1.0 - 2.2558e-5 * alt_m) ** 5.2559
     # Density ∝ P / T
     return (T_K_ref / T_K) * pressure_factor
+
+
+def _dimension_hr_factor(park_dist: float, wall_height: float, avg_dist: float) -> float:
+    """
+    HR factor from park dimensions vs league average at that field zone.
+
+    Shorter fence → more HRs (distance effect, alpha=1.5 calibrated to ~5%/10 ft).
+    Taller wall   → fewer HRs (height effect, calibrated to ~10% per 7 ft above 8 ft).
+
+    Examples vs league-average fence (no wind, sea level, 72°F):
+      Fenway LF  (310 ft, 37 ft wall): 1.10 × 0.69 = 0.76  ← Green Monster suppresses
+      Fenway RF  (302 ft,  3 ft wall): 1.13 × 1.07 = 1.21  ← Pesky Pole boosts
+      Oracle RF  (309 ft, 24 ft wall): 1.09 × 0.81 = 0.88  ← brick wall suppresses
+      Coors LF   (347 ft,  8 ft wall): 0.93 × 1.00 = 0.93  ← deep, altitude offsets it
+    """
+    dist_factor   = (avg_dist / park_dist) ** 1.5
+    height_factor = math.exp(-0.013 * max(0.0, wall_height - 8.0))
+    return dist_factor * height_factor
 
 
 def compute_hit_distance_factor(
@@ -111,6 +139,12 @@ def calculate_weather_impact(
     wind_dir_deg: float,
     alt_ft: float,
     bearing_to_cf: float = 180,
+    lf_dist: float = 331,
+    cf_dist: float = 404,
+    rf_dist: float = 328,
+    lf_wall: float = 8,
+    cf_wall: float = 8,
+    rf_wall: float = 8,
 ) -> dict:
     """
     Aggregate weather impact on home runs and extra-base hits for a game.
@@ -122,11 +156,17 @@ def calculate_weather_impact(
     while slightly hurting right-field opposite-field HRs, with the net game
     impact reflecting the typical batted-ball mix.
 
+    Park dimensions (lf_dist/cf_dist/rf_dist in feet, *_wall in feet) are used
+    to compute per-field-zone factors combining both weather and structural effects.
+
     Returns:
-        hr_factor   — multiplicative factor for HR probability (1.0 = neutral)
-        xbh_factor  — multiplicative factor for XBH probability
-        label       — human-readable environment description
-        components  — breakdown for UI display:
+        hr_factor    — aggregate multiplicative factor for HR probability (1.0 = neutral)
+        xbh_factor   — aggregate multiplicative factor for XBH probability
+        label        — human-readable environment description
+        lf_hr_factor — HR factor for balls to left field  (wind direction × park dims)
+        cf_hr_factor — HR factor for balls to center field
+        rf_hr_factor — HR factor for balls to right field
+        components   — breakdown for UI display:
             density_factor   — air-density-only multiplier (temp + altitude)
             cf_wind_factor   — wind-only multiplier toward CF (display reference)
             cf_wind_mph      — signed mph component blowing out to CF (+= helping)
@@ -167,10 +207,25 @@ def calculate_weather_impact(
     cf_wind_mph = round(wind_mph * math.cos(cf_diff_rad), 1)
     cf_wind_factor = round(1.0 + 0.0079 * cf_wind_mph, 3)
 
+    # --- directional HR factors: weather (by spray angle) × park dimensions ---
+    # Each field zone uses the representative spray angle for wind decomposition,
+    # combined with the park's fence distance and wall height vs league average.
+    def _dir_factor(spray, park_dist, avg_dist, wall_h):
+        wx = compute_hit_distance_factor(spray, temp_f, wind_mph, wind_dir_deg, alt_ft, bearing_to_cf)
+        dim = _dimension_hr_factor(park_dist, wall_h, avg_dist)
+        return round(max(0.65, min(1.45, wx * dim)), 3)
+
+    lf_hr_factor = _dir_factor(_LF_SPRAY, lf_dist, _LF_AVG_DIST, lf_wall)
+    cf_hr_factor = _dir_factor(_CF_SPRAY, cf_dist, _CF_AVG_DIST, cf_wall)
+    rf_hr_factor = _dir_factor(_RF_SPRAY, rf_dist, _RF_AVG_DIST, rf_wall)
+
     return {
-        "hr_factor":   hr_factor,
-        "xbh_factor":  xbh_factor,
-        "label":       label,
+        "hr_factor":    hr_factor,
+        "xbh_factor":   xbh_factor,
+        "label":        label,
+        "lf_hr_factor": lf_hr_factor,
+        "cf_hr_factor": cf_hr_factor,
+        "rf_hr_factor": rf_hr_factor,
         "components": {
             "density_factor":  density_factor,
             "cf_wind_factor":  cf_wind_factor,
@@ -194,6 +249,20 @@ def fetch_game_weather(venue_id, game_datetime_str):
     """
     venue = get_venue_meta(venue_id)
     if venue["dome"]:
+        # No wind/weather, but park dimensions still create directional HR differences
+        dome_impact = calculate_weather_impact(
+            72, 0, 0,
+            venue["alt_ft"], venue.get("bearing", 180),
+            lf_dist=venue.get("lf_dist", 331),
+            cf_dist=venue.get("cf_dist", 404),
+            rf_dist=venue.get("rf_dist", 328),
+            lf_wall=venue.get("lf_wall", 8),
+            cf_wall=venue.get("cf_wall", 8),
+            rf_wall=venue.get("rf_wall", 8),
+        )
+        dome_impact["hr_factor"]  = 1.0
+        dome_impact["xbh_factor"] = 1.0
+        dome_impact["label"]      = "Dome (controlled)"
         return {
             "dome":      True,
             "condition": "Dome",
@@ -201,7 +270,7 @@ def fetch_game_weather(venue_id, game_datetime_str):
             "wind_mph":  0,
             "wind_dir":  0,
             "bearing":   venue.get("bearing", 180),
-            "impact":    {"hr_factor": 1.0, "xbh_factor": 1.0, "label": "Dome (controlled)"},
+            "impact":    dome_impact,
         }
 
     # Parse game datetime
@@ -254,6 +323,12 @@ def fetch_game_weather(venue_id, game_datetime_str):
         impact = calculate_weather_impact(
             temp_f, wind_mph, wind_dir,
             venue["alt_ft"], venue.get("bearing", 180),
+            lf_dist=venue.get("lf_dist", 331),
+            cf_dist=venue.get("cf_dist", 404),
+            rf_dist=venue.get("rf_dist", 328),
+            lf_wall=venue.get("lf_wall", 8),
+            cf_wall=venue.get("cf_wall", 8),
+            rf_wall=venue.get("rf_wall", 8),
         )
 
         result = {
@@ -275,7 +350,16 @@ def fetch_game_weather(venue_id, game_datetime_str):
 
 def _fallback(venue):
     """Return a neutral weather result when API fails."""
-    impact = calculate_weather_impact(72, 0, 0, venue.get("alt_ft", 500), venue.get("bearing", 180))
+    impact = calculate_weather_impact(
+        72, 0, 0,
+        venue.get("alt_ft", 500), venue.get("bearing", 180),
+        lf_dist=venue.get("lf_dist", 331),
+        cf_dist=venue.get("cf_dist", 404),
+        rf_dist=venue.get("rf_dist", 328),
+        lf_wall=venue.get("lf_wall", 8),
+        cf_wall=venue.get("cf_wall", 8),
+        rf_wall=venue.get("rf_wall", 8),
+    )
     return {
         "dome":      False,
         "condition": "Unknown",
