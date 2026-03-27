@@ -234,21 +234,22 @@
   /* Stadium visual area */
   .sc-stadium-wrap{
     position:relative;
-    background: linear-gradient(160deg, #162b14 0%, #0c1f0b 55%, #091809 100%);
+    background: linear-gradient(160deg, #111827 0%, #0d1117 60%, #090d13 100%);
     overflow:hidden;
   }
   .sc-stadium-wrap::after{
     content:''; position:absolute; inset:0;
-    background: radial-gradient(ellipse at 50% 95%, rgba(40,90,30,0.45) 0%, transparent 70%);
+    background: radial-gradient(ellipse at 50% 95%, rgba(30,50,90,0.35) 0%, transparent 70%);
     pointer-events:none;
   }
   .sc-stadium-svg-img{
     display:block; width:100%;
     /* scaleY(-1) flips SVG so outfield (y≈550) is at top, home plate (y≈93) at bottom */
-    object-fit:cover; object-position:bottom center;
+    /* object-fit:contain shows full field without cropping */
+    object-fit:contain; object-position:center;
     height:220px;
-    opacity:0.40;
-    filter: invert(1) brightness(1.6) saturate(0.3);
+    opacity:0.45;
+    filter: invert(1) brightness(1.4) saturate(0.2);
     transform: scaleY(-1);
   }
 
