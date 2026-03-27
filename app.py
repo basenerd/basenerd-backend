@@ -1525,6 +1525,39 @@ def todays_projections():
     )
 
 
+@app.get("/todays-projections/stadium-conditions.json")
+def stadium_conditions_json():
+    """Return weather + park factor data for all games on a given date."""
+    from services.weather import fetch_game_weather
+    user_tz = "America/Phoenix"
+    picked = (request.args.get("date") or "").strip()
+    today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
+    target = picked or today_ymd
+    games_list = get_games_for_date(target, tz_name=user_tz)
+    results = []
+    for g in games_list:
+        venue_id = g.get("venueId")
+        game_date_iso = g.get("gameDate") or ""
+        weather = {}
+        if venue_id:
+            try:
+                weather = fetch_game_weather(venue_id, game_date_iso)
+            except Exception:
+                pass
+        results.append({
+            "gamePk": g.get("gamePk"),
+            "timeLocal": g.get("timeLocal"),
+            "venue": g.get("venue"),
+            "venueLocation": g.get("venueLocation"),
+            "venueId": venue_id,
+            "isSpring": g.get("isSpring"),
+            "home": g.get("home"),
+            "away": g.get("away"),
+            "weather": weather,
+        })
+    return jsonify(results)
+
+
 @app.get("/game/<int:game_pk>")
 def game_detail(game_pk: int):
     user_tz = "America/Phoenix"

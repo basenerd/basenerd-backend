@@ -200,6 +200,93 @@
     .tp-player-name{ max-width:70px; }
     .tp-player-img{ display:none; }
   }
+
+  /* ---- Stadium Conditions ---- */
+  .sc-grid{
+    display:grid; gap:12px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    margin-top:4px;
+  }
+  .sc-card{
+    border:1px solid var(--border, rgba(0,0,0,0.09));
+    border-radius:12px;
+    overflow:hidden;
+    background:var(--card, #fff);
+  }
+  .sc-card-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 14px 8px;
+    border-bottom:1px solid rgba(0,0,0,0.06);
+    gap:8px;
+  }
+  .sc-matchup{
+    display:flex; align-items:center; gap:6px; flex:1; min-width:0;
+  }
+  .sc-team-logo{ width:24px; height:24px; flex-shrink:0; }
+  .sc-at{ font-size:0.7rem; opacity:0.4; font-weight:700; }
+  .sc-abbrev{ font-size:0.85rem; font-weight:800; }
+  .sc-time{ font-size:0.72rem; opacity:0.45; white-space:nowrap; }
+  .sc-venue-block{
+    padding:6px 14px 8px;
+    border-bottom:1px solid rgba(0,0,0,0.05);
+  }
+  .sc-venue-name{
+    font-size:0.78rem; font-weight:700;
+  }
+  .sc-venue-loc{
+    font-size:0.68rem; opacity:0.45;
+  }
+  .sc-body{ padding:10px 14px; display:flex; flex-direction:column; gap:8px; }
+  .sc-env-badge{
+    display:inline-block; padding:3px 10px; border-radius:20px;
+    font-size:0.72rem; font-weight:800; letter-spacing:0.2px;
+    align-self:flex-start;
+  }
+  .sc-env-hitter-very{ background:rgba(81,207,102,0.22); color:#1a7a36; }
+  .sc-env-hitter    { background:rgba(81,207,102,0.13); color:#2a9048; }
+  .sc-env-neutral   { background:rgba(0,0,0,0.06);       color:#555; }
+  .sc-env-pitcher   { background:rgba(99,149,255,0.13);  color:#1a4fa8; }
+  .sc-env-pitcher-very{ background:rgba(99,149,255,0.22); color:#1035a0; }
+  .sc-env-dome      { background:rgba(180,180,180,0.18); color:#555; }
+
+  .sc-weather-row{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .sc-weather-item{
+    display:flex; align-items:center; gap:4px;
+    font-size:0.75rem; font-weight:600;
+  }
+  .sc-weather-label{ font-size:0.65rem; opacity:0.45; text-transform:uppercase; letter-spacing:0.3px; }
+
+  .sc-hr-grid{
+    display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;
+  }
+  .sc-hr-zone{
+    text-align:center; padding:6px 4px;
+    border-radius:8px; border:1px solid rgba(0,0,0,0.07);
+  }
+  .sc-hr-zone-label{
+    font-size:0.62rem; font-weight:700; opacity:0.45; text-transform:uppercase;
+    letter-spacing:0.3px; margin-bottom:2px;
+  }
+  .sc-hr-val{
+    font-size:0.85rem; font-weight:800;
+  }
+  .sc-hr-pos{ color:#1a7a36; }
+  .sc-hr-neg{ color:#c0392b; }
+  .sc-hr-neu{ color:#555; }
+  .sc-hr-zone.pos{ background:rgba(81,207,102,0.10); border-color:rgba(81,207,102,0.25); }
+  .sc-hr-zone.neg{ background:rgba(192,57,43,0.08);  border-color:rgba(192,57,43,0.20); }
+
+  .sc-dims{
+    display:flex; gap:10px; font-size:0.7rem; opacity:0.55; flex-wrap:wrap;
+  }
+  .sc-loading{ text-align:center; padding:40px 20px; opacity:0.5; }
+
+  @media(max-width:640px){
+    .sc-grid{ grid-template-columns:1fr; }
+    .sc-abbrev{ font-size:0.78rem; }
+  }
 </style>
 
 <div class="card">
@@ -225,20 +312,22 @@
     <div class="tp-view-tabs">
       <button class="tp-view-btn active" data-view="pitchers">Pitchers</button>
       <button class="tp-view-btn" data-view="batters">Batters</button>
+      <button class="tp-view-btn" data-view="stadium">Stadium Conditions</button>
     </div>
-    <span class="tp-controls-label">Mode:</span>
-    <div class="tp-view-tabs">
+    <span class="tp-controls-label" id="tp-mode-label">Mode:</span>
+    <div class="tp-view-tabs" id="tp-mode-group">
       <button class="tp-view-btn tp-mode-btn active" data-mode="exact">Exact</button>
       <button class="tp-view-btn tp-mode-btn" data-mode="cumul">Over</button>
     </div>
   </div>
-  <div class="tp-controls-row">
+  <div class="tp-controls-row" id="tp-stat-row">
     <span class="tp-controls-label">Stat:</span>
     <div class="tp-stat-toggle" id="tp-stat-toggle"></div>
   </div>
 </div>
 
 <div id="tp-table-area"></div>
+<div id="tp-stadium-area" style="display:none"></div>
 
 <script>
 (function(){
@@ -324,6 +413,7 @@
   let allPitchers = [];
   let allBatters = [];
   let currentView = 'pitchers';
+  let stadiumData = null; // loaded lazily
   let currentPStat = 'k';
   let currentBStat = 'h';
   let currentMode = 'exact'; // 'exact' or 'cumul'
@@ -337,9 +427,15 @@
       || ds.includes('preview') || ds.includes('in progress') || ds.includes('live');
   });
 
-  if(!previewGames.length){
+  if(!previewGames.length && !GAMES.length){
     document.getElementById('tp-loading').style.display = 'none';
     document.getElementById('tp-table-area').innerHTML = '<div class="tp-empty">No upcoming games for this date.</div>';
+  } else if(!previewGames.length){
+    // Games exist (completed/postponed) but none eligible for projections
+    document.getElementById('tp-loading').style.display = 'none';
+    document.getElementById('tp-controls').style.display = 'flex';
+    document.getElementById('tp-table-area').innerHTML = '<div class="tp-empty">No upcoming games for this date.</div>';
+    attachViewListeners();
   } else {
     let loaded = 0;
     const total = previewGames.length;
@@ -412,25 +508,41 @@
 
   function finishLoading(){
     document.getElementById('tp-loading').style.display = 'none';
+    document.getElementById('tp-controls').style.display = 'flex';
 
     if(!allPitchers.length && !allBatters.length){
       document.getElementById('tp-table-area').innerHTML = '<div class="tp-empty">No lineups posted yet. Check back closer to game time.</div>';
+      // Still show controls so Stadium Conditions tab is accessible
+      attachViewListeners();
       return;
     }
 
-    document.getElementById('tp-controls').style.display = 'flex';
     buildStatToggle();
     renderTable();
+    attachViewListeners();
+  }
 
-    // View toggle (Pitchers / Batters)
+  function attachViewListeners(){
+    // View toggle (Pitchers / Batters / Stadium Conditions)
     document.querySelectorAll('.tp-view-btn:not(.tp-mode-btn)').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         document.querySelectorAll('.tp-view-btn:not(.tp-mode-btn)').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
         currentView = btn.dataset.view;
-        sortCol = 'exp'; sortDir = -1;
-        buildStatToggle();
-        renderTable();
+
+        const isStadium = currentView === 'stadium';
+        document.getElementById('tp-mode-label').style.display = isStadium ? 'none' : '';
+        document.getElementById('tp-mode-group').style.display = isStadium ? 'none' : '';
+        document.getElementById('tp-stat-row').style.display = isStadium ? 'none' : '';
+        document.getElementById('tp-table-area').style.display = isStadium ? 'none' : '';
+        document.getElementById('tp-stadium-area').style.display = isStadium ? '' : 'none';
+        if(isStadium){
+          loadStadiumConditions();
+        } else {
+          sortCol = 'exp'; sortDir = -1;
+          buildStatToggle();
+          renderTable();
+        }
       });
     });
 
@@ -573,6 +685,145 @@
         renderTable();
       });
     });
+  }
+
+  // ---- Stadium Conditions ----
+  function windDegToCompass(deg){
+    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(deg / 22.5) % 16];
+  }
+
+  function fmtFactor(f){
+    const pct = Math.round((f - 1.0) * 100);
+    if(pct > 0) return `+${pct}%`;
+    if(pct < 0) return `${pct}%`;
+    return '0%';
+  }
+
+  function hrZoneClass(f){
+    if(f > 1.03) return 'pos';
+    if(f < 0.97) return 'neg';
+    return '';
+  }
+
+  function hrValClass(f){
+    if(f > 1.03) return 'sc-hr-pos';
+    if(f < 0.97) return 'sc-hr-neg';
+    return 'sc-hr-neu';
+  }
+
+  function envBadgeClass(label){
+    if(label === 'Dome (controlled)') return 'sc-env-dome';
+    if(label === 'Very hitter-friendly') return 'sc-env-hitter-very';
+    if(label === 'Hitter-friendly') return 'sc-env-hitter';
+    if(label === 'Very pitcher-friendly') return 'sc-env-pitcher-very';
+    if(label === 'Pitcher-friendly') return 'sc-env-pitcher';
+    return 'sc-env-neutral';
+  }
+
+  function renderStadiumCard(g){
+    const w = g.weather || {};
+    const imp = w.impact || {};
+    const dome = w.dome;
+
+    const awayLogo = (g.away||{}).logo || '';
+    const homeLogo = (g.home||{}).logo || '';
+    const awayAbbrev = (g.away||{}).abbrev || '';
+    const homeAbbrev = (g.home||{}).abbrev || '';
+    const venueName = g.venue || 'Unknown Venue';
+    const venueLoc = g.venueLocation || '';
+    const label = imp.label || 'Neutral';
+    const envCls = envBadgeClass(label);
+
+    const lf = imp.lf_hr_factor || 1;
+    const cf = imp.cf_hr_factor || 1;
+    const rf = imp.rf_hr_factor || 1;
+    const xbh = imp.xbh_factor || 1;
+
+    let weatherHtml = '';
+    if(!dome && w.condition){
+      const windDir = windDegToCompass(w.wind_dir || 0);
+      const cfMph = (imp.components||{}).cf_wind_mph || 0;
+      const cfLabel = cfMph >= 0 ? `out +${cfMph.toFixed(0)} mph` : `in ${cfMph.toFixed(0)} mph`;
+      weatherHtml = `
+        <div class="sc-weather-row">
+          <div class="sc-weather-item">
+            <span class="sc-weather-label">Cond</span>
+            <span>${w.condition}</span>
+          </div>
+          <div class="sc-weather-item">
+            <span class="sc-weather-label">Temp</span>
+            <span>${w.temp_f}°F</span>
+          </div>
+          <div class="sc-weather-item">
+            <span class="sc-weather-label">Wind</span>
+            <span>${w.wind_mph} mph ${windDir} (CF: ${cfLabel})</span>
+          </div>
+        </div>`;
+    } else if(dome){
+      weatherHtml = `<div class="sc-weather-row"><div class="sc-weather-item"><span class="sc-weather-label">Roof</span><span>Retractable/Fixed Dome</span></div></div>`;
+    }
+
+    return `
+      <div class="sc-card">
+        <div class="sc-card-header">
+          <div class="sc-matchup">
+            ${awayLogo ? `<img class="sc-team-logo" src="${awayLogo}" alt="" onerror="this.style.display='none'">` : ''}
+            <span class="sc-abbrev">${awayAbbrev}</span>
+            <span class="sc-at">@</span>
+            ${homeLogo ? `<img class="sc-team-logo" src="${homeLogo}" alt="" onerror="this.style.display='none'">` : ''}
+            <span class="sc-abbrev">${homeAbbrev}</span>
+          </div>
+          <span class="sc-time">${g.timeLocal || ''}</span>
+        </div>
+        <div class="sc-venue-block">
+          <div class="sc-venue-name">${venueName}</div>
+          ${venueLoc ? `<div class="sc-venue-loc">${venueLoc}</div>` : ''}
+        </div>
+        <div class="sc-body">
+          <span class="sc-env-badge ${envCls}">${label}</span>
+          ${weatherHtml}
+          <div class="sc-hr-grid">
+            <div class="sc-hr-zone ${hrZoneClass(lf)}">
+              <div class="sc-hr-zone-label">LF HR</div>
+              <div class="sc-hr-val ${hrValClass(lf)}">${fmtFactor(lf)}</div>
+            </div>
+            <div class="sc-hr-zone ${hrZoneClass(cf)}">
+              <div class="sc-hr-zone-label">CF HR</div>
+              <div class="sc-hr-val ${hrValClass(cf)}">${fmtFactor(cf)}</div>
+            </div>
+            <div class="sc-hr-zone ${hrZoneClass(rf)}">
+              <div class="sc-hr-zone-label">RF HR</div>
+              <div class="sc-hr-val ${hrValClass(rf)}">${fmtFactor(rf)}</div>
+            </div>
+          </div>
+          <div class="sc-dims">
+            <span>XBH Adj: <b>${fmtFactor(xbh)}</b></span>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function loadStadiumConditions(){
+    const area = document.getElementById('tp-stadium-area');
+    if(stadiumData){
+      area.innerHTML = `<div class="sc-grid">${stadiumData.map(renderStadiumCard).join('')}</div>`;
+      return;
+    }
+    area.innerHTML = '<div class="sc-loading">Fetching weather and park data…</div>';
+    const dateVal = (document.querySelector('input[name="date"]') || {}).value || '';
+    const qs = dateVal ? `?date=${dateVal}` : '';
+    fetch(`/todays-projections/stadium-conditions.json${qs}`)
+      .then(r => r.json())
+      .then(data => {
+        stadiumData = data;
+        area.innerHTML = data.length
+          ? `<div class="sc-grid">${data.map(renderStadiumCard).join('')}</div>`
+          : '<div class="sc-loading">No games found for this date.</div>';
+      })
+      .catch(() => {
+        area.innerHTML = '<div class="sc-loading">Failed to load stadium conditions.</div>';
+      });
   }
 
   // Date navigation

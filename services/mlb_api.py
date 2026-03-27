@@ -3697,6 +3697,8 @@ def get_games_for_date(
                 },
                 "venue": venue_name,
                 "venueLocation": venue_loc,
+                "venueId": venue.get("id"),
+                "gameDate": g.get("gameDate"),
             }
 
             # internal sort key (remove later)
