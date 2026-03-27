@@ -72,8 +72,8 @@ VENUES = {
     },
 
     # --- American League West ---
-    2392: {  # Minute Maid Park (dome)
-        "lat": 29.7573, "lon": -95.3555, "dome": True, "alt_ft": 50,
+    2392: {  # Minute Maid Park (retractable)
+        "lat": 29.7573, "lon": -95.3555, "dome": True, "retractable": True, "alt_ft": 50,
         "name": "Minute Maid Park", "bearing": 0,
         "lf_dist": 315, "cf_dist": 435, "rf_dist": 326,
         "lf_wall": 7,  "cf_wall": 8,  "rf_wall": 8,  # Crawford Boxes at 315
@@ -90,14 +90,14 @@ VENUES = {
         "lf_dist": 330, "cf_dist": 400, "rf_dist": 330,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
-    2889: {  # T-Mobile Park (dome)
-        "lat": 47.5914, "lon": -122.3324, "dome": True, "alt_ft": 20,
+    2889: {  # T-Mobile Park (retractable)
+        "lat": 47.5914, "lon": -122.3324, "dome": True, "retractable": True, "alt_ft": 20,
         "name": "T-Mobile Park", "bearing": 0,
         "lf_dist": 331, "cf_dist": 401, "rf_dist": 326,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
-    5325: {  # Globe Life Field (dome)
-        "lat": 30.4083, "lon": -97.7522, "dome": True, "alt_ft": 560,
+    5325: {  # Globe Life Field (retractable)
+        "lat": 30.4083, "lon": -97.7522, "dome": True, "retractable": True, "alt_ft": 560,
         "name": "Globe Life Field", "bearing": 0,
         "lf_dist": 332, "cf_dist": 407, "rf_dist": 326,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
@@ -110,8 +110,8 @@ VENUES = {
         "lf_dist": 335, "cf_dist": 400, "rf_dist": 325,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
-    32: {   # loanDepot park (dome)
-        "lat": 25.7781, "lon": -80.2196, "dome": True, "alt_ft": 10,
+    32: {   # loanDepot park (retractable)
+        "lat": 25.7781, "lon": -80.2196, "dome": True, "retractable": True, "alt_ft": 10,
         "name": "loanDepot park", "bearing": 0,
         "lf_dist": 344, "cf_dist": 404, "rf_dist": 335,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
@@ -148,8 +148,8 @@ VENUES = {
         "lf_dist": 328, "cf_dist": 404, "rf_dist": 325,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
-    209: {   # American Family Field (dome)
-        "lat": 43.0280, "lon": -87.9712, "dome": True, "alt_ft": 600,
+    209: {   # American Family Field (retractable)
+        "lat": 43.0280, "lon": -87.9712, "dome": True, "retractable": True, "alt_ft": 600,
         "name": "American Family Field", "bearing": 0,
         "lf_dist": 344, "cf_dist": 400, "rf_dist": 345,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
@@ -168,8 +168,8 @@ VENUES = {
     },
 
     # --- National League West ---
-    15: {   # Chase Field (dome)
-        "lat": 33.4453, "lon": -112.0667, "dome": True, "alt_ft": 1086,
+    15: {   # Chase Field (retractable)
+        "lat": 33.4453, "lon": -112.0667, "dome": True, "retractable": True, "alt_ft": 1086,
         "name": "Chase Field", "bearing": 0,
         "lf_dist": 330, "cf_dist": 407, "rf_dist": 334,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
@@ -206,8 +206,8 @@ VENUES = {
         "lf_wall": 10, "cf_wall": 10, "rf_wall": 10,
     },
     # Toronto
-    3309: {  # Rogers Centre (dome)
-        "lat": 43.6414, "lon": -79.3894, "dome": True, "alt_ft": 260,
+    3309: {  # Rogers Centre (retractable)
+        "lat": 43.6414, "lon": -79.3894, "dome": True, "retractable": True, "alt_ft": 260,
         "name": "Rogers Centre", "bearing": 0,
         "lf_dist": 328, "cf_dist": 400, "rf_dist": 328,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,

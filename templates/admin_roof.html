@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .ar-header { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:6px; }
+  .ar-title  { font-size:1.3rem; font-weight:700; }
+  .ar-subtitle { font-size:0.82rem; color:#666; margin-bottom:24px; }
+
+  .ar-date-form { display:flex; gap:8px; align-items:center; }
+  .ar-date-form input[type=date] {
+    padding:7px 10px; border-radius:7px; border:1px solid var(--border,rgba(0,0,0,0.12));
+    font-size:0.85rem; background:var(--bg,#fff); color:var(--text,#111);
+  }
+  .ar-date-form button {
+    padding:7px 14px; border-radius:7px; border:none; cursor:pointer;
+    background:#222; color:#fff; font-size:0.82rem; font-weight:700;
+  }
+
+  .ar-empty { padding:40px 0; color:#888; font-size:0.9rem; }
+
+  /* Game cards */
+  .ar-grid {
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:14px; margin-top:10px;
+  }
+  .ar-card {
+    border:1px solid var(--border,rgba(0,0,0,0.1));
+    border-radius:12px; padding:18px 18px 14px;
+    background:var(--card-bg,#fff);
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .ar-card-top { display:flex; justify-content:space-between; align-items:flex-start; }
+  .ar-matchup  { font-size:1rem; font-weight:700; }
+  .ar-time     { font-size:0.75rem; color:#888; margin-top:1px; }
+  .ar-venue    { font-size:0.78rem; color:#555; font-style:italic; }
+
+  /* Toggle row */
+  .ar-toggle-row { display:flex; gap:8px; align-items:center; margin-top:4px; }
+  .ar-toggle-label { font-size:0.72rem; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.4px; flex-shrink:0; }
+
+  .ar-btn-group { display:flex; border-radius:8px; overflow:hidden; border:1px solid var(--border,rgba(0,0,0,0.12)); }
+  .ar-btn {
+    padding:8px 16px; font-size:0.8rem; font-weight:700; cursor:pointer; border:none;
+    background:var(--bg,#f5f5f5); color:#444; transition:all 0.12s; white-space:nowrap;
+  }
+  .ar-btn:not(:last-child) { border-right:1px solid var(--border,rgba(0,0,0,0.1)); }
+  .ar-btn.active-open  { background:#16a34a; color:#fff; }
+  .ar-btn.active-closed{ background:#dc2626; color:#fff; }
+  .ar-btn:hover:not(.active-open):not(.active-closed) { background:rgba(0,0,0,0.06); }
+
+  .ar-status-badge {
+    font-size:0.72rem; font-weight:700; padding:3px 9px; border-radius:20px;
+    display:inline-flex; align-items:center; gap:4px;
+  }
+  .ar-status-badge.open   { background:rgba(22,163,74,0.12); color:#16a34a; }
+  .ar-status-badge.closed { background:rgba(220,38,38,0.12); color:#dc2626; }
+  .ar-status-badge.unknown{ background:rgba(0,0,0,0.06); color:#888; }
+
+  .ar-saving { font-size:0.72rem; color:#888; display:none; }
+  .ar-saving.show { display:inline; }
+</style>
+
+<div class="ar-header">
+  <div class="ar-title">Roof Status</div>
+  <form class="ar-date-form" method="get">
+    <input type="date" name="date" value="{{ date }}">
+    <button type="submit">Go</button>
+  </form>
+</div>
+<div class="ar-subtitle">
+  Set roof open/closed for retractable-roof stadiums. Affects weather calculations in Stadium Conditions.
+</div>
+
+{% if not games %}
+  <div class="ar-empty">No retractable-roof games on {{ date }}.</div>
+{% else %}
+<div class="ar-grid" id="arGrid">
+  {% for g in games %}
+  <div class="ar-card" data-game-pk="{{ g.gamePk }}">
+    <div class="ar-card-top">
+      <div>
+        <div class="ar-matchup">{{ g.away }} @ {{ g.home }}</div>
+        <div class="ar-time">{{ g.timeLocal or "TBD" }}</div>
+      </div>
+      <div>
+        {% if g.roof_open == true %}
+          <span class="ar-status-badge open">&#9788; Open</span>
+        {% elif g.roof_open == false %}
+          <span class="ar-status-badge closed">&#9632; Closed</span>
+        {% else %}
+          <span class="ar-status-badge unknown">? Unknown</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="ar-venue">{{ g.venue }}</div>
+    <div class="ar-toggle-row">
+      <span class="ar-toggle-label">Roof:</span>
+      <div class="ar-btn-group">
+        <button class="ar-btn {% if g.roof_open == true %}active-open{% endif %}"
+                onclick="setRoof({{ g.gamePk }}, true, this)">Open</button>
+        <button class="ar-btn {% if g.roof_open == false %}active-closed{% endif %}"
+                onclick="setRoof({{ g.gamePk }}, false, this)">Closed</button>
+        <button class="ar-btn {% if g.roof_open == none %}active-none{% endif %}"
+                onclick="setRoof({{ g.gamePk }}, null, this)">Clear</button>
+      </div>
+      <span class="ar-saving" id="saving-{{ g.gamePk }}">saving...</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+function setRoof(gamePk, roofOpen, btn) {
+  const card = btn.closest('.ar-card');
+  const savingEl = document.getElementById('saving-' + gamePk);
+
+  savingEl.classList.add('show');
+
+  fetch('/admin/roof/set', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({game_pk: gamePk, roof_open: roofOpen}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    savingEl.classList.remove('show');
+    if (!data.ok) { alert('Error: ' + data.error); return; }
+
+    // Update button states
+    const btns = card.querySelectorAll('.ar-btn');
+    btns[0].classList.remove('active-open');
+    btns[1].classList.remove('active-closed');
+    btns[2].classList.remove('active-none');
+    if (data.roof_open === true)  btns[0].classList.add('active-open');
+    if (data.roof_open === false) btns[1].classList.add('active-closed');
+    if (data.roof_open == null)   btns[2].classList.add('active-none');
+
+    // Update badge
+    const badge = card.querySelector('.ar-status-badge');
+    if (data.roof_open === true) {
+      badge.className = 'ar-status-badge open';
+      badge.innerHTML = '&#9788; Open';
+    } else if (data.roof_open === false) {
+      badge.className = 'ar-status-badge closed';
+      badge.innerHTML = '&#9632; Closed';
+    } else {
+      badge.className = 'ar-status-badge unknown';
+      badge.innerHTML = '? Unknown';
+    }
+  })
+  .catch(() => { savingEl.classList.remove('show'); alert('Save failed.'); });
+}
+</script>
+{% endblock %}

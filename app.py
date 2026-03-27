@@ -1541,7 +1541,7 @@ def stadium_conditions_json():
         weather = {}
         if venue_id:
             try:
-                weather = fetch_game_weather(venue_id, game_date_iso)
+                weather = fetch_game_weather(venue_id, game_date_iso, game_pk=g.get("gamePk"))
             except Exception:
                 pass
         results.append({
@@ -3481,6 +3481,66 @@ def umpire_tendency_heatmap_json(umpire_id: int):
     stand = request.args.get("stand")
     data = umpire_tendency_heatmap(umpire_id, season=season, stand=stand)
     return jsonify(data)
+
+
+# ---------------------------------------------------------------------------
+# Admin: Roof Status
+# ---------------------------------------------------------------------------
+
+@app.get("/admin/roof")
+def admin_roof():
+    """Admin page to set roof open/closed for retractable-roof stadiums."""
+    from services.venue_meta import VENUES
+    from services.weather import load_roof_overrides
+    user_tz = "America/Phoenix"
+    picked = (request.args.get("date") or "").strip()
+    today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
+    target = picked or today_ymd
+
+    games_list = get_games_for_date(target, tz_name=user_tz)
+    overrides = load_roof_overrides()
+
+    # Only show games at retractable-roof venues
+    retractable_games = []
+    for g in games_list:
+        vid = g.get("venueId")
+        if vid and VENUES.get(vid, {}).get("retractable"):
+            gk = str(g.get("gamePk", ""))
+            retractable_games.append({
+                "gamePk":       g.get("gamePk"),
+                "timeLocal":    g.get("timeLocal"),
+                "venue":        g.get("venue"),
+                "home":         g.get("home"),
+                "away":         g.get("away"),
+                "roof_open":    overrides.get(gk),  # True/False/None
+            })
+
+    return render_template(
+        "admin_roof.html",
+        title="Roof Status Admin",
+        date=target,
+        games=retractable_games,
+    )
+
+
+@app.post("/admin/roof/set")
+def admin_roof_set():
+    """Toggle roof open/closed for a single game. Body: {game_pk, roof_open}"""
+    from services.weather import load_roof_overrides, save_roof_overrides
+    body = request.get_json(force=True) or {}
+    game_pk = str(body.get("game_pk", "")).strip()
+    roof_open = body.get("roof_open")  # True, False, or None (clear)
+
+    if not game_pk:
+        return jsonify({"ok": False, "error": "game_pk required"})
+
+    overrides = load_roof_overrides()
+    if roof_open is None:
+        overrides.pop(game_pk, None)
+    else:
+        overrides[game_pk] = bool(roof_open)
+    save_roof_overrides(overrides)
+    return jsonify({"ok": True, "game_pk": game_pk, "roof_open": overrides.get(game_pk)})
 
 
 if __name__ == "__main__":

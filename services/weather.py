@@ -5,10 +5,27 @@ from __future__ import annotations
 import json
 import math
 import logging
+import os
 import urllib.request
 from datetime import datetime, timezone
 
 from services.venue_meta import get_venue_meta
+
+_ROOF_OVERRIDES_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "roof_overrides.json")
+
+
+def load_roof_overrides() -> dict:
+    """Load roof override file; returns {str(game_pk): bool}."""
+    try:
+        with open(_ROOF_OVERRIDES_PATH, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_roof_overrides(overrides: dict) -> None:
+    with open(_ROOF_OVERRIDES_PATH, "w") as f:
+        json.dump(overrides, f, indent=2)
 
 log = logging.getLogger(__name__)
 
@@ -238,17 +255,31 @@ def calculate_weather_impact(
 # Public API
 # ---------------------------------------------------------------------------
 
-def fetch_game_weather(venue_id, game_datetime_str):
+def fetch_game_weather(venue_id, game_datetime_str, game_pk=None):
     """
     Fetch weather for a game.
 
     venue_id:           MLB venue ID (int)
     game_datetime_str:  ISO datetime string from MLB feed (e.g. "2026-03-25T23:05:00Z")
+    game_pk:            MLB game pk (int or str) — used to check roof overrides
 
-    Returns dict with: dome, condition, temp_f, wind_mph, wind_dir, bearing, impact {}
+    Returns dict with: dome, retractable, roof_open, condition, temp_f, wind_mph, wind_dir, bearing, impact {}
     """
     venue = get_venue_meta(venue_id)
-    if venue["dome"]:
+    is_retractable = venue.get("retractable", False)
+
+    # Check roof override for retractable stadiums
+    roof_open = None
+    if is_retractable and game_pk is not None:
+        overrides = load_roof_overrides()
+        key = str(game_pk)
+        if key in overrides:
+            roof_open = overrides[key]  # True = open, False = closed
+
+    # Treat as dome if: fixed dome, OR retractable with no override/override=closed
+    treat_as_dome = venue["dome"] and not (is_retractable and roof_open is True)
+
+    if treat_as_dome:
         # No wind/weather, but park dimensions still create directional HR differences
         dome_impact = calculate_weather_impact(
             72, 0, 0,
@@ -262,15 +293,17 @@ def fetch_game_weather(venue_id, game_datetime_str):
         )
         dome_impact["hr_factor"]  = 1.0
         dome_impact["xbh_factor"] = 1.0
-        dome_impact["label"]      = "Dome (controlled)"
+        dome_impact["label"]      = "Retractable (closed)" if is_retractable else "Dome (controlled)"
         return {
-            "dome":      True,
-            "condition": "Dome",
-            "temp_f":    72,
-            "wind_mph":  0,
-            "wind_dir":  0,
-            "bearing":   venue.get("bearing", 180),
-            "impact":    dome_impact,
+            "dome":        True,
+            "retractable": is_retractable,
+            "roof_open":   False if is_retractable else None,
+            "condition":   "Dome",
+            "temp_f":      72,
+            "wind_mph":    0,
+            "wind_dir":    0,
+            "bearing":     venue.get("bearing", 180),
+            "impact":      dome_impact,
         }
 
     # Parse game datetime
@@ -332,13 +365,15 @@ def fetch_game_weather(venue_id, game_datetime_str):
         )
 
         result = {
-            "dome":      False,
-            "condition": condition,
-            "temp_f":    round(temp_f),
-            "wind_mph":  round(wind_mph),
-            "wind_dir":  round(wind_dir),
-            "bearing":   venue.get("bearing", 180),
-            "impact":    impact,
+            "dome":        False,
+            "retractable": is_retractable,
+            "roof_open":   True if is_retractable else None,
+            "condition":   condition,
+            "temp_f":      round(temp_f),
+            "wind_mph":    round(wind_mph),
+            "wind_dir":    round(wind_dir),
+            "bearing":     venue.get("bearing", 180),
+            "impact":      impact,
         }
         _cache[cache_key] = result
         return result
@@ -361,11 +396,13 @@ def _fallback(venue):
         rf_wall=venue.get("rf_wall", 8),
     )
     return {
-        "dome":      False,
-        "condition": "Unknown",
-        "temp_f":    72,
-        "wind_mph":  0,
-        "wind_dir":  0,
-        "bearing":   venue.get("bearing", 180),
-        "impact":    impact,
+        "dome":        False,
+        "retractable": venue.get("retractable", False),
+        "roof_open":   None,
+        "condition":   "Unknown",
+        "temp_f":      72,
+        "wind_mph":    0,
+        "wind_dir":    0,
+        "bearing":     venue.get("bearing", 180),
+        "impact":      impact,
     }
