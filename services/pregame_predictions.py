@@ -309,7 +309,7 @@ def get_pregame_predictions(game_pk, season=2026):
         venue_id = lineup_data.get("venue_id")
         game_dt = lineup_data.get("game_dt_iso")
         if venue_id:
-            result["weather"] = fetch_game_weather(venue_id, game_dt)
+            result["weather"] = fetch_game_weather(venue_id, game_dt, game_pk=game_pk)
         else:
             result["weather"] = None
     except Exception as e:

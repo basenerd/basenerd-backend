@@ -318,7 +318,8 @@ def fetch_game_weather(venue_id, game_datetime_str, game_pk=None):
     date_str = dt.strftime("%Y-%m-%d")
     hour = dt.hour  # UTC hour
 
-    cache_key = (venue_id, date_str, hour)
+    # Include game_pk in cache key for retractable stadiums so roof overrides are respected
+    cache_key = (venue_id, date_str, hour, game_pk if is_retractable else None)
     if cache_key in _cache:
         return _cache[cache_key]
 

@@ -1078,76 +1078,53 @@
   .pv-loading{ text-align:center; padding:40px 20px; opacity:0.5; }
 
   /* ---- Bullpen Availability ---- */
-  .pv-bullpen-section{
-    margin-top:24px;
+  .pv-bullpen-section{ margin-top:24px; }
+  .pv-bullpen-cols{
+    display:grid; grid-template-columns:1fr 1fr; gap:16px;
   }
-  .pv-bullpen-header{
-    font-size:1rem; font-weight:800; margin:0 0 12px;
-    display:flex; align-items:center; gap:8px;
+  @media(max-width:580px){ .pv-bullpen-cols{ grid-template-columns:1fr; } }
+  .pv-bullpen-col-header{
+    font-size:0.95rem; font-weight:800; margin-bottom:10px;
+    display:flex; align-items:center; gap:6px;
   }
-  .pv-bullpen-header .pv-bp-team{
-    font-size:0.7rem; opacity:0.5; text-transform:uppercase; letter-spacing:0.5px;
+  .pv-bullpen-col-header .pv-bp-team{
+    font-size:0.65rem; opacity:0.45; text-transform:uppercase; letter-spacing:.05em; font-weight:700;
   }
-  .pv-bullpen-grid{
-    display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap:8px;
+  .pv-bp-tbl{ width:100%; border-collapse:collapse; font-size:0.8rem; }
+  .pv-bp-tbl th{
+    text-align:left; font-size:0.62rem; text-transform:uppercase; letter-spacing:.04em;
+    opacity:0.4; padding:3px 6px 6px 0; font-weight:700; border-bottom:1px solid rgba(255,255,255,0.08);
   }
-  .pv-bp-card{
-    display:flex; align-items:center; gap:10px;
-    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
-    border-radius:10px; padding:10px 12px;
-    transition: border-color 0.2s;
+  .pv-bp-tbl th.num{ text-align:right; }
+  .pv-bp-tbl td{ padding:6px 6px 6px 0; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
+  .pv-bp-tbl td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .pv-bp-tbl tr:last-child td{ border-bottom:none; }
+  .pv-bp-dot{
+    width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0;
   }
-  .pv-bp-card:hover{ border-color:rgba(255,255,255,0.15); }
-  .pv-bp-card.status-available{ border-left:3px solid #51cf66; }
-  .pv-bp-card.status-limited{ border-left:3px solid #ffd43b; }
-  .pv-bp-card.status-unlikely{ border-left:3px solid #ff922b; }
-  .pv-bp-card.status-unavailable{ border-left:3px solid #ff6b6b; }
-
-  .pv-bp-avatar{
-    width:40px; height:40px; border-radius:50%;
-    border:2px solid rgba(255,255,255,0.08); object-fit:cover; flex-shrink:0;
+  .pv-bp-name-cell{ display:flex; align-items:center; gap:7px; }
+  .pv-bp-tbl-name{ font-weight:700; }
+  .pv-bp-tbl-note{ font-size:0.68rem; opacity:0.5; }
+  .pv-bp-status-pill{
+    display:inline-block; padding:2px 7px; border-radius:5px;
+    font-size:0.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.03em;
   }
-  .pv-bp-info{ flex:1; min-width:0; }
-  .pv-bp-name{ font-weight:700; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pv-bp-note{ font-size:0.7rem; opacity:0.5; margin-top:1px; }
-
-  .pv-bp-right{ text-align:right; flex-shrink:0; }
-  .pv-bp-badge{
-    display:inline-block; padding:2px 8px; border-radius:6px;
-    font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px;
-  }
-  .pv-bp-badge.available{ background:rgba(81,207,102,0.15); color:#51cf66; }
-  .pv-bp-badge.limited{ background:rgba(255,212,59,0.15); color:#ffd43b; }
-  .pv-bp-badge.unlikely{ background:rgba(255,146,43,0.15); color:#ff922b; }
-  .pv-bp-badge.unavailable{ background:rgba(255,107,107,0.15); color:#ff6b6b; }
-
-  .pv-bp-workload{
-    margin-top:4px; height:4px; width:60px; border-radius:2px;
-    background:rgba(255,255,255,0.08); overflow:hidden; margin-left:auto;
-  }
-  .pv-bp-workload-fill{ height:100%; border-radius:2px; transition: width 0.3s; }
-
-  .pv-bp-pitches{
-    font-size:0.68rem; opacity:0.45; margin-top:2px;
-  }
-
-  .pv-bp-appearances{
-    display:flex; gap:3px; margin-top:4px;
-  }
+  .pv-bp-status-pill.available  { background:rgba(81,207,102,0.15); color:#51cf66; }
+  .pv-bp-status-pill.limited    { background:rgba(255,212,59,0.15); color:#ffd43b; }
+  .pv-bp-status-pill.unlikely   { background:rgba(255,146,43,0.15); color:#ff922b; }
+  .pv-bp-status-pill.unavailable{ background:rgba(255,107,107,0.15); color:#ff6b6b; }
+  .pv-bp-apps{ display:flex; gap:2px; }
   .pv-bp-app-dot{
-    width:18px; height:18px; border-radius:4px; display:flex; align-items:center; justify-content:center;
-    font-size:0.58rem; font-weight:700; color:#fff;
+    width:16px; height:16px; border-radius:3px; display:flex; align-items:center; justify-content:center;
+    font-size:0.56rem; font-weight:700; color:#fff;
   }
-
   .pv-bp-legend{
-    display:flex; gap:14px; flex-wrap:wrap; margin-bottom:10px;
+    display:flex; gap:14px; flex-wrap:wrap; margin-bottom:12px;
     font-size:0.7rem; opacity:0.6;
   }
   .pv-bp-legend-item{ display:flex; align-items:center; gap:4px; }
   .pv-bp-legend-swatch{
-    width:10px; height:10px; border-radius:3px;
+    width:8px; height:8px; border-radius:50%;
   }
 
   /* ---- Stat Probability Distribution (table style) ---- */
@@ -6665,62 +6642,68 @@ document.addEventListener("DOMContentLoaded", ()=>{
     return '#51cf66';
   }
 
-  function renderBullpenSide(bp, teamName, abbrev){
-    if(!bp || !bp.length) return '';
-    let html = `<div class="pv-bullpen-header">
-      <span class="pv-bp-team">${abbrev}</span> ${teamName} Bullpen
-    </div>`;
-    html += '<div class="pv-bullpen-grid">';
-    bp.forEach(p=>{
+  function _bpTableRows(bp){
+    if(!bp || !bp.length) return '<tr><td colspan="4" style="opacity:0.4;font-size:0.78rem;padding:10px 0;">No data</td></tr>';
+    return bp.map(p => {
       const st = p.status || 'available';
-      html += `<div class="pv-bp-card status-${st}">`;
-      if(p.headshot) html += `<img class="pv-bp-avatar" src="${p.headshot}" alt="">`;
-      else html += `<div class="pv-bp-avatar" style="background:rgba(255,255,255,0.06);"></div>`;
-      html += `<div class="pv-bp-info">
-        <div class="pv-bp-name">${p.name}</div>
-        <div class="pv-bp-note">${p.note || ''}</div>`;
-      // Appearance dots
+      const dotColor = st === 'available' ? '#51cf66' : st === 'limited' ? '#ffd43b' : st === 'unlikely' ? '#ff922b' : '#ff6b6b';
+      let appsHtml = '';
       if(p.appearances && p.appearances.length){
-        html += '<div class="pv-bp-appearances">';
-        p.appearances.forEach(a=>{
-          html += `<div class="pv-bp-app-dot" style="background:${appDotColor(a.pitches)}" title="${a.days_ago}d ago: ${a.pitches}P">${a.pitches}</div>`;
-        });
-        html += '</div>';
+        appsHtml = '<div class="pv-bp-apps">' +
+          p.appearances.map(a=>`<div class="pv-bp-app-dot" style="background:${appDotColor(a.pitches)}" title="${a.days_ago}d ago: ${a.pitches}P">${a.pitches}</div>`).join('') +
+          '</div>';
       }
-      html += `</div>`;
-      html += `<div class="pv-bp-right">
-        <div class="pv-bp-badge ${st}">${st}</div>
-        <div class="pv-bp-workload">
-          <div class="pv-bp-workload-fill" style="width:${p.workload || 0}%;background:${workloadColor(p.workload || 0)}"></div>
-        </div>
-        <div class="pv-bp-pitches">${p.total_pitches_4d || 0}P / 4d</div>
-      </div>`;
-      html += '</div>';
-    });
-    html += '</div>';
-    return html;
+      return `<tr>
+        <td>
+          <div class="pv-bp-name-cell">
+            <span class="pv-bp-dot" style="background:${dotColor}"></span>
+            <div>
+              <div class="pv-bp-tbl-name">${p.name}</div>
+              ${p.note ? `<div class="pv-bp-tbl-note">${p.note}</div>` : ''}
+            </div>
+          </div>
+        </td>
+        <td class="num"><span class="pv-bp-status-pill ${st}">${st}</span></td>
+        <td class="num" style="opacity:0.6;">${p.total_pitches_4d || 0}P</td>
+        <td class="num">${appsHtml}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderBullpenSide(bp, teamName, abbrev){
+    return `<div>
+      <div class="pv-bullpen-col-header">
+        <span class="pv-bp-team">${abbrev}</span> ${teamName}
+      </div>
+      <table class="pv-bp-tbl">
+        <thead><tr>
+          <th>Pitcher</th>
+          <th class="num">Status</th>
+          <th class="num">4d</th>
+          <th class="num">Recent</th>
+        </tr></thead>
+        <tbody>${_bpTableRows(bp)}</tbody>
+      </table>
+    </div>`;
   }
 
   function renderBullpen(awayBp, awayName, awayAbbrev, homeBp, homeName, homeAbbrev){
     if((!awayBp || !awayBp.length) && (!homeBp || !homeBp.length)) return '';
 
     let html = '<div class="pv-bullpen-section">';
-
-    // Legend
     html += `<div class="pv-bp-legend">
-      <div class="pv-bp-legend-item"><div class="pv-bp-legend-swatch" style="background:#51cf66"></div> Available</div>
-      <div class="pv-bp-legend-item"><div class="pv-bp-legend-swatch" style="background:#ffd43b"></div> Limited</div>
-      <div class="pv-bp-legend-item"><div class="pv-bp-legend-swatch" style="background:#ff922b"></div> Unlikely</div>
-      <div class="pv-bp-legend-item"><div class="pv-bp-legend-swatch" style="background:#ff6b6b"></div> Unavailable</div>
+      <div class="pv-bp-legend-item"><span class="pv-bp-dot" style="background:#51cf66"></span> Available</div>
+      <div class="pv-bp-legend-item"><span class="pv-bp-dot" style="background:#ffd43b"></span> Limited</div>
+      <div class="pv-bp-legend-item"><span class="pv-bp-dot" style="background:#ff922b"></span> Unlikely</div>
+      <div class="pv-bp-legend-item"><span class="pv-bp-dot" style="background:#ff6b6b"></span> Unavailable</div>
     </div>`;
 
+    html += '<div class="pv-bullpen-cols">';
     html += renderBullpenSide(awayBp, awayName, awayAbbrev);
-    if(awayBp && awayBp.length && homeBp && homeBp.length){
-      html += '<div style="margin-top:20px;"></div>';
-    }
     html += renderBullpenSide(homeBp, homeName, homeAbbrev);
+    html += '</div>';  // .pv-bullpen-cols
 
-    html += '</div>';
+    html += '</div>';  // .pv-bullpen-section
     return html;
   }
 
