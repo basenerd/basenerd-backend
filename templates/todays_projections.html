@@ -203,89 +203,176 @@
 
   /* ---- Stadium Conditions ---- */
   .sc-grid{
-    display:grid; gap:12px;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    display:grid; gap:14px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     margin-top:4px;
   }
   .sc-card{
-    border:1px solid var(--border, rgba(0,0,0,0.09));
-    border-radius:12px;
+    border:1px solid var(--border, rgba(0,0,0,0.10));
+    border-radius:14px;
     overflow:hidden;
     background:var(--card, #fff);
+    display:flex; flex-direction:column;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
   }
+
+  /* Header */
   .sc-card-header{
     display:flex; align-items:center; justify-content:space-between;
-    padding:10px 14px 8px;
+    padding:10px 14px 9px;
     border-bottom:1px solid rgba(0,0,0,0.06);
-    gap:8px;
+    gap:8px; background:var(--card,#fff);
   }
   .sc-matchup{
     display:flex; align-items:center; gap:6px; flex:1; min-width:0;
   }
-  .sc-team-logo{ width:24px; height:24px; flex-shrink:0; }
-  .sc-at{ font-size:0.7rem; opacity:0.4; font-weight:700; }
-  .sc-abbrev{ font-size:0.85rem; font-weight:800; }
-  .sc-time{ font-size:0.72rem; opacity:0.45; white-space:nowrap; }
-  .sc-venue-block{
-    padding:6px 14px 8px;
-    border-bottom:1px solid rgba(0,0,0,0.05);
+  .sc-team-logo{ width:26px; height:26px; flex-shrink:0; }
+  .sc-at{ font-size:0.68rem; opacity:0.35; font-weight:700; }
+  .sc-abbrev{ font-size:0.88rem; font-weight:800; letter-spacing:0.3px; }
+  .sc-time{ font-size:0.7rem; opacity:0.42; white-space:nowrap; }
+
+  /* Stadium visual area */
+  .sc-stadium-wrap{
+    position:relative;
+    background: linear-gradient(160deg, #162b14 0%, #0c1f0b 55%, #091809 100%);
+    overflow:hidden;
   }
-  .sc-venue-name{
-    font-size:0.78rem; font-weight:700;
+  .sc-stadium-wrap::after{
+    content:''; position:absolute; inset:0;
+    background: radial-gradient(ellipse at 50% 95%, rgba(40,90,30,0.45) 0%, transparent 70%);
+    pointer-events:none;
   }
-  .sc-venue-loc{
-    font-size:0.68rem; opacity:0.45;
+  .sc-stadium-svg-img{
+    display:block; width:100%;
+    /* crop bottom ~20% to remove empty space below home plate */
+    object-fit:cover; object-position:top center;
+    height:220px;
+    opacity:0.28;
+    filter: invert(1) brightness(1.8) saturate(0.4);
+    mix-blend-mode: screen;
   }
-  .sc-body{ padding:10px 14px; display:flex; flex-direction:column; gap:8px; }
+
+  /* HR zone chips overlaid on the SVG */
+  .sc-zone-overlay{
+    position:absolute; top:0; left:0; right:0; bottom:0;
+    pointer-events:none;
+  }
+  .sc-zone-chip{
+    position:absolute;
+    display:flex; flex-direction:column; align-items:center; gap:1px;
+    padding:5px 9px; border-radius:9px;
+    border:1px solid rgba(255,255,255,0.12);
+    background:rgba(0,0,0,0.52);
+    backdrop-filter:blur(6px);
+    transform:translate(-50%,-50%);
+    min-width:52px;
+  }
+  .sc-zone-chip.pos-strong{
+    background:rgba(14,100,42,0.82); border-color:rgba(81,207,102,0.45);
+    box-shadow:0 0 10px rgba(81,207,102,0.25);
+  }
+  .sc-zone-chip.pos{
+    background:rgba(14,85,36,0.70); border-color:rgba(81,207,102,0.28);
+  }
+  .sc-zone-chip.neg{
+    background:rgba(110,22,22,0.70); border-color:rgba(192,57,43,0.32);
+  }
+  .sc-zone-chip.neg-strong{
+    background:rgba(130,18,18,0.82); border-color:rgba(192,57,43,0.48);
+    box-shadow:0 0 10px rgba(192,57,43,0.22);
+  }
+  .sc-zone-chip.neu{
+    background:rgba(30,30,30,0.62); border-color:rgba(255,255,255,0.10);
+  }
+  .sc-zone-chip-label{
+    font-size:0.52rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.5px; color:rgba(255,255,255,0.55); white-space:nowrap;
+  }
+  .sc-zone-chip-val{
+    font-size:0.88rem; font-weight:900; color:#fff;
+    font-variant-numeric:tabular-nums; line-height:1;
+  }
+  /* Chip positions (% of container) */
+  .sc-zone-lf{ left:20%; top:44%; }
+  .sc-zone-cf{ left:50%; top:11%; }
+  .sc-zone-rf{ left:80%; top:44%; }
+
+  /* Dome label shown instead of SVG chips when dome=true */
+  .sc-dome-label{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-size:0.8rem; font-weight:700; color:rgba(255,255,255,0.55);
+    letter-spacing:1px; text-transform:uppercase;
+  }
+
+  /* Env badge centred at the bottom of the image area */
+  .sc-env-badge-row{
+    position:absolute; bottom:10px; left:0; right:0;
+    display:flex; justify-content:center; pointer-events:none;
+  }
   .sc-env-badge{
-    display:inline-block; padding:3px 10px; border-radius:20px;
-    font-size:0.72rem; font-weight:800; letter-spacing:0.2px;
-    align-self:flex-start;
+    display:inline-block; padding:4px 12px; border-radius:20px;
+    font-size:0.7rem; font-weight:800; letter-spacing:0.2px;
+    backdrop-filter:blur(6px);
   }
-  .sc-env-hitter-very{ background:rgba(81,207,102,0.22); color:#1a7a36; }
-  .sc-env-hitter    { background:rgba(81,207,102,0.13); color:#2a9048; }
-  .sc-env-neutral   { background:rgba(0,0,0,0.06);       color:#555; }
-  .sc-env-pitcher   { background:rgba(99,149,255,0.13);  color:#1a4fa8; }
-  .sc-env-pitcher-very{ background:rgba(99,149,255,0.22); color:#1035a0; }
-  .sc-env-dome      { background:rgba(180,180,180,0.18); color:#555; }
+  .sc-env-hitter-very{
+    background:rgba(22,130,54,0.80); color:#d4fde4;
+    border:1px solid rgba(81,207,102,0.4);
+  }
+  .sc-env-hitter{
+    background:rgba(22,110,46,0.70); color:#c0f5d2;
+    border:1px solid rgba(81,207,102,0.25);
+  }
+  .sc-env-neutral{
+    background:rgba(30,30,30,0.65); color:rgba(255,255,255,0.75);
+    border:1px solid rgba(255,255,255,0.10);
+  }
+  .sc-env-pitcher{
+    background:rgba(30,60,160,0.70); color:#c8d8ff;
+    border:1px solid rgba(99,149,255,0.3);
+  }
+  .sc-env-pitcher-very{
+    background:rgba(20,45,140,0.82); color:#b8ccff;
+    border:1px solid rgba(99,149,255,0.45);
+  }
+  .sc-env-dome{
+    background:rgba(50,50,50,0.72); color:rgba(255,255,255,0.65);
+    border:1px solid rgba(255,255,255,0.10);
+  }
+
+  /* Footer */
+  .sc-card-footer{
+    padding:10px 14px 12px;
+    display:flex; flex-direction:column; gap:7px;
+    border-top:1px solid rgba(0,0,0,0.05);
+  }
+  .sc-venue-row{
+    display:flex; align-items:baseline; gap:6px; flex-wrap:wrap;
+  }
+  .sc-venue-name{ font-size:0.8rem; font-weight:700; }
+  .sc-venue-loc{ font-size:0.68rem; opacity:0.42; }
 
   .sc-weather-row{
     display:flex; align-items:center; gap:10px; flex-wrap:wrap;
   }
   .sc-weather-item{
     display:flex; align-items:center; gap:4px;
-    font-size:0.75rem; font-weight:600;
+    font-size:0.73rem; font-weight:600;
   }
-  .sc-weather-label{ font-size:0.65rem; opacity:0.45; text-transform:uppercase; letter-spacing:0.3px; }
+  .sc-weather-label{
+    font-size:0.62rem; opacity:0.42; text-transform:uppercase; letter-spacing:0.3px;
+  }
 
-  .sc-hr-grid{
-    display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;
+  .sc-xbh-row{
+    display:flex; align-items:center; gap:8px; font-size:0.72rem; opacity:0.65;
   }
-  .sc-hr-zone{
-    text-align:center; padding:6px 4px;
-    border-radius:8px; border:1px solid rgba(0,0,0,0.07);
-  }
-  .sc-hr-zone-label{
-    font-size:0.62rem; font-weight:700; opacity:0.45; text-transform:uppercase;
-    letter-spacing:0.3px; margin-bottom:2px;
-  }
-  .sc-hr-val{
-    font-size:0.85rem; font-weight:800;
-  }
-  .sc-hr-pos{ color:#1a7a36; }
-  .sc-hr-neg{ color:#c0392b; }
-  .sc-hr-neu{ color:#555; }
-  .sc-hr-zone.pos{ background:rgba(81,207,102,0.10); border-color:rgba(81,207,102,0.25); }
-  .sc-hr-zone.neg{ background:rgba(192,57,43,0.08);  border-color:rgba(192,57,43,0.20); }
+  .sc-xbh-val{ font-weight:800; opacity:1; }
 
-  .sc-dims{
-    display:flex; gap:10px; font-size:0.7rem; opacity:0.55; flex-wrap:wrap;
-  }
   .sc-loading{ text-align:center; padding:40px 20px; opacity:0.5; }
 
   @media(max-width:640px){
     .sc-grid{ grid-template-columns:1fr; }
-    .sc-abbrev{ font-size:0.78rem; }
+    .sc-abbrev{ font-size:0.82rem; }
+    .sc-stadium-svg-img{ height:180px; }
   }
 </style>
 
@@ -688,6 +775,25 @@
   }
 
   // ---- Stadium Conditions ----
+  const TEAM_SVG = {
+    'NYY':'yankees','BOS':'red_sox','NYM':'mets','BAL':'orioles',
+    'TB':'rays','TBR':'rays','TOR':'blue_jays',
+    'CWS':'white_sox','WSX':'white_sox','CLE':'guardians','DET':'tigers',
+    'KC':'royals','KCR':'royals','MIN':'twins',
+    'HOU':'astros','LAA':'angels','OAK':'athletics','ATH':'athletics',
+    'SEA':'mariners','TEX':'rangers',
+    'ATL':'braves','MIA':'marlins','PHI':'phillies',
+    'WSH':'nationals','WSN':'nationals','WAS':'nationals',
+    'CHC':'cubs','CIN':'reds','MIL':'brewers','PIT':'pirates','STL':'cardinals',
+    'ARI':'diamondbacks','COL':'rockies','LAD':'dodgers',
+    'SF':'giants','SFG':'giants','SD':'padres','SDP':'padres',
+  };
+
+  function stadiumSvgUrl(abbrev){
+    const slug = TEAM_SVG[abbrev] || 'generic';
+    return `/static/stadium_svgs/${slug}.svg`;
+  }
+
   function windDegToCompass(deg){
     const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
     return dirs[Math.round(deg / 22.5) % 16];
@@ -700,16 +806,12 @@
     return '0%';
   }
 
-  function hrZoneClass(f){
-    if(f > 1.03) return 'pos';
-    if(f < 0.97) return 'neg';
-    return '';
-  }
-
-  function hrValClass(f){
-    if(f > 1.03) return 'sc-hr-pos';
-    if(f < 0.97) return 'sc-hr-neg';
-    return 'sc-hr-neu';
+  function zoneChipClass(f){
+    if(f >= 1.07) return 'pos-strong';
+    if(f >= 1.03) return 'pos';
+    if(f <= 0.93) return 'neg-strong';
+    if(f <= 0.97) return 'neg';
+    return 'neu';
   }
 
   function envBadgeClass(label){
@@ -740,11 +842,36 @@
     const rf = imp.rf_hr_factor || 1;
     const xbh = imp.xbh_factor || 1;
 
+    const svgUrl = stadiumSvgUrl(homeAbbrev);
+
+    // Stadium visual: SVG + overlaid HR zone chips + env badge
+    let zoneHtml = '';
+    if(dome){
+      zoneHtml = `<div class="sc-dome-label">Controlled Environment</div>`;
+    } else {
+      zoneHtml = `
+        <div class="sc-zone-overlay">
+          <div class="sc-zone-chip sc-zone-lf ${zoneChipClass(lf)}">
+            <span class="sc-zone-chip-label">LF HR</span>
+            <span class="sc-zone-chip-val">${fmtFactor(lf)}</span>
+          </div>
+          <div class="sc-zone-chip sc-zone-cf ${zoneChipClass(cf)}">
+            <span class="sc-zone-chip-label">CF HR</span>
+            <span class="sc-zone-chip-val">${fmtFactor(cf)}</span>
+          </div>
+          <div class="sc-zone-chip sc-zone-rf ${zoneChipClass(rf)}">
+            <span class="sc-zone-chip-label">RF HR</span>
+            <span class="sc-zone-chip-val">${fmtFactor(rf)}</span>
+          </div>
+        </div>`;
+    }
+
+    // Weather footer items
     let weatherHtml = '';
     if(!dome && w.condition){
       const windDir = windDegToCompass(w.wind_dir || 0);
       const cfMph = (imp.components||{}).cf_wind_mph || 0;
-      const cfLabel = cfMph >= 0 ? `out +${cfMph.toFixed(0)} mph` : `in ${cfMph.toFixed(0)} mph`;
+      const cfSign = cfMph >= 0 ? `out +${cfMph.toFixed(0)}` : `in ${cfMph.toFixed(0)}`;
       weatherHtml = `
         <div class="sc-weather-row">
           <div class="sc-weather-item">
@@ -757,11 +884,17 @@
           </div>
           <div class="sc-weather-item">
             <span class="sc-weather-label">Wind</span>
-            <span>${w.wind_mph} mph ${windDir} (CF: ${cfLabel})</span>
+            <span>${w.wind_mph} mph ${windDir} · CF ${cfSign} mph</span>
           </div>
         </div>`;
     } else if(dome){
-      weatherHtml = `<div class="sc-weather-row"><div class="sc-weather-item"><span class="sc-weather-label">Roof</span><span>Retractable/Fixed Dome</span></div></div>`;
+      weatherHtml = `
+        <div class="sc-weather-row">
+          <div class="sc-weather-item">
+            <span class="sc-weather-label">Roof</span>
+            <span>Dome / Retractable closed</span>
+          </div>
+        </div>`;
     }
 
     return `
@@ -776,29 +909,24 @@
           </div>
           <span class="sc-time">${g.timeLocal || ''}</span>
         </div>
-        <div class="sc-venue-block">
-          <div class="sc-venue-name">${venueName}</div>
-          ${venueLoc ? `<div class="sc-venue-loc">${venueLoc}</div>` : ''}
-        </div>
-        <div class="sc-body">
-          <span class="sc-env-badge ${envCls}">${label}</span>
-          ${weatherHtml}
-          <div class="sc-hr-grid">
-            <div class="sc-hr-zone ${hrZoneClass(lf)}">
-              <div class="sc-hr-zone-label">LF HR</div>
-              <div class="sc-hr-val ${hrValClass(lf)}">${fmtFactor(lf)}</div>
-            </div>
-            <div class="sc-hr-zone ${hrZoneClass(cf)}">
-              <div class="sc-hr-zone-label">CF HR</div>
-              <div class="sc-hr-val ${hrValClass(cf)}">${fmtFactor(cf)}</div>
-            </div>
-            <div class="sc-hr-zone ${hrZoneClass(rf)}">
-              <div class="sc-hr-zone-label">RF HR</div>
-              <div class="sc-hr-val ${hrValClass(rf)}">${fmtFactor(rf)}</div>
-            </div>
+
+        <div class="sc-stadium-wrap">
+          <img class="sc-stadium-svg-img" src="${svgUrl}" alt="${venueName}" onerror="this.style.opacity='0'">
+          ${zoneHtml}
+          <div class="sc-env-badge-row">
+            <span class="sc-env-badge ${envCls}">${label}</span>
           </div>
-          <div class="sc-dims">
-            <span>XBH Adj: <b>${fmtFactor(xbh)}</b></span>
+        </div>
+
+        <div class="sc-card-footer">
+          <div class="sc-venue-row">
+            <span class="sc-venue-name">${venueName}</span>
+            ${venueLoc ? `<span class="sc-venue-loc">${venueLoc}</span>` : ''}
+          </div>
+          ${weatherHtml}
+          <div class="sc-xbh-row">
+            <span>XBH Adj:</span>
+            <span class="sc-xbh-val">${fmtFactor(xbh)}</span>
           </div>
         </div>
       </div>`;
