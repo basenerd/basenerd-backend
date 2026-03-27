@@ -244,12 +244,12 @@
   }
   .sc-stadium-svg-img{
     display:block; width:100%;
-    /* crop bottom ~20% to remove empty space below home plate */
-    object-fit:cover; object-position:top center;
+    /* scaleY(-1) flips SVG so outfield (y≈550) is at top, home plate (y≈93) at bottom */
+    object-fit:cover; object-position:bottom center;
     height:220px;
-    opacity:0.28;
-    filter: invert(1) brightness(1.8) saturate(0.4);
-    mix-blend-mode: screen;
+    opacity:0.40;
+    filter: invert(1) brightness(1.6) saturate(0.3);
+    transform: scaleY(-1);
   }
 
   /* HR zone chips overlaid on the SVG */
