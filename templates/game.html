@@ -916,67 +916,78 @@
     .pv-top-row{ grid-template-columns:1fr; }
   }
 
-  /* New dark stadium card (field factors) */
-  .pv-gx-card{
-    border-radius:13px; overflow:hidden;
-    border:1px solid rgba(255,255,255,0.08);
+  /* Stadium Conditions Card — same structure/style as todays_projections.html */
+  #pv-weather{ display:flex; flex-direction:column; }
+  .sc-card{
+    border:1px solid rgba(255,255,255,0.08); border-radius:14px; overflow:hidden;
     background:linear-gradient(160deg,#111827 0%,#0d1117 60%,#090d13 100%);
-    display:flex; flex-direction:column;
+    display:flex; flex-direction:column; flex:1;
   }
-  .pv-gx-stadium-wrap{
-    position:relative; overflow:hidden; height:200px; flex-shrink:0;
+  .sc-stadium-wrap{
+    position:relative;
     background:linear-gradient(160deg,#111827 0%,#0d1117 60%,#090d13 100%);
+    overflow:hidden;
   }
-  .pv-gx-stadium-wrap::after{
+  .sc-stadium-wrap::after{
     content:''; position:absolute; inset:0;
     background:radial-gradient(ellipse at 50% 95%, rgba(30,50,90,0.35) 0%, transparent 70%);
     pointer-events:none;
   }
-  .pv-gx-stadium-img{
-    display:block; width:100%; height:100%;
-    object-fit:contain; object-position:center;
-    opacity:0.45;
-    filter:invert(1) brightness(1.4) saturate(0.2);
-    transform:scaleY(-1);
+  .sc-stadium-svg-img{
+    display:block; width:100%; object-fit:contain; object-position:center;
+    height:220px; opacity:0.45;
+    filter:invert(1) brightness(1.4) saturate(0.2); transform:scaleY(-1);
   }
-  .pv-gx-wind-svg{
-    position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;
+  .sc-zone-overlay{
+    position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none;
   }
-  .pv-gx-chip{
+  .sc-zone-chip{
     position:absolute; display:flex; flex-direction:column; align-items:center;
     gap:1px; padding:5px 9px; border-radius:9px;
-    border:1px solid rgba(255,255,255,0.12);
-    background:rgba(0,0,0,0.52); backdrop-filter:blur(6px);
-    transform:translate(-50%,-50%); min-width:52px;
+    border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.52);
+    backdrop-filter:blur(6px); transform:translate(-50%,-50%); min-width:52px;
   }
-  .pv-gx-chip.chip-pos-strong{ background:rgba(14,100,42,0.82); border-color:rgba(81,207,102,0.45); box-shadow:0 0 10px rgba(81,207,102,0.25); }
-  .pv-gx-chip.chip-pos       { background:rgba(14,85,36,0.70);  border-color:rgba(81,207,102,0.28); }
-  .pv-gx-chip.chip-neg       { background:rgba(110,22,22,0.70); border-color:rgba(192,57,43,0.32); }
-  .pv-gx-chip.chip-neg-strong{ background:rgba(130,18,18,0.82); border-color:rgba(192,57,43,0.48); box-shadow:0 0 10px rgba(192,57,43,0.22); }
-  .pv-gx-chip.chip-neu       { background:rgba(30,30,30,0.62);  border-color:rgba(255,255,255,0.10); }
-  .pv-gx-chip-zone{ font-size:0.6rem; font-weight:700; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:.04em; }
-  .pv-gx-chip-val { font-size:0.85rem; font-weight:900; font-family:monospace; color:#fff; }
-  .pv-gx-lf { left:19%; top:42%; }
-  .pv-gx-cf { left:50%; top:10%; }
-  .pv-gx-rf { left:81%; top:42%; }
-  .pv-gx-env-badge{
-    position:absolute; bottom:9px; right:10px;
-    font-size:0.68rem; font-weight:700; padding:3px 9px; border-radius:20px;
-    backdrop-filter:blur(6px);
+  .sc-zone-chip.pos-strong{ background:rgba(14,100,42,0.82); border-color:rgba(81,207,102,0.45); box-shadow:0 0 10px rgba(81,207,102,0.25); }
+  .sc-zone-chip.pos       { background:rgba(14,85,36,0.70);  border-color:rgba(81,207,102,0.28); }
+  .sc-zone-chip.neg       { background:rgba(110,22,22,0.70); border-color:rgba(192,57,43,0.32); }
+  .sc-zone-chip.neg-strong{ background:rgba(130,18,18,0.82); border-color:rgba(192,57,43,0.48); box-shadow:0 0 10px rgba(192,57,43,0.22); }
+  .sc-zone-chip.neu       { background:rgba(30,30,30,0.62);  border-color:rgba(255,255,255,0.10); }
+  .sc-zone-chip-label{ font-size:0.52rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:rgba(255,255,255,0.55); white-space:nowrap; }
+  .sc-zone-chip-val  { font-size:0.88rem; font-weight:900; color:#fff; font-variant-numeric:tabular-nums; line-height:1; }
+  .sc-zone-lf{ left:20%; top:44%; }
+  .sc-zone-cf{ left:50%; top:11%; }
+  .sc-zone-rf{ left:80%; top:44%; }
+  .sc-dome-label{
+    position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+    font-size:0.6rem; font-weight:600; color:rgba(255,255,255,0.38);
+    letter-spacing:0.5px; white-space:nowrap;
   }
-  .pv-gx-env-badge.hitter { background:rgba(81,207,102,0.22); color:#51cf66; border:1px solid rgba(81,207,102,0.3); }
-  .pv-gx-env-badge.pitcher{ background:rgba(255,107,107,0.22); color:#ff6b6b; border:1px solid rgba(255,107,107,0.3); }
-  .pv-gx-env-badge.neutral{ background:rgba(255,255,255,0.1);  color:#aaa;    border:1px solid rgba(255,255,255,0.12); }
-  .pv-gx-env-badge.dome   { background:rgba(77,171,247,0.18);  color:#4dabf7; border:1px solid rgba(77,171,247,0.3); }
-  .pv-gx-footer{
-    padding:10px 12px 12px; display:flex; flex-direction:column; gap:5px; flex:1;
-    background:rgba(0,0,0,0.22);
+  .sc-env-badge-row{
+    position:absolute; bottom:10px; left:0; right:0;
+    display:flex; justify-content:center; pointer-events:none;
   }
-  .pv-gx-venue{ font-size:0.72rem; font-weight:700; opacity:0.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pv-gx-wx-row{ display:flex; gap:10px; flex-wrap:wrap; }
-  .pv-gx-wx-item{ display:flex; flex-direction:column; align-items:center; min-width:44px; }
-  .pv-gx-wx-val { font-size:0.88rem; font-weight:800; }
-  .pv-gx-wx-lbl { font-size:0.6rem; opacity:0.5; text-transform:uppercase; letter-spacing:.04em; }
+  .sc-env-badge{
+    display:inline-block; padding:4px 12px; border-radius:20px;
+    font-size:0.7rem; font-weight:800; letter-spacing:0.2px; backdrop-filter:blur(6px);
+  }
+  .sc-env-hitter-very { background:rgba(22,130,54,0.80); color:#d4fde4; border:1px solid rgba(81,207,102,0.4); }
+  .sc-env-hitter      { background:rgba(22,110,46,0.70); color:#c0f5d2; border:1px solid rgba(81,207,102,0.25); }
+  .sc-env-neutral     { background:rgba(30,30,30,0.65);  color:rgba(255,255,255,0.75); border:1px solid rgba(255,255,255,0.10); }
+  .sc-env-pitcher     { background:rgba(30,60,160,0.70); color:#c8d8ff; border:1px solid rgba(99,149,255,0.3); }
+  .sc-env-pitcher-very{ background:rgba(20,45,140,0.82); color:#b8ccff; border:1px solid rgba(99,149,255,0.45); }
+  .sc-env-dome        { background:rgba(50,50,50,0.72);  color:rgba(255,255,255,0.65); border:1px solid rgba(255,255,255,0.10); }
+  .sc-card-footer{
+    padding:10px 14px 12px; display:flex; flex-direction:column; gap:7px;
+    border-top:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.2);
+  }
+  .sc-venue-row  { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
+  .sc-venue-name { font-size:0.8rem; font-weight:700; }
+  .sc-venue-loc  { font-size:0.68rem; opacity:0.42; }
+  .sc-weather-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .sc-weather-item{ display:flex; align-items:center; gap:4px; font-size:0.73rem; font-weight:600; }
+  .sc-weather-label{ font-size:0.62rem; opacity:0.42; text-transform:uppercase; letter-spacing:0.3px; }
+  .sc-xbh-row{ display:flex; align-items:center; gap:8px; font-size:0.72rem; opacity:0.65; }
+  .sc-xbh-val { font-weight:800; opacity:1; }
 
   .pv-sim-card{
     background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
@@ -1292,8 +1303,8 @@
   .pv-hist-legend{
     font-size:0.72rem; opacity:0.7;
   }
-  .pv-hist-svg-wrap{ flex:1; min-height:0; }
-  .pv-hist-svg-wrap svg{ width:100%; height:auto; display:block; }
+  .pv-hist-svg-wrap{ flex:1; min-height:120px; }
+  .pv-hist-svg-wrap svg{ width:100%; height:100%; display:block; }
   .pv-hist-xlabel{
     font-size:0.65rem; opacity:0.45; text-align:center; margin-top:2px;
     text-transform:uppercase; letter-spacing:.04em; flex-shrink:0;
@@ -6255,80 +6266,96 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
   function renderWeather(w, venueName, venueLocation){
     const imp = w.impact || {};
-    let impClass = 'neutral';
-    if(imp.label && imp.label.toLowerCase().includes('hitter')) impClass = 'hitter';
-    else if(imp.label && imp.label.toLowerCase().includes('pitcher')) impClass = 'pitcher';
-    if(w.dome) impClass = 'dome';
+    const dome = w.dome;
+    const label = imp.label || (dome ? 'Dome (controlled)' : 'Neutral');
+    const lf = imp.lf_hr_factor || 1;
+    const cf = imp.cf_hr_factor || 1;
+    const rf = imp.rf_hr_factor || 1;
+    const xbh = imp.xbh_factor || 1;
+
+    function _scZoneClass(f){
+      if(f >= 1.07) return 'pos-strong';
+      if(f >= 1.03) return 'pos';
+      if(f <= 0.93) return 'neg-strong';
+      if(f <= 0.97) return 'neg';
+      return 'neu';
+    }
+    function _scFmt(f){
+      const p = Math.round((f - 1.0) * 100);
+      return p > 0 ? `+${p}%` : p < 0 ? `${p}%` : '0%';
+    }
+    function _scEnvClass(lbl){
+      const l = lbl.toLowerCase();
+      if(l.includes('dome')) return 'sc-env-dome';
+      if(l.includes('very') && l.includes('hitter')) return 'sc-env-hitter-very';
+      if(l.includes('hitter')) return 'sc-env-hitter';
+      if(l.includes('very') && l.includes('pitcher')) return 'sc-env-pitcher-very';
+      if(l.includes('pitcher')) return 'sc-env-pitcher';
+      return 'sc-env-neutral';
+    }
+
+    const stadiumUrl = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
+    const envCls = _scEnvClass(label);
+
+    const domeNote = dome ? `<div class="sc-dome-label">Park factors only · No wind</div>` : '';
+    const zoneHtml = `
+      <div class="sc-zone-overlay">
+        <div class="sc-zone-chip sc-zone-lf ${_scZoneClass(lf)}">
+          <span class="sc-zone-chip-label">LF HR</span>
+          <span class="sc-zone-chip-val">${_scFmt(lf)}</span>
+        </div>
+        <div class="sc-zone-chip sc-zone-cf ${_scZoneClass(cf)}">
+          <span class="sc-zone-chip-label">CF HR</span>
+          <span class="sc-zone-chip-val">${_scFmt(cf)}</span>
+        </div>
+        <div class="sc-zone-chip sc-zone-rf ${_scZoneClass(rf)}">
+          <span class="sc-zone-chip-label">RF HR</span>
+          <span class="sc-zone-chip-val">${_scFmt(rf)}</span>
+        </div>
+        ${domeNote}
+      </div>`;
 
     const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-    const windLabel = w.dome ? '' : dirs[Math.round((w.wind_dir || 0) / 22.5) % 16];
-    const stadiumUrl = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
+    const windDir = dirs[Math.round((w.wind_dir || 0) / 22.5) % 16];
+    const cfMph = (imp.components || {}).cf_wind_mph || 0;
+    const cfSign = cfMph >= 0 ? `out +${cfMph.toFixed(0)}` : `in ${cfMph.toFixed(0)}`;
 
-    // Zone chips (LF/CF/RF) with colored backgrounds
-    const hasZones = imp.lf_hr_factor !== undefined;
-    let zoneChipsHtml = '';
-    if(hasZones){
-      const chip = (pos, zone, factor) => `
-        <div class="pv-gx-chip ${pos} ${_chipClass(factor)}">
-          <span class="pv-gx-chip-zone">${zone} HR</span>
-          <span class="pv-gx-chip-val">${_hrFactorPct(factor)}</span>
+    let weatherHtml = '';
+    if(!dome && w.condition){
+      weatherHtml = `
+        <div class="sc-weather-row">
+          <div class="sc-weather-item"><span class="sc-weather-label">Cond</span><span>${w.condition}</span></div>
+          <div class="sc-weather-item"><span class="sc-weather-label">Temp</span><span>${w.temp_f}°F</span></div>
+          <div class="sc-weather-item"><span class="sc-weather-label">Wind</span><span>${w.wind_mph} mph ${windDir} · CF ${cfSign} mph</span></div>
         </div>`;
-      zoneChipsHtml = chip('pv-gx-lf', 'LF', imp.lf_hr_factor)
-                    + chip('pv-gx-cf', 'CF', imp.cf_hr_factor)
-                    + chip('pv-gx-rf', 'RF', imp.rf_hr_factor);
+    } else if(dome){
+      weatherHtml = `
+        <div class="sc-weather-row">
+          <div class="sc-weather-item"><span class="sc-weather-label">Roof</span><span>${label}</span></div>
+        </div>`;
     }
 
-    // Wind arrow SVG overlay
-    let windSvgHtml = '';
-    if(!w.dome && (w.wind_mph || 0) > 1){
-      const windToward = ((w.wind_dir || 0) + 180) % 360;
-      const bearing = w.bearing || 180;
-      const arrowDeg = windToward - bearing;
-      const arrowR = Math.min(34, Math.max(14, w.wind_mph * 1.8));
-      const cx = 50, cy = 55;
-      const rad = arrowDeg * Math.PI / 180;
-      const tipX = cx + arrowR * Math.sin(rad), tipY = cy - arrowR * Math.cos(rad);
-      const tailX = cx - arrowR * 0.4 * Math.sin(rad), tailY = cy + arrowR * 0.4 * Math.cos(rad);
-      const headLen = Math.min(11, arrowR * 0.4);
-      const wingA = 30 * Math.PI / 180;
-      const w1x = tipX - headLen * Math.sin(rad + wingA), w1y = tipY + headLen * Math.cos(rad + wingA);
-      const w2x = tipX - headLen * Math.sin(rad - wingA), w2y = tipY + headLen * Math.cos(rad - wingA);
-      let ac = '#4dabf7';
-      if(w.wind_mph >= 15) ac = '#ff922b';
-      else if(w.wind_mph >= 10) ac = '#ffd43b';
-      windSvgHtml = `<svg class="pv-gx-wind-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-        <line x1="${tailX.toFixed(1)}" y1="${tailY.toFixed(1)}" x2="${tipX.toFixed(1)}" y2="${tipY.toFixed(1)}"
-              stroke="${ac}" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
-        <polygon points="${tipX.toFixed(1)},${tipY.toFixed(1)} ${w1x.toFixed(1)},${w1y.toFixed(1)} ${w2x.toFixed(1)},${w2y.toFixed(1)}"
-                 fill="${ac}" opacity="0.9"/>
-        <text x="50" y="97" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="7" font-family="monospace">${w.wind_mph} mph ${windLabel}</text>
-      </svg>`;
-    }
-
-    const badgeLabel = w.dome ? (imp.label || 'Roof Closed') : (imp.label || 'Conditions');
-
-    let wxItemsHtml = '';
-    if(w.dome){
-      wxItemsHtml = `<div class="pv-gx-wx-item"><div class="pv-gx-wx-val">Dome</div><div class="pv-gx-wx-lbl">Roof</div></div>`;
-    } else {
-      wxItemsHtml = `
-        <div class="pv-gx-wx-item"><div class="pv-gx-wx-val">${w.temp_f}°</div><div class="pv-gx-wx-lbl">Temp</div></div>
-        <div class="pv-gx-wx-item"><div class="pv-gx-wx-val">${w.wind_mph}</div><div class="pv-gx-wx-lbl">Wind mph</div></div>
-        <div class="pv-gx-wx-item"><div class="pv-gx-wx-val" style="font-size:0.78rem;">${w.condition || '—'}</div><div class="pv-gx-wx-lbl">Sky</div></div>`;
-    }
-
-    const html = `<div class="pv-gx-card">
-      <div class="pv-gx-stadium-wrap">
-        <img class="pv-gx-stadium-img" src="${stadiumUrl}" alt="Stadium">
-        ${windSvgHtml}
-        ${zoneChipsHtml}
-        <div class="pv-gx-env-badge ${impClass}">${badgeLabel}</div>
-      </div>
-      <div class="pv-gx-footer">
-        <div class="pv-gx-venue">${venueName || ''}${venueLocation ? ` · ${venueLocation}` : ''}</div>
-        <div class="pv-gx-wx-row">${wxItemsHtml}</div>
-      </div>
-    </div>`;
+    const html = `
+      <div class="sc-card">
+        <div class="sc-stadium-wrap">
+          <img class="sc-stadium-svg-img" src="${stadiumUrl}" alt="Stadium" onerror="this.style.opacity='0'">
+          ${zoneHtml}
+          <div class="sc-env-badge-row">
+            <span class="sc-env-badge ${envCls}">${label}</span>
+          </div>
+        </div>
+        <div class="sc-card-footer">
+          <div class="sc-venue-row">
+            <span class="sc-venue-name">${venueName || ''}</span>
+            ${venueLocation ? `<span class="sc-venue-loc">${venueLocation}</span>` : ''}
+          </div>
+          ${weatherHtml}
+          <div class="sc-xbh-row">
+            <span>XBH Adj:</span>
+            <span class="sc-xbh-val">${_scFmt(xbh)}</span>
+          </div>
+        </div>
+      </div>`;
 
     document.getElementById('pv-weather').innerHTML = html;
   }
@@ -6390,10 +6417,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
     if(maxRuns < 0){ el.style.display = 'none'; return; }
 
     const maxPct = Math.max(...awayDist, ...homeDist, 0.001);
-    // Y-axis grid lines at nice percentages
-    const topPctVal = Math.ceil(maxPct * 100 / 5) * 5; // round up to nearest 5%
-    const svgW = 300, svgH = 140;
-    const padL = 32, padR = 8, padT = 8, padB = 22;
+    const topPctVal = Math.ceil(maxPct * 100 / 5) * 5;
+    const svgW = 300, svgH = 160;
+    const padL = 32, padR = 8, padT = 8, padB = 36;
     const plotW = svgW - padL - padR;
     const plotH = svgH - padT - padB;
     const n = maxRuns + 1;
@@ -6406,8 +6432,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
     for(let t = 0; t <= yTicks; t++){
       const pct = (t / yTicks) * topPctVal;
       const y = padT + plotH - (pct / topPctVal) * plotH;
-      gridLines += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${svgW - padR}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
-      gridLines += `<text x="${(padL - 4).toFixed(1)}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,0.35)" font-size="7">${pct.toFixed(0)}%</text>`;
+      gridLines += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${svgW - padR}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
+      gridLines += `<text x="${(padL - 4).toFixed(1)}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,0.5)" font-size="7">${pct.toFixed(0)}%</text>`;
     }
 
     let bars = '';
@@ -6421,7 +6447,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const hh = Math.max(1, (hp / maxPct) * plotH);
       bars += `<rect x="${ax.toFixed(1)}" y="${(padT + plotH - ah).toFixed(1)}" width="${bw.toFixed(1)}" height="${ah.toFixed(1)}" fill="${awayColor}" opacity="0.85" rx="1"/>`;
       bars += `<rect x="${hx.toFixed(1)}" y="${(padT + plotH - hh).toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" fill="${homeColor}" opacity="0.85" rx="1"/>`;
-      bars += `<text x="${(gx + groupW / 2).toFixed(1)}" y="${(padT + plotH + 14).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-size="7.5">${i}</text>`;
+      bars += `<text x="${(gx + groupW / 2).toFixed(1)}" y="${(padT + plotH + 18).toFixed(1)}" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="500">${i}</text>`;
     }
 
     el.innerHTML = `<div class="pv-hist-card">
@@ -6433,10 +6459,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
         </div>
       </div>
       <div class="pv-hist-svg-wrap">
-        <svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet">
+        <svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none" style="overflow:visible;">
           ${gridLines}
           ${bars}
-          <line x1="${padL}" y1="${padT + plotH}" x2="${svgW - padR}" y2="${padT + plotH}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+          <line x1="${padL}" y1="${padT + plotH}" x2="${svgW - padR}" y2="${padT + plotH}" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
         </svg>
       </div>
       <div class="pv-hist-xlabel">Runs Scored</div>

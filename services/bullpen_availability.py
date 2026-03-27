@@ -315,8 +315,9 @@ def _fetch_roster_fallback(team_id):
         bullpen = []
         for entry in roster:
             pos = (entry.get("position") or {}).get("abbreviation", "")
-            # Include pitchers who are not starters (RP, CP, etc.)
-            if pos not in ("SP",):
+            pos_type = (entry.get("position") or {}).get("type", "")
+            # Include relief pitchers only — exclude starters and all position players
+            if pos_type == "Pitcher" and pos not in ("SP", "TWP"):
                 person = entry.get("person") or {}
                 pid = person.get("id")
                 name = person.get("fullName") or str(pid)
