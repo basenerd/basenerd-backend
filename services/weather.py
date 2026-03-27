@@ -12,7 +12,7 @@ from services.venue_meta import get_venue_meta
 
 log = logging.getLogger(__name__)
 
-# Module-level cache: (venue_id, date_str) → result dict
+# Module-level cache: (venue_id, date_str, hour) → result dict
 _cache: dict = {}
 
 # WMO weather code → human condition label
@@ -29,6 +29,159 @@ _WMO = {
     95: "Thunderstorm", 96: "Thunderstorm", 99: "Thunderstorm",
 }
 
+# Spray angle samples and weights for aggregating wind effect across a
+# realistic batted-ball direction distribution.
+# Spray angle convention: 0=CF, negative=pull, positive=oppo (Statcast).
+# Home runs are pull-heavy; XBH are more evenly spread.
+_HR_SPRAY_DIST = [(-38, 0.20), (-22, 0.28), (-8, 0.22), (8, 0.15), (22, 0.10), (38, 0.05)]
+_XBH_SPRAY_DIST = [(-38, 0.15), (-22, 0.25), (-8, 0.25), (8, 0.18), (22, 0.12), (38, 0.05)]
+
+
+# ---------------------------------------------------------------------------
+# Physics helpers
+# ---------------------------------------------------------------------------
+
+def _air_density_factor(temp_f: float, alt_ft: float) -> float:
+    """
+    Relative air density vs the reference condition (72°F, sea level = 1.0).
+
+    Uses ideal-gas temperature scaling and the ISA barometric formula for
+    pressure vs altitude. Less dense air = less aerodynamic drag = more carry.
+    """
+    T_K_ref = 295.37                        # 72°F in Kelvin
+    T_K = (temp_f - 32.0) * 5.0 / 9.0 + 273.15
+    alt_m = alt_ft * 0.3048
+    # ISA troposphere pressure ratio
+    pressure_factor = (1.0 - 2.2558e-5 * alt_m) ** 5.2559
+    # Density ∝ P / T
+    return (T_K_ref / T_K) * pressure_factor
+
+
+def compute_hit_distance_factor(
+    spray_angle_deg: float,
+    temp_f: float,
+    wind_mph: float,
+    wind_dir_deg: float,
+    alt_ft: float,
+    bearing_to_cf: float = 180,
+) -> float:
+    """
+    Multiplicative distance factor for a single batted ball vs neutral conditions
+    (72°F, no wind, sea level ≈ 500 ft). Factor > 1 means the ball carries farther.
+
+    spray_angle_deg:
+        Statcast convention — 0 = straight to CF, negative = pull side,
+        positive = opposite field. Added to the CF compass bearing to get the
+        actual direction the ball is travelling.
+
+    The two physics effects modelled:
+      1. Air density  — combined temperature + altitude via the barometric formula.
+                        Calibrated so Coors Field at 72°F ≈ +8-9% distance.
+      2. Wind carry   — wind component *along the ball's travel direction*,
+                        not just toward CF. This correctly accounts for cross-winds
+                        that help a pulled HR while hurting an oppo-field one (or
+                        vice versa).
+
+    Coefficient reference:
+      - Air density: 0.50 * (1 - rho) gives ~8.8% at Coors (5280 ft, 72°F).
+      - Wind: 0.0079 per mph ≈ 3 ft/mph for a 380-ft average HR (Nathan 2015).
+    """
+    rho = _air_density_factor(temp_f, alt_ft)
+    density_factor = 1.0 + 0.50 * (1.0 - rho)
+
+    # Compass direction the ball is travelling
+    ball_compass = (bearing_to_cf + spray_angle_deg) % 360
+    # Meteorological wind direction is where it comes FROM; flip to get where it's going
+    wind_toward_deg = (wind_dir_deg + 180.0) % 360
+    angle_diff_rad = math.radians(wind_toward_deg - ball_compass)
+    wind_outward = wind_mph * math.cos(angle_diff_rad)   # positive = helping carry
+
+    wind_factor = 1.0 + 0.0079 * wind_outward
+
+    return density_factor * wind_factor
+
+
+# ---------------------------------------------------------------------------
+# Game-level aggregate impact
+# ---------------------------------------------------------------------------
+
+def calculate_weather_impact(
+    temp_f: float,
+    wind_mph: float,
+    wind_dir_deg: float,
+    alt_ft: float,
+    bearing_to_cf: float = 180,
+) -> dict:
+    """
+    Aggregate weather impact on home runs and extra-base hits for a game.
+
+    Rather than applying a single wind component toward CF for all batted balls,
+    this function weights the distance factor across a realistic spray-angle
+    distribution (pull-heavy for HRs, more balanced for XBH). That means a
+    30-mph left-to-right cross-wind will correctly help left-field pull HRs
+    while slightly hurting right-field opposite-field HRs, with the net game
+    impact reflecting the typical batted-ball mix.
+
+    Returns:
+        hr_factor   — multiplicative factor for HR probability (1.0 = neutral)
+        xbh_factor  — multiplicative factor for XBH probability
+        label       — human-readable environment description
+        components  — breakdown for UI display:
+            density_factor   — air-density-only multiplier (temp + altitude)
+            cf_wind_factor   — wind-only multiplier toward CF (display reference)
+            cf_wind_mph      — signed mph component blowing out to CF (+= helping)
+    """
+    hr_factor = sum(
+        w * compute_hit_distance_factor(s, temp_f, wind_mph, wind_dir_deg, alt_ft, bearing_to_cf)
+        for s, w in _HR_SPRAY_DIST
+    )
+    xbh_factor = sum(
+        w * compute_hit_distance_factor(s, temp_f, wind_mph, wind_dir_deg, alt_ft, bearing_to_cf)
+        for s, w in _XBH_SPRAY_DIST
+    )
+
+    # XBH are less air-dependent (line drives, grounders don't benefit as much)
+    # Scale deviation from neutral by 0.45 so the XBH curve is shallower than HR
+    xbh_factor = 1.0 + (xbh_factor - 1.0) * 0.45
+
+    hr_factor  = round(max(0.82, min(1.22, hr_factor)), 3)
+    xbh_factor = round(max(0.88, min(1.12, xbh_factor)), 3)
+
+    if hr_factor >= 1.08:
+        label = "Very hitter-friendly"
+    elif hr_factor >= 1.03:
+        label = "Hitter-friendly"
+    elif hr_factor <= 0.92:
+        label = "Very pitcher-friendly"
+    elif hr_factor <= 0.97:
+        label = "Pitcher-friendly"
+    else:
+        label = "Neutral"
+
+    # --- component breakdown for display ---
+    rho = _air_density_factor(temp_f, alt_ft)
+    density_factor = round(1.0 + 0.50 * (1.0 - rho), 3)
+
+    wind_toward_deg = (wind_dir_deg + 180.0) % 360
+    cf_diff_rad = math.radians(wind_toward_deg - bearing_to_cf)
+    cf_wind_mph = round(wind_mph * math.cos(cf_diff_rad), 1)
+    cf_wind_factor = round(1.0 + 0.0079 * cf_wind_mph, 3)
+
+    return {
+        "hr_factor":   hr_factor,
+        "xbh_factor":  xbh_factor,
+        "label":       label,
+        "components": {
+            "density_factor":  density_factor,
+            "cf_wind_factor":  cf_wind_factor,
+            "cf_wind_mph":     cf_wind_mph,
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 def fetch_game_weather(venue_id, game_datetime_str):
     """
@@ -37,18 +190,18 @@ def fetch_game_weather(venue_id, game_datetime_str):
     venue_id:           MLB venue ID (int)
     game_datetime_str:  ISO datetime string from MLB feed (e.g. "2026-03-25T23:05:00Z")
 
-    Returns dict with: dome, condition, temp_f, wind_mph, wind_dir, impact {}
+    Returns dict with: dome, condition, temp_f, wind_mph, wind_dir, bearing, impact {}
     """
     venue = get_venue_meta(venue_id)
     if venue["dome"]:
         return {
-            "dome": True,
+            "dome":      True,
             "condition": "Dome",
-            "temp_f": 72,
-            "wind_mph": 0,
-            "wind_dir": 0,
-            "bearing": venue.get("bearing", 180),
-            "impact": {"hr_factor": 1.0, "xbh_factor": 1.0, "label": "Dome (controlled)"},
+            "temp_f":    72,
+            "wind_mph":  0,
+            "wind_dir":  0,
+            "bearing":   venue.get("bearing", 180),
+            "impact":    {"hr_factor": 1.0, "xbh_factor": 1.0, "label": "Dome (controlled)"},
         }
 
     # Parse game datetime
@@ -81,35 +234,36 @@ def fetch_game_weather(venue_id, game_datetime_str):
             data = json.loads(resp.read())
 
         hourly = data.get("hourly", {})
-        times = hourly.get("time", [])
-        temps = hourly.get("temperature_2m", [])
-        winds = hourly.get("wind_speed_10m", [])
+        times     = hourly.get("time", [])
+        temps     = hourly.get("temperature_2m", [])
+        winds     = hourly.get("wind_speed_10m", [])
         wind_dirs = hourly.get("wind_direction_10m", [])
-        codes = hourly.get("weather_code", [])
+        codes     = hourly.get("weather_code", [])
 
         # Find closest hour to game time
-        # Open-Meteo returns local times; convert game UTC hour to local offset
         utc_offset_sec = data.get("utc_offset_seconds", 0)
         local_hour = (hour + utc_offset_sec // 3600) % 24
-
         idx = min(local_hour, len(temps) - 1) if temps else 0
 
-        temp_f = temps[idx] if idx < len(temps) else 72
-        wind_mph = winds[idx] if idx < len(winds) else 0
+        temp_f   = temps[idx]     if idx < len(temps)     else 72
+        wind_mph = winds[idx]     if idx < len(winds)     else 0
         wind_dir = wind_dirs[idx] if idx < len(wind_dirs) else 0
-        wmo_code = codes[idx] if idx < len(codes) else 0
+        wmo_code = codes[idx]     if idx < len(codes)     else 0
 
         condition = _WMO.get(wmo_code, "Unknown")
-        impact = calculate_weather_impact(temp_f, wind_mph, wind_dir, venue["alt_ft"], venue.get("bearing", 180))
+        impact = calculate_weather_impact(
+            temp_f, wind_mph, wind_dir,
+            venue["alt_ft"], venue.get("bearing", 180),
+        )
 
         result = {
-            "dome": False,
+            "dome":      False,
             "condition": condition,
-            "temp_f": round(temp_f),
-            "wind_mph": round(wind_mph),
-            "wind_dir": round(wind_dir),
-            "bearing": venue.get("bearing", 180),
-            "impact": impact,
+            "temp_f":    round(temp_f),
+            "wind_mph":  round(wind_mph),
+            "wind_dir":  round(wind_dir),
+            "bearing":   venue.get("bearing", 180),
+            "impact":    impact,
         }
         _cache[cache_key] = result
         return result
@@ -119,69 +273,15 @@ def fetch_game_weather(venue_id, game_datetime_str):
         return _fallback(venue)
 
 
-def calculate_weather_impact(temp_f, wind_mph, wind_dir_deg, alt_ft, bearing_to_cf=180):
-    """
-    Calculate multiplicative HR and XBH factors from weather.
-
-    Based on published research:
-    - Temperature: ~1.5% more HR per degree F above 72 (Alan Nathan, Baseball Prospectus)
-    - Wind: blowing out to CF increases carry; blowing in decreases it
-    - Altitude: thinner air = less drag = more carry (~5-8% at Coors)
-
-    Returns: {"hr_factor": float, "xbh_factor": float, "label": str}
-    """
-    # Temperature factor: baseline 72°F
-    temp_factor = 1.0 + 0.0015 * (temp_f - 72)
-    temp_factor = max(0.90, min(1.15, temp_factor))
-
-    # Wind factor: decompose wind into component blowing toward CF
-    # wind_dir_deg = meteorological direction (where wind comes FROM)
-    # Wind blowing FROM behind batter (toward CF) helps carry
-    # bearing_to_cf = compass direction from home plate to CF
-    wind_from = wind_dir_deg  # degrees, where wind comes from
-    wind_toward = (wind_from + 180) % 360  # where wind is going
-    angle_diff = math.radians(wind_toward - bearing_to_cf)
-    outward_component = wind_mph * math.cos(angle_diff)  # positive = blowing out
-
-    wind_factor = 1.0 + 0.008 * outward_component  # ~0.8% per mph out
-    wind_factor = max(0.85, min(1.20, wind_factor))
-
-    # Altitude factor: sea level baseline ~500ft
-    alt_factor = 1.0 + 0.00008 * (alt_ft - 500)
-    alt_factor = max(1.0, min(1.12, alt_factor))
-
-    hr_factor = round(temp_factor * wind_factor * alt_factor, 3)
-    # XBH is less affected by these factors (ground balls don't care about air)
-    xbh_factor = round(1.0 + (hr_factor - 1.0) * 0.5, 3)
-
-    # Label
-    if hr_factor >= 1.08:
-        label = "Very hitter-friendly"
-    elif hr_factor >= 1.03:
-        label = "Hitter-friendly"
-    elif hr_factor <= 0.92:
-        label = "Very pitcher-friendly"
-    elif hr_factor <= 0.97:
-        label = "Pitcher-friendly"
-    else:
-        label = "Neutral"
-
-    return {
-        "hr_factor": hr_factor,
-        "xbh_factor": xbh_factor,
-        "label": label,
-    }
-
-
 def _fallback(venue):
     """Return a neutral weather result when API fails."""
     impact = calculate_weather_impact(72, 0, 0, venue.get("alt_ft", 500), venue.get("bearing", 180))
     return {
-        "dome": False,
+        "dome":      False,
         "condition": "Unknown",
-        "temp_f": 72,
-        "wind_mph": 0,
-        "wind_dir": 0,
-        "bearing": venue.get("bearing", 180),
-        "impact": impact,
+        "temp_f":    72,
+        "wind_mph":  0,
+        "wind_dir":  0,
+        "bearing":   venue.get("bearing", 180),
+        "impact":    impact,
     }
