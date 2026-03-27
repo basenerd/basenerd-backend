@@ -554,11 +554,15 @@ def _simulate_game(pregame_data, sims=2000):
     home_wins = 0
     away_total = 0.0
     home_total = 0.0
+    away_runs_counts = {}
+    home_runs_counts = {}
 
     for _ in range(sims):
         away_runs, home_runs = _sim_one_game(away_probs, home_probs, outcomes)
         away_total += away_runs
         home_total += home_runs
+        away_runs_counts[away_runs] = away_runs_counts.get(away_runs, 0) + 1
+        home_runs_counts[home_runs] = home_runs_counts.get(home_runs, 0) + 1
         if away_runs > home_runs:
             away_wins += 1
         elif home_runs > away_runs:
@@ -570,6 +574,14 @@ def _simulate_game(pregame_data, sims=2000):
             else:
                 home_wins += 1
 
+    # Build run frequency distributions (cap at 15)
+    max_r = min(15, max(
+        max(away_runs_counts.keys(), default=0),
+        max(home_runs_counts.keys(), default=0)
+    ))
+    away_dist = [round(away_runs_counts.get(i, 0) / sims, 4) for i in range(max_r + 1)]
+    home_dist = [round(home_runs_counts.get(i, 0) / sims, 4) for i in range(max_r + 1)]
+
     return {
         "sims": sims,
         "awayWinPct": round(away_wins / sims, 4),
@@ -578,6 +590,8 @@ def _simulate_game(pregame_data, sims=2000):
             "away": round(away_total / sims, 1),
             "home": round(home_total / sims, 1),
         },
+        "awayRunDist": away_dist,
+        "homeRunDist": home_dist,
     }
 
 

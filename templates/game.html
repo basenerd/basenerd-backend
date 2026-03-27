@@ -1254,6 +1254,95 @@
     .ump-stat-grid{ grid-template-columns: repeat(2,1fr) !important; }
   }
 
+  /* ---- Field Conditions Table ---- */
+  .pv-fst-card{
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+    border-radius:12px; padding:14px 16px; height:100%; box-sizing:border-box;
+  }
+  .pv-fst-title{
+    font-size:0.82rem; font-weight:800; margin-bottom:10px; opacity:0.9;
+  }
+  .pv-fst-subtitle{
+    font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+    opacity:0.45; margin:10px 0 6px;
+  }
+  .pv-fst-divider{
+    border:none; border-top:1px solid rgba(255,255,255,0.07); margin:10px 0 0;
+  }
+  .pv-fst-table{
+    width:100%; border-collapse:collapse; font-size:0.82rem;
+  }
+  .pv-fst-table th{
+    text-align:left; font-size:0.65rem; text-transform:uppercase; letter-spacing:.04em;
+    opacity:0.45; padding:3px 6px 6px 0; font-weight:700;
+  }
+  .pv-fst-table th:last-child{ text-align:right; }
+  .pv-fst-table td{
+    padding:5px 6px 5px 0; border-bottom:1px solid rgba(255,255,255,0.04);
+    font-size:0.82rem;
+  }
+  .pv-fst-table td:last-child{ text-align:right; font-weight:700; font-variant-numeric:tabular-nums; }
+  .pv-fst-zone{ opacity:0.65; }
+
+  /* ---- Runs Histogram ---- */
+  .pv-hist-card{
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+    border-radius:12px; padding:14px 16px;
+  }
+  .pv-hist-header{
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
+  }
+  .pv-hist-title{
+    font-size:0.82rem; font-weight:800;
+  }
+  .pv-hist-legend{
+    font-size:0.72rem; opacity:0.7;
+  }
+  .pv-hist-xlabel{
+    font-size:0.65rem; opacity:0.45; text-align:center; margin-top:2px;
+    text-transform:uppercase; letter-spacing:.04em;
+  }
+
+  /* ---- Pitcher Profile Cards ---- */
+  .pv-pp-card{
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+    border-radius:12px; padding:14px 16px; height:100%; box-sizing:border-box;
+  }
+  .pv-pp-header{
+    display:flex; gap:12px; align-items:flex-start; margin-bottom:12px;
+  }
+  .pv-pp-img{
+    width:56px; height:56px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.1); object-fit:cover; flex-shrink:0;
+  }
+  .pv-pp-info{ flex:1; min-width:0; }
+  .pv-pp-team{ font-size:0.68rem; opacity:0.5; text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+  .pv-pp-name{ font-size:1rem; font-weight:800; line-height:1.2; }
+  .pv-pp-hand{ font-size:0.72rem; opacity:0.55; margin-bottom:6px; }
+  .pv-pp-statline{
+    display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;
+  }
+  .pv-pp-statline > div{ text-align:center; }
+  .pv-pp-sv{ font-weight:700; font-size:0.85rem; display:block; }
+  .pv-pp-sl{ font-size:0.62rem; opacity:0.45; text-transform:uppercase; }
+  .pv-pp-table{
+    width:100%; border-collapse:collapse; font-size:0.78rem;
+  }
+  .pv-pp-table th{
+    text-align:left; font-size:0.65rem; text-transform:uppercase; letter-spacing:.04em;
+    opacity:0.45; padding:4px 4px 6px 0; font-weight:700;
+    border-bottom:1px solid rgba(255,255,255,0.1);
+  }
+  .pv-pp-table th.num{ text-align:right; }
+  .pv-pp-table td{ padding:5px 4px 5px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .pv-pp-table td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .pv-pp-table tr:last-child td{ border-bottom:none; }
+
+  @media(max-width:640px){
+    .pv-pp-img{ width:44px; height:44px; }
+    .pv-pp-name{ font-size:0.9rem; }
+  }
+
 </style>
 
 {# Convert IP string like "7.2" into outs (23) for simple scoring #}
@@ -2031,11 +2120,21 @@
     <div style="padding:14px;">
       <div id="pv-loading" class="pv-loading">Loading predictions...</div>
       <div id="pv-content" style="display:none">
+        <!-- Row 1: Field diagram + Field conditions table -->
         <div class="pv-top-row">
           <div id="pv-weather"></div>
-          <div id="pv-sim"></div>
+          <div id="pv-field-stats"></div>
         </div>
-        <div id="pv-matchup"></div>
+        <!-- Row 2: Score prediction gauge + Runs histogram -->
+        <div class="pv-top-row">
+          <div id="pv-sim"></div>
+          <div id="pv-runs-hist"></div>
+        </div>
+        <!-- Row 3: Pitcher profiles side by side -->
+        <div class="pv-top-row">
+          <div id="pv-away-pitcher"></div>
+          <div id="pv-home-pitcher"></div>
+        </div>
         <div id="pv-away"></div>
         <div id="pv-home"></div>
         <div id="pv-bullpen"></div>
@@ -5994,16 +6093,22 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
     document.getElementById('pv-content').style.display = 'block';
 
-    // Weather
+    // Field diagram + conditions table
     if(d.weather){
       renderWeather(d.weather, d.venue_name || '', d.venue_location || '');
+      renderFieldStats(d.weather);
     }
 
-    // Pitching matchup
-    renderPitchingMatchup(d);
-
-    // Simulation results (gauge + predicted score)
+    // Simulation gauge + runs histogram
     renderSimulation(d);
+    if(d.simulation){
+      const awayColor = getTeamColor(d.away_abbrev || 'AWAY', '#3b82f6');
+      const homeColor = getTeamColor(d.home_abbrev || 'HOME', '#ef4444');
+      renderRunsHistogram(d.simulation, d.away_abbrev || 'AWAY', d.home_abbrev || 'HOME', awayColor, homeColor);
+    }
+
+    // Pitcher profiles side by side
+    renderPitcherProfiles(d);
 
     // Sides
     document.getElementById('pv-away').innerHTML = renderSide(d.away, d.away_name, d.away_abbrev, 'away', d.is_spring);
@@ -6151,91 +6256,182 @@ document.addEventListener("DOMContentLoaded", ()=>{
     else if(imp.label && imp.label.toLowerCase().includes('pitcher')) impClass = 'pitcher';
     if(w.dome) impClass = 'dome';
 
-    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-    const windLabel = w.dome ? '' : dirs[Math.round(w.wind_dir / 22.5) % 16];
-    const stadiumUrl = "/static/stadium_svgs/{{ stadium_svg|default('generic.svg') }}";
+    const hasWind = !w.dome && (w.wind_mph || 0) > 1;
+    const fieldSvg = renderFieldZones(imp, hasWind, w.wind_dir || 0, w.bearing || 180);
+    const badgeLabel = w.dome ? (imp.label || 'Roof Closed') : (imp.label || 'Conditions');
 
-    // Zone chips
-    const hasZones = imp.lf_hr_factor !== undefined && imp.cf_hr_factor !== undefined && imp.rf_hr_factor !== undefined;
-    let zoneChipsHtml = '';
-    if(hasZones){
-      const lfC = _hrFactorColor(imp.lf_hr_factor);
-      const cfC = _hrFactorColor(imp.cf_hr_factor);
-      const rfC = _hrFactorColor(imp.rf_hr_factor);
-      zoneChipsHtml = `
-        <div class="pv-gx-chip pv-gx-lf" style="border-color:${lfC}40">
-          <span class="pv-gx-chip-zone">LF</span>
-          <span class="pv-gx-chip-val" style="color:${lfC}">${_hrFactorPct(imp.lf_hr_factor)}</span>
-        </div>
-        <div class="pv-gx-chip pv-gx-cf" style="border-color:${cfC}40">
-          <span class="pv-gx-chip-zone">CF</span>
-          <span class="pv-gx-chip-val" style="color:${cfC}">${_hrFactorPct(imp.cf_hr_factor)}</span>
-        </div>
-        <div class="pv-gx-chip pv-gx-rf" style="border-color:${rfC}40">
-          <span class="pv-gx-chip-zone">RF</span>
-          <span class="pv-gx-chip-val" style="color:${rfC}">${_hrFactorPct(imp.rf_hr_factor)}</span>
-        </div>`;
-    }
-
-    // Wind arrow SVG overlay (positioned over flipped stadium, 0°=toward CF=up)
-    let windSvgHtml = '';
-    if(!w.dome && w.wind_mph > 1){
-      const windToward = (w.wind_dir + 180) % 360;
-      const bearing = w.bearing || 180;
-      const arrowDeg = windToward - bearing;
-      const arrowR = Math.min(34, Math.max(14, w.wind_mph * 1.8));
-      const cx = 50, cy = 55;
-      const rad = arrowDeg * Math.PI / 180;
-      const tipX = cx + arrowR * Math.sin(rad);
-      const tipY = cy - arrowR * Math.cos(rad);
-      const tailX = cx - arrowR * 0.4 * Math.sin(rad);
-      const tailY = cy + arrowR * 0.4 * Math.cos(rad);
-      const headLen = Math.min(11, arrowR * 0.4);
-      const wingA = 30 * Math.PI / 180;
-      const w1x = tipX - headLen * Math.sin(rad + wingA), w1y = tipY + headLen * Math.cos(rad + wingA);
-      const w2x = tipX - headLen * Math.sin(rad - wingA), w2y = tipY + headLen * Math.cos(rad - wingA);
-      let ac = '#4dabf7';
-      if(w.wind_mph >= 15) ac = '#ff922b';
-      else if(w.wind_mph >= 10) ac = '#ffd43b';
-      windSvgHtml = `<svg class="pv-gx-wind-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-        <line x1="${tailX.toFixed(1)}" y1="${tailY.toFixed(1)}" x2="${tipX.toFixed(1)}" y2="${tipY.toFixed(1)}"
-              stroke="${ac}" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
-        <polygon points="${tipX.toFixed(1)},${tipY.toFixed(1)} ${w1x.toFixed(1)},${w1y.toFixed(1)} ${w2x.toFixed(1)},${w2y.toFixed(1)}"
-                 fill="${ac}" opacity="0.9"/>
-        <text x="50" y="97" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="7" font-family="monospace">${w.wind_mph} mph ${windLabel}</text>
-      </svg>`;
-    }
-
-    // Badge label
-    const badgeLabel = w.dome
-      ? (imp.label || 'Roof Closed')
-      : (imp.label || 'Conditions');
-
-    // Footer weather items
-    let wxItemsHtml = '';
-    if(w.dome){
-      wxItemsHtml = `<div class="pv-gx-wx-item"><div class="pv-gx-wx-val">Dome</div><div class="pv-gx-wx-lbl">Roof Closed</div></div>`;
-    } else {
-      wxItemsHtml = `
-        <div class="pv-gx-wx-item"><div class="pv-gx-wx-val">${w.temp_f}°</div><div class="pv-gx-wx-lbl">Temp</div></div>
-        <div class="pv-gx-wx-item"><div class="pv-gx-wx-val">${w.wind_mph}</div><div class="pv-gx-wx-lbl">Wind mph</div></div>
-        <div class="pv-gx-wx-item"><div class="pv-gx-wx-val" style="font-size:0.78rem;">${w.condition || '—'}</div><div class="pv-gx-wx-lbl">Sky</div></div>`;
-    }
+    // fieldSvg wraps in .pv-field-zones which has margin-top/border-top for use as footer;
+    // override those here since it's the primary card content
+    const fieldSvgClean = fieldSvg.replace('class="pv-field-zones"',
+      'class="pv-field-zones" style="margin-top:0;padding-top:0;border-top:none;"');
 
     const html = `<div class="pv-gx-card">
-      <div class="pv-gx-stadium-wrap">
-        <img class="pv-gx-stadium-img" src="${stadiumUrl}" alt="Stadium">
-        ${windSvgHtml}
-        ${zoneChipsHtml}
-        <div class="pv-gx-env-badge ${impClass}">${badgeLabel}</div>
+      <div style="position:relative; padding:12px 12px 0;">
+        ${fieldSvgClean}
+        <div class="pv-gx-env-badge ${impClass}" style="position:absolute; top:16px; right:16px;">${badgeLabel}</div>
       </div>
       <div class="pv-gx-footer">
         <div class="pv-gx-venue">${venueName || ''}${venueLocation ? ` · ${venueLocation}` : ''}</div>
-        <div class="pv-gx-wx-row">${wxItemsHtml}</div>
       </div>
     </div>`;
 
     document.getElementById('pv-weather').innerHTML = html;
+  }
+
+  function renderFieldStats(w){
+    const el = document.getElementById('pv-field-stats');
+    if(!el) return;
+    const imp = w.impact || {};
+    const hasZones = imp.lf_hr_factor !== undefined;
+    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    const windLabel = w.dome ? '' : dirs[Math.round((w.wind_dir || 0) / 22.5) % 16];
+
+    function factorRow(zone, factor){
+      if(factor === undefined) return '';
+      const color = _hrFactorColor(factor);
+      const pct = _hrFactorPct(factor);
+      return `<tr><td class="pv-fst-zone">${zone}</td><td style="color:${color}">${pct}</td></tr>`;
+    }
+
+    let xbhRow = '';
+    if(imp.xbh_factor !== undefined){
+      const c = _hrFactorColor(imp.xbh_factor);
+      xbhRow = `<tr><td class="pv-fst-zone">XBH</td><td style="color:${c}">${_hrFactorPct(imp.xbh_factor)}</td></tr>`;
+    }
+
+    let weatherRows = '';
+    if(w.dome){
+      weatherRows = `<tr><td class="pv-fst-zone">Roof</td><td>Closed</td></tr>`;
+    } else {
+      weatherRows = `
+        <tr><td class="pv-fst-zone">Temp</td><td>${w.temp_f != null ? w.temp_f + '°F' : '—'}</td></tr>
+        <tr><td class="pv-fst-zone">Wind</td><td>${w.wind_mph != null ? w.wind_mph + ' mph ' + windLabel : '—'}</td></tr>
+        ${w.condition ? `<tr><td class="pv-fst-zone">Sky</td><td>${w.condition}</td></tr>` : ''}`;
+    }
+
+    el.innerHTML = `<div class="pv-fst-card">
+      <div class="pv-fst-title">Field Conditions</div>
+      ${hasZones ? `<table class="pv-fst-table">
+        <thead><tr><th>Zone</th><th>HR Factor</th></tr></thead>
+        <tbody>
+          ${factorRow('LF', imp.lf_hr_factor)}
+          ${factorRow('CF', imp.cf_hr_factor)}
+          ${factorRow('RF', imp.rf_hr_factor)}
+          ${xbhRow}
+        </tbody>
+      </table>` : ''}
+      <hr class="pv-fst-divider">
+      <div class="pv-fst-subtitle">Weather</div>
+      <table class="pv-fst-table"><tbody>${weatherRows}</tbody></table>
+    </div>`;
+  }
+
+  function renderRunsHistogram(sim, awayAbbrev, homeAbbrev, awayColor, homeColor){
+    const el = document.getElementById('pv-runs-hist');
+    if(!el) return;
+    const awayDist = sim.awayRunDist || [];
+    const homeDist = sim.homeRunDist || [];
+    const maxRuns = Math.max(awayDist.length, homeDist.length) - 1;
+    if(maxRuns < 0){ el.style.display = 'none'; return; }
+
+    const maxPct = Math.max(...awayDist, ...homeDist, 0.001);
+    const svgW = 300, svgH = 100, padL = 8, padR = 8, padT = 6, padB = 18;
+    const plotW = svgW - padL - padR;
+    const plotH = svgH - padT - padB;
+    const n = maxRuns + 1;
+    const groupW = plotW / n;
+    const bw = Math.max(2, groupW * 0.36);
+
+    let bars = '';
+    for(let i = 0; i <= maxRuns; i++){
+      const ap = awayDist[i] || 0;
+      const hp = homeDist[i] || 0;
+      const gx = padL + i * groupW;
+      const ax = gx + groupW * 0.08;
+      const hx = ax + bw + 1;
+      const ah = Math.max(1, (ap / maxPct) * plotH);
+      const hh = Math.max(1, (hp / maxPct) * plotH);
+      bars += `<rect x="${ax.toFixed(1)}" y="${(padT + plotH - ah).toFixed(1)}" width="${bw.toFixed(1)}" height="${ah.toFixed(1)}" fill="${awayColor}" opacity="0.8" rx="1"/>`;
+      bars += `<rect x="${hx.toFixed(1)}" y="${(padT + plotH - hh).toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" fill="${homeColor}" opacity="0.8" rx="1"/>`;
+      if(i % 2 === 0 || maxRuns <= 10){
+        bars += `<text x="${(gx + groupW / 2).toFixed(1)}" y="${(padT + plotH + 13).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.38)" font-size="7">${i}</text>`;
+      }
+    }
+
+    el.innerHTML = `<div class="pv-hist-card">
+      <div class="pv-hist-header">
+        <div class="pv-hist-title">Runs Scored Distribution</div>
+        <div class="pv-hist-legend">
+          <span style="color:${awayColor}">&#9632;</span> ${awayAbbrev}&nbsp;&nbsp;
+          <span style="color:${homeColor}">&#9632;</span> ${homeAbbrev}
+        </div>
+      </div>
+      <svg viewBox="0 0 ${svgW} ${svgH}" style="width:100%;display:block;">
+        ${bars}
+        <line x1="${padL}" y1="${padT + plotH}" x2="${svgW - padR}" y2="${padT + plotH}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      </svg>
+      <div class="pv-hist-xlabel">Runs</div>
+    </div>`;
+  }
+
+  function renderPitcherProfiles(d){
+    // Away starter pitches against home batters → d.home.pitcher
+    // Home starter pitches against away batters → d.away.pitcher
+    const awayStarter = d.home?.pitcher;
+    const homeStarter = d.away?.pitcher;
+    const awayStat = d.home?.pitcher_statline;
+    const homeStat = d.away?.pitcher_statline;
+    const awayArsenal = ((d.home?.batters || [])[0]?.arsenal) || [];
+    const homeArsenal = ((d.away?.batters || [])[0]?.arsenal) || [];
+
+    function _renderCard(p, stat, arsenal, abbrev, containerId){
+      const el = document.getElementById(containerId);
+      if(!el) return;
+      if(!p){ el.innerHTML = ''; return; }
+      const hs = p.headshot || `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_120,q_auto:best/v1/people/${p.id}/headshot/67/current`;
+      const hand = p.throws === 'L' ? 'LHP' : p.throws === 'R' ? 'RHP' : '';
+
+      let statHtml = '';
+      if(stat){
+        statHtml = `<div class="pv-pp-statline">
+          <div><span class="pv-pp-sv">${stat.ip}</span><span class="pv-pp-sl">IP</span></div>
+          <div><span class="pv-pp-sv">${stat.k}</span><span class="pv-pp-sl">K</span></div>
+          <div><span class="pv-pp-sv">${stat.bb}</span><span class="pv-pp-sl">BB</span></div>
+          <div><span class="pv-pp-sv">${stat.h}</span><span class="pv-pp-sl">H</span></div>
+          <div><span class="pv-pp-sv">${stat.er}</span><span class="pv-pp-sl">ER</span></div>
+        </div>`;
+      }
+
+      let arsenalHtml = '';
+      if(arsenal.length){
+        let rows = arsenal.map(a => `<tr>
+          <td>${a.name}</td>
+          <td class="num">${(a.usage * 100).toFixed(0)}%</td>
+          <td class="num">${typeof a.velo === 'number' ? a.velo.toFixed(1) : a.velo}</td>
+        </tr>`).join('');
+        arsenalHtml = `<table class="pv-pp-table">
+          <thead><tr><th>Pitch</th><th class="num">Usage</th><th class="num">Velo</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+      }
+
+      el.innerHTML = `<div class="pv-pp-card">
+        <div class="pv-pp-header">
+          <img class="pv-pp-img" src="${hs}" alt="${p.name}"
+               onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_120,q_auto:best/v1/people/${p.id}/headshot/67/current'">
+          <div class="pv-pp-info">
+            <div class="pv-pp-team">${abbrev}</div>
+            <div class="pv-pp-name">${p.name}</div>
+            <div class="pv-pp-hand">${hand}</div>
+            ${statHtml}
+          </div>
+        </div>
+        ${arsenalHtml}
+      </div>`;
+    }
+
+    _renderCard(awayStarter, awayStat, awayArsenal, d.away_abbrev || 'AWAY', 'pv-away-pitcher');
+    _renderCard(homeStarter, homeStat, homeArsenal, d.home_abbrev || 'HOME', 'pv-home-pitcher');
   }
 
   function _hrFactorColor(f){
@@ -6437,42 +6633,14 @@ document.addEventListener("DOMContentLoaded", ()=>{
   }
 
   function renderSide(side, teamName, abbrev, sideKey, isSpring){
-    if(!side || !side.pitcher) return '';
-    const p = side.pitcher;
+    if(!side) return '';
     const batters = side.batters || [];
     const totals = side.totals || {};
-    const pStat = side.pitcher_statline;
+    const opposingPitcher = side.pitcher;
 
     let html = `<div class="pv-side">`;
-    html += `<div class="pv-side-title"><span class="pv-side-label">${sideKey==='away'?'Away':'Home'}</span> ${teamName} vs ${p.name}</div>`;
-
-    // Pitcher card
-    html += '<div class="pv-pitcher">';
-    if(p.headshot) html += `<img src="${p.headshot}" alt="${p.name}">`;
-    html += '<div class="pv-pitcher-info">';
-    html += `<h3>${p.name}</h3>`;
-    html += `<div class="pv-pitcher-meta">${p.throws}HP${isSpring ? ' · Spring Training' : ''}</div>`;
-
-    // Pitcher expected statline
-    if(pStat){
-      html += '<div class="pv-pitcher-statline">';
-      html += `<div><span class="stat-val">${pStat.ip}</span> <span class="stat-lbl">IP</span></div>`;
-      html += `<div><span class="stat-val">${pStat.k}</span> <span class="stat-lbl">K</span></div>`;
-      html += `<div><span class="stat-val">${pStat.bb}</span> <span class="stat-lbl">BB</span></div>`;
-      html += `<div><span class="stat-val">${pStat.h}</span> <span class="stat-lbl">H</span></div>`;
-      html += `<div><span class="stat-val">${pStat.er}</span> <span class="stat-lbl">ER</span></div>`;
-      html += '</div>';
-    }
-
-    // Arsenal from first batter's prediction
-    if(batters.length && batters[0].arsenal && batters[0].arsenal.length){
-      html += '<div class="pv-arsenal">';
-      batters[0].arsenal.forEach(a=>{
-        html += `<span class="pv-arsenal-chip">${a.name} <span class="usage">${(a.usage*100).toFixed(0)}%</span> ${a.velo.toFixed(1)}</span>`;
-      });
-      html += '</div>';
-    }
-    html += '</div></div>';
+    const vsLine = opposingPitcher ? ` vs ${opposingPitcher.name}` : '';
+    html += `<div class="pv-side-title"><span class="pv-side-label">${sideKey==='away'?'Away':'Home'}</span> ${teamName}${vsLine}</div>`;
 
     // Batter table
     html += `<table class="pv-table"><thead><tr>
