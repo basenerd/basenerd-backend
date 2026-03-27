@@ -285,9 +285,60 @@ def get_bullpen_availability(team_id, game_date_str, team_abbrev=""):
             "last_pitched_days_ago": min(a["days_ago"] for a in apps) if apps else None,
         })
 
+    # If no appearance data (early season, off days, etc.), fall back to active roster
+    if not bullpen:
+        bullpen = _fetch_roster_fallback(team_id)
+
     # Sort: available first, then limited, then unlikely, then unavailable
     status_order = {AVAILABLE: 0, LIMITED: 1, UNLIKELY: 2, UNAVAILABLE: 3}
     bullpen.sort(key=lambda x: (status_order.get(x["status"], 4), x["workload"]))
 
     _cache[cache_key] = bullpen
     return bullpen
+
+
+def _fetch_roster_fallback(team_id):
+    """
+    Fallback: fetch active roster and return all relief pitchers as fully available.
+    Used when no recent appearance data exists (early season, off days, etc.).
+    """
+    try:
+        url = (
+            f"https://statsapi.mlb.com/api/v1/teams/{team_id}/roster"
+            f"?rosterType=active&hydrate=person"
+        )
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read())
+
+        roster = data.get("roster") or []
+        bullpen = []
+        for entry in roster:
+            pos = (entry.get("position") or {}).get("abbreviation", "")
+            # Include pitchers who are not starters (RP, CP, etc.)
+            if pos not in ("SP",):
+                person = entry.get("person") or {}
+                pid = person.get("id")
+                name = person.get("fullName") or str(pid)
+                if not pid:
+                    continue
+                headshot = None
+                try:
+                    headshot = get_player_headshot_url(pid, size=60)
+                except Exception:
+                    pass
+                bullpen.append({
+                    "id": pid,
+                    "name": name,
+                    "headshot": headshot,
+                    "status": AVAILABLE,
+                    "workload": 0,
+                    "note": "No recent appearances",
+                    "appearances": [],
+                    "total_pitches_4d": 0,
+                    "last_pitched_days_ago": None,
+                })
+        return bullpen
+    except Exception as e:
+        log.warning("Roster fallback failed for team %s: %s", team_id, e)
+        return []
