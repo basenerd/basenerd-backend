@@ -108,8 +108,17 @@
   .tp-player-cell{
     display:flex; align-items:center; gap:8px;
   }
+  .tp-team-logo-wrap{
+    position:relative; flex-shrink:0; width:22px; height:22px;
+  }
   .tp-team-logo{
     width:22px; height:22px; flex-shrink:0;
+  }
+  .tp-matchup-star{
+    position:absolute; top:-5px; right:-7px;
+    font-size:11px; line-height:1;
+    filter: drop-shadow(0 0 2px rgba(240,192,64,0.6));
+    pointer-events:none;
   }
   .tp-player-img{
     width:32px; height:32px; border-radius:50%; object-fit:cover;
@@ -185,7 +194,9 @@
     }
 
     .tp-player-img{ width:24px; height:24px; }
+    .tp-team-logo-wrap{ width:16px; height:16px; }
     .tp-team-logo{ width:16px; height:16px; }
+    .tp-matchup-star{ font-size:9px; top:-4px; right:-6px; }
     .tp-player-name{ font-size:0.7rem; max-width:90px; }
     .tp-player-meta{ font-size:0.6rem; }
     .tp-pct{ font-size:0.68rem; min-width:32px; padding:2px 3px; }
@@ -502,6 +513,14 @@
     return tid ? `https://www.mlbstatic.com/team-logos/${tid}.svg` : '';
   }
 
+  // ---- Matchup grade helpers ----
+  const GRADE_VAL = {'A+':13,'A':12,'A-':11,'B+':10,'B':9,'B-':8,'C+':7,'C':6,'C-':5,'D+':4,'D':3,'D-':2,'F':1};
+  function gradeToNum(g){ return GRADE_VAL[g] || 0; }
+  // Batters: star if grade >= A- (great matchup for hitter)
+  function batterHasMatchupStar(grade){ return gradeToNum(grade) >= 11; }
+  // Pitchers: star if avg opposing batter grade <= C (weak lineup = great matchup for pitcher)
+  function pitcherHasMatchupStar(avgGrade){ return avgGrade > 0 && avgGrade <= 6; }
+
   // ---- Global data stores ----
   let allPitchers = [];
   let allBatters = [];
@@ -563,6 +582,9 @@
       const lam = pitcherLambdas(cfg.side, d.is_spring);
       if(!lam) return;
       const hand = cfg.pitcher.throws === 'L' ? 'LHP' : 'RHP';
+      // Avg matchup grade of opposing batters (low = weak lineup = good for pitcher)
+      const grades = (cfg.side.batters||[]).map(b => gradeToNum(b.grade)).filter(v => v > 0);
+      const avgGrade = grades.length ? grades.reduce((a,b)=>a+b,0)/grades.length : 0;
       allPitchers.push({
         id: cfg.pitcher.id,
         name: cfg.pitcher.name,
@@ -572,6 +594,7 @@
         oppAbbrev: cfg.oppAbbrev,
         oppLogo: cfg.oppLogo,
         lambdas: lam,
+        matchupStar: pitcherHasMatchupStar(avgGrade),
       });
     });
 
@@ -594,6 +617,7 @@
           oppLogo: cfg.oppLogo,
           oppName: cfg.oppName,
           lambdas: lam,
+          matchupStar: batterHasMatchupStar(b.grade),
         });
       });
     });
@@ -730,7 +754,8 @@
 
       // Player cell
       html += `<td class="player-td"><div class="tp-player-cell">`;
-      if(r.teamLogo) html += `<img class="tp-team-logo" src="${r.teamLogo}" alt="" onerror="this.style.display='none'">`;
+      const starHtml = r.matchupStar ? '<span class="tp-matchup-star" title="Great matchup">&#11088;</span>' : '';
+      if(r.teamLogo) html += `<div class="tp-team-logo-wrap"><img class="tp-team-logo" src="${r.teamLogo}" alt="" onerror="this.style.display='none'">${starHtml}</div>`;
       html += `<img class="tp-player-img" src="${headshotUrl(r.id)}" alt="" onerror="this.style.display='none'">`;
       html += `<div class="tp-player-info"><div class="tp-player-name">${r.name}</div>`;
       if(isPitcher){
