@@ -990,10 +990,11 @@
   .sc-xbh-val { font-weight:800; opacity:1; }
 
   .pv-sim-card{
-    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+    background:#fff;
+    border:1px solid rgba(0,0,0,0.08);
     border-radius:12px; padding:14px 16px; text-align:center;
     display:flex; flex-direction:column; justify-content:center;
-    flex:1;
+    flex:1; color:#111;
   }
   .pv-sim-score{
     display:flex; align-items:center; justify-content:center; gap:16px; margin-top:10px;
@@ -1288,10 +1289,12 @@
 
   /* ---- Runs Histogram ---- */
   .pv-hist-card{
-    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+    background:#fff;
+    border:1px solid rgba(0,0,0,0.08);
     border-radius:12px; padding:14px 16px;
     height:100%; box-sizing:border-box;
     display:flex; flex-direction:column;
+    color:#111;
   }
   #pv-runs-hist{ display:flex; flex-direction:column; }
   .pv-hist-header{
@@ -6232,11 +6235,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
       <div style="font-size:0.7rem; opacity:0.5; margin-bottom:10px;">${sim.sims.toLocaleString()} simulations</div>
 
       <svg viewBox="0 0 300 170" style="width:100%; max-width:340px; display:block; margin:0 auto; overflow:visible;">
-        <path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="22" stroke-linecap="round"/>
+        <path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="rgba(0,0,0,.06)" stroke-width="22" stroke-linecap="round"/>
         <path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="${awayColor}" stroke-width="22" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="${awayOffset}" opacity="0.85"/>
         <path d="M270 150 A120 120 0 0 0 30 150" fill="none" stroke="${homeColor}" stroke-width="22" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="${homeOffset}" opacity="0.85"/>
-        <line x1="150" y1="150" x2="150" y2="36" stroke="rgba(255,255,255,.9)" stroke-width="2.5" stroke-linecap="round" transform="rotate(${angle.toFixed(1)} 150 150)"/>
-        <circle cx="150" cy="150" r="5" fill="rgba(255,255,255,.9)"/>
+        <line x1="150" y1="150" x2="150" y2="36" stroke="rgba(0,0,0,.7)" stroke-width="2.5" stroke-linecap="round" transform="rotate(${angle.toFixed(1)} 150 150)"/>
+        <circle cx="150" cy="150" r="5" fill="rgba(0,0,0,.7)"/>
         <text x="24" y="172" font-size="12" fill="${awayColor}" font-family="monospace" text-anchor="middle">${awayAbbrev} ${(aw*100).toFixed(1)}%</text>
         <text x="276" y="172" font-size="12" fill="${homeColor}" font-family="monospace" text-anchor="middle">${homeAbbrev} ${(hm*100).toFixed(1)}%</text>
       </svg>
@@ -6432,8 +6435,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
     for(let t = 0; t <= yTicks; t++){
       const pct = (t / yTicks) * topPctVal;
       const y = padT + plotH - (pct / topPctVal) * plotH;
-      gridLines += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${svgW - padR}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
-      gridLines += `<text x="${(padL - 4).toFixed(1)}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,0.5)" font-size="7">${pct.toFixed(0)}%</text>`;
+      gridLines += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${svgW - padR}" y2="${y.toFixed(1)}" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>`;
+      gridLines += `<text x="${(padL - 4).toFixed(1)}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" fill="rgba(0,0,0,0.45)" font-size="7">${pct.toFixed(0)}%</text>`;
     }
 
     let bars = '';
@@ -6447,7 +6450,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const hh = Math.max(1, (hp / maxPct) * plotH);
       bars += `<rect x="${ax.toFixed(1)}" y="${(padT + plotH - ah).toFixed(1)}" width="${bw.toFixed(1)}" height="${ah.toFixed(1)}" fill="${awayColor}" opacity="0.85" rx="1"/>`;
       bars += `<rect x="${hx.toFixed(1)}" y="${(padT + plotH - hh).toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" fill="${homeColor}" opacity="0.85" rx="1"/>`;
-      bars += `<text x="${(gx + groupW / 2).toFixed(1)}" y="${(padT + plotH + 18).toFixed(1)}" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="500">${i}</text>`;
+      bars += `<text x="${(gx + groupW / 2).toFixed(1)}" y="${(padT + plotH + 18).toFixed(1)}" text-anchor="middle" fill="#111" font-size="8" font-weight="500">${i}</text>`;
     }
 
     el.innerHTML = `<div class="pv-hist-card">
@@ -6459,10 +6462,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
         </div>
       </div>
       <div class="pv-hist-svg-wrap">
-        <svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none" style="overflow:visible;">
+        <svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet" style="overflow:visible;">
           ${gridLines}
           ${bars}
-          <line x1="${padL}" y1="${padT + plotH}" x2="${svgW - padR}" y2="${padT + plotH}" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+          <line x1="${padL}" y1="${padT + plotH}" x2="${svgW - padR}" y2="${padT + plotH}" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
         </svg>
       </div>
       <div class="pv-hist-xlabel">Runs Scored</div>
