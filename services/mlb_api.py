@@ -1625,6 +1625,9 @@ def normalize_gamecast(feed: dict) -> dict:
         breaks = pitch_data.get("breaks") or {}
         ivb, hb = _get_ivb_hb(pitch_data)
 
+        _call_desc = (call.get("description") or "").lower()
+        _is_foul = bool(details.get("isFoul")) or _call_desc in ("foul", "foul tip", "foul bunt")
+
         pitches_out.append({
             "n": n,
             "px": coords.get("pX"),
@@ -1639,10 +1642,11 @@ def normalize_gamecast(feed: dict) -> dict:
             "horizMove": hb,
 
             # Outcome flags (frontend colors dots)
-            "isBall": details.get("isBall"),
-            "isStrike": details.get("isStrike"),
+            # Fouls are exclusive — don't also mark as strike so dots render gray
+            "isFoul": _is_foul,
+            "isBall": details.get("isBall") and not _is_foul,
+            "isStrike": details.get("isStrike") and not _is_foul,
             "isInPlay": details.get("isInPlay"),
-            "isFoul": details.get("isFoul"),
             "call": call.get("description") or call.get("code") or "",
             "desc": details.get("description") or "",
         })
@@ -4628,15 +4632,12 @@ def normalize_game_detail(feed: dict, tz_name: str = "America/Phoenix") -> dict:
                     "sz_bot": sz_bot,
                     "call": call,
                     "typeCode": (str(_safe(details, "type", "code", default="") or "")).upper(),
-                    "isBall": call in ("Ball", "Intent Ball", "Pitchout", "Hit By Pitch"),
-                    "isStrike": call in ("Called Strike", "Swinging Strike", "Swinging Strike (Blocked)", "Foul Tip", "Missed Bunt", "Swinging Pitchout", "Foul Bunt", "Strike"),
-                    "isFoul": call in ("Foul", "Foul Tip", "Foul Bunt"),
-                    "isInPlay": call in ("In play, no out", "In play, out(s)", "In play, run(s)"),
+                    "isInPlay": is_in_play,
+                    "isFoul": call in ("Foul", "Foul Tip", "Foul Bunt") or call.lower().startswith("foul"),
+                    "isBall": is_ball and not call.lower().startswith("foul"),
+                    "isStrike": is_strike and not call.lower().startswith("foul"),
 
                     "desc": _safe(details, "description", default=None) or "",
-                    "isBall": is_ball,
-                    "isStrike": is_strike,
-                    "isInPlay": is_in_play,
                     # --- your table fields ---
                     "pitchType": _pretty_pitch_type(pitch_data, details),
                     "mph": _safe_float(pitch_data.get("startSpeed"), default=None),

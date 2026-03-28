@@ -2104,6 +2104,9 @@ def gamecast_json(game_pk: int):
         is_strike = bool(details.get("isStrike")) or (code in ("C", "S"))
         is_in_play = bool(details.get("isInPlay")) or (code == "X") or ("in play" in ddesc) or ("hit into play" in ddesc)
         is_foul = bool(details.get("isFoul")) or (code == "F") or ("foul" in ddesc and not is_in_play)
+        # Fouls are exclusive — don't also mark as strike
+        if is_foul:
+            is_strike = False
 
         pitches_out.append({
             "n": _i(details.get("pitchNumber"), None) or (len(pitches_out) + 1),
