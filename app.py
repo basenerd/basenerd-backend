@@ -1080,7 +1080,7 @@ def home_weekly_leaders():
                 ]
                 print(f"[home_weekly_leaders] top_hr_dist: {len(rows)} rows")
 
-                # 4. Top hitters by xwOBA (no PA minimum)
+                # 4. Top hitters by xwOBA (last 7 days, min 10 PA)
                 cur.execute("""
                     SELECT batter,
                            AVG(estimated_woba_using_speedangle) AS xwoba,
@@ -1089,6 +1089,7 @@ def home_weekly_leaders():
                     WHERE game_date >= %s
                       AND estimated_woba_using_speedangle IS NOT NULL
                     GROUP BY batter
+                    HAVING COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '') >= 10
                     ORDER BY xwoba DESC NULLS LAST
                     LIMIT 5
                 """, (window_start,))
