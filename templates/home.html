@@ -286,7 +286,7 @@
         <div class="card-title" style="display:flex; align-items:center; gap:7px;">
           <span style="font-size:16px;">&#127942;</span> Top Performers
         </div>
-        <div class="card-subtitle" style="font-size:10px; opacity:0.55;">xwOBA · 8+ PA</div>
+        <div class="card-subtitle" style="font-size:10px; opacity:0.55;">xwOBA</div>
       </div>
       <div class="card-body" style="padding:8px 0 2px;">
         <div id="wlPerformers" class="wl-list"></div>
@@ -323,7 +323,7 @@
     <div class="card wl-card">
       <div class="card-header" style="padding-bottom:0;">
         <div class="card-title" style="display:flex; align-items:center; gap:7px;">
-          <span style="font-size:16px;">&#127944;</span> HR Distance
+          <span style="font-size:16px;">&#128163;</span> HR Distance
         </div>
         <div class="card-subtitle" style="font-size:10px; opacity:0.55;">Longest home runs</div>
       </div>
@@ -347,21 +347,29 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 14px;
+    padding: 5px 12px;
     gap: 8px;
     border-top: 1px solid rgba(148,163,184,.10);
     text-decoration: none;
-    color: inherit;
+    color: #111;
     transition: background .1s;
   }
   .wl-row:first-child { border-top: none; }
-  .wl-row:hover { background: rgba(148,163,184,.06); text-decoration: none; color: inherit; }
+  .wl-row:hover { background: rgba(148,163,184,.06); text-decoration: none; color: #111; }
+  .wl-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+    background: rgba(148,163,184,.15);
+  }
   .wl-rank {
     font-family: var(--mono);
     font-size: 10px;
     font-weight: 700;
-    opacity: 0.4;
-    width: 14px;
+    opacity: 0.35;
+    width: 12px;
     flex: 0 0 auto;
   }
   .wl-name {
@@ -371,10 +379,11 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: #111;
   }
   .wl-sub {
     font-size: 10px;
-    opacity: 0.5;
+    opacity: 0.45;
     margin-left: 2px;
   }
   .wl-val {
@@ -405,15 +414,23 @@
     if (el) el.innerHTML = LOADING_HTML;
   });
 
-  function renderList(containerId, items, valueFn, subFn) {
+  function headshotUrl(id) {
+    return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_60,q_auto:best/v1/people/${id}/headshot/67/current`;
+  }
+
+  function renderList(containerId, items, valueFn, subFn, showAvatar) {
     const el = document.getElementById(containerId);
     if (!el) return;
     if (!items || !items.length) { el.innerHTML = EMPTY_HTML; return; }
     el.innerHTML = items.map((item, i) => {
       const href = item.id ? `/player/${item.id}` : '#';
       const sub = subFn ? subFn(item) : '';
+      const avatar = showAvatar && item.id
+        ? `<img class="wl-avatar" src="${headshotUrl(item.id)}" alt="" loading="lazy" onerror="this.style.display='none'">`
+        : '';
       return `<a class="wl-row" href="${href}">
         <span class="wl-rank">${i+1}</span>
+        ${avatar}
         <span class="wl-name">${item.name || item.id}${sub ? `<span class="wl-sub">${sub}</span>` : ''}</span>
         <span class="wl-val">${valueFn(item)}</span>
       </a>`;
@@ -438,19 +455,23 @@
       }
       renderList('wlPerformers', data.top_performers,
         d => d.value.toFixed(3),
-        d => `${d.pa} PA`
+        null,
+        true
       );
       renderList('wlVelos', data.top_velos,
         d => d.value.toFixed(1) + ' mph',
-        d => d.pitch_type || ''
+        d => d.pitch_type || '',
+        true
       );
       renderList('wlExitVelos', data.top_exit_velos,
         d => d.value.toFixed(1) + ' mph',
-        null
+        null,
+        true
       );
       renderList('wlHRDist', data.top_hr_dist,
         d => d.value + ' ft',
-        null
+        null,
+        true
       );
     })
     .catch(err => {
