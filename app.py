@@ -1006,15 +1006,20 @@ def home_weekly_leaders():
         with psycopg.connect(db_url, connect_timeout=8) as conn:
             conn.execute("SET statement_timeout = '8000'")
             with conn.cursor() as cur:
-                # Check most recent game_date to build a sensible window
-                cur.execute("SELECT MAX(game_date) FROM statcast_pitches")
+                # Prefer today's data; fall back to most recent available date
+                from datetime import date as _date, timedelta as _td
+                today = _date.today()
+                cur.execute(
+                    "SELECT MAX(game_date) FROM statcast_pitches WHERE game_date <= %s",
+                    (today,)
+                )
                 latest = cur.fetchone()[0]
                 if latest:
-                    from datetime import date as _date, timedelta as _td
                     window_start = max(
-                        latest - _td(days=13),
+                        latest - _td(days=6),
                         _date(latest.year, 1, 1)
                     )
+                    result["as_of"] = str(latest)
                     print(f"[home_weekly_leaders] latest={latest}, window_start={window_start}")
                 else:
                     window_start = None

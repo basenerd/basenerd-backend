@@ -277,7 +277,7 @@
 <!-- WEEKLY LEADERS        -->
 <!-- ===================== -->
 <div id="weeklyLeadersSection" style="margin-top:14px;">
-  <div style="font-size:11px; font-weight:900; letter-spacing:1.5px; text-transform:uppercase; opacity:0.5; margin-bottom:8px;">This Week's Leaders</div>
+  <div id="wlSectionLabel" style="font-size:11px; font-weight:900; letter-spacing:1.5px; text-transform:uppercase; opacity:0.5; margin-bottom:8px;">This Week's Leaders</div>
   <div class="wl-grid">
 
     <!-- Top Performers -->
@@ -424,6 +424,18 @@
     .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
     .then(data => {
       console.log('[weekly-leaders]', data);
+      // Update label based on as_of date
+      if (data.as_of) {
+        const asOf = new Date(data.as_of + 'T12:00:00');
+        const today = new Date(); today.setHours(12,0,0,0);
+        const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+        const labelEl = document.getElementById('wlSectionLabel');
+        if (labelEl) {
+          if (asOf >= today) labelEl.textContent = "Today's Leaders";
+          else if (asOf >= yesterday) labelEl.textContent = "Yesterday's Leaders";
+          // else keep "This Week's Leaders"
+        }
+      }
       renderList('wlPerformers', data.top_performers,
         d => d.value.toFixed(3),
         d => `${d.pa} PA`
