@@ -276,7 +276,7 @@
 <!-- ===================== -->
 <!-- WEEKLY LEADERS        -->
 <!-- ===================== -->
-<div id="weeklyLeadersSection" style="margin-top:14px; display:none;">
+<div id="weeklyLeadersSection" style="margin-top:14px;">
   <div style="font-size:11px; font-weight:900; letter-spacing:1.5px; text-transform:uppercase; opacity:0.5; margin-bottom:8px;">This Week's Leaders</div>
   <div class="wl-grid">
 
@@ -384,6 +384,11 @@
     color: var(--accent, #f0c040);
     flex: 0 0 auto;
   }
+  .wl-empty {
+    padding: 10px 14px;
+    font-size: 12px;
+    opacity: 0.45;
+  }
   @media (max-width: 640px) {
     .wl-grid { grid-template-columns: 1fr; }
   }
@@ -391,31 +396,41 @@
 
 <script>
 (function(){
+  const LOADING_HTML = `<div class="wl-empty">Loading...</div>`;
+  const EMPTY_HTML = `<div class="wl-empty muted">No data yet</div>`;
+
+  // Set all to loading state immediately
+  ['wlPerformers','wlVelos','wlExitVelos','wlHRDist'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = LOADING_HTML;
+  });
+
+  function renderList(containerId, items, valueFn, subFn) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    if (!items || !items.length) { el.innerHTML = EMPTY_HTML; return; }
+    el.innerHTML = items.map((item, i) => {
+      const href = item.id ? `/player/${item.id}` : '#';
+      const sub = subFn ? subFn(item) : '';
+      return `<a class="wl-row" href="${href}">
+        <span class="wl-rank">${i+1}</span>
+        <span class="wl-name">${item.name || item.id}${sub ? `<span class="wl-sub">${sub}</span>` : ''}</span>
+        <span class="wl-val">${valueFn(item)}</span>
+      </a>`;
+    }).join('');
+  }
+
   fetch('/api/home-weekly-leaders')
-    .then(r => r.json())
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
     .then(data => {
-      const section = document.getElementById('weeklyLeadersSection');
-
-      function renderList(containerId, items, valueFn, subFn) {
-        const el = document.getElementById(containerId);
-        if (!el || !items || !items.length) return;
-        el.innerHTML = items.map((item, i) => {
-          const href = item.id ? `/player/${item.id}` : '#';
-          return `<a class="wl-row" href="${href}">
-            <span class="wl-rank">${i+1}</span>
-            <span class="wl-name">${item.name || item.id}${subFn ? `<span class="wl-sub">${subFn(item)}</span>` : ''}</span>
-            <span class="wl-val">${valueFn(item)}</span>
-          </a>`;
-        }).join('');
-      }
-
+      console.log('[weekly-leaders]', data);
       renderList('wlPerformers', data.top_performers,
         d => d.value.toFixed(3),
         d => `${d.pa} PA`
       );
       renderList('wlVelos', data.top_velos,
-        d => d.value.toFixed(1),
-        d => d.pitch_type ? ` ${d.pitch_type}` : ''
+        d => d.value.toFixed(1) + ' mph',
+        d => d.pitch_type || ''
       );
       renderList('wlExitVelos', data.top_exit_velos,
         d => d.value.toFixed(1) + ' mph',
@@ -425,13 +440,14 @@
         d => d.value + ' ft',
         null
       );
-
-      // Show section only if at least one category has data
-      const hasData = ['top_performers','top_velos','top_exit_velos','top_hr_dist']
-        .some(k => data[k] && data[k].length > 0);
-      if (hasData) section.style.display = 'block';
     })
-    .catch(() => {});
+    .catch(err => {
+      console.error('[weekly-leaders] fetch failed:', err);
+      ['wlPerformers','wlVelos','wlExitVelos','wlHRDist'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = EMPTY_HTML;
+      });
+    });
 })();
 </script>
 

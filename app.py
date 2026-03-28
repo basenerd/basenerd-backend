@@ -1004,77 +1004,99 @@ def home_weekly_leaders():
 
     try:
         with psycopg.connect(db_url, connect_timeout=8) as conn:
-            conn.execute("SET statement_timeout = '5000'")
+            conn.execute("SET statement_timeout = '8000'")
             with conn.cursor() as cur:
+                # Check most recent game_date to build a sensible window
+                cur.execute("SELECT MAX(game_date) FROM statcast_pitches")
+                latest = cur.fetchone()[0]
+                if latest:
+                    from datetime import date as _date, timedelta as _td
+                    window_start = max(
+                        latest - _td(days=13),
+                        _date(latest.year, 1, 1)
+                    )
+                    print(f"[home_weekly_leaders] latest={latest}, window_start={window_start}")
+                else:
+                    window_start = None
+
+                if window_start is None:
+                    print("[home_weekly_leaders] no data in statcast_pitches")
+                    return jsonify(result)
+
                 # 1. Top velocities (fastest pitch per pitcher-pitch_type combo)
                 cur.execute("""
                     SELECT player_name, pitcher, pitch_type, MAX(release_speed) AS velo
                     FROM statcast_pitches
-                    WHERE game_date >= CURRENT_DATE - INTERVAL '7 days'
+                    WHERE game_date >= %s
                       AND release_speed IS NOT NULL
                     GROUP BY player_name, pitcher, pitch_type
                     ORDER BY velo DESC
                     LIMIT 5
-                """)
+                """, (window_start,))
                 rows = cur.fetchall()
                 result["top_velos"] = [
                     {"name": r[0] or str(r[1]), "id": r[1], "pitch_type": r[2] or "", "value": round(float(r[3]), 1)}
                     for r in rows
                 ]
+                print(f"[home_weekly_leaders] top_velos: {len(rows)} rows")
 
                 # 2. Top exit velocities (max per batter)
                 cur.execute("""
                     SELECT batter, MAX(launch_speed) AS ev
                     FROM statcast_pitches
-                    WHERE game_date >= CURRENT_DATE - INTERVAL '7 days'
+                    WHERE game_date >= %s
                       AND launch_speed IS NOT NULL
                       AND events IS NOT NULL AND events != ''
                     GROUP BY batter
                     ORDER BY ev DESC
                     LIMIT 5
-                """)
+                """, (window_start,))
                 rows = cur.fetchall()
                 result["top_exit_velos"] = [
                     {"id": r[0], "value": round(float(r[1]), 1)}
                     for r in rows
                 ]
+                print(f"[home_weekly_leaders] top_exit_velos: {len(rows)} rows")
 
                 # 3. Longest home runs
                 cur.execute("""
                     SELECT batter, hit_distance_sc, game_date, game_pk
                     FROM statcast_pitches
-                    WHERE game_date >= CURRENT_DATE - INTERVAL '7 days'
+                    WHERE game_date >= %s
                       AND events = 'home_run'
                       AND hit_distance_sc IS NOT NULL
                     ORDER BY hit_distance_sc DESC
                     LIMIT 5
-                """)
+                """, (window_start,))
                 rows = cur.fetchall()
                 result["top_hr_dist"] = [
                     {"id": r[0], "value": int(r[1]), "date": str(r[2])[:10], "game_pk": r[3]}
                     for r in rows
                 ]
+                print(f"[home_weekly_leaders] top_hr_dist: {len(rows)} rows")
 
-                # 4. Top weekly hitters by xwOBA (min 10 PA)
+                # 4. Top hitters by xwOBA (min 5 PA — low threshold for early season)
                 cur.execute("""
                     SELECT batter,
                            AVG(estimated_woba_using_speedangle) AS xwoba,
                            COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '') AS pa
                     FROM statcast_pitches
-                    WHERE game_date >= CURRENT_DATE - INTERVAL '7 days'
+                    WHERE game_date >= %s
                       AND estimated_woba_using_speedangle IS NOT NULL
                     GROUP BY batter
-                    HAVING COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '') >= 8
+                    HAVING COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '') >= 5
                     ORDER BY xwoba DESC NULLS LAST
                     LIMIT 5
-                """)
+                """, (window_start,))
                 rows = cur.fetchall()
                 result["top_performers"] = [
                     {"id": r[0], "value": round(float(r[1]), 3), "pa": int(r[2])}
                     for r in rows
                 ]
+                print(f"[home_weekly_leaders] top_performers: {len(rows)} rows")
     except Exception as e:
         print(f"[home_weekly_leaders] DB error: {e}")
+        import traceback; traceback.print_exc()
         return jsonify(result)
 
     # Resolve batter names from MLB API (cached in mlb_api)
