@@ -3196,7 +3196,7 @@ def build_divs(rows: list[dict]) -> tuple[list[dict], list[dict]]:
 def standings():
     from datetime import datetime
     from flask import request, render_template
-    from services.standings_db import fetch_standings_ranked, build_divs
+    from services.standings_db import fetch_standings_ranked, fetch_live_standings, build_divs
     from services.postseason_db import fetch_postseason_series_rows, build_playoff_picture
 
     now = datetime.utcnow()
@@ -3281,10 +3281,17 @@ def standings():
     playoff_picture = None
 
     try:
-        rows = fetch_standings_ranked(season)
+        # Live standings from MLB API for current season; DB fallback for historical
+        if season == default_season:
+            try:
+                rows = fetch_live_standings(season)
+            except Exception:
+                rows = fetch_standings_ranked(season)
+        else:
+            rows = fetch_standings_ranked(season)
 
         if not rows:
-            error = f"No standings found for {season}. Make sure standings + standings_season_final are populated."
+            error = f"No standings found for {season}."
         else:
             # Division tables
             al_divs, nl_divs = build_divs(rows)
@@ -3461,20 +3468,43 @@ def wbc():
 def playoff_odds():
     import json as _json
     season = request.args.get("season", default=2026, type=int)
-    data_dir = os.path.join(os.path.dirname(__file__), "data")
-    results_path = os.path.join(data_dir, f"season_projection_{season}.json")
 
     error = None
     projection = None
     meta = None
-
     all_teams = []
-    if os.path.exists(results_path):
-        with open(results_path, "r") as f:
-            raw = _json.load(f)
+    raw = None
+
+    # Try database first (populated by nightly cron)
+    try:
+        import psycopg
+        db_url = os.environ.get("DATABASE_URL") or ""
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+        if db_url:
+            with psycopg.connect(db_url, connect_timeout=5) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT data FROM season_projection_cache WHERE season = %s",
+                        (season,),
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        raw = row[0] if isinstance(row[0], dict) else _json.loads(row[0])
+    except Exception:
+        pass  # fall through to file
+
+    # Fallback to local JSON file
+    if raw is None:
+        data_dir = os.path.join(os.path.dirname(__file__), "data")
+        results_path = os.path.join(data_dir, f"season_projection_{season}.json")
+        if os.path.exists(results_path):
+            with open(results_path, "r") as f:
+                raw = _json.load(f)
+
+    if raw:
         meta = raw.pop("_meta", {})
         projection = raw
-        # Collect all teams sorted by projected wins for the overall view
         for div_teams in projection.values():
             if isinstance(div_teams, list):
                 all_teams.extend(div_teams)

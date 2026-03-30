@@ -38,6 +38,17 @@ services:
         sync: false
 
   - type: cron
+    name: update-standings
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    schedule: "15 6 * * *"  # 6:15 AM UTC = 1:15 AM ET
+    startCommand: "python scripts/update_standings.py"
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+
+  - type: cron
     name: season-projection
     runtime: python
     buildCommand: "pip install -r requirements.txt"

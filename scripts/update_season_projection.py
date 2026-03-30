@@ -82,18 +82,21 @@ def parse_standings(payload: dict) -> dict:
     for div_block in payload.get("records", []):
         raw_div  = (div_block.get("division") or {}).get("name", "")
         raw_lg   = (div_block.get("league")   or {}).get("name", "")
-        div_key  = DIV_ABBREV.get(raw_div, raw_div)
         for tr in div_block.get("teamRecords", []):
             team = tr.get("team") or {}
             tid  = team.get("id")
             if not tid:
                 continue
+            # Prefer team-level hydrated division/league names over record-level
+            t_div = (team.get("division") or {}).get("name", "") or raw_div
+            t_lg  = (team.get("league")   or {}).get("name", "") or raw_lg
+            div_key = DIV_ABBREV.get(t_div, t_div)
             teams[tid] = {
                 "team_id":  tid,
                 "abbrev":   team.get("abbreviation", ""),
                 "name":     team.get("name", ""),
-                "league":   raw_lg,
-                "division": raw_div,
+                "league":   t_lg,
+                "division": t_div,
                 "div_key":  div_key,
                 "w":        int(tr.get("wins", 0) or 0),
                 "l":        int(tr.get("losses", 0) or 0),
@@ -430,6 +433,35 @@ def main() -> int:
     with open(out_path, "w") as f:
         json.dump(output, f, indent=2)
     print(f"  Wrote {out_path}")
+
+    # 7. Persist to database so the web service can read it
+    db_url = os.environ.get("DATABASE_URL") or ""
+    if db_url:
+        try:
+            import psycopg
+            if db_url.startswith("postgres://"):
+                db_url = db_url.replace("postgres://", "postgresql://", 1)
+            with psycopg.connect(db_url) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS season_projection_cache (
+                            season INT PRIMARY KEY,
+                            data JSONB NOT NULL,
+                            generated_at TIMESTAMPTZ NOT NULL
+                        )
+                    """)
+                    cur.execute("""
+                        INSERT INTO season_projection_cache (season, data, generated_at)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (season) DO UPDATE SET
+                            data = EXCLUDED.data,
+                            generated_at = EXCLUDED.generated_at
+                    """, (season, json.dumps(output), datetime.now(timezone.utc)))
+                conn.commit()
+            print(f"  Saved to season_projection_cache table")
+        except Exception as e:
+            print(f"  WARNING: DB write failed (file still saved): {e}", file=sys.stderr)
+
     print(f"[{datetime.now()}] Done.")
     return 0
 

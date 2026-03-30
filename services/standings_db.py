@@ -144,6 +144,57 @@ def build_divs(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     return al_divs, nl_divs
 
 
+def fetch_live_standings(season: int) -> list[dict]:
+    """Fetch regular-season standings live from MLB Stats API.
+
+    Returns rows in the same shape as fetch_standings_ranked() so callers
+    (build_divs, _pick_playoff, _build_wc) need zero changes.
+    """
+    url = (
+        f"https://statsapi.mlb.com/api/v1/standings"
+        f"?leagueId=103,104&season={season}&standingsTypes=regularSeason"
+        f"&hydrate=team(division,league)"
+    )
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read())
+
+    rows: list[dict] = []
+    for div_block in data.get("records", []):
+        division = (div_block.get("division") or {}).get("name", "")
+        league = (div_block.get("league") or {}).get("name", "")
+        for tr in div_block.get("teamRecords", []):
+            team = tr.get("team") or {}
+            tid = team.get("id")
+            if not tid:
+                continue
+            w = _as_int(tr.get("wins"), 0)
+            l = _as_int(tr.get("losses"), 0)
+            rs = _as_int(tr.get("runsScored"), 0)
+            ra = _as_int(tr.get("runsAllowed"), 0)
+            streak_obj = tr.get("streak") or {}
+            rows.append({
+                "season": season,
+                "league": league,
+                "division": division,
+                "team_id": tid,
+                "team_abbrev": team.get("abbreviation", ""),
+                "team_name": team.get("name", ""),
+                "w": w,
+                "l": l,
+                "pct": _as_float(tr.get("winningPercentage"), None),
+                "gb": tr.get("gamesBack", "—"),
+                "wc_gb": tr.get("wildCardGamesBack", "—"),
+                "rs": rs,
+                "ra": ra,
+                "run_differential": rs - ra if rs is not None and ra is not None else None,
+                "streak": streak_obj.get("streakCode", "—"),
+                "division_rank": _as_int(tr.get("divisionRank"), None),
+                "wild_card_rank": _as_int(tr.get("wildCardRank"), None),
+            })
+    return rows
+
+
 def fetch_spring_standings(season: int) -> tuple[list[dict], list[dict]]:
     """Fetch spring training standings from MLB Stats API.
     Returns (cactus_teams, grapefruit_teams) sorted by springLeagueRank.
