@@ -41,7 +41,12 @@ LEAGUE_AVG_PITCHER_R14 = {
 }
 
 # Minimum pitch threshold — below this, fall back to league average
-MIN_PITCHES = 20
+MIN_PITCHES = 40
+
+# PA threshold for reliable rate stats (used for Bayesian shrinkage)
+# ~25 PA ≈ 1 week of games; at this point recent form carries full weight.
+# Below this, stats are blended toward league average proportionally.
+RELIABLE_PA = 25
 
 
 def _query_batter_form(batter_id, start_date, end_date):
@@ -130,6 +135,30 @@ def _safe_div(a, b):
     return None
 
 
+def _regress_toward_mean(result, prior, pa):
+    """
+    Bayesian shrinkage: blend observed stats toward a prior (player profile
+    or league average) based on sample size.  At RELIABLE_PA plate
+    appearances the observed value gets full weight; below that it's
+    blended proportionally.
+    """
+    if pa >= RELIABLE_PA:
+        return result
+
+    weight = pa / RELIABLE_PA  # 0..1
+    shrunk = {}
+    for key, observed in result.items():
+        if key.startswith("_"):
+            shrunk[key] = observed  # pass through metadata keys
+            continue
+        p = prior.get(key)
+        if observed is None or p is None:
+            shrunk[key] = p  # fall back entirely
+        else:
+            shrunk[key] = weight * observed + (1 - weight) * p
+    return shrunk
+
+
 _recent_form_cache = {}  # (type, player_id, ref_date) -> (timestamp, result)
 _RECENT_FORM_TTL = 120   # cache for 2 minutes
 
@@ -187,6 +216,7 @@ def get_batter_recent_form(batter_id, reference_date=None, window_days=14):
         "bat_r14_whiff_rate": _safe_div(raw["whiffs"], raw["swings"]) if raw.get("swings") else LEAGUE_AVG_BATTER_R14["bat_r14_whiff_rate"],
         "bat_r14_chase_rate": _safe_div(raw["chases"], raw["chase_opps"]) if raw.get("chase_opps") else LEAGUE_AVG_BATTER_R14["bat_r14_chase_rate"],
     }
+    result["_pa"] = pa  # expose sample size for caller-side regression
     _set_cache(cache_key, result)
     return result
 
@@ -226,6 +256,7 @@ def get_pitcher_recent_form(pitcher_id, reference_date=None, window_days=14):
         "p_r14_whiff_rate": _safe_div(raw["whiffs"], raw["swings"]) if raw.get("swings") else LEAGUE_AVG_PITCHER_R14["p_r14_whiff_rate"],
         "p_r14_chase_rate": _safe_div(raw["chases"], raw["chase_opps"]) if raw.get("chase_opps") else LEAGUE_AVG_PITCHER_R14["p_r14_chase_rate"],
     }
+    result["_pa"] = pa  # expose sample size for caller-side regression
     _set_cache(cache_key, result)
     return result
 

@@ -297,9 +297,19 @@ def _fetch_pitcher_from_api(pitcher_id, season):
     k_total = int(season_stats.get("strikeOuts", 0))
     bb_total = int(season_stats.get("baseOnBalls", 0))
 
-    # Derive aggregate rates from season stats
-    k_rate = k_total / bf if bf > 0 else 0.225
-    bb_rate = bb_total / bf if bf > 0 else 0.082
+    # Derive aggregate rates from season stats.
+    # For very small samples (early season), regress toward league average
+    # to prevent extreme rates from producing unrealistic whiff estimates.
+    lg_k_rate = 0.225
+    lg_bb_rate = 0.082
+    if bf >= 15:
+        k_rate = k_total / bf
+        bb_rate = bb_total / bf
+    else:
+        # Bayesian blend: weight observed rate by BF, league avg by prior strength
+        prior_bf = 20  # pseudo-count for prior
+        k_rate = (k_total + prior_bf * lg_k_rate) / (bf + prior_bf)
+        bb_rate = (bb_total + prior_bf * lg_bb_rate) / (bf + prior_bf)
 
     # xwOBA from expected stats
     xwoba_val = None
@@ -601,11 +611,60 @@ def predict_matchup(
     else:
         features.update({"park_run_factor": 1.0, "park_hr_factor": 1.0})
 
-    # Recent form (rolling 14-day)
+    # Recent form (rolling 14-day) — regressed toward player's own profile
+    # when sample size is small (early season / recent call-up).
     try:
-        from services.recent_form import get_batter_recent_form, get_pitcher_recent_form
-        features.update(get_batter_recent_form(batter_id))
-        features.update(get_pitcher_recent_form(pitcher_id))
+        from services.recent_form import get_batter_recent_form, get_pitcher_recent_form, RELIABLE_PA
+        bat_r14 = get_batter_recent_form(batter_id)
+        pit_r14 = get_pitcher_recent_form(pitcher_id)
+
+        # Regress batter recent form toward their own season-level profile
+        bat_pa = bat_r14.pop("_pa", RELIABLE_PA)
+        if bat_pa < RELIABLE_PA:
+            w = bat_pa / RELIABLE_PA
+            # Map r14 keys → player profile keys already in `features`
+            _BAT_R14_TO_PROFILE = {
+                "bat_r14_k_pct": "bat_k_pct",
+                "bat_r14_bb_pct": "bat_bb_pct",
+                "bat_r14_xwoba": "bat_xwoba",
+                "bat_r14_barrel_rate": "bat_barrel_rate",
+                "bat_r14_whiff_rate": "bat_whiff_rate",
+                "bat_r14_chase_rate": "bat_chase_rate",
+            }
+            for r14_key, profile_key in _BAT_R14_TO_PROFILE.items():
+                observed = bat_r14.get(r14_key)
+                prior = features.get(profile_key, _LEAGUE_AVG_BATTER_R14.get(r14_key))
+                if observed is not None and prior is not None:
+                    bat_r14[r14_key] = w * observed + (1 - w) * prior
+                elif prior is not None:
+                    bat_r14[r14_key] = prior
+
+        # Regress pitcher recent form toward their own season-level profile
+        pit_pa = pit_r14.pop("_pa", RELIABLE_PA)
+        if pit_pa < RELIABLE_PA:
+            w = pit_pa / RELIABLE_PA
+            _PIT_R14_TO_PROFILE = {
+                "p_r14_xwoba": "p_xwoba",
+                "p_r14_whiff_rate": "p_whiff_rate",
+                "p_r14_chase_rate": "p_chase_rate",
+            }
+            for r14_key, profile_key in _PIT_R14_TO_PROFILE.items():
+                observed = pit_r14.get(r14_key)
+                prior = features.get(profile_key, _LEAGUE_AVG_PITCHER_R14.get(r14_key))
+                if observed is not None and prior is not None:
+                    pit_r14[r14_key] = w * observed + (1 - w) * prior
+                elif prior is not None:
+                    pit_r14[r14_key] = prior
+            # k_pct / bb_pct don't have direct pitcher profile equivalents,
+            # so fall back to league average as the prior for those two.
+            for r14_key in ("p_r14_k_pct", "p_r14_bb_pct"):
+                observed = pit_r14.get(r14_key)
+                prior = _LEAGUE_AVG_PITCHER_R14.get(r14_key)
+                if observed is not None and prior is not None:
+                    pit_r14[r14_key] = w * observed + (1 - w) * prior
+
+        features.update(bat_r14)
+        features.update(pit_r14)
     except Exception as e:
         log.info("Recent form unavailable: %s — using league avg", e)
         features.update(_LEAGUE_AVG_BATTER_R14)
@@ -626,6 +685,36 @@ def predict_matchup(
     # Build feature array in model's expected order
     feature_names = _meta["numeric_features"] + _meta["categorical_features"]
     X = np.array([[features.get(f, np.nan) for f in feature_names]], dtype=np.float64)
+
+    # Guard: replace any remaining NaN/None with league-average defaults.
+    # NaN features cause XGBoost to follow default split directions which can
+    # produce unrealistically high hit probabilities (observed: +46% hit rate
+    # when all pitcher features are NaN).
+    _FALLBACK = {
+        **_LEAGUE_AVG_BATTER, **_LEAGUE_AVG_BATTER_PLAT,
+        **{f"bvpt_{s}_{c}": _LEAGUE_AVG_BVPT[f"bvpt_{s}"]
+           for c in ("fastball", "breaking", "offspeed")
+           for s in ("whiff_rate", "chase_rate", "zone_contact_rate", "hard_hit_rate", "xwoba")},
+        **{f"bvpt_w_{s}": _LEAGUE_AVG_BVPT[f"bvpt_{s}"]
+           for s in ("whiff_rate", "chase_rate", "zone_contact_rate", "hard_hit_rate", "xwoba")},
+        **_LEAGUE_AVG_PITCHER,
+        "p_usage_fastball": 0.55, "p_usage_breaking": 0.30, "p_usage_offspeed": 0.15,
+        "p_pitch1_usage": 0.40, "p_pitch1_velo": 93.5, "p_pitch1_whiff": 0.20, "p_pitch1_stuff": 100.0,
+        "p_pitch2_usage": 0.25, "p_pitch2_velo": 85.0, "p_pitch2_whiff": 0.30, "p_pitch2_stuff": 100.0,
+        "p_pitch3_usage": 0.15, "p_pitch3_velo": 84.0, "p_pitch3_whiff": 0.25, "p_pitch3_stuff": 100.0,
+        "park_run_factor": 1.0, "park_hr_factor": 1.0,
+        "inning": 1, "outs_when_up": 0, "n_thruorder_pitcher": 1,
+        "runner_on_1b": 0, "runner_on_2b": 0, "runner_on_3b": 0,
+        **_LEAGUE_AVG_BATTER_R14, **_LEAGUE_AVG_PITCHER_R14,
+        "stand": 1, "p_throws": 1,
+    }
+    nan_mask = np.isnan(X[0])
+    if nan_mask.any():
+        for i, is_nan in enumerate(nan_mask):
+            if is_nan:
+                fname = feature_names[i]
+                X[0, i] = _FALLBACK.get(fname, 0.0)
+        log.debug("Replaced %d NaN features with defaults", int(nan_mask.sum()))
 
     # Predict
     probs = _model.predict_proba(X)[0]
