@@ -59,6 +59,34 @@ def _safe_float(val):
         return None
 
 
+def _load_from_db(table_name: str):
+    """Try loading data from a DB cache table. Returns DataFrame or None."""
+    import os as _os
+    db_url = _os.environ.get("DATABASE_URL", "")
+    if not db_url:
+        return None
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    try:
+        import psycopg, json as _json
+        with psycopg.connect(db_url, connect_timeout=5) as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"SELECT season, data FROM {table_name}")
+                rows = cur.fetchall()
+        if not rows:
+            return None
+        all_records = []
+        for season, data in rows:
+            records = data if isinstance(data, list) else _json.loads(data)
+            all_records.extend(records)
+        if not all_records:
+            return None
+        return pd.DataFrame(all_records)
+    except Exception as e:
+        log.warning("Could not load %s from DB: %s", table_name, e)
+        return None
+
+
 def _load():
     """Lazy-load registry, league-average model, and data files."""
     global _loaded, _registry, _league_model, _umpire_metrics, _game_outcomes
@@ -83,22 +111,31 @@ def _load():
     except Exception as e:
         log.warning("Could not load league-average zone model: %s", e)
 
-    # Load umpire metrics (for profile data)
-    metrics_path = os.path.join(_DATA_DIR, "umpire_metrics.parquet")
-    try:
-        _umpire_metrics = pd.read_parquet(metrics_path)
-        log.info("Umpire metrics: %d rows", len(_umpire_metrics))
-    except Exception as e:
-        log.warning("Could not load umpire metrics: %s", e)
-        _umpire_metrics = pd.DataFrame()
+    # Load umpire metrics — try DB first (shared across Render services),
+    # fall back to local parquet
+    _umpire_metrics = _load_from_db("umpire_metrics_cache")
+    if _umpire_metrics is None:
+        metrics_path = os.path.join(_DATA_DIR, "umpire_metrics.parquet")
+        try:
+            _umpire_metrics = pd.read_parquet(metrics_path)
+            log.info("Umpire metrics (parquet): %d rows", len(_umpire_metrics))
+        except Exception as e:
+            log.warning("Could not load umpire metrics: %s", e)
+            _umpire_metrics = pd.DataFrame()
+    else:
+        log.info("Umpire metrics (DB): %d rows", len(_umpire_metrics))
 
-    # Load game outcomes (for umpire-game mapping and name lookup)
-    outcomes_path = os.path.join(_DATA_DIR, "game_outcomes.parquet")
-    try:
-        _game_outcomes = pd.read_parquet(outcomes_path)
-        log.info("Game outcomes: %d rows", len(_game_outcomes))
-    except Exception as e:
-        log.warning("Could not load game outcomes: %s", e)
+    # Load game outcomes — try DB first, fall back to parquet
+    _game_outcomes = _load_from_db("game_outcomes_cache")
+    if _game_outcomes is None:
+        outcomes_path = os.path.join(_DATA_DIR, "game_outcomes.parquet")
+        try:
+            _game_outcomes = pd.read_parquet(outcomes_path)
+            log.info("Game outcomes (parquet): %d rows", len(_game_outcomes))
+        except Exception as e:
+            log.warning("Could not load game outcomes: %s", e)
+    else:
+        log.info("Game outcomes (DB): %d rows", len(_game_outcomes))
         _game_outcomes = pd.DataFrame()
 
 

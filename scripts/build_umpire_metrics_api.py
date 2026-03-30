@@ -390,5 +390,82 @@ def build():
         print(f"\ngame_outcomes.parquet updated: {len(combined)} total games")
 
 
+def persist_to_db():
+    """Write umpire_metrics and game_outcomes to PostgreSQL for web service access."""
+    db_url = os.environ.get("DATABASE_URL", "")
+    if not db_url:
+        print("  No DATABASE_URL — skipping DB persistence")
+        return
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+    try:
+        import psycopg
+    except ImportError:
+        print("  psycopg not installed — skipping DB persistence")
+        return
+
+    def _clean_for_json(df):
+        """Replace NaN/NaT with None for valid JSON serialization."""
+        import numpy as np
+        return df.replace({np.nan: None, pd.NaT: None})
+
+    # Read the parquet files we just wrote
+    metrics_df = _clean_for_json(pd.read_parquet(OUTPUT_PATH))
+    outcomes_df = _clean_for_json(pd.read_parquet(GAME_OUTCOMES_PATH))
+
+    try:
+        with psycopg.connect(db_url) as conn:
+            with conn.cursor() as cur:
+                # Umpire metrics cache: store as JSON blob per season
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS umpire_metrics_cache (
+                        season INT PRIMARY KEY,
+                        data JSONB NOT NULL,
+                        generated_at TIMESTAMPTZ NOT NULL
+                    )
+                """)
+                from datetime import datetime, timezone
+                now = datetime.now(timezone.utc)
+                for season in metrics_df["season"].unique():
+                    chunk = metrics_df[metrics_df["season"] == season]
+                    payload = json.dumps(chunk.to_dict(orient="records"),
+                                         default=str)
+                    cur.execute("""
+                        INSERT INTO umpire_metrics_cache (season, data, generated_at)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (season) DO UPDATE SET
+                            data = EXCLUDED.data,
+                            generated_at = EXCLUDED.generated_at
+                    """, (int(season), payload, now))
+
+                # Game outcomes cache: store as JSON blob per season
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS game_outcomes_cache (
+                        season INT PRIMARY KEY,
+                        data JSONB NOT NULL,
+                        generated_at TIMESTAMPTZ NOT NULL
+                    )
+                """)
+                for season in outcomes_df["season"].unique():
+                    chunk = outcomes_df[outcomes_df["season"] == season]
+                    # Replace NaN/NaT with None for valid JSON
+                    payload = json.dumps(chunk.to_dict(orient="records"),
+                                         default=str)
+                    cur.execute("""
+                        INSERT INTO game_outcomes_cache (season, data, generated_at)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (season) DO UPDATE SET
+                            data = EXCLUDED.data,
+                            generated_at = EXCLUDED.generated_at
+                    """, (int(season), payload, now))
+
+            conn.commit()
+        print(f"  Saved umpire metrics + game outcomes to DB")
+    except Exception as e:
+        print(f"  WARNING: DB write failed: {e}", file=sys.stderr)
+
+
 if __name__ == "__main__":
     build()
+    persist_to_db()
