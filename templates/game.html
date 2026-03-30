@@ -943,20 +943,22 @@
   }
   .sc-zone-chip{
     position:absolute; display:flex; flex-direction:column; align-items:center;
-    gap:1px; padding:5px 9px; border-radius:9px;
+    gap:1px; padding:4px 6px; border-radius:8px;
     border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.52);
-    backdrop-filter:blur(6px); transform:translate(-50%,-50%); min-width:52px;
+    backdrop-filter:blur(6px); transform:translate(-50%,-50%); min-width:42px;
   }
   .sc-zone-chip.pos-strong{ background:rgba(14,100,42,0.82); border-color:rgba(81,207,102,0.45); box-shadow:0 0 10px rgba(81,207,102,0.25); }
   .sc-zone-chip.pos       { background:rgba(14,85,36,0.70);  border-color:rgba(81,207,102,0.28); }
   .sc-zone-chip.neg       { background:rgba(110,22,22,0.70); border-color:rgba(192,57,43,0.32); }
   .sc-zone-chip.neg-strong{ background:rgba(130,18,18,0.82); border-color:rgba(192,57,43,0.48); box-shadow:0 0 10px rgba(192,57,43,0.22); }
   .sc-zone-chip.neu       { background:rgba(30,30,30,0.62);  border-color:rgba(255,255,255,0.10); }
-  .sc-zone-chip-label{ font-size:0.52rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:rgba(255,255,255,0.55); white-space:nowrap; }
-  .sc-zone-chip-val  { font-size:0.88rem; font-weight:900; color:#fff; font-variant-numeric:tabular-nums; line-height:1; }
-  .sc-zone-lf{ left:20%; top:44%; }
-  .sc-zone-cf{ left:50%; top:11%; }
-  .sc-zone-rf{ left:80%; top:44%; }
+  .sc-zone-chip-label{ font-size:0.48rem; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:rgba(255,255,255,0.55); white-space:nowrap; }
+  .sc-zone-chip-val  { font-size:0.78rem; font-weight:900; color:#fff; font-variant-numeric:tabular-nums; line-height:1; }
+  .sc-zone-lf { left:10%; top:52%; }
+  .sc-zone-lcf{ left:30%; top:25%; }
+  .sc-zone-cf { left:50%; top:11%; }
+  .sc-zone-rcf{ left:70%; top:25%; }
+  .sc-zone-rf { left:90%; top:52%; }
   .sc-dome-label{
     position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
     font-size:0.6rem; font-weight:600; color:rgba(255,255,255,0.38);
@@ -6271,9 +6273,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
     const imp = w.impact || {};
     const dome = w.dome;
     const label = imp.label || (dome ? 'Dome (controlled)' : 'Neutral');
-    const lf = imp.lf_hr_factor || 1;
-    const cf = imp.cf_hr_factor || 1;
-    const rf = imp.rf_hr_factor || 1;
+    const lf  = imp.lf_hr_factor  || 1;
+    const lcf = imp.lcf_hr_factor || 1;
+    const cf  = imp.cf_hr_factor  || 1;
+    const rcf = imp.rcf_hr_factor || 1;
+    const rf  = imp.rf_hr_factor  || 1;
     const xbh = imp.xbh_factor || 1;
 
     function _scZoneClass(f){
@@ -6304,15 +6308,23 @@ document.addEventListener("DOMContentLoaded", ()=>{
     const zoneHtml = `
       <div class="sc-zone-overlay">
         <div class="sc-zone-chip sc-zone-lf ${_scZoneClass(lf)}">
-          <span class="sc-zone-chip-label">LF HR</span>
+          <span class="sc-zone-chip-label">LF</span>
           <span class="sc-zone-chip-val">${_scFmt(lf)}</span>
         </div>
+        <div class="sc-zone-chip sc-zone-lcf ${_scZoneClass(lcf)}">
+          <span class="sc-zone-chip-label">LCF</span>
+          <span class="sc-zone-chip-val">${_scFmt(lcf)}</span>
+        </div>
         <div class="sc-zone-chip sc-zone-cf ${_scZoneClass(cf)}">
-          <span class="sc-zone-chip-label">CF HR</span>
+          <span class="sc-zone-chip-label">CF</span>
           <span class="sc-zone-chip-val">${_scFmt(cf)}</span>
         </div>
+        <div class="sc-zone-chip sc-zone-rcf ${_scZoneClass(rcf)}">
+          <span class="sc-zone-chip-label">RCF</span>
+          <span class="sc-zone-chip-val">${_scFmt(rcf)}</span>
+        </div>
         <div class="sc-zone-chip sc-zone-rf ${_scZoneClass(rf)}">
-          <span class="sc-zone-chip-label">RF HR</span>
+          <span class="sc-zone-chip-label">RF</span>
           <span class="sc-zone-chip-val">${_scFmt(rf)}</span>
         </div>
         ${domeNote}
@@ -6400,7 +6412,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
         <thead><tr><th>Zone</th><th>HR Factor</th></tr></thead>
         <tbody>
           ${factorRow('LF', imp.lf_hr_factor)}
+          ${factorRow('LCF', imp.lcf_hr_factor)}
           ${factorRow('CF', imp.cf_hr_factor)}
+          ${factorRow('RCF', imp.rcf_hr_factor)}
           ${factorRow('RF', imp.rf_hr_factor)}
           ${xbhRow}
         </tbody>
@@ -6551,8 +6565,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
   }
 
   function renderFieldZones(imp, hasWind, windDeg, bearing){
-    const lf = imp.lf_hr_factor, cf = imp.cf_hr_factor, rf = imp.rf_hr_factor;
-    const lfC = _hrFactorColor(lf), cfC = _hrFactorColor(cf), rfC = _hrFactorColor(rf);
+    const lf = imp.lf_hr_factor, lcf = imp.lcf_hr_factor, cf = imp.cf_hr_factor, rcf = imp.rcf_hr_factor, rf = imp.rf_hr_factor;
+    const lfC = _hrFactorColor(lf), lcfC = _hrFactorColor(lcf), cfC = _hrFactorColor(cf), rcfC = _hrFactorColor(rcf), rfC = _hrFactorColor(rf);
 
     // SVG coordinate system: cx,cy = home plate, +x = right, +y = down
     // Angles in degrees where 0 = toward CF (up), positive = toward RF (right)
@@ -6569,13 +6583,15 @@ document.addEventListener("DOMContentLoaded", ()=>{
       return `M${cx},${cy} L${p1.x.toFixed(1)},${p1.y.toFixed(1)} A${r},${r} 0 ${large},1 ${p2.x.toFixed(1)},${p2.y.toFixed(1)} Z`;
     }
 
-    // Zone boundaries: LF=-55 to -18, CF=-18 to +18, RF=+18 to +55
-    const lfPath = wedge(-55, -18);
-    const cfPath = wedge(-18,  18);
-    const rfPath = wedge( 18,  55);
+    // Zone boundaries: 5 equal 22° wedges across the 110° fair-territory arc
+    const lfPath  = wedge(-55, -33);
+    const lcfPath = wedge(-33, -11);
+    const cfPath  = wedge(-11,  11);
+    const rcfPath = wedge( 11,  33);
+    const rfPath  = wedge( 33,  55);
 
     // Label positions (midpoint of each zone at ~60% radius)
-    const lfLbl = pt(-37, 62), cfLbl = pt(0, 57), rfLbl = pt(37, 62);
+    const lfLbl = pt(-44, 65), lcfLbl = pt(-22, 60), cfLbl = pt(0, 57), rcfLbl = pt(22, 60), rfLbl = pt(44, 65);
 
     // Small infield arc
     const infP1 = pt(-55, 22), infP2 = pt(55, 22);
@@ -6596,14 +6612,17 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
     // Colored zone fills
     svg += `<path d="${lfPath}" fill="${lfC}" opacity="0.18"/>`;
+    svg += `<path d="${lcfPath}" fill="${lcfC}" opacity="0.18"/>`;
     svg += `<path d="${cfPath}" fill="${cfC}" opacity="0.18"/>`;
+    svg += `<path d="${rcfPath}" fill="${rcfC}" opacity="0.18"/>`;
     svg += `<path d="${rfPath}" fill="${rfC}" opacity="0.18"/>`;
 
-    // Zone stroke borders (the dividing lines only — foul lines already on bg shape)
-    const divL = pt(-18, r);
-    const divR = pt( 18, r);
-    svg += `<line x1="${cx}" y1="${cy}" x2="${divL.x.toFixed(1)}" y2="${divL.y.toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="3,3"/>`;
-    svg += `<line x1="${cx}" y1="${cy}" x2="${divR.x.toFixed(1)}" y2="${divR.y.toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="3,3"/>`;
+    // Zone stroke borders (dividing lines between zones)
+    const divs = [-33, -11, 11, 33];
+    divs.forEach(a => {
+      const d = pt(a, r);
+      svg += `<line x1="${cx}" y1="${cy}" x2="${d.x.toFixed(1)}" y2="${d.y.toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="3,3"/>`;
+    });
 
     // Infield arc
     svg += `<path d="M${infP1.x.toFixed(1)},${infP1.y.toFixed(1)} A22,22 0 0,1 ${infP2.x.toFixed(1)},${infP2.y.toFixed(1)}" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>`;
@@ -6611,11 +6630,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
     // Zone labels: name + pct
     function zLbl(p, name, factor, color){
       const pct = _hrFactorPct(factor);
-      return `<text x="${p.x.toFixed(1)}" y="${(p.y - 7).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="9.5" font-weight="700" font-family="sans-serif" opacity="0.75">${name}</text>
-              <text x="${p.x.toFixed(1)}" y="${(p.y + 6).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="12" font-weight="800" font-family="monospace">${pct}</text>`;
+      return `<text x="${p.x.toFixed(1)}" y="${(p.y - 7).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="8.5" font-weight="700" font-family="sans-serif" opacity="0.75">${name}</text>
+              <text x="${p.x.toFixed(1)}" y="${(p.y + 5).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="11" font-weight="800" font-family="monospace">${pct}</text>`;
     }
     svg += zLbl(lfLbl, 'LF', lf, lfC);
+    svg += zLbl(lcfLbl, 'LCF', lcf, lcfC);
     svg += zLbl(cfLbl, 'CF', cf, cfC);
+    svg += zLbl(rcfLbl, 'RCF', rcf, rcfC);
     svg += zLbl(rfLbl, 'RF', rf, rfC);
 
     // Wind arrow (if applicable) — from HP toward where wind is going
@@ -6642,9 +6663,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const p1 = pt(a1, rArc), p2 = pt(a2, rArc);
       return `<path d="M${p1.x.toFixed(1)},${p1.y.toFixed(1)} A${rArc},${rArc} 0 0,1 ${p2.x.toFixed(1)},${p2.y.toFixed(1)}" fill="none" stroke="${color}" stroke-width="4" opacity="0.7" stroke-linecap="round"/>`;
     }
-    svg += arcSegment(-55, -18, lfC);
-    svg += arcSegment(-18,  18, cfC);
-    svg += arcSegment( 18,  55, rfC);
+    svg += arcSegment(-55, -33, lfC);
+    svg += arcSegment(-33, -11, lcfC);
+    svg += arcSegment(-11,  11, cfC);
+    svg += arcSegment( 11,  33, rcfC);
+    svg += arcSegment( 33,  55, rfC);
 
     svg += `</svg></div>`;
     return svg;
