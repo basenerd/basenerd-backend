@@ -161,13 +161,16 @@ def fetch_live_standings(season: int) -> list[dict]:
 
     rows: list[dict] = []
     for div_block in data.get("records", []):
-        division = (div_block.get("division") or {}).get("name", "")
-        league = (div_block.get("league") or {}).get("name", "")
+        raw_div = (div_block.get("division") or {}).get("name", "")
+        raw_lg  = (div_block.get("league")   or {}).get("name", "")
         for tr in div_block.get("teamRecords", []):
             team = tr.get("team") or {}
             tid = team.get("id")
             if not tid:
                 continue
+            # Prefer team-level hydrated names (record-level often lacks name)
+            division = (team.get("division") or {}).get("name", "") or raw_div
+            league   = (team.get("league")   or {}).get("name", "") or raw_lg
             w = _as_int(tr.get("wins"), 0)
             l = _as_int(tr.get("losses"), 0)
             rs = _as_int(tr.get("runsScored"), 0)

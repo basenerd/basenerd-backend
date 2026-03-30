@@ -3560,15 +3560,13 @@ def projections():
 
 @app.get("/umpires")
 def umpires_page():
-    season = request.args.get("season", type=int) or 2026
-    # Get available seasons from the service
+    season = 2026
     data = umpire_list(season)
-    seasons = data.get("seasons", list(range(2021, 2027)))
     return render_template(
         "umpires.html",
         title="Umpires \u2022 Basenerd",
         season=season,
-        seasons=seasons,
+        seasons=[2026],
     )
 
 
