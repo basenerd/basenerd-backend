@@ -6221,8 +6221,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
     const hm = sim.homeWinPct || 0;
     const arcLen = 377; // π × 120
 
-    // Needle: 50% away → 0° (up), 100% away → -90° (left), 0% → +90° (right)
-    const angle = (0.5 - aw) * 180;
+    // Needle: points to where the two arcs meet.
+    // Away arc fills left-to-right, so higher aw% → boundary further right → positive rotation.
+    const angle = (aw - 0.5) * 180;
     const awayOffset = (arcLen * (1 - aw)).toFixed(2);
     const homeOffset = (arcLen * (1 - hm)).toFixed(2);
 
