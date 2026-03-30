@@ -454,9 +454,13 @@
       {% set bg = "rgba(70, 140, 255, " ~ (0.10 + 0.35 * a) ~ ")" %}
     {% endif %}
 
-    {# Render exactly like ".432" (no leading 0) #}
+    {# Render exactly like ".432" (no leading 0), but show "1.000" for perfect #}
     {% set s = "%.3f"|format(p) %}
-    <span class="pctcell" style="background: {{ bg }};">{{ s[1:] }}</span>
+    {% if p >= 1.0 %}
+      <span class="pctcell" style="background: {{ bg }};">1.000</span>
+    {% else %}
+      <span class="pctcell" style="background: {{ bg }};">{{ s[1:] }}</span>
+    {% endif %}
   {% endif %}
 {% endmacro %}
 
