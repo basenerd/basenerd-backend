@@ -26,8 +26,10 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 API_BASE = "https://statsapi.mlb.com/api/v1"
 
 N_SIMS = 5_000
-# After this many games played, fully trust actual record over pre-season projection
-BLEND_GAMES = 30
+# Bayesian prior: treat preseason projection as this many games of evidence.
+# With PRIOR_GAMES=50, after 3 real games the model is 94% preseason / 6% actual.
+# At 50 games it's 50/50, by 120 games it's ~70% actual.
+PRIOR_GAMES = 50
 
 # Division name mapping: MLB API full name → abbreviated key used in the JSON/template
 DIV_ABBREV = {
@@ -129,7 +131,20 @@ def parse_schedule(payload: dict) -> list:
 # ---------------------------------------------------------------------------
 
 def load_preseason_wins(season: int) -> dict:
-    """Load previous season_projection JSON for talent baseline (keyed by team_id)."""
+    """Load static preseason win projections (keyed by team_id int).
+
+    Reads from data/preseason_wins_{season}.json — a hand-curated file that
+    is NEVER overwritten by the nightly script.  This prevents the feedback
+    loop where each run's inflated projections become the next run's baseline.
+    """
+    static_path = os.path.join(DATA_DIR, f"preseason_wins_{season}.json")
+    if os.path.exists(static_path):
+        with open(static_path) as f:
+            raw = json.load(f)
+        # Keys are strings in JSON; convert to int
+        return {int(k): float(v) for k, v in raw.items() if k != "_comment"}
+
+    # Fallback: try the old format (season_projection file) for older seasons
     proj_path = os.path.join(DATA_DIR, f"season_projection_{season}.json")
     if not os.path.exists(proj_path):
         return {}
@@ -152,10 +167,12 @@ def load_preseason_wins(season: int) -> dict:
 
 def compute_win_probs(teams: dict, preseason_wins: dict) -> dict:
     """
-    Estimate each team's per-game win probability.
+    Estimate each team's per-game win probability via Bayesian regression.
 
-    Early in season: blend pre-season projection with actual record.
-    Late in season: trust actual record.
+    Treats the preseason projection as PRIOR_GAMES worth of evidence.
+    With PRIOR_GAMES=50 and 3 real games played:
+        wp = (50 * 0.420 + 3 * 1.000) / (50 + 3) = 0.453  (barely moves)
+    At 81 games played it's roughly 50/50 preseason vs actual.
     """
     win_probs = {}
     for tid, t in teams.items():
@@ -169,8 +186,8 @@ def compute_win_probs(teams: dict, preseason_wins: dict) -> dict:
             wp = pre_wp
         else:
             actual_wp = w / gp
-            blend = max(0.0, (BLEND_GAMES - gp) / BLEND_GAMES)
-            wp = blend * pre_wp + (1.0 - blend) * actual_wp
+            # Bayesian blend: preseason counts as PRIOR_GAMES of data
+            wp = (PRIOR_GAMES * pre_wp + gp * actual_wp) / (PRIOR_GAMES + gp)
 
         win_probs[tid] = max(0.25, min(0.75, wp))
     return win_probs
