@@ -14,25 +14,25 @@ VENUES = {
     # --- American League East ---
     2: {   # Oriole Park at Camden Yards
         "lat": 39.2838, "lon": -76.6216, "dome": False, "alt_ft": 30,
-        "name": "Oriole Park at Camden Yards", "bearing": 168,
+        "name": "Oriole Park at Camden Yards", "bearing": 32,
         "lf_dist": 333, "cf_dist": 410, "rf_dist": 318,
         "lf_wall": 7,  "cf_wall": 7,  "rf_wall": 7,
     },
     3: {   # Fenway Park
         "lat": 42.3467, "lon": -71.0972, "dome": False, "alt_ft": 20,
-        "name": "Fenway Park", "bearing": 210,
+        "name": "Fenway Park", "bearing": 45,
         "lf_dist": 310, "cf_dist": 420, "rf_dist": 302,
         "lf_wall": 37, "cf_wall": 17, "rf_wall": 3,   # Green Monster
     },
     3289: {  # Citi Field
         "lat": 40.7571, "lon": -73.8458, "dome": False, "alt_ft": 20,
-        "name": "Citi Field", "bearing": 175,
+        "name": "Citi Field", "bearing": 32,
         "lf_dist": 335, "cf_dist": 408, "rf_dist": 330,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     3313: {  # Yankee Stadium
         "lat": 40.8296, "lon": -73.9262, "dome": False, "alt_ft": 55,
-        "name": "Yankee Stadium", "bearing": 185,
+        "name": "Yankee Stadium", "bearing": 88,
         "lf_dist": 318, "cf_dist": 408, "rf_dist": 314,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
@@ -44,7 +44,7 @@ VENUES = {
     },
     14: {   # Rogers Centre (retractable)
         "lat": 43.6414, "lon": -79.3894, "dome": True, "retractable": True, "alt_ft": 260,
-        "name": "Rogers Centre", "bearing": 0,
+        "name": "Rogers Centre", "bearing": 315,
         "lf_dist": 328, "cf_dist": 400, "rf_dist": 328,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
@@ -52,31 +52,31 @@ VENUES = {
     # --- American League Central ---
     4: {   # Rate Field
         "lat": 41.8300, "lon": -87.6339, "dome": False, "alt_ft": 595,
-        "name": "Rate Field", "bearing": 180,
+        "name": "Rate Field", "bearing": 128,
         "lf_dist": 330, "cf_dist": 400, "rf_dist": 335,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     5: {   # Progressive Field
         "lat": 41.4962, "lon": -81.6852, "dome": False, "alt_ft": 660,
-        "name": "Progressive Field", "bearing": 175,
+        "name": "Progressive Field", "bearing": 358,
         "lf_dist": 325, "cf_dist": 405, "rf_dist": 325,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     7: {   # Kauffman Stadium
         "lat": 39.0517, "lon": -94.4803, "dome": False, "alt_ft": 750,
-        "name": "Kauffman Stadium", "bearing": 180,
+        "name": "Kauffman Stadium", "bearing": 45,
         "lf_dist": 330, "cf_dist": 410, "rf_dist": 330,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     2394: {  # Comerica Park
         "lat": 42.3390, "lon": -83.0485, "dome": False, "alt_ft": 585,
-        "name": "Comerica Park", "bearing": 175,
+        "name": "Comerica Park", "bearing": 151,
         "lf_dist": 345, "cf_dist": 420, "rf_dist": 330,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     3312: {  # Target Field
         "lat": 44.9817, "lon": -93.2776, "dome": False, "alt_ft": 840,
-        "name": "Target Field", "bearing": 165,
+        "name": "Target Field", "bearing": 90,
         "lf_dist": 339, "cf_dist": 404, "rf_dist": 328,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
@@ -84,31 +84,31 @@ VENUES = {
     # --- American League West ---
     2392: {  # Daikin Park / Minute Maid Park (retractable)
         "lat": 29.7573, "lon": -95.3555, "dome": True, "retractable": True, "alt_ft": 50,
-        "name": "Daikin Park", "bearing": 0,
+        "name": "Daikin Park", "bearing": 347,
         "lf_dist": 315, "cf_dist": 435, "rf_dist": 326,
         "lf_wall": 7,  "cf_wall": 8,  "rf_wall": 8,  # Crawford Boxes at 315
     },
     1: {   # Angel Stadium
         "lat": 33.8003, "lon": -118.2400, "dome": False, "alt_ft": 340,
-        "name": "Angel Stadium", "bearing": 175,
+        "name": "Angel Stadium", "bearing": 44,
         "lf_dist": 330, "cf_dist": 396, "rf_dist": 330,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     2529: {  # Sutter Health Park (Athletics)
         "lat": 38.5803, "lon": -121.5002, "dome": False, "alt_ft": 25,
-        "name": "Sutter Health Park", "bearing": 175,
+        "name": "Sutter Health Park", "bearing": 35,
         "lf_dist": 330, "cf_dist": 400, "rf_dist": 325,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     680: {  # T-Mobile Park (retractable)
         "lat": 47.5914, "lon": -122.3324, "dome": True, "retractable": True, "alt_ft": 20,
-        "name": "T-Mobile Park", "bearing": 0,
+        "name": "T-Mobile Park", "bearing": 50,
         "lf_dist": 331, "cf_dist": 401, "rf_dist": 326,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     5325: {  # Globe Life Field (retractable)
         "lat": 30.4083, "lon": -97.7522, "dome": True, "retractable": True, "alt_ft": 560,
-        "name": "Globe Life Field", "bearing": 0,
+        "name": "Globe Life Field", "bearing": 135,
         "lf_dist": 332, "cf_dist": 407, "rf_dist": 326,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
@@ -116,25 +116,25 @@ VENUES = {
     # --- National League East ---
     4705: {  # Truist Park
         "lat": 33.8003, "lon": -84.3886, "dome": False, "alt_ft": 1050,
-        "name": "Truist Park", "bearing": 170,
+        "name": "Truist Park", "bearing": 120,
         "lf_dist": 335, "cf_dist": 400, "rf_dist": 325,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     4169: {  # loanDepot park (retractable)
         "lat": 25.7781, "lon": -80.2196, "dome": True, "retractable": True, "alt_ft": 10,
-        "name": "loanDepot park", "bearing": 0,
+        "name": "loanDepot park", "bearing": 30,
         "lf_dist": 344, "cf_dist": 404, "rf_dist": 335,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     2681: {  # Citizens Bank Park
         "lat": 39.9061, "lon": -75.1665, "dome": False, "alt_ft": 20,
-        "name": "Citizens Bank Park", "bearing": 175,
+        "name": "Citizens Bank Park", "bearing": 9,
         "lf_dist": 329, "cf_dist": 401, "rf_dist": 330,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     3309: {  # Nationals Park
         "lat": 38.8730, "lon": -77.0075, "dome": False, "alt_ft": 25,
-        "name": "Nationals Park", "bearing": 175,
+        "name": "Nationals Park", "bearing": 29,
         "lf_dist": 336, "cf_dist": 403, "rf_dist": 335,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
@@ -142,31 +142,31 @@ VENUES = {
     # --- National League Central ---
     17: {   # Wrigley Field
         "lat": 41.9484, "lon": -87.6553, "dome": False, "alt_ft": 595,
-        "name": "Wrigley Field", "bearing": 210,
+        "name": "Wrigley Field", "bearing": 38,
         "lf_dist": 355, "cf_dist": 400, "rf_dist": 353,
         "lf_wall": 15, "cf_wall": 10, "rf_wall": 11,
     },
     2602: {  # Great American Ball Park
         "lat": 39.0974, "lon": -84.5082, "dome": False, "alt_ft": 490,
-        "name": "Great American Ball Park", "bearing": 175,
+        "name": "Great American Ball Park", "bearing": 125,
         "lf_dist": 328, "cf_dist": 404, "rf_dist": 325,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     32: {   # American Family Field (retractable)
         "lat": 43.0280, "lon": -87.9712, "dome": True, "retractable": True, "alt_ft": 600,
-        "name": "American Family Field", "bearing": 0,
+        "name": "American Family Field", "bearing": 129,
         "lf_dist": 344, "cf_dist": 400, "rf_dist": 345,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     31: {   # PNC Park
         "lat": 40.4469, "lon": -80.0058, "dome": False, "alt_ft": 730,
-        "name": "PNC Park", "bearing": 170,
+        "name": "PNC Park", "bearing": 117,
         "lf_dist": 325, "cf_dist": 399, "rf_dist": 320,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     2889: {  # Busch Stadium
         "lat": 38.6226, "lon": -90.1928, "dome": False, "alt_ft": 455,
-        "name": "Busch Stadium", "bearing": 180,
+        "name": "Busch Stadium", "bearing": 63,
         "lf_dist": 336, "cf_dist": 400, "rf_dist": 335,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
@@ -174,31 +174,31 @@ VENUES = {
     # --- National League West ---
     15: {   # Chase Field (retractable)
         "lat": 33.4453, "lon": -112.0667, "dome": True, "retractable": True, "alt_ft": 1086,
-        "name": "Chase Field", "bearing": 0,
+        "name": "Chase Field", "bearing": 26,
         "lf_dist": 330, "cf_dist": 407, "rf_dist": 334,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     19: {   # Coors Field
         "lat": 39.7561, "lon": -104.9942, "dome": False, "alt_ft": 5280,
-        "name": "Coors Field", "bearing": 170,
+        "name": "Coors Field", "bearing": 4,
         "lf_dist": 347, "cf_dist": 415, "rf_dist": 350,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     22: {   # UNIQLO Field at Dodger Stadium
         "lat": 34.0739, "lon": -118.2400, "dome": False, "alt_ft": 515,
-        "name": "Dodger Stadium", "bearing": 165,
+        "name": "Dodger Stadium", "bearing": 27,
         "lf_dist": 330, "cf_dist": 395, "rf_dist": 330,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     2680: {  # Petco Park
         "lat": 32.7073, "lon": -117.1566, "dome": False, "alt_ft": 15,
-        "name": "Petco Park", "bearing": 175,
+        "name": "Petco Park", "bearing": 359,
         "lf_dist": 334, "cf_dist": 396, "rf_dist": 322,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 8,
     },
     2395: {  # Oracle Park
         "lat": 37.7786, "lon": -122.3893, "dome": False, "alt_ft": 5,
-        "name": "Oracle Park", "bearing": 175,
+        "name": "Oracle Park", "bearing": 85,
         "lf_dist": 339, "cf_dist": 399, "rf_dist": 309,
         "lf_wall": 8,  "cf_wall": 8,  "rf_wall": 24,  # brick RF wall
     },
@@ -234,7 +234,7 @@ VENUES = {
 # Fallback for unknown venues
 _DEFAULT = {
     "lat": 39.0, "lon": -95.0, "dome": False, "alt_ft": 500,
-    "name": "Unknown", "bearing": 180,
+    "name": "Unknown", "bearing": 45,
     "lf_dist": 331, "cf_dist": 404, "rf_dist": 328,
     "lf_wall": 8, "cf_wall": 8, "rf_wall": 8,
 }
