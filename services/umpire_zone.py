@@ -136,7 +136,6 @@ def _load():
             log.warning("Could not load game outcomes: %s", e)
     else:
         log.info("Game outcomes (DB): %d rows", len(_game_outcomes))
-        _game_outcomes = pd.DataFrame()
 
 
 def _get_model(umpire_id):
