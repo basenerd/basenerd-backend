@@ -75,6 +75,53 @@
   .pg-total-item .label { font-size: 0.7rem; color: #888; text-transform: uppercase; }
   .pg-total-item .value { font-size: 1.1rem; font-weight: 700; color: #f0c040; }
 
+  /* NRFI card */
+  .nrfi-card { background: #141428; border: 1px solid #222; border-radius: 10px;
+    padding: 20px; margin-bottom: 28px; }
+  .nrfi-header { display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; }
+  .nrfi-header h2 { font-size: 1.15rem; margin: 0; }
+  .nrfi-header .nrfi-badge { font-size: 0.75rem; padding: 3px 10px; border-radius: 4px;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .nrfi-badge.lean-nrfi { background: #1a3a1a; color: #51cf66; border: 1px solid #2d5a2d; }
+  .nrfi-badge.lean-yrfi { background: #3a1a1a; color: #ff6b6b; border: 1px solid #5a2d2d; }
+  .nrfi-badge.tossup { background: #2a2a1a; color: #ffd43b; border: 1px solid #4a4a2d; }
+
+  .nrfi-gauge { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+  .nrfi-gauge-bar { flex: 1; height: 32px; border-radius: 6px; overflow: hidden;
+    display: flex; position: relative; background: #1a1a2e; }
+  .nrfi-gauge-fill-nrfi { background: linear-gradient(90deg, #2d6a2d, #51cf66);
+    height: 100%; transition: width 0.6s ease; display: flex; align-items: center;
+    justify-content: center; font-weight: 700; font-size: 0.85rem; color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5); min-width: 50px; }
+  .nrfi-gauge-fill-yrfi { background: linear-gradient(90deg, #ff6b6b, #c92a2a);
+    height: 100%; transition: width 0.6s ease; display: flex; align-items: center;
+    justify-content: center; font-weight: 700; font-size: 0.85rem; color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5); min-width: 50px; }
+  .nrfi-gauge-labels { display: flex; justify-content: space-between;
+    font-size: 0.72rem; color: #888; margin-top: 4px; }
+
+  .nrfi-breakdown { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .nrfi-half { background: #1a1a2e; border-radius: 8px; padding: 14px; }
+  .nrfi-half-title { font-size: 0.78rem; color: #888; text-transform: uppercase;
+    letter-spacing: 0.3px; margin-bottom: 8px; }
+  .nrfi-half-pitcher { font-size: 0.85rem; color: #ccc; margin-bottom: 8px;
+    font-weight: 600; }
+  .nrfi-half-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+  .nrfi-stat { text-align: center; }
+  .nrfi-stat .label { font-size: 0.68rem; color: #888; text-transform: uppercase; }
+  .nrfi-stat .value { font-size: 1.05rem; font-weight: 700; }
+  .nrfi-stat .value.clean { color: #51cf66; }
+  .nrfi-stat .value.danger { color: #ff6b6b; }
+  .nrfi-stat .value.neutral { color: #ffd43b; }
+
+  .nrfi-dist { margin-top: 10px; }
+  .nrfi-dist-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .nrfi-dist-label { font-size: 0.7rem; color: #888; width: 20px; text-align: right; }
+  .nrfi-dist-fill { height: 14px; border-radius: 3px; min-width: 2px;
+    transition: width 0.4s ease; }
+  .nrfi-dist-pct { font-size: 0.7rem; color: #aaa; }
+
   /* Loading / no lineups */
   .pg-loading { text-align: center; padding: 60px 20px; color: #888; }
   .pg-no-lineups { text-align: center; padding: 40px 20px; }
@@ -97,6 +144,9 @@
     .pg-matchup { padding: 12px; }
     /* Hide OBP column on mobile */
     .pg-col-obp { display: none; }
+    .nrfi-card { padding: 14px; }
+    .nrfi-breakdown { grid-template-columns: 1fr; }
+    .nrfi-gauge-fill-nrfi, .nrfi-gauge-fill-yrfi { font-size: 0.75rem; }
   }
 </style>
 
@@ -110,6 +160,7 @@
 
   <div id="pg-loading" class="pg-loading">Loading predictions...</div>
   <div id="pg-content" style="display:none">
+    <div id="pg-nrfi-section"></div>
     <div id="pg-away-section"></div>
     <div id="pg-home-section"></div>
   </div>
@@ -164,6 +215,11 @@ function renderPregame(d) {
 
   document.getElementById('pg-content').style.display = 'block';
 
+  // Render NRFI card
+  if (d.nrfi) {
+    document.getElementById('pg-nrfi-section').innerHTML = renderNRFI(d);
+  }
+
   // Render both sides
   document.getElementById('pg-away-section').innerHTML =
     renderSide(d.away, d.away_name, d.away_abbrev, 'away');
@@ -178,6 +234,112 @@ function renderPregame(d) {
       if (expandRow) expandRow.classList.toggle('open');
     });
   });
+}
+
+function renderNRFI(d) {
+  const n = d.nrfi;
+  const nrfiPct = (n.nrfi_pct * 100);
+  const yrfiPct = (n.yrfi_pct * 100);
+
+  // Determine lean
+  let badgeClass, badgeText;
+  if (nrfiPct >= 58) {
+    badgeClass = 'lean-nrfi'; badgeText = 'Lean NRFI';
+  } else if (nrfiPct <= 42) {
+    badgeClass = 'lean-yrfi'; badgeText = 'Lean YRFI';
+  } else {
+    badgeClass = 'tossup'; badgeText = 'Toss-Up';
+  }
+
+  let html = `<div class="nrfi-card">`;
+  html += `<div class="nrfi-header">
+    <h2>1st Inning Scoring</h2>
+    <span class="nrfi-badge ${badgeClass}">${badgeText}</span>
+  </div>`;
+
+  // Gauge bar
+  html += `<div class="nrfi-gauge">
+    <div class="nrfi-gauge-bar">
+      <div class="nrfi-gauge-fill-nrfi" style="width:${nrfiPct}%">NRFI ${nrfiPct.toFixed(0)}%</div>
+      <div class="nrfi-gauge-fill-yrfi" style="width:${yrfiPct}%">YRFI ${yrfiPct.toFixed(0)}%</div>
+    </div>
+  </div>`;
+
+  // Per-half breakdown
+  html += `<div class="nrfi-breakdown">`;
+
+  // Top 1st (away batting vs home pitcher)
+  const awayCleanPct = ((1 - n.away_score_pct) * 100);
+  const awayScoringPct = (n.away_score_pct * 100);
+  html += renderNRFIHalf(
+    'Top 1st',
+    n.home_pitcher_name,
+    d.away_abbrev + ' batting',
+    awayCleanPct,
+    awayScoringPct,
+    n.away_exp_runs,
+    n.away_run_dist
+  );
+
+  // Bottom 1st (home batting vs away pitcher)
+  const homeCleanPct = ((1 - n.home_score_pct) * 100);
+  const homeScoringPct = (n.home_score_pct * 100);
+  html += renderNRFIHalf(
+    'Bot 1st',
+    n.away_pitcher_name,
+    d.home_abbrev + ' batting',
+    homeCleanPct,
+    homeScoringPct,
+    n.home_exp_runs,
+    n.home_run_dist
+  );
+
+  html += `</div></div>`;
+  return html;
+}
+
+function renderNRFIHalf(title, pitcherName, battingLabel, cleanPct, scoringPct, expRuns, runDist) {
+  const cleanClass = cleanPct >= 75 ? 'clean' : cleanPct <= 60 ? 'danger' : 'neutral';
+  const scoreClass = scoringPct >= 40 ? 'danger' : scoringPct <= 25 ? 'clean' : 'neutral';
+
+  let html = `<div class="nrfi-half">
+    <div class="nrfi-half-title">${title}</div>
+    <div class="nrfi-half-pitcher">${pitcherName} vs ${battingLabel}</div>
+    <div class="nrfi-half-stats">
+      <div class="nrfi-stat">
+        <div class="label">Clean</div>
+        <div class="value ${cleanClass}">${cleanPct.toFixed(0)}%</div>
+      </div>
+      <div class="nrfi-stat">
+        <div class="label">Score</div>
+        <div class="value ${scoreClass}">${scoringPct.toFixed(0)}%</div>
+      </div>
+      <div class="nrfi-stat">
+        <div class="label">Exp Runs</div>
+        <div class="value neutral">${expRuns.toFixed(2)}</div>
+      </div>
+    </div>`;
+
+  // Run distribution mini bars
+  if (runDist && runDist.length > 0) {
+    html += `<div class="nrfi-dist">`;
+    const maxPct = Math.max(...runDist);
+    for (let i = 0; i < runDist.length; i++) {
+      const pct = runDist[i] * 100;
+      if (pct < 0.05 && i > 3) continue;
+      const width = maxPct > 0 ? (runDist[i] / maxPct * 100) : 0;
+      const color = i === 0 ? '#51cf66' : (i <= 2 ? '#ffd43b' : '#ff6b6b');
+      html += `<div class="nrfi-dist-bar">
+        <div class="nrfi-dist-label">${i}R</div>
+        <div class="nrfi-dist-fill" style="width:${width}%;background:${color}"></div>
+        <div class="nrfi-dist-pct">${pct.toFixed(1)}%</div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  return html;
 }
 
 function renderSide(side, teamName, teamAbbrev, sideKey) {

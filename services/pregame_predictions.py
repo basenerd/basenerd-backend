@@ -508,6 +508,14 @@ def get_pregame_predictions(game_pk, season=2026):
         log.warning("Simulation failed: %s", e)
         result["simulation"] = None
 
+    # NRFI / first-inning simulation
+    try:
+        nrfi = _simulate_first_inning(result)
+        result["nrfi"] = nrfi
+    except Exception as e:
+        log.warning("NRFI simulation failed: %s", e)
+        result["nrfi"] = None
+
     return result
 
 
@@ -691,3 +699,158 @@ def _sim_one_game(away_probs, home_probs, outcomes):
             break
 
     return away_runs, home_runs
+
+
+def _simulate_first_inning(pregame_data, sims=5000):
+    """
+    Monte Carlo simulation of just the first inning.
+
+    Returns NRFI probability, per-half scoring probs, and expected 1st-inning runs.
+    """
+    import random
+
+    away_batters = pregame_data.get("away", {}).get("batters", [])
+    home_batters = pregame_data.get("home", {}).get("batters", [])
+
+    if not away_batters or not home_batters:
+        return None
+
+    outcomes = ["1B", "2B", "3B", "HR", "BB", "HBP", "K", "OUT"]
+
+    def _build_probs(batters):
+        lineup = []
+        for b in batters:
+            probs = b.get("probs", {})
+            if not probs:
+                probs = {"1B": 0.15, "2B": 0.045, "3B": 0.004, "HR": 0.033,
+                         "BB": 0.08, "HBP": 0.01, "K": 0.22, "OUT": 0.458}
+            p = [probs.get(o, 0) for o in outcomes]
+            total = sum(p)
+            if total > 0:
+                p = [x / total for x in p]
+            else:
+                p = [0.15, 0.045, 0.004, 0.033, 0.08, 0.01, 0.22, 0.458]
+            lineup.append(p)
+        return lineup
+
+    def _sim_half(lineup_probs, batter_idx):
+        """Simulate one half-inning. Returns runs scored."""
+        outs = 0
+        runners = 0
+        runs = 0
+        idx = batter_idx
+
+        while outs < 3:
+            probs = lineup_probs[idx % len(lineup_probs)]
+            idx += 1
+
+            r = random.random()
+            cumulative = 0
+            outcome = "OUT"
+            for i, p in enumerate(probs):
+                cumulative += p
+                if r < cumulative:
+                    outcome = outcomes[i]
+                    break
+
+            if outcome == "K" or outcome == "OUT":
+                outs += 1
+            elif outcome == "BB" or outcome == "HBP":
+                if runners & 1:
+                    if runners & 2:
+                        if runners & 4:
+                            runs += 1
+                        runners |= 4
+                    runners |= 2
+                runners |= 1
+            elif outcome == "1B":
+                if runners & 4:
+                    runs += 1
+                    runners &= ~4
+                if runners & 2:
+                    if random.random() < 0.80:
+                        runs += 1
+                        runners &= ~2
+                    else:
+                        runners |= 4
+                        runners &= ~2
+                if runners & 1:
+                    runners |= 2
+                runners |= 1
+            elif outcome == "2B":
+                if runners & 4:
+                    runs += 1
+                    runners &= ~4
+                if runners & 2:
+                    runs += 1
+                    runners &= ~2
+                if runners & 1:
+                    if random.random() < 0.60:
+                        runs += 1
+                    else:
+                        runners |= 4
+                    runners &= ~1
+                runners |= 2
+            elif outcome == "3B":
+                runs += bin(runners).count('1')
+                runners = 4
+            elif outcome == "HR":
+                runs += bin(runners).count('1') + 1
+                runners = 0
+
+        return runs
+
+    away_probs = _build_probs(away_batters)
+    home_probs = _build_probs(home_batters)
+
+    nrfi_count = 0
+    away_scores = 0  # count of sims where away scored in 1st
+    home_scores = 0
+    away_total_runs = 0.0
+    home_total_runs = 0.0
+    # Track run distributions for the 1st inning
+    away_run_counts = {}
+    home_run_counts = {}
+
+    for _ in range(sims):
+        away_r = _sim_half(away_probs, 0)
+        home_r = _sim_half(home_probs, 0)
+
+        away_total_runs += away_r
+        home_total_runs += home_r
+        away_run_counts[away_r] = away_run_counts.get(away_r, 0) + 1
+        home_run_counts[home_r] = home_run_counts.get(home_r, 0) + 1
+
+        if away_r > 0:
+            away_scores += 1
+        if home_r > 0:
+            home_scores += 1
+        if away_r == 0 and home_r == 0:
+            nrfi_count += 1
+
+    nrfi_pct = round(nrfi_count / sims, 4)
+    yrfi_pct = round(1 - nrfi_pct, 4)
+
+    # Build run distributions (cap at 6)
+    max_r = 6
+    away_dist = [round(away_run_counts.get(i, 0) / sims, 4) for i in range(max_r + 1)]
+    home_dist = [round(home_run_counts.get(i, 0) / sims, 4) for i in range(max_r + 1)]
+
+    # Pitcher names for display
+    away_pitcher = pregame_data.get("away", {}).get("pitcher") or {}
+    home_pitcher = pregame_data.get("home", {}).get("pitcher") or {}
+
+    return {
+        "sims": sims,
+        "nrfi_pct": nrfi_pct,
+        "yrfi_pct": yrfi_pct,
+        "away_score_pct": round(away_scores / sims, 4),
+        "home_score_pct": round(home_scores / sims, 4),
+        "away_exp_runs": round(away_total_runs / sims, 2),
+        "home_exp_runs": round(home_total_runs / sims, 2),
+        "total_exp_runs": round((away_total_runs + home_total_runs) / sims, 2),
+        "away_run_dist": away_dist,
+        "home_run_dist": home_dist,
+        "away_pitcher_name": away_pitcher.get("name", ""),
+        "home_pitcher_name": home_pitcher.get("name", ""),
+    }

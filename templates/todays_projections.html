@@ -388,6 +388,139 @@
     .sc-abbrev{ font-size:0.82rem; }
     .sc-stadium-svg-img{ height:180px; }
   }
+
+  /* ---- Games view ---- */
+  .gm-tbl-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; margin-top:4px; }
+  .gm-tbl{ width:100%; border-collapse:collapse; font-size:0.8rem; }
+  .gm-tbl th{
+    text-align:center; padding:8px 5px; font-size:0.7rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.3px; opacity:0.5;
+    border-bottom:2px solid var(--border, rgba(0,0,0,0.08));
+    white-space:nowrap; cursor:pointer; user-select:none;
+  }
+  .gm-tbl th:hover{ opacity:0.8; }
+  .gm-tbl th.gm-team-col{ text-align:left; min-width:170px; }
+  .gm-tbl th.gm-num-col{ min-width:46px; width:46px; }
+  .gm-tbl th.gm-exp-col{
+    min-width:54px; border-left:2px solid rgba(0,0,0,0.06);
+  }
+  .gm-tbl th.gm-win-col{ min-width:54px; }
+  .gm-tbl th .sort-arrow{ font-size:0.6rem; margin-left:2px; opacity:0.4; }
+  .gm-tbl th.sorted .sort-arrow{ opacity:1; color:#f0c040; }
+  .gm-tbl td{
+    padding:8px 5px; border-bottom:1px solid rgba(0,0,0,0.04);
+    text-align:center; font-variant-numeric:tabular-nums;
+  }
+  .gm-tbl td.gm-team-td{ text-align:left; }
+  .gm-tbl td.gm-exp-td{
+    border-left:2px solid rgba(0,0,0,0.06);
+    font-weight:800; color:#f0c040;
+  }
+  .gm-tbl td.gm-win-td{ font-weight:700; }
+  .gm-tbl tbody tr:hover{ background:rgba(0,0,0,0.02); }
+  .gm-tbl tbody tr.gm-separator td{
+    border-bottom:2px solid rgba(0,0,0,0.10); padding:0; height:0;
+  }
+  .gm-team-cell{ display:flex; align-items:center; gap:8px; }
+  .gm-team-logo{ width:22px; height:22px; flex-shrink:0; }
+  .gm-team-name{ font-weight:700; font-size:0.82rem; }
+  .gm-team-meta{ font-size:0.65rem; opacity:0.45; margin-left:4px; }
+  .gm-pitcher-name{ font-size:0.7rem; opacity:0.55; }
+
+  @media(max-width:640px){
+    .gm-tbl{ font-size:0.72rem; }
+    .gm-tbl th{ padding:6px 4px; font-size:0.62rem; }
+    .gm-tbl td{ padding:6px 4px; }
+    .gm-tbl th.gm-team-col{ min-width:130px; }
+    .gm-tbl th.gm-num-col{ min-width:38px; width:38px; }
+    .gm-tbl th.gm-team-col,
+    .gm-tbl td.gm-team-td{
+      position:sticky; left:0; z-index:2;
+      background:var(--card, #fff);
+      box-shadow:2px 0 4px rgba(0,0,0,0.06);
+    }
+    .gm-team-logo{ width:16px; height:16px; }
+    .gm-team-name{ font-size:0.72rem; }
+  }
+
+  /* ---- NRFI view ---- */
+  .nf-grid{
+    display:grid; gap:14px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    margin-top:4px;
+  }
+  .nf-card{
+    border:1px solid var(--border, rgba(0,0,0,0.10));
+    border-radius:14px; overflow:hidden;
+    background:var(--card, #fff);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  }
+  .nf-card-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 14px 9px;
+    border-bottom:1px solid rgba(0,0,0,0.06);
+    gap:8px;
+  }
+  .nf-matchup{
+    display:flex; align-items:center; gap:6px; flex:1; min-width:0;
+  }
+  .nf-team-logo{ width:24px; height:24px; flex-shrink:0; }
+  .nf-at{ font-size:0.68rem; opacity:0.35; font-weight:700; }
+  .nf-abbrev{ font-size:0.88rem; font-weight:800; letter-spacing:0.3px; }
+  .nf-time{ font-size:0.7rem; opacity:0.42; white-space:nowrap; }
+
+  .nf-body{ padding:14px; }
+
+  /* Gauge */
+  .nf-gauge{ height:28px; border-radius:6px; overflow:hidden;
+    display:flex; margin-bottom:12px; }
+  .nf-gauge-nrfi{
+    background: linear-gradient(90deg, #2d6a2d, #51cf66);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:0.78rem; color:#fff;
+    text-shadow:0 1px 2px rgba(0,0,0,0.4); min-width:40px;
+    transition: width 0.5s ease;
+  }
+  .nf-gauge-yrfi{
+    background: linear-gradient(90deg, #ff6b6b, #c92a2a);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:0.78rem; color:#fff;
+    text-shadow:0 1px 2px rgba(0,0,0,0.4); min-width:40px;
+    transition: width 0.5s ease;
+  }
+
+  /* Badge */
+  .nf-badge{
+    display:inline-block; font-size:0.7rem; padding:2px 10px; border-radius:4px;
+    font-weight:700; text-transform:uppercase; letter-spacing:0.4px;
+    margin-bottom:10px;
+  }
+  .nf-badge.lean-nrfi{ background:rgba(81,207,102,0.15); color:#2d8a4e; border:1px solid rgba(81,207,102,0.3); }
+  .nf-badge.lean-yrfi{ background:rgba(255,107,107,0.15); color:#c0392b; border:1px solid rgba(255,107,107,0.3); }
+  .nf-badge.tossup{ background:rgba(255,212,59,0.15); color:#b8860b; border:1px solid rgba(255,212,59,0.3); }
+
+  /* Half-inning rows */
+  .nf-halves{ display:flex; flex-direction:column; gap:8px; }
+  .nf-half{
+    display:flex; align-items:center; justify-content:space-between;
+    background:rgba(0,0,0,0.025); border-radius:8px; padding:8px 12px; gap:10px;
+  }
+  .nf-half-label{ font-size:0.68rem; font-weight:700; opacity:0.45;
+    text-transform:uppercase; width:44px; flex-shrink:0; }
+  .nf-half-pitcher{ font-size:0.78rem; font-weight:600; flex:1; min-width:0;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .nf-half-stats{ display:flex; gap:12px; flex-shrink:0; }
+  .nf-half-stat{ text-align:center; }
+  .nf-half-stat-label{ font-size:0.58rem; opacity:0.4; text-transform:uppercase; }
+  .nf-half-stat-val{ font-size:0.88rem; font-weight:800; }
+  .nf-half-stat-val.clean{ color:#2d8a4e; }
+  .nf-half-stat-val.danger{ color:#c0392b; }
+  .nf-half-stat-val.neutral{ color:#b8860b; }
+
+  @media(max-width:640px){
+    .nf-grid{ grid-template-columns:1fr; }
+    .nf-abbrev{ font-size:0.82rem; }
+  }
 </style>
 
 <div class="card">
@@ -413,6 +546,8 @@
     <div class="tp-view-tabs">
       <button class="tp-view-btn active" data-view="pitchers">Pitchers</button>
       <button class="tp-view-btn" data-view="batters">Batters</button>
+      <button class="tp-view-btn" data-view="games">Games</button>
+      <button class="tp-view-btn" data-view="nrfi">NRFI</button>
       <button class="tp-view-btn" data-view="stadium">Stadium Conditions</button>
     </div>
     <span class="tp-controls-label" id="tp-mode-label">Mode:</span>
@@ -428,6 +563,8 @@
 </div>
 
 <div id="tp-table-area"></div>
+<div id="tp-games-area" style="display:none"></div>
+<div id="tp-nrfi-area" style="display:none"></div>
 <div id="tp-stadium-area" style="display:none"></div>
 
 <script>
@@ -526,6 +663,7 @@
   // ---- Global data stores ----
   let allPitchers = [];
   let allBatters = [];
+  let allGames = [];
   let currentView = 'pitchers';
   let stadiumData = null; // loaded lazily
   let currentPStat = 'k';
@@ -573,6 +711,19 @@
     const homeLogo = gameMeta.home?.logo || '';
     const awayAbbrev = d.away_abbrev || gameMeta.away?.abbrev || '';
     const homeAbbrev = d.home_abbrev || gameMeta.home?.abbrev || '';
+
+    // Game-level data for Games and NRFI tabs
+    // Note: d.away has the home pitcher (facing away batters), d.home has the away pitcher
+    allGames.push({
+      gamePk: gameMeta.gamePk,
+      awayAbbrev, homeAbbrev, awayLogo, homeLogo,
+      awayName: d.away_name || '', homeName: d.home_name || '',
+      gameTime: d.game_time || gameMeta.timeLocal || '',
+      homePitcher: d.away?.pitcher || null,
+      awayPitcher: d.home?.pitcher || null,
+      simulation: d.simulation || null,
+      nrfi: d.nrfi || null,
+    });
 
     // Pitchers
     // d.home = away pitcher facing home lineup; d.away = home pitcher facing away lineup
@@ -649,14 +800,30 @@
         btn.classList.add('active');
         currentView = btn.dataset.view;
 
+        const isTable = currentView === 'pitchers' || currentView === 'batters';
+        const isGames = currentView === 'games';
+        const isNRFI = currentView === 'nrfi';
         const isStadium = currentView === 'stadium';
-        document.getElementById('tp-mode-label').style.display = isStadium ? 'none' : '';
-        document.getElementById('tp-mode-group').style.display = isStadium ? 'none' : '';
-        document.getElementById('tp-stat-row').style.display = isStadium ? 'none' : '';
-        document.getElementById('tp-table-area').style.display = isStadium ? 'none' : '';
+
+        // Show/hide mode and stat controls
+        const showMode = isTable || isGames;
+        document.getElementById('tp-mode-label').style.display = showMode ? '' : 'none';
+        document.getElementById('tp-mode-group').style.display = showMode ? '' : 'none';
+        document.getElementById('tp-stat-row').style.display = isTable ? '' : 'none';
+
+        // Show/hide content areas
+        document.getElementById('tp-table-area').style.display = isTable ? '' : 'none';
+        document.getElementById('tp-games-area').style.display = isGames ? '' : 'none';
+        document.getElementById('tp-nrfi-area').style.display = isNRFI ? '' : 'none';
         document.getElementById('tp-stadium-area').style.display = isStadium ? '' : 'none';
+
         if(isStadium){
           loadStadiumConditions();
+        } else if(isGames){
+          gmSortCol = 'exp'; gmSortDir = -1;
+          renderGamesTable();
+        } else if(isNRFI){
+          renderNRFICards();
         } else {
           sortCol = 'exp'; sortDir = -1;
           buildStatToggle();
@@ -671,8 +838,13 @@
         document.querySelectorAll('.tp-mode-btn').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
         currentMode = btn.dataset.mode;
-        sortCol = 'exp'; sortDir = -1;
-        renderTable();
+        if(currentView === 'games'){
+          gmSortCol = 'exp'; gmSortDir = -1;
+          renderGamesTable();
+        } else {
+          sortCol = 'exp'; sortDir = -1;
+          renderTable();
+        }
       });
     });
   }
@@ -805,6 +977,217 @@
         renderTable();
       });
     });
+  }
+
+  // ---- Games view ----
+  let gmSortCol = 'exp';
+  let gmSortDir = -1;
+  const GM_MAX_RUNS = 10;
+
+  function renderGamesTable(){
+    const isCumul = currentMode === 'cumul';
+    const area = document.getElementById('tp-games-area');
+
+    if(!allGames.length){
+      area.innerHTML = '<div class="tp-empty">No game data available.</div>';
+      return;
+    }
+
+    // Build rows: one per team per game
+    const rows = [];
+    allGames.forEach(g => {
+      const sim = g.simulation;
+      if(!sim) return;
+      const awayDist = sim.awayRunDist || [];
+      const homeDist = sim.homeRunDist || [];
+
+      function buildRow(abbrev, logo, pitcherName, dist, expRuns, winPct, side){
+        // Pad/cap to GM_MAX_RUNS+1 entries
+        const padded = [];
+        for(let k = 0; k <= GM_MAX_RUNS; k++){
+          padded.push((dist[k] || 0) * 100);
+        }
+        let displayDist;
+        if(isCumul){
+          displayDist = [];
+          let cumSum = 0;
+          for(let k = 0; k <= GM_MAX_RUNS; k++){
+            displayDist.push((1 - cumSum) * 100);
+            cumSum += padded[k] / 100;
+          }
+        } else {
+          displayDist = padded;
+        }
+        return {
+          gamePk: g.gamePk, abbrev, logo, pitcherName, side,
+          dist: displayDist, expRuns, winPct,
+          oppAbbrev: side === 'away' ? g.homeAbbrev : g.awayAbbrev,
+        };
+      }
+
+      const awayPName = g.homePitcher ? g.homePitcher.name : '';
+      const homePName = g.awayPitcher ? g.awayPitcher.name : '';
+      rows.push(buildRow(g.awayAbbrev, g.awayLogo, awayPName, awayDist,
+        sim.expectedScore?.away || 0, sim.awayWinPct * 100, 'away'));
+      rows.push(buildRow(g.homeAbbrev, g.homeLogo, homePName, homeDist,
+        sim.expectedScore?.home || 0, sim.homeWinPct * 100, 'home'));
+    });
+
+    // Sort
+    rows.sort((a,b)=>{
+      let av, bv;
+      if(gmSortCol === 'team'){ return gmSortDir * a.abbrev.localeCompare(b.abbrev); }
+      if(gmSortCol === 'win'){ av = a.winPct; bv = b.winPct; }
+      else if(gmSortCol === 'exp'){ av = a.expRuns; bv = b.expRuns; }
+      else { const k = parseInt(gmSortCol); av = a.dist[k]||0; bv = b.dist[k]||0; }
+      return gmSortDir * ((av||0) - (bv||0));
+    });
+
+    // Build table
+    const sc = col => col===gmSortCol ? 'sorted' : '';
+    const arrow = col => col===gmSortCol ? (gmSortDir>0?'&#9650;':'&#9660;') : '&#9650;';
+
+    let html = '<div class="gm-tbl-wrap"><table class="gm-tbl"><thead><tr>';
+    html += `<th class="gm-team-col ${sc('team')}" data-sort="team">Team <span class="sort-arrow">${arrow('team')}</span></th>`;
+    for(let k = 0; k <= GM_MAX_RUNS; k++){
+      const label = isCumul ? `${k}+` : (k === GM_MAX_RUNS ? `${k}+` : k);
+      html += `<th class="gm-num-col ${sc(String(k))}" data-sort="${k}">${label} <span class="sort-arrow">${arrow(String(k))}</span></th>`;
+    }
+    html += `<th class="gm-exp-col ${sc('exp')}" data-sort="exp">Exp <span class="sort-arrow">${arrow('exp')}</span></th>`;
+    html += `<th class="gm-win-col ${sc('win')}" data-sort="win">Win% <span class="sort-arrow">${arrow('win')}</span></th>`;
+    html += '</tr></thead><tbody>';
+
+    let prevGamePk = null;
+    rows.forEach((r, i) => {
+      // Add separator between games (except before the very first row)
+      if(prevGamePk !== null && r.gamePk !== prevGamePk){
+        html += `<tr class="gm-separator"><td colspan="${GM_MAX_RUNS + 4}"></td></tr>`;
+      }
+      prevGamePk = r.gamePk;
+
+      html += '<tr>';
+      // Team cell
+      html += `<td class="gm-team-td"><div class="gm-team-cell">`;
+      if(r.logo) html += `<img class="gm-team-logo" src="${r.logo}" alt="" onerror="this.style.display='none'">`;
+      html += `<div><span class="gm-team-name">${r.abbrev}</span>`;
+      if(r.pitcherName) html += `<div class="gm-pitcher-name">vs ${r.pitcherName}</div>`;
+      html += `</div></div></td>`;
+
+      // Run distribution cells
+      for(let k = 0; k <= GM_MAX_RUNS; k++){
+        const pct = r.dist[k] || 0;
+        html += `<td><span class="tp-pct" style="${pctBg(pct)}">${fmtPct(pct)}</span></td>`;
+      }
+
+      // Expected runs
+      html += `<td class="gm-exp-td">${r.expRuns.toFixed(1)}</td>`;
+      // Win %
+      const winColor = r.winPct >= 55 ? 'color:#2d8a4e' : r.winPct <= 45 ? 'color:#c0392b' : '';
+      html += `<td class="gm-win-td" style="${winColor}">${r.winPct.toFixed(0)}%</td>`;
+      html += '</tr>';
+    });
+
+    if(!rows.length){
+      html += `<tr><td colspan="${GM_MAX_RUNS + 4}" style="text-align:center;opacity:0.4;padding:20px;">No simulation data available</td></tr>`;
+    }
+
+    html += '</tbody></table></div>';
+    area.innerHTML = html;
+
+    // Sort handlers
+    area.querySelectorAll('.gm-tbl th[data-sort]').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const col = th.dataset.sort;
+        if(gmSortCol === col) gmSortDir *= -1;
+        else { gmSortCol = col; gmSortDir = col === 'team' ? 1 : -1; }
+        renderGamesTable();
+      });
+    });
+  }
+
+  // ---- NRFI view ----
+  function renderNRFICards(){
+    const area = document.getElementById('tp-nrfi-area');
+    const gamesWithNRFI = allGames.filter(g => g.nrfi);
+
+    if(!gamesWithNRFI.length){
+      area.innerHTML = '<div class="tp-empty">No NRFI data available. Check back when lineups are posted.</div>';
+      return;
+    }
+
+    // Sort by NRFI% descending (best NRFI bets first)
+    gamesWithNRFI.sort((a,b) => (b.nrfi.nrfi_pct - a.nrfi.nrfi_pct));
+
+    let html = '<div class="nf-grid">';
+    gamesWithNRFI.forEach(g => {
+      const n = g.nrfi;
+      const nrfiPct = n.nrfi_pct * 100;
+      const yrfiPct = n.yrfi_pct * 100;
+
+      let badgeClass, badgeText;
+      if(nrfiPct >= 58){ badgeClass='lean-nrfi'; badgeText='Lean NRFI'; }
+      else if(nrfiPct <= 42){ badgeClass='lean-yrfi'; badgeText='Lean YRFI'; }
+      else { badgeClass='tossup'; badgeText='Toss-Up'; }
+
+      const awayClean = (1 - n.away_score_pct) * 100;
+      const homeClean = (1 - n.home_score_pct) * 100;
+      const awayScore = n.away_score_pct * 100;
+      const homeScore = n.home_score_pct * 100;
+
+      function statClass(clean){ return clean >= 75 ? 'clean' : clean <= 60 ? 'danger' : 'neutral'; }
+
+      html += `<div class="nf-card">
+        <div class="nf-card-header">
+          <div class="nf-matchup">
+            ${g.awayLogo ? `<img class="nf-team-logo" src="${g.awayLogo}" alt="" onerror="this.style.display='none'">` : ''}
+            <span class="nf-abbrev">${g.awayAbbrev}</span>
+            <span class="nf-at">@</span>
+            ${g.homeLogo ? `<img class="nf-team-logo" src="${g.homeLogo}" alt="" onerror="this.style.display='none'">` : ''}
+            <span class="nf-abbrev">${g.homeAbbrev}</span>
+          </div>
+          <span class="nf-time">${g.gameTime}</span>
+        </div>
+        <div class="nf-body">
+          <span class="nf-badge ${badgeClass}">${badgeText}</span>
+          <div class="nf-gauge">
+            <div class="nf-gauge-nrfi" style="width:${nrfiPct}%">NRFI ${nrfiPct.toFixed(0)}%</div>
+            <div class="nf-gauge-yrfi" style="width:${yrfiPct}%">YRFI ${yrfiPct.toFixed(0)}%</div>
+          </div>
+          <div class="nf-halves">
+            <div class="nf-half">
+              <span class="nf-half-label">Top 1</span>
+              <span class="nf-half-pitcher">${n.home_pitcher_name || '?'}</span>
+              <div class="nf-half-stats">
+                <div class="nf-half-stat">
+                  <div class="nf-half-stat-label">Clean</div>
+                  <div class="nf-half-stat-val ${statClass(awayClean)}">${awayClean.toFixed(0)}%</div>
+                </div>
+                <div class="nf-half-stat">
+                  <div class="nf-half-stat-label">Exp R</div>
+                  <div class="nf-half-stat-val neutral">${n.away_exp_runs.toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+            <div class="nf-half">
+              <span class="nf-half-label">Bot 1</span>
+              <span class="nf-half-pitcher">${n.away_pitcher_name || '?'}</span>
+              <div class="nf-half-stats">
+                <div class="nf-half-stat">
+                  <div class="nf-half-stat-label">Clean</div>
+                  <div class="nf-half-stat-val ${statClass(homeClean)}">${homeClean.toFixed(0)}%</div>
+                </div>
+                <div class="nf-half-stat">
+                  <div class="nf-half-stat-label">Exp R</div>
+                  <div class="nf-half-stat-val neutral">${n.home_exp_runs.toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+    area.innerHTML = html;
   }
 
   // ---- Stadium Conditions ----
