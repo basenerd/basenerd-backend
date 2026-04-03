@@ -432,8 +432,9 @@ def _get_pitcher_features(pitcher_id, season):
     # --- Fall back to MLB API if parquet has no data ---
     if df_season is None or df_season.empty:
         source = "api"
-        # Try current season first, then previous
-        for try_season in [season, season - 1]:
+        # Try current season first, then walk back up to 3 years
+        # (handles pitchers returning from multi-year injury, e.g. TJ surgery)
+        for try_season in [season, season - 1, season - 2, season - 3]:
             df_season = _fetch_pitcher_from_api(pitcher_id, try_season)
             if df_season is not None and not df_season.empty:
                 break

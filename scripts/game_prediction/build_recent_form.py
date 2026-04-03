@@ -25,8 +25,10 @@ MIN_PITCHES = 20  # minimum pitches in window to use stats (else NaN)
 
 
 def build_batter_recent_form():
+    from datetime import date
+    current_year = date.today().year
     print("Querying daily batter aggregates...")
-    sql = """
+    sql = f"""
     SELECT
         batter,
         game_date,
@@ -56,7 +58,7 @@ def build_batter_recent_form():
         ) THEN 1 ELSE 0 END) AS bip
     FROM statcast_pitches
     WHERE game_type = 'R'
-      AND game_year BETWEEN 2021 AND 2025
+      AND game_year BETWEEN 2021 AND {current_year}
     GROUP BY batter, game_date
     ORDER BY batter, game_date
     """
@@ -114,8 +116,10 @@ def build_batter_recent_form():
 
 
 def build_pitcher_recent_form():
+    from datetime import date
+    current_year = date.today().year
     print("\nQuerying daily pitcher aggregates...")
-    sql = """
+    sql = f"""
     SELECT
         pitcher,
         game_date,
@@ -139,7 +143,7 @@ def build_pitcher_recent_form():
         COUNT(estimated_woba_using_speedangle) AS n_xwoba
     FROM statcast_pitches
     WHERE game_type = 'R'
-      AND game_year BETWEEN 2021 AND 2025
+      AND game_year BETWEEN 2021 AND {current_year}
     GROUP BY pitcher, game_date
     ORDER BY pitcher, game_date
     """

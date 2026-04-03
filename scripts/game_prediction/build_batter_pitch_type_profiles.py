@@ -31,9 +31,11 @@ VALID_PITCH_TYPES = set(PITCH_CATEGORY.keys())
 
 
 def build_batter_pitch_type_profiles():
+    from datetime import date
+    current_year = date.today().year
     print("Querying batter-vs-pitch-type data (server-side aggregation)...")
 
-    sql = """
+    sql = f"""
     SELECT
         batter,
         game_year,
@@ -83,7 +85,7 @@ def build_batter_pitch_type_profiles():
         SUM(CASE WHEN description = 'called_strike' THEN 1 ELSE 0 END) AS called_strikes
     FROM statcast_pitches
     WHERE game_type = 'R'
-      AND game_year BETWEEN 2021 AND 2025
+      AND game_year BETWEEN 2021 AND {current_year}
       AND pitch_type IS NOT NULL
       AND pitch_type != ''
     GROUP BY batter, game_year, pitch_type

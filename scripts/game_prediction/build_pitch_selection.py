@@ -31,9 +31,11 @@ OUTPUT_PATH = os.path.join(OUTPUT_DIR, "pitch_selection_train.parquet")
 
 
 def build_pitch_selection_data():
+    from datetime import date
+    current_year = date.today().year
     print("Querying pitch sequence data...")
 
-    sql = """
+    sql = f"""
     SELECT
         pitcher,
         batter,
@@ -60,7 +62,7 @@ def build_pitch_selection_data():
         description
     FROM statcast_pitches
     WHERE game_type = 'R'
-      AND game_year BETWEEN 2021 AND 2025
+      AND game_year BETWEEN 2021 AND {current_year}
       AND pitch_type IS NOT NULL
       AND pitch_type != ''
       AND pitcher IS NOT NULL

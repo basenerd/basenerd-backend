@@ -53,10 +53,12 @@ OUTCOME_MAP = {
 
 
 def build_matchup_training():
+    from datetime import date
+    current_year = date.today().year
     print("Querying plate appearance data...")
 
     # Get one row per PA (the pitch where the event happened)
-    sql = """
+    sql = f"""
     SELECT
         sp.batter,
         sp.pitcher,
@@ -82,7 +84,7 @@ def build_matchup_training():
     WHERE sp.events IS NOT NULL
       AND sp.events != ''
       AND sp.game_type = 'R'
-      AND sp.game_year BETWEEN 2021 AND 2025
+      AND sp.game_year BETWEEN 2021 AND {current_year}
     """
     df = query_df(sql)
     print(f"  {len(df):,} plate appearances loaded")
