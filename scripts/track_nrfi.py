@@ -100,14 +100,12 @@ def _ensure_table(conn):
 # ---- American odds conversion ----
 
 def prob_to_american(p: float) -> int:
-    """Convert probability (0-1) to American odds, rounded to nearest 5."""
+    """Convert probability (0-1) to American odds."""
     if p <= 0 or p >= 1:
         return 0
     if p >= 0.5:
-        raw = -(p / (1 - p)) * 100
-    else:
-        raw = ((1 - p) / p) * 100
-    return int(round(raw / 5) * 5)
+        return round(-(p / (1 - p)) * 100)
+    return round(((1 - p) / p) * 100)
 
 
 # ---- MLB API helpers ----
