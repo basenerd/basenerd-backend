@@ -122,6 +122,25 @@
     transition: width 0.4s ease; }
   .nrfi-dist-pct { font-size: 0.7rem; color: #aaa; }
 
+  /* Odds recommendation */
+  .nrfi-odds-row {
+    margin-top: 12px; padding: 10px 14px; border-radius: 8px;
+    font-size: 0.85rem; font-weight: 700;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .nrfi-odds-row.bet-nrfi {
+    background: #1a3a1a; color: #51cf66; border: 1px solid #2d5a2d;
+  }
+  .nrfi-odds-row.bet-yrfi {
+    background: #3a1a1a; color: #ff6b6b; border: 1px solid #5a2d2d;
+  }
+  .nrfi-odds-row.bet-skip {
+    background: #1a1a2e; color: #888; border: 1px solid #333;
+  }
+  .nrfi-odds-val {
+    font-size: 1.05rem; font-weight: 900; letter-spacing: 0.3px;
+  }
+
   /* Loading / no lineups */
   .pg-loading { text-align: center; padding: 60px 20px; color: #888; }
   .pg-no-lineups { text-align: center; padding: 40px 20px; }
@@ -294,8 +313,37 @@ function renderNRFI(d) {
     n.home_run_dist
   );
 
+  // Odds recommendation
+  const nrfiOdds = probToAmerican(n.nrfi_pct);
+  const yrfiOdds = probToAmerican(n.yrfi_pct);
+
+  if (nrfiPct >= 55) {
+    html += `<div class="nrfi-odds-row bet-nrfi">
+      Bet NRFI at <span class="nrfi-odds-val">${fmtOdds(nrfiOdds)}</span> or better
+    </div>`;
+  } else if (yrfiPct >= 55) {
+    html += `<div class="nrfi-odds-row bet-yrfi">
+      Bet YRFI at <span class="nrfi-odds-val">${fmtOdds(yrfiOdds)}</span> or better
+    </div>`;
+  } else {
+    html += `<div class="nrfi-odds-row bet-skip">
+      No edge — Fair: NRFI <span class="nrfi-odds-val">${fmtOdds(nrfiOdds)}</span> / YRFI <span class="nrfi-odds-val">${fmtOdds(yrfiOdds)}</span>
+    </div>`;
+  }
+
   html += `</div></div>`;
   return html;
+}
+
+function probToAmerican(p) {
+  if (p <= 0 || p >= 1) return 0;
+  let raw;
+  if (p >= 0.5) raw = -(p / (1 - p)) * 100;
+  else raw = ((1 - p) / p) * 100;
+  return Math.round(raw / 5) * 5;
+}
+function fmtOdds(odds) {
+  return odds >= 0 ? `+${odds}` : `${odds}`;
 }
 
 function renderNRFIHalf(title, pitcherName, battingLabel, cleanPct, scoringPct, expRuns, runDist) {

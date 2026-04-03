@@ -70,6 +70,17 @@ services:
       - key: DATABASE_URL
         sync: false
 
+  - type: cron
+    name: nrfi-tracker
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    schedule: "*/20 * * * *"  # Every 20 minutes
+    startCommand: "python scripts/track_nrfi.py"
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+
   - type: worker
     name: hr-monitor
     runtime: docker

@@ -517,6 +517,27 @@
   .nf-half-stat-val.danger{ color:#c0392b; }
   .nf-half-stat-val.neutral{ color:#b8860b; }
 
+  .nf-odds-row{
+    margin-top:10px; padding:8px 12px; border-radius:8px;
+    font-size:0.78rem; font-weight:700;
+    display:flex; align-items:center; gap:8px;
+  }
+  .nf-odds-row.bet-nrfi{
+    background:rgba(81,207,102,0.10); color:#2d8a4e;
+    border:1px solid rgba(81,207,102,0.25);
+  }
+  .nf-odds-row.bet-yrfi{
+    background:rgba(255,107,107,0.10); color:#c0392b;
+    border:1px solid rgba(255,107,107,0.25);
+  }
+  .nf-odds-row.bet-skip{
+    background:rgba(0,0,0,0.03); color:#888;
+    border:1px solid rgba(0,0,0,0.08);
+  }
+  .nf-odds-val{
+    font-size:0.95rem; font-weight:900; letter-spacing:0.3px;
+  }
+
   @media(max-width:640px){
     .nf-grid{ grid-template-columns:1fr; }
     .nf-abbrev{ font-size:0.82rem; }
@@ -650,6 +671,18 @@
   }
   function teamLogoUrl(tid){
     return tid ? `https://www.mlbstatic.com/team-logos/${tid}.svg` : '';
+  }
+
+  // ---- American odds conversion ----
+  function probToAmerican(p){
+    if(p <= 0 || p >= 1) return 0;
+    let raw;
+    if(p >= 0.5) raw = -(p / (1 - p)) * 100;
+    else raw = ((1 - p) / p) * 100;
+    return Math.round(raw / 5) * 5;
+  }
+  function fmtOdds(odds){
+    return odds >= 0 ? `+${odds}` : `${odds}`;
   }
 
   // ---- Matchup grade helpers ----
@@ -1182,9 +1215,27 @@
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>`;
+          </div>`;
+
+      // Odds recommendation
+      const nrfiOdds = probToAmerican(n.nrfi_pct);
+      const yrfiOdds = probToAmerican(n.yrfi_pct);
+
+      if(nrfiPct >= 55){
+        html += `<div class="nf-odds-row bet-nrfi">
+          Bet NRFI at <span class="nf-odds-val">${fmtOdds(nrfiOdds)}</span> or better
+        </div>`;
+      } else if(yrfiPct >= 55){
+        html += `<div class="nf-odds-row bet-yrfi">
+          Bet YRFI at <span class="nf-odds-val">${fmtOdds(yrfiOdds)}</span> or better
+        </div>`;
+      } else {
+        html += `<div class="nf-odds-row bet-skip">
+          No edge — Fair: NRFI <span class="nf-odds-val">${fmtOdds(nrfiOdds)}</span> / YRFI <span class="nf-odds-val">${fmtOdds(yrfiOdds)}</span>
+        </div>`;
+      }
+
+      html += `</div></div>`;
     });
     html += '</div>';
     area.innerHTML = html;
