@@ -117,9 +117,10 @@ def train_matchup_model():
     keep = all_features + ["target", "season"]
     df = df[keep].copy()
 
-    # Split
-    train_mask = df["season"] <= 2024
-    test_mask = df["season"] == 2025
+    # Split: train on 2021-2025, test on 2026
+    max_season = int(df["season"].max())
+    train_mask = df["season"] <= (max_season - 1)
+    test_mask = df["season"] == max_season
 
     X_train = df.loc[train_mask, all_features]
     y_train = df.loc[train_mask, "target"]
@@ -127,8 +128,8 @@ def train_matchup_model():
     y_test = df.loc[test_mask, "target"]
     del df
 
-    print(f"\n  Train: {len(X_train):,} PAs (2021-2024)")
-    print(f"  Test:  {len(X_test):,} PAs (2025)")
+    print(f"\n  Train: {len(X_train):,} PAs (2021-{max_season - 1})")
+    print(f"  Test:  {len(X_test):,} PAs ({max_season})")
 
     # Train XGBoost
     # Tuning notes (2026-03-15):
@@ -222,8 +223,8 @@ def train_matchup_model():
         "classes": class_names,
         "numeric_features": available_num,
         "categorical_features": available_cat,
-        "train_seasons": [2021, 2022, 2023, 2024],
-        "test_season": 2025,
+        "train_seasons": list(range(2021, max_season)),
+        "test_season": max_season,
         "test_log_loss": float(log_loss(y_test, y_pred_proba)),
         "n_train": int(len(X_train)),
         "n_test": int(len(X_test)),

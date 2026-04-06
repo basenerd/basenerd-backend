@@ -109,13 +109,14 @@
     2021,
     2022,
     2023,
-    2024
+    2024,
+    2025
   ],
-  "test_season": 2025,
-  "test_log_loss": 1.4422624157239763,
-  "n_train": 730089,
-  "n_test": 182840,
-  "n_estimators_used": 401,
+  "test_season": 2026,
+  "test_log_loss": 1.4873612547299433,
+  "n_train": 912929,
+  "n_test": 10517,
+  "n_estimators_used": 15,
   "label_encoding": {
     "1B": 0,
     "2B": 1,

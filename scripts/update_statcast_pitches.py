@@ -333,27 +333,63 @@ def upsert_df(conn, df: pd.DataFrame, table_name: str, chunk_size: int = 5000) -
         print("zone sample:", zone_vals, "types:", zone_types, flush=True)
 
     cols_sql = ", ".join([f'"{c}"' for c in keep_cols])
-    vals_sql = ", ".join([f":{c}" for c in keep_cols])
 
     update_cols = [c for c in keep_cols if c != "pitch_id"]
     set_sql = ", ".join([f'"{c}" = EXCLUDED."{c}"' for c in update_cols])
 
-    upsert_sql = text(f"""
-        INSERT INTO {table_name} ({cols_sql})
-        VALUES ({vals_sql})
-        ON CONFLICT (pitch_id)
-        DO UPDATE SET {set_sql}
-    """)
-
     records = df2.to_dict(orient="records")
+
+    # Bulletproof final pass: pg8000 can't serialize numpy types and falls back
+    # to str(), turning float 8.0 into "8.0" which Postgres rejects for INT cols.
+    # Force every integer-DB-column value to Python int at the dict level.
+    all_int_cols = (
+        set(FORCE_INT_COLS)
+        | {c for c in keep_cols if coltypes.get(c) in ("integer", "smallint", "bigint")}
+    ) & set(keep_cols)
+    all_float_cols = {
+        c for c in keep_cols
+        if coltypes.get(c) in ("double precision", "real", "numeric", "decimal")
+    } - all_int_cols
+    for rec in records:
+        for c in all_int_cols:
+            v = rec.get(c)
+            if v is not None:
+                try:
+                    rec[c] = int(float(v))
+                except (ValueError, TypeError):
+                    rec[c] = None
+        for c in all_float_cols:
+            v = rec.get(c)
+            if v is not None:
+                try:
+                    rec[c] = float(v)
+                except (ValueError, TypeError):
+                    rec[c] = None
+
     total = 0
 
+    # Build multi-row VALUES upsert: one round-trip per chunk instead of per row.
     for i in range(0, len(records), chunk_size):
         chunk = records[i : i + chunk_size]
-        conn.execute(upsert_sql, chunk)
+        params = {}
+        value_rows = []
+        for row_idx, rec in enumerate(chunk):
+            row_placeholders = []
+            for col in keep_cols:
+                pname = f"{col}_{row_idx}"
+                params[pname] = rec.get(col)
+                row_placeholders.append(f":{pname}")
+            value_rows.append(f"({', '.join(row_placeholders)})")
+
+        sql = f"""
+            INSERT INTO {table_name} ({cols_sql})
+            VALUES {', '.join(value_rows)}
+            ON CONFLICT (pitch_id)
+            DO UPDATE SET {set_sql}
+        """
+        conn.execute(text(sql), params)
         total += len(chunk)
-        if total % (chunk_size * 5) == 0 or total == len(records):
-            print(f"Upsert progress: {total:,}/{len(records):,}", flush=True)
+        print(f"Upsert progress: {total:,}/{len(records):,}", flush=True)
 
     print(f"Upserted rows: {total:,}", flush=True)
     return total
@@ -366,7 +402,7 @@ def parse_args():
     ap.add_argument("--end", help="YYYY-MM-DD (backfill)")
     ap.add_argument("--days", type=int, default=1, help="Daily mode rolling window (default 1 = yesterday only). Recommend 2.")
     ap.add_argument("--team", default=None, help="Optional team filter (e.g., 'NYM').")
-    ap.add_argument("--chunk-size", type=int, default=5000, help="Upsert chunk size.")
+    ap.add_argument("--chunk-size", type=int, default=500, help="Upsert chunk size (rows per multi-row INSERT).")
     return ap.parse_args()
 
 
