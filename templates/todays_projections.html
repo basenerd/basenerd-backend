@@ -722,19 +722,21 @@
     document.getElementById('tp-table-area').innerHTML = '<div class="tp-empty">No upcoming games for this date.</div>';
     attachViewListeners();
   } else {
-    let loaded = 0;
-    const total = previewGames.length;
-
-    previewGames.forEach((g, gi)=>{
-      fetch(`/game/${g.gamePk}/pregame.json`)
-        .then(r=>r.json())
-        .then(d => collectGameData(d, g))
-        .catch(()=>{})
-        .finally(()=>{
-          loaded++;
-          if(loaded === total) finishLoading();
-        });
-    });
+    // Fetch pregame data in batches to avoid overwhelming the single worker
+    async function loadAllPregame(games){
+      const BATCH = 3;
+      for(let i = 0; i < games.length; i += BATCH){
+        const batch = games.slice(i, i + BATCH);
+        await Promise.all(batch.map(g =>
+          fetch(`/game/${g.gamePk}/pregame.json`)
+            .then(r => r.json())
+            .then(d => collectGameData(d, g))
+            .catch(()=>{})
+        ));
+      }
+      finishLoading();
+    }
+    loadAllPregame(previewGames);
   }
 
   function collectGameData(d, gameMeta){

@@ -5,11 +5,42 @@ For a given game, fetches lineups from the MLB API and runs matchup
 predictions for every batter vs the opposing starting pitcher.
 """
 
+import hashlib
 import logging
+import threading
 from services.mlb_api import get_game_feed, get_player_headshot_url
 from services.matchup_predict import predict_matchup
 
 log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Pregame prediction cache
+# Key: game_pk → {"lineup_hash": str, "data": dict}
+# Predictions are cached until lineups change (different hash) or server restarts.
+# ---------------------------------------------------------------------------
+_PREGAME_CACHE: dict = {}
+_PREGAME_LOCKS: dict = {}   # per-game locks to prevent duplicate computation
+_LOCKS_LOCK = threading.Lock()
+
+
+def _lineup_hash(lineup_data: dict) -> str:
+    """Hash lineup player IDs + pitcher IDs to detect lineup changes."""
+    parts = []
+    for side in ("away_lineup", "home_lineup"):
+        ids = tuple(b["id"] for b in (lineup_data.get(side) or []))
+        parts.append(str(ids))
+    for side in ("away_pitcher", "home_pitcher"):
+        p = lineup_data.get(side)
+        parts.append(str(p["id"]) if p else "None")
+    return hashlib.md5("|".join(parts).encode()).hexdigest()[:12]
+
+
+def _get_game_lock(game_pk: int) -> threading.Lock:
+    """Get or create a per-game lock so only one thread computes predictions."""
+    with _LOCKS_LOCK:
+        if game_pk not in _PREGAME_LOCKS:
+            _PREGAME_LOCKS[game_pk] = threading.Lock()
+        return _PREGAME_LOCKS[game_pk]
 
 # Pitch hand codes from MLB API
 _HAND_CODE = {"L": "L", "R": "R", "S": "S"}
@@ -277,7 +308,7 @@ def get_pregame_predictions(game_pk, season=2026):
     """
     For a given game, predict PA outcomes for every batter vs the opposing starter.
 
-    Returns structured dict with both lineups, predictions, and team totals.
+    Results are cached by lineup hash — predictions only recompute when lineups change.
     """
     feed = get_game_feed(game_pk)
     lineup_data = _extract_lineups_from_feed(feed)
@@ -285,6 +316,56 @@ def get_pregame_predictions(game_pk, season=2026):
     if not lineup_data:
         return {"ok": False, "reason": "no_feed"}
 
+    if not lineup_data["lineups_posted"]:
+        return {
+            "ok": True,
+            "game_pk": game_pk,
+            "lineups_posted": False,
+            "venue": lineup_data.get("venue"),
+            "venue_name": lineup_data.get("venue_name"),
+            "home_name": lineup_data.get("home_name"),
+            "away_name": lineup_data.get("away_name"),
+            "home_abbrev": lineup_data.get("home_abbrev"),
+            "away_abbrev": lineup_data.get("away_abbrev"),
+            "game_date": lineup_data.get("game_date"),
+            "game_time": lineup_data.get("game_time"),
+        }
+
+    # --- Cache check: return cached predictions if lineups haven't changed ---
+    lhash = _lineup_hash(lineup_data)
+    cached = _PREGAME_CACHE.get(game_pk)
+    if cached and cached["lineup_hash"] == lhash:
+        log.info("[pregame] cache HIT game=%s hash=%s", game_pk, lhash)
+        return cached["data"]
+
+    # Acquire per-game lock so only one thread computes predictions
+    lock = _get_game_lock(game_pk)
+    if not lock.acquire(timeout=60):
+        # Another thread is computing; check cache again
+        cached = _PREGAME_CACHE.get(game_pk)
+        if cached and cached["lineup_hash"] == lhash:
+            return cached["data"]
+        return {"ok": False, "reason": "timeout"}
+
+    try:
+        # Double-check cache after acquiring lock (another thread may have finished)
+        cached = _PREGAME_CACHE.get(game_pk)
+        if cached and cached["lineup_hash"] == lhash:
+            log.info("[pregame] cache HIT (after lock) game=%s", game_pk)
+            return cached["data"]
+
+        log.info("[pregame] cache MISS game=%s hash=%s — computing predictions", game_pk, lhash)
+        result = _compute_pregame_predictions(game_pk, lineup_data, season)
+
+        # Store in cache
+        _PREGAME_CACHE[game_pk] = {"lineup_hash": lhash, "data": result}
+        return result
+    finally:
+        lock.release()
+
+
+def _compute_pregame_predictions(game_pk, lineup_data, season):
+    """Run the actual prediction computation (called on cache miss)."""
     is_spring = lineup_data["game_type"] == "S"
 
     result = {
