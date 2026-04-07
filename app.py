@@ -1054,7 +1054,8 @@ def home_weekly_leaders():
                     SELECT player_name, pitcher, pitch_type, MAX(release_speed) AS velo
                     FROM statcast_pitches
                     WHERE game_date >= %s
-                      AND release_speed IS NOT NULL
+                      AND release_speed IS NOT NULL AND release_speed = release_speed
+                      AND pitch_type IS NOT NULL AND pitch_type != 'nan' AND pitch_type != ''
                       AND game_type = 'R'
                     GROUP BY player_name, pitcher, pitch_type
                     ORDER BY velo DESC
@@ -1072,8 +1073,8 @@ def home_weekly_leaders():
                     SELECT batter, MAX(launch_speed) AS ev
                     FROM statcast_pitches
                     WHERE game_date >= %s
-                      AND launch_speed IS NOT NULL
-                      AND events IS NOT NULL AND events != ''
+                      AND launch_speed IS NOT NULL AND launch_speed = launch_speed
+                      AND events IS NOT NULL AND events != '' AND events != 'nan'
                       AND game_type = 'R'
                     GROUP BY batter
                     ORDER BY ev DESC
@@ -1092,7 +1093,7 @@ def home_weekly_leaders():
                     FROM statcast_pitches
                     WHERE game_date >= %s
                       AND events = 'home_run'
-                      AND hit_distance_sc IS NOT NULL
+                      AND hit_distance_sc IS NOT NULL AND hit_distance_sc = hit_distance_sc
                       AND game_type = 'R'
                     ORDER BY hit_distance_sc DESC
                     LIMIT 5
@@ -1108,13 +1109,14 @@ def home_weekly_leaders():
                 cur.execute("""
                     SELECT batter,
                            AVG(estimated_woba_using_speedangle) AS xwoba,
-                           COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '') AS pa
+                           COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '' AND events != 'nan') AS pa
                     FROM statcast_pitches
                     WHERE game_date >= %s
                       AND estimated_woba_using_speedangle IS NOT NULL
+                      AND estimated_woba_using_speedangle = estimated_woba_using_speedangle
                       AND game_type = 'R'
                     GROUP BY batter
-                    HAVING COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '') >= 10
+                    HAVING COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '' AND events != 'nan') >= 10
                     ORDER BY xwoba DESC NULLS LAST
                     LIMIT 5
                 """, (window_start,))
