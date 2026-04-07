@@ -117,18 +117,28 @@ def train_matchup_model():
     keep = all_features + ["target", "season"]
     df = df[keep].copy()
 
-    # Split: train on 2021-2025, test on 2026
+    # Split: train on 2021-(N-1), holdout test on latest season N.
+    # Use a random 10% of training data as validation for early stopping,
+    # since the latest season may be too small early in the year.
     max_season = int(df["season"].max())
     train_mask = df["season"] <= (max_season - 1)
     test_mask = df["season"] == max_season
 
-    X_train = df.loc[train_mask, all_features]
-    y_train = df.loc[train_mask, "target"]
+    X_full_train = df.loc[train_mask, all_features]
+    y_full_train = df.loc[train_mask, "target"]
     X_test = df.loc[test_mask, all_features]
     y_test = df.loc[test_mask, "target"]
     del df
 
-    print(f"\n  Train: {len(X_train):,} PAs (2021-{max_season - 1})")
+    # Hold out 10% of training data for early stopping validation
+    from sklearn.model_selection import train_test_split as _tts
+    X_train, X_val, y_train, y_val = _tts(
+        X_full_train, y_full_train, test_size=0.1, random_state=42
+    )
+    del X_full_train, y_full_train
+
+    print(f"\n  Train: {len(X_train):,} PAs (2021-{max_season - 1}, 90%)")
+    print(f"  Val:   {len(X_val):,} PAs (2021-{max_season - 1}, 10% holdout)")
     print(f"  Test:  {len(X_test):,} PAs ({max_season})")
 
     # Train XGBoost
@@ -161,7 +171,7 @@ def train_matchup_model():
 
     model.fit(
         X_train, y_train,
-        eval_set=[(X_test, y_test)],
+        eval_set=[(X_val, y_val)],
         verbose=50,
     )
 
