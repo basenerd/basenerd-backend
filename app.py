@@ -1051,10 +1051,11 @@ def home_weekly_leaders():
 
                 # 1. Top velocities (fastest pitch per pitcher-pitch_type combo)
                 cur.execute("""
-                    SELECT player_name, pitcher, pitch_type, MAX(release_speed) AS velo
+                    SELECT player_name, pitcher, pitch_type, MAX(release_speed::float) AS velo
                     FROM statcast_pitches
                     WHERE game_date >= %s
-                      AND release_speed IS NOT NULL AND release_speed < 'Infinity'::float
+                      AND release_speed IS NOT NULL
+                      AND release_speed::text NOT IN ('NaN', 'nan', '')
                       AND pitch_type IS NOT NULL AND pitch_type != 'nan' AND pitch_type != ''
                       AND game_type = 'R'
                     GROUP BY player_name, pitcher, pitch_type
@@ -1070,10 +1071,11 @@ def home_weekly_leaders():
 
                 # 2. Top exit velocities (max per batter)
                 cur.execute("""
-                    SELECT batter, MAX(launch_speed) AS ev
+                    SELECT batter, MAX(launch_speed::float) AS ev
                     FROM statcast_pitches
                     WHERE game_date >= %s
-                      AND launch_speed IS NOT NULL AND launch_speed < 'Infinity'::float
+                      AND launch_speed IS NOT NULL
+                      AND launch_speed::text NOT IN ('NaN', 'nan', '')
                       AND events IS NOT NULL AND events != '' AND events != 'nan'
                       AND game_type = 'R'
                     GROUP BY batter
@@ -1093,7 +1095,8 @@ def home_weekly_leaders():
                     FROM statcast_pitches
                     WHERE game_date >= %s
                       AND events = 'home_run'
-                      AND hit_distance_sc IS NOT NULL AND hit_distance_sc < 'Infinity'::float
+                      AND hit_distance_sc IS NOT NULL
+                      AND hit_distance_sc::text NOT IN ('NaN', 'nan', '')
                       AND game_type = 'R'
                     ORDER BY hit_distance_sc DESC
                     LIMIT 5
@@ -1108,12 +1111,12 @@ def home_weekly_leaders():
                 # 4. Top hitters by xwOBA (last 7 days, min 10 PA)
                 cur.execute("""
                     SELECT batter,
-                           AVG(estimated_woba_using_speedangle) AS xwoba,
+                           AVG(estimated_woba_using_speedangle::float) AS xwoba,
                            COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '' AND events != 'nan') AS pa
                     FROM statcast_pitches
                     WHERE game_date >= %s
                       AND estimated_woba_using_speedangle IS NOT NULL
-                      AND estimated_woba_using_speedangle < 'Infinity'::float
+                      AND estimated_woba_using_speedangle::text NOT IN ('NaN', 'nan', '')
                       AND game_type = 'R'
                     GROUP BY batter
                     HAVING COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '' AND events != 'nan') >= 10
