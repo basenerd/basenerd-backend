@@ -478,7 +478,9 @@ def _compute_pregame_predictions(game_pk, lineup_data, season):
                 try:
                     from services.recent_form import get_batter_recent_form
                     rf = get_batter_recent_form(batter["id"])
-                    r14_xwoba = rf.get("bat_r14_xwoba", 0.315)
+                    r14_xwoba = rf.get("bat_r14_xwoba")
+                    if r14_xwoba is None or (isinstance(r14_xwoba, float) and r14_xwoba != r14_xwoba):
+                        r14_xwoba = 0.315  # league avg fallback
                     # Compare to league avg
                     form_delta = r14_xwoba - 0.315
                     if form_delta > 0.030:

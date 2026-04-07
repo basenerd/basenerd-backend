@@ -81,6 +81,27 @@ except Exception as e:
 
 app = Flask(__name__)
 
+# --- Sanitize NaN/Infinity in all JSON responses (invalid per JSON spec) ---
+import math as _math
+from flask.json.provider import DefaultJSONProvider
+
+def _sanitize_for_json(obj):
+    """Recursively replace float NaN/Inf with None."""
+    if isinstance(obj, float):
+        return None if (_math.isnan(obj) or _math.isinf(obj)) else obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(v) for v in obj]
+    return obj
+
+class _SafeJSONProvider(DefaultJSONProvider):
+    def dumps(self, obj, **kwargs):
+        return super().dumps(_sanitize_for_json(obj), **kwargs)
+
+app.json_provider_class = _SafeJSONProvider
+app.json = _SafeJSONProvider(app)
+
 @app.context_processor
 def inject_global_games_ticker():
     """
