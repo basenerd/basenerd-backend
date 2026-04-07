@@ -704,17 +704,19 @@
   let sortDir = -1; // -1 = desc
 
   // ---- Filter games ----
+  // Include all games that have (or had) lineups: scheduled through final.
+  // Only exclude postponed/suspended/cancelled.
+  const excludeStates = ['postponed', 'suspended', 'cancelled', 'canceled'];
   const previewGames = GAMES.filter(g=>{
     const ds = (g.detailedState||'').toLowerCase();
-    return ds.includes('scheduled') || ds.includes('warmup') || ds.includes('pre-game')
-      || ds.includes('preview') || ds.includes('in progress') || ds.includes('live');
+    return ds && !excludeStates.some(s => ds.includes(s));
   });
 
   if(!previewGames.length && !GAMES.length){
     document.getElementById('tp-loading').style.display = 'none';
     document.getElementById('tp-table-area').innerHTML = '<div class="tp-empty">No upcoming games for this date.</div>';
   } else if(!previewGames.length){
-    // Games exist (completed/postponed) but none eligible for projections
+    // Games exist but all postponed/cancelled
     document.getElementById('tp-loading').style.display = 'none';
     document.getElementById('tp-controls').style.display = 'flex';
     document.getElementById('tp-table-area').innerHTML = '<div class="tp-empty">No upcoming games for this date.</div>';
