@@ -1031,7 +1031,7 @@ def home_weekly_leaders():
                 from datetime import date as _date, timedelta as _td
                 today = _date.today()
                 cur.execute(
-                    "SELECT MAX(game_date) FROM statcast_pitches WHERE game_date <= %s",
+                    "SELECT MAX(game_date) FROM statcast_pitches WHERE game_date <= %s AND game_type = 'R'",
                     (today,)
                 )
                 latest = cur.fetchone()[0]
@@ -1055,6 +1055,7 @@ def home_weekly_leaders():
                     FROM statcast_pitches
                     WHERE game_date >= %s
                       AND release_speed IS NOT NULL
+                      AND game_type = 'R'
                     GROUP BY player_name, pitcher, pitch_type
                     ORDER BY velo DESC
                     LIMIT 5
@@ -1073,6 +1074,7 @@ def home_weekly_leaders():
                     WHERE game_date >= %s
                       AND launch_speed IS NOT NULL
                       AND events IS NOT NULL AND events != ''
+                      AND game_type = 'R'
                     GROUP BY batter
                     ORDER BY ev DESC
                     LIMIT 5
@@ -1091,6 +1093,7 @@ def home_weekly_leaders():
                     WHERE game_date >= %s
                       AND events = 'home_run'
                       AND hit_distance_sc IS NOT NULL
+                      AND game_type = 'R'
                     ORDER BY hit_distance_sc DESC
                     LIMIT 5
                 """, (window_start,))
@@ -1109,6 +1112,7 @@ def home_weekly_leaders():
                     FROM statcast_pitches
                     WHERE game_date >= %s
                       AND estimated_woba_using_speedangle IS NOT NULL
+                      AND game_type = 'R'
                     GROUP BY batter
                     HAVING COUNT(*) FILTER (WHERE events IS NOT NULL AND events != '') >= 10
                     ORDER BY xwoba DESC NULLS LAST
