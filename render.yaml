@@ -38,6 +38,28 @@ services:
         sync: false
 
   - type: cron
+    name: statcast-update
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    schedule: "0 6 * * *"  # 6:00 AM UTC = 1:00 AM ET, after west coast games finish
+    startCommand: "python -u scripts/update_statcast_pitches.py --mode daily --days 2"
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+
+  - type: cron
+    name: rebuild-profiles
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    schedule: "10 6 * * *"  # 6:10 AM UTC, after statcast update
+    startCommand: "python -u scripts/daily_rebuild_profiles.py"
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+
+  - type: cron
     name: update-standings
     runtime: python
     buildCommand: "pip install -r requirements.txt"
