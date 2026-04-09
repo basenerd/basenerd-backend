@@ -407,6 +407,7 @@
       });
 
       const valIn = document.createElement("input");
+      valIn.type = "number";
       valIn.className = "select";
       valIn.style.height = "34px";
       valIn.style.width = "140px";
@@ -426,9 +427,11 @@
         filters[idx].op = opSel.value;
         persist();
       });
-      valIn.addEventListener("input", () => {
+      valIn.addEventListener("change", () => {
         filters[idx].value = valIn.value;
         persist();
+        page = 1;
+        load();
       });
       rm.addEventListener("click", () => {
         filters.splice(idx, 1);
