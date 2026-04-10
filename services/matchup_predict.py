@@ -186,11 +186,25 @@ def _get_batter_features(batter_id, season, p_throws):
         plat = dict(_LEAGUE_AVG_BATTER_PLAT)
     else:
         r = row_plat.iloc[0]
+        plat_pa = float(r.get("pa", 0)) if pd.notna(r.get("pa")) else 0
         plat = {}
         for k, default in _LEAGUE_AVG_BATTER_PLAT.items():
             col = k.replace("bat_plat_", "", 1)
             val = r.get(col)
             plat[k] = float(val) if pd.notna(val) else default
+
+        # Bayesian shrinkage: with small platoon PA, blend toward overall (ALL) stats.
+        # At 50+ PA the platoon split is fully trusted; below that, regress toward overall.
+        RELIABLE_PLAT_PA = 50
+        if plat_pa < RELIABLE_PLAT_PA:
+            w = plat_pa / RELIABLE_PLAT_PA
+            for k in _LEAGUE_AVG_BATTER_PLAT:
+                overall_key = k.replace("bat_plat_", "bat_")
+                prior = overall.get(overall_key, _LEAGUE_AVG_BATTER_PLAT[k])
+                plat[k] = w * plat[k] + (1 - w) * prior
+
+    # Also store platoon PA for sample-size feature
+    overall["bat_season_pa"] = float(row_all.iloc[0].get("pa", 0)) if not row_all.empty and pd.notna(row_all.iloc[0].get("pa")) else 0
 
     return {**overall, **plat}
 
