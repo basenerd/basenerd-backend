@@ -154,57 +154,91 @@ def _load():
 
 
 def _get_batter_features(batter_id, season, p_throws):
-    """Look up batter profile features. Falls back to league average."""
+    """
+    Build multi-year stabilized batter profile.
+
+    Instead of using only current-season stats (which are noisy in April),
+    we weight across up to 3 seasons by recency and PA, then regress toward
+    league average based on total sample size. This prevents double-counting
+    recent performance (the r14 rolling features handle hot/cold streaks).
+
+    Weighting scheme:
+      - Current season:  recency weight 1.0
+      - Prior season:    recency weight 0.7
+      - Two years ago:   recency weight 0.4
+      Each season's contribution is recency_weight * PA.
+      Final profile is then regressed toward league average based on total
+      weighted PA (at 400+ weighted PA, league average weight is ~0).
+    """
     if _batter_profiles is None or _batter_profiles.empty:
         return {**_LEAGUE_AVG_BATTER, **_LEAGUE_AVG_BATTER_PLAT}
 
     bp = _batter_profiles
-    mask_all = (bp["batter"] == batter_id) & (bp["vs_hand"] == "ALL")
 
-    row_all = bp[mask_all & (bp["season"] == season)]
-    if row_all.empty:
-        row_all = bp[mask_all].sort_values("season", ascending=False).head(1)
+    # --- Multi-year weighted overall (ALL) profile ---
+    RECENCY_WEIGHTS = {0: 1.0, 1: 0.7, 2: 0.4}  # 0=current, 1=last year, 2=two years ago
+    RELIABLE_PA = 400  # total weighted PA for full confidence (no league regression)
 
-    if row_all.empty:
-        overall = dict(_LEAGUE_AVG_BATTER)
-    else:
-        r = row_all.iloc[0]
-        overall = {}
-        for k, default in _LEAGUE_AVG_BATTER.items():
-            col = k.replace("bat_", "", 1)
-            val = r.get(col)
-            overall[k] = float(val) if pd.notna(val) else default
+    def _build_weighted_profile(hand_filter, stat_keys, prefix):
+        """Build a PA-weighted, recency-adjusted profile across up to 3 seasons."""
+        weighted_stats = {k: 0.0 for k in stat_keys}
+        total_weighted_pa = 0.0
 
-    # Platoon split
+        for years_ago, recency_w in RECENCY_WEIGHTS.items():
+            target_season = season - years_ago
+            mask = (bp["batter"] == batter_id) & (bp["vs_hand"] == hand_filter) & (bp["season"] == target_season)
+            row = bp[mask]
+            if row.empty:
+                continue
+            r = row.iloc[0]
+            pa = float(r.get("pa", 0)) if pd.notna(r.get("pa")) else 0
+            if pa < 1:
+                continue
+            season_weight = recency_w * pa
+            total_weighted_pa += season_weight
+            for k in stat_keys:
+                col = k.replace(prefix, "", 1)
+                val = r.get(col)
+                if pd.notna(val):
+                    weighted_stats[k] += float(val) * season_weight
+
+        defaults = _LEAGUE_AVG_BATTER if prefix == "bat_" else _LEAGUE_AVG_BATTER_PLAT
+
+        if total_weighted_pa < 1:
+            return dict(defaults), 0.0
+
+        # Normalize by total weight to get weighted average
+        for k in stat_keys:
+            weighted_stats[k] /= total_weighted_pa
+
+        # Regress toward league average based on total weighted PA
+        # At 400+ weighted PA, trust the profile fully. Below that, blend with league avg.
+        confidence = min(total_weighted_pa / RELIABLE_PA, 1.0)
+        for k in stat_keys:
+            lg = defaults.get(k, 0.0)
+            weighted_stats[k] = confidence * weighted_stats[k] + (1 - confidence) * lg
+
+        return weighted_stats, total_weighted_pa
+
+    overall, overall_wpa = _build_weighted_profile("ALL", list(_LEAGUE_AVG_BATTER.keys()), "bat_")
+
+    # --- Multi-year weighted platoon profile ---
     plat_hand = p_throws if p_throws in ("L", "R") else "R"
-    mask_plat = (bp["batter"] == batter_id) & (bp["vs_hand"] == plat_hand)
-    row_plat = bp[mask_plat & (bp["season"] == season)]
-    if row_plat.empty:
-        row_plat = bp[mask_plat].sort_values("season", ascending=False).head(1)
+    plat, plat_wpa = _build_weighted_profile(plat_hand, list(_LEAGUE_AVG_BATTER_PLAT.keys()), "bat_plat_")
 
-    if row_plat.empty:
-        plat = dict(_LEAGUE_AVG_BATTER_PLAT)
-    else:
-        r = row_plat.iloc[0]
-        plat_pa = float(r.get("pa", 0)) if pd.notna(r.get("pa")) else 0
-        plat = {}
-        for k, default in _LEAGUE_AVG_BATTER_PLAT.items():
-            col = k.replace("bat_plat_", "", 1)
-            val = r.get(col)
-            plat[k] = float(val) if pd.notna(val) else default
+    # Extra shrinkage: if platoon sample is small, blend toward overall profile
+    RELIABLE_PLAT_PA = 120  # weighted PA for platoon confidence
+    if plat_wpa < RELIABLE_PLAT_PA:
+        w = plat_wpa / RELIABLE_PLAT_PA
+        for k in _LEAGUE_AVG_BATTER_PLAT:
+            overall_key = k.replace("bat_plat_", "bat_")
+            prior = overall.get(overall_key, _LEAGUE_AVG_BATTER_PLAT[k])
+            plat[k] = w * plat[k] + (1 - w) * prior
 
-        # Bayesian shrinkage: with small platoon PA, blend toward overall (ALL) stats.
-        # At 50+ PA the platoon split is fully trusted; below that, regress toward overall.
-        RELIABLE_PLAT_PA = 50
-        if plat_pa < RELIABLE_PLAT_PA:
-            w = plat_pa / RELIABLE_PLAT_PA
-            for k in _LEAGUE_AVG_BATTER_PLAT:
-                overall_key = k.replace("bat_plat_", "bat_")
-                prior = overall.get(overall_key, _LEAGUE_AVG_BATTER_PLAT[k])
-                plat[k] = w * plat[k] + (1 - w) * prior
-
-    # Also store platoon PA for sample-size feature
-    overall["bat_season_pa"] = float(row_all.iloc[0].get("pa", 0)) if not row_all.empty and pd.notna(row_all.iloc[0].get("pa")) else 0
+    # Store current-season PA for sample-size feature
+    curr_mask = (bp["batter"] == batter_id) & (bp["vs_hand"] == "ALL") & (bp["season"] == season)
+    curr_row = bp[curr_mask]
+    overall["bat_season_pa"] = float(curr_row.iloc[0].get("pa", 0)) if not curr_row.empty and pd.notna(curr_row.iloc[0].get("pa")) else 0
 
     return {**overall, **plat}
 
@@ -423,7 +457,11 @@ def _get_stuff_plus_from_live(pitcher_id):
 
 def _get_pitcher_features(pitcher_id, season):
     """
-    Look up pitcher aggregate + arsenal features.
+    Look up pitcher aggregate + arsenal features with multi-year stabilization.
+
+    Arsenal structure (pitch types, usage, velo) uses most recent season.
+    Rate stats (whiff, chase, zone, xwoba) are multi-year weighted like batters
+    to avoid early-season noise dominating predictions.
 
     Data sources (in priority order):
     1. pitcher_arsenal.parquet (Statcast-derived, has whiff/chase/zone per pitch)
@@ -441,7 +479,7 @@ def _get_pitcher_features(pitcher_id, season):
     })
     _DEFAULT_USAGE = {"fastball": 0.55, "breaking": 0.30, "offspeed": 0.15}
 
-    # --- Try parquet first ---
+    # --- Try parquet first (current season for arsenal structure) ---
     df_season = None
     source = "parquet"
 
@@ -483,17 +521,63 @@ def _get_pitcher_features(pitcher_id, season):
         return float(np.average(vals[valid], weights=n[valid]))
 
     result = {}
+
+    # Arsenal / stuff stats: use current season (freshest data)
     for feat, col, default in [
         ("p_avg_stuff_plus", "avg_stuff_plus", 100.0),
         ("p_avg_control_plus", "avg_control_plus", 100.0),
         ("p_avg_velo", "avg_velo", 93.5),
+    ]:
+        val = _wavg(col) if col in df_season.columns else None
+        result[feat] = val if val is not None else default
+
+    # Command / location stats: multi-year weighted (more stable traits, noisy early season)
+    # Weight: current season PA * 1.0, prior year PA * 0.7, two years ago PA * 0.4
+    _RATE_STATS = [
         ("p_whiff_rate", "whiff_rate", 0.245),
         ("p_chase_rate", "chase_rate", 0.295),
         ("p_zone_rate", "zone_rate", 0.45),
         ("p_xwoba", "xwoba", 0.315),
-    ]:
-        val = _wavg(col) if col in df_season.columns else None
-        result[feat] = val if val is not None else default
+    ]
+    _RECENCY_W = {0: 1.0, 1: 0.7, 2: 0.4}
+    _RELIABLE_PITCHER_N = 2000  # ~2000 pitches for full confidence
+
+    if _pitcher_arsenal is not None and not _pitcher_arsenal.empty:
+        pa_df = _pitcher_arsenal
+        pit_mask = (pa_df["pitcher"] == pitcher_id) & (pa_df["stand"] == "ALL")
+
+        for feat, col, default in _RATE_STATS:
+            weighted_sum = 0.0
+            total_w = 0.0
+            for years_ago, rec_w in _RECENCY_W.items():
+                s_mask = pit_mask & (pa_df["season"] == season - years_ago)
+                s_data = pa_df[s_mask]
+                if s_data.empty:
+                    continue
+                s_n = pd.to_numeric(s_data["n"], errors="coerce").fillna(0).values.astype(float)
+                s_total = s_n.sum()
+                if s_total == 0:
+                    continue
+                vals = pd.to_numeric(s_data[col], errors="coerce")
+                valid = vals.notna() & (s_n > 0)
+                if not valid.any():
+                    continue
+                season_val = float(np.average(vals[valid], weights=s_n[valid]))
+                season_w = rec_w * s_total
+                weighted_sum += season_val * season_w
+                total_w += season_w
+
+            if total_w > 0:
+                blended = weighted_sum / total_w
+                # Regress toward league average based on total sample
+                confidence = min(total_w / _RELIABLE_PITCHER_N, 1.0)
+                result[feat] = confidence * blended + (1 - confidence) * default
+            else:
+                result[feat] = default
+    else:
+        for feat, col, default in _RATE_STATS:
+            val = _wavg(col) if col in df_season.columns else None
+            result[feat] = val if val is not None else default
 
     # --- Enrich stuff+ from statcast_pitches_live if still NULL ---
     live_stuff = _get_stuff_plus_from_live(pitcher_id)
