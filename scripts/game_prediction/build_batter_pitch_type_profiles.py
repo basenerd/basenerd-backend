@@ -76,11 +76,11 @@ def build_batter_pitch_type_profiles():
             'fielders_choice_out','force_out','field_error','sac_fly',
             'sac_bunt','triple_play'
         ) THEN 1 ELSE 0 END) AS bip,
-        -- Contact quality
-        AVG(launch_speed) AS avg_ev,
-        AVG(launch_angle) AS avg_la,
-        SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS hard_hits,
-        AVG(estimated_woba_using_speedangle) AS xwoba,
+        -- Contact quality (filter NaN floats via range — PG NaN=NaN is TRUE)
+        AVG(CASE WHEN launch_speed BETWEEN 0 AND 200 THEN launch_speed END) AS avg_ev,
+        AVG(CASE WHEN launch_angle BETWEEN -90 AND 90 THEN launch_angle END) AS avg_la,
+        SUM(CASE WHEN launch_speed >= 95 AND launch_speed < 200 THEN 1 ELSE 0 END) AS hard_hits,
+        AVG(CASE WHEN estimated_woba_using_speedangle BETWEEN -1 AND 5 THEN estimated_woba_using_speedangle END) AS xwoba,
         -- Called strikes (pitch-level, not PA-level)
         SUM(CASE WHEN description = 'called_strike' THEN 1 ELSE 0 END) AS called_strikes
     FROM statcast_pitches

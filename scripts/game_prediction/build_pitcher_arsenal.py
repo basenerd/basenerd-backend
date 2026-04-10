@@ -32,17 +32,17 @@ def build_pitcher_arsenal():
         sp.stand,
         sp.pitch_type,
         COUNT(*) AS n,
-        AVG(sp.release_speed) AS avg_velo,
-        AVG(sp.release_spin_rate) AS avg_spin,
-        AVG(sp.pfx_x * 12) AS avg_hb,
-        AVG(sp.pfx_z * 12) AS avg_ivb,
-        AVG(sp.release_extension) AS avg_extension,
-        AVG(sp.release_pos_x) AS avg_rel_x,
-        AVG(sp.release_pos_z) AS avg_rel_z,
-        STDDEV(sp.release_pos_x) AS std_rel_x,
-        STDDEV(sp.release_pos_z) AS std_rel_z,
-        AVG(spl.stuff_plus) AS avg_stuff_plus,
-        AVG(spl.control_plus) AS avg_control_plus,
+        AVG(CASE WHEN sp.release_speed BETWEEN 40 AND 110 THEN sp.release_speed END) AS avg_velo,
+        AVG(CASE WHEN sp.release_spin_rate BETWEEN 0 AND 5000 THEN sp.release_spin_rate END) AS avg_spin,
+        AVG(CASE WHEN sp.pfx_x BETWEEN -3 AND 3 THEN sp.pfx_x * 12 END) AS avg_hb,
+        AVG(CASE WHEN sp.pfx_z BETWEEN -3 AND 3 THEN sp.pfx_z * 12 END) AS avg_ivb,
+        AVG(CASE WHEN sp.release_extension BETWEEN 0 AND 10 THEN sp.release_extension END) AS avg_extension,
+        AVG(CASE WHEN sp.release_pos_x BETWEEN -5 AND 5 THEN sp.release_pos_x END) AS avg_rel_x,
+        AVG(CASE WHEN sp.release_pos_z BETWEEN 0 AND 10 THEN sp.release_pos_z END) AS avg_rel_z,
+        STDDEV(CASE WHEN sp.release_pos_x BETWEEN -5 AND 5 THEN sp.release_pos_x END) AS std_rel_x,
+        STDDEV(CASE WHEN sp.release_pos_z BETWEEN 0 AND 10 THEN sp.release_pos_z END) AS std_rel_z,
+        AVG(CASE WHEN spl.stuff_plus BETWEEN 0 AND 300 THEN spl.stuff_plus END) AS avg_stuff_plus,
+        AVG(CASE WHEN spl.control_plus BETWEEN 0 AND 300 THEN spl.control_plus END) AS avg_control_plus,
         SUM(CASE WHEN sp.description IN (
             'swinging_strike','swinging_strike_blocked','foul_tip','missed_bunt',
             'foul','foul_bunt','hit_into_play'
@@ -58,7 +58,7 @@ def build_pitcher_arsenal():
                 'foul','foul_bunt','hit_into_play'
             ) THEN 1 ELSE 0 END) AS chases,
         SUM(CASE WHEN sp.description = 'called_strike' THEN 1 ELSE 0 END) AS called_strikes,
-        AVG(sp.estimated_woba_using_speedangle) AS xwoba
+        AVG(CASE WHEN sp.estimated_woba_using_speedangle BETWEEN -1 AND 5 THEN sp.estimated_woba_using_speedangle END) AS xwoba
     FROM statcast_pitches sp
     LEFT JOIN statcast_pitches_live spl
         ON sp.game_pk = spl.game_pk

@@ -69,14 +69,14 @@ def _run_batter_query(group_by_p_throws=True):
             'fielders_choice_out','force_out','field_error','sac_fly',
             'sac_bunt','triple_play'
         ) THEN 1 ELSE 0 END) AS bip,
-        -- Contact quality
-        AVG(launch_speed) AS avg_ev,
-        AVG(launch_angle) AS avg_la,
-        SUM(CASE WHEN launch_speed >= 95 THEN 1 ELSE 0 END) AS hard_hits,
+        -- Contact quality (filter NaN floats via range check — PG NaN=NaN is TRUE)
+        AVG(CASE WHEN launch_speed BETWEEN 0 AND 200 THEN launch_speed END) AS avg_ev,
+        AVG(CASE WHEN launch_angle BETWEEN -90 AND 90 THEN launch_angle END) AS avg_la,
+        SUM(CASE WHEN launch_speed >= 95 AND launch_speed < 200 THEN 1 ELSE 0 END) AS hard_hits,
         SUM(CASE WHEN launch_angle BETWEEN 8 AND 32 THEN 1 ELSE 0 END) AS sweet_spots,
-        SUM(CASE WHEN launch_angle < 10 AND launch_angle IS NOT NULL THEN 1 ELSE 0 END) AS gbs,
-        SUM(CASE WHEN launch_angle >= 25 AND launch_angle IS NOT NULL THEN 1 ELSE 0 END) AS fbs,
-        AVG(estimated_woba_using_speedangle) AS xwoba
+        SUM(CASE WHEN launch_angle BETWEEN -90 AND 9 THEN 1 ELSE 0 END) AS gbs,
+        SUM(CASE WHEN launch_angle BETWEEN 25 AND 90 THEN 1 ELSE 0 END) AS fbs,
+        AVG(CASE WHEN estimated_woba_using_speedangle BETWEEN -1 AND 5 THEN estimated_woba_using_speedangle END) AS xwoba
     FROM statcast_pitches
     WHERE game_type = 'R'
       AND game_year BETWEEN 2021 AND {current_year}

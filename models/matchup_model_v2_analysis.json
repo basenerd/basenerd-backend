@@ -1,0 +1,1080 @@
+{
+  "outcome_rates": {
+    "actual": {
+      "1B": 0.1371,
+      "2B": 0.0413,
+      "3B": 0.003,
+      "BB": 0.0968,
+      "HBP": 0.0102,
+      "HR": 0.0245,
+      "IBB": 0.0029,
+      "K": 0.2329,
+      "OUT": 0.4512
+    },
+    "predicted": {
+      "1B": 0.1147,
+      "2B": 0.0361,
+      "3B": 0.0027,
+      "BB": 0.089,
+      "HBP": 0.0168,
+      "HR": 0.0211,
+      "IBB": 0.003,
+      "K": 0.1655,
+      "OUT": 0.5512
+    }
+  },
+  "gain_importance": {
+    "bvp_k_pct": 0.080656,
+    "bvp_bb_pct": 0.051545,
+    "bvp_hit_pct": 0.036115,
+    "bvp_hr_pct": 0.03375,
+    "wl_is_starter": 0.033545,
+    "matchup_k_advantage": 0.029524,
+    "bat_k_pct": 0.027762,
+    "bvp_xwoba": 0.027063,
+    "bat_plat_k_pct": 0.027056,
+    "interact_k_whiff": 0.023213,
+    "pitcher_days_rest": 0.020276,
+    "n_thruorder_pitcher": 0.019741,
+    "bat_plat_whiff_rate": 0.019228,
+    "bvp_pa": 0.019163,
+    "wl_days_rest": 0.018956,
+    "tto_squared": 0.016814,
+    "bat_plat_bb_pct": 0.016538,
+    "runner_on_2b": 0.01444,
+    "inning": 0.013901,
+    "runner_on_1b": 0.013419,
+    "bat_bb_pct": 0.013128,
+    "p_delta_whiff": 0.013107,
+    "bvpt_w_whiff_rate": 0.012471,
+    "late_and_close": 0.011984,
+    "bvpt_w_chase_rate": 0.010472,
+    "runner_on_3b": 0.010388,
+    "p_whiff_rate": 0.009604,
+    "runners_on": 0.009236,
+    "p_season_pitches": 0.008715,
+    "p_total_thrown": 0.008705,
+    "base_out_state": 0.00812,
+    "bat_hr_per_fb": 0.007655,
+    "bat_delta_bb": 0.007557,
+    "bat_iso": 0.00693,
+    "matchup_bb_advantage": 0.00676,
+    "bat_babip": 0.006737,
+    "bat_whiff_rate": 0.006422,
+    "bat_plat_chase_rate": 0.006264,
+    "bat_plat_xwoba": 0.005665,
+    "est_pitch_count": 0.005643,
+    "wl_pitches_last_30d": 0.005593,
+    "interact_iso_park": 0.005561,
+    "p_delta_xwoba": 0.00552,
+    "p_xwoba": 0.005288,
+    "is_third_time_thru": 0.005194,
+    "bat_chase_rate": 0.005168,
+    "bat_delta_k": 0.004966,
+    "p_zone_rate": 0.004794,
+    "score_diff": 0.004767,
+    "outs_when_up": 0.004639
+  },
+  "permutation_importance": {
+    "bat_plat_bb_pct": 0.051145,
+    "bat_plat_k_pct": 0.038313,
+    "bvp_bb_pct": 0.026964,
+    "bvp_hit_pct": 0.026337,
+    "bat_hr_per_fb": 0.025879,
+    "bvp_k_pct": 0.020635,
+    "bvp_hr_pct": 0.020573,
+    "bat_iso": 0.015929,
+    "bat_babip": 0.012541,
+    "bvp_pa": 0.012541,
+    "runner_on_1b": 0.005021,
+    "p_xwoba": 0.003307,
+    "base_out_state": 0.002558,
+    "platoon_k_split": 0.002353,
+    "bat_plat_xwoba": 0.002347,
+    "runners_on": 0.002054,
+    "score_diff": 0.002051,
+    "p_whiff_rate": 0.001926,
+    "p_delta_xwoba": 0.001837,
+    "bat_k_pct": 0.001725,
+    "p_chase_rate": 0.001712,
+    "p_delta_chase": 0.0014,
+    "matchup_k_advantage": 0.001357,
+    "runner_on_2b": 0.001245,
+    "interact_k_whiff": 0.001101,
+    "p_zone_rate": 0.00108,
+    "p_delta_whiff": 0.001079,
+    "platoon_xwoba_split": 0.000959,
+    "bvpt_w_whiff_rate": 0.000941,
+    "bat_bb_pct": 0.000889,
+    "late_and_close": 0.000774,
+    "outs_when_up": 0.000727,
+    "bat_plat_avg_ev": 0.000697,
+    "bat_avg_spray_angle": 0.000621,
+    "bat_plat_whiff_rate": 0.000598,
+    "p_delta_zone": 0.000561,
+    "is_home_batting": 0.000545,
+    "park_hr_factor": 0.000511,
+    "park_run_factor": 0.00044,
+    "bvp_xwoba": 0.000434,
+    "stand": 0.000433,
+    "p_throws": 0.000425,
+    "p_season_pitches": 0.000375,
+    "bat_season_pa": 0.000339,
+    "bat_xwoba": 0.000331,
+    "matchup_bb_advantage": 0.000324,
+    "bat_r14_bb_pct": 0.000306,
+    "bat_fb_rate": 0.00027,
+    "bat_r14_k_delta": 0.00024,
+    "bat_blend_babip": 0.000232
+  },
+  "group_importance": {
+    "batter_profile": {
+      "logloss_increase": 0.169103,
+      "n_features": 17,
+      "per_feature": 0.009947
+    },
+    "batter_platoon": {
+      "logloss_increase": 0.432019,
+      "n_features": 7,
+      "per_feature": 0.061717
+    },
+    "batter_pitch_type": {
+      "logloss_increase": 0.008032,
+      "n_features": 20,
+      "per_feature": 0.000402
+    },
+    "pitcher_arsenal": {
+      "logloss_increase": 0.078548,
+      "n_features": 24,
+      "per_feature": 0.003273
+    },
+    "park": {
+      "logloss_increase": 0.001364,
+      "n_features": 2,
+      "per_feature": 0.000682
+    },
+    "recent_form": {
+      "logloss_increase": -0.005208,
+      "n_features": 11,
+      "per_feature": -0.000473
+    },
+    "context": {
+      "logloss_increase": -0.006689,
+      "n_features": 6,
+      "per_feature": -0.001115
+    },
+    "game_state": {
+      "logloss_increase": 0.007401,
+      "n_features": 6,
+      "per_feature": 0.001234
+    },
+    "sample_size": {
+      "logloss_increase": 0.000571,
+      "n_features": 2,
+      "per_feature": 0.000286
+    },
+    "prior_year_batter": {
+      "logloss_increase": 0.001053,
+      "n_features": 10,
+      "per_feature": 0.000105
+    },
+    "blended_batter": {
+      "logloss_increase": 0.001472,
+      "n_features": 17,
+      "per_feature": 8.7e-05
+    },
+    "prior_year_pitcher": {
+      "logloss_increase": -4.8e-05,
+      "n_features": 7,
+      "per_feature": -7e-06
+    },
+    "arsenal_diversity": {
+      "logloss_increase": 0.000782,
+      "n_features": 2,
+      "per_feature": 0.000391
+    },
+    "interactions": {
+      "logloss_increase": 0.006906,
+      "n_features": 9,
+      "per_feature": 0.000767
+    },
+    "deltas": {
+      "logloss_increase": 0.005851,
+      "n_features": 11,
+      "per_feature": 0.000532
+    },
+    "matchup_advantages": {
+      "logloss_increase": 0.003475,
+      "n_features": 6,
+      "per_feature": 0.000579
+    },
+    "form_deltas": {
+      "logloss_increase": 0.001301,
+      "n_features": 3,
+      "per_feature": 0.000434
+    },
+    "derived": {
+      "logloss_increase": -0.002325,
+      "n_features": 4,
+      "per_feature": -0.000581
+    },
+    "pitcher_rest": {
+      "logloss_increase": -0.012417,
+      "n_features": 10,
+      "per_feature": -0.001242
+    },
+    "batter_spray": {
+      "logloss_increase": 0.001184,
+      "n_features": 8,
+      "per_feature": 0.000148
+    },
+    "pitcher_spray": {
+      "logloss_increase": 0.000621,
+      "n_features": 5,
+      "per_feature": 0.000124
+    },
+    "bvp_history": {
+      "logloss_increase": 0.123116,
+      "n_features": 6,
+      "per_feature": 0.020519
+    }
+  },
+  "pairwise_synergy": [
+    {
+      "group_1": "batter_platoon",
+      "group_2": "batter_profile",
+      "pair_increase": 0.761201,
+      "expected": 0.601122,
+      "synergy": 0.160079
+    },
+    {
+      "group_1": "batter_platoon",
+      "group_2": "pitcher_arsenal",
+      "pair_increase": 0.546868,
+      "expected": 0.510567,
+      "synergy": 0.036301
+    },
+    {
+      "group_1": "batter_profile",
+      "group_2": "pitcher_arsenal",
+      "pair_increase": 0.28121,
+      "expected": 0.247651,
+      "synergy": 0.033559
+    },
+    {
+      "group_1": "batter_profile",
+      "group_2": "bvp_history",
+      "pair_increase": 0.324783,
+      "expected": 0.292219,
+      "synergy": 0.032564
+    },
+    {
+      "group_1": "batter_platoon",
+      "group_2": "bvp_history",
+      "pair_increase": 0.584519,
+      "expected": 0.555135,
+      "synergy": 0.029384
+    },
+    {
+      "group_1": "batter_platoon",
+      "group_2": "batter_pitch_type",
+      "pair_increase": 0.4655,
+      "expected": 0.440051,
+      "synergy": 0.025449
+    },
+    {
+      "group_1": "pitcher_arsenal",
+      "group_2": "batter_pitch_type",
+      "pair_increase": 0.109398,
+      "expected": 0.08658,
+      "synergy": 0.022818
+    },
+    {
+      "group_1": "batter_platoon",
+      "group_2": "interactions",
+      "pair_increase": 0.458023,
+      "expected": 0.438925,
+      "synergy": 0.019098
+    },
+    {
+      "group_1": "batter_profile",
+      "group_2": "batter_pitch_type",
+      "pair_increase": 0.190582,
+      "expected": 0.177135,
+      "synergy": 0.013447
+    },
+    {
+      "group_1": "batter_platoon",
+      "group_2": "deltas",
+      "pair_increase": 0.448773,
+      "expected": 0.43787,
+      "synergy": 0.010903
+    },
+    {
+      "group_1": "pitcher_arsenal",
+      "group_2": "interactions",
+      "pair_increase": 0.093397,
+      "expected": 0.085454,
+      "synergy": 0.007943
+    },
+    {
+      "group_1": "bvp_history",
+      "group_2": "interactions",
+      "pair_increase": 0.135988,
+      "expected": 0.130022,
+      "synergy": 0.005966
+    },
+    {
+      "group_1": "batter_profile",
+      "group_2": "deltas",
+      "pair_increase": 0.179672,
+      "expected": 0.174954,
+      "synergy": 0.004718
+    },
+    {
+      "group_1": "bvp_history",
+      "group_2": "deltas",
+      "pair_increase": 0.132946,
+      "expected": 0.128967,
+      "synergy": 0.003979
+    },
+    {
+      "group_1": "batter_profile",
+      "group_2": "interactions",
+      "pair_increase": 0.177873,
+      "expected": 0.176009,
+      "synergy": 0.001864
+    },
+    {
+      "group_1": "batter_pitch_type",
+      "group_2": "interactions",
+      "pair_increase": 0.016534,
+      "expected": 0.014938,
+      "synergy": 0.001596
+    },
+    {
+      "group_1": "interactions",
+      "group_2": "deltas",
+      "pair_increase": 0.013931,
+      "expected": 0.012757,
+      "synergy": 0.001174
+    },
+    {
+      "group_1": "batter_profile",
+      "group_2": "game_state",
+      "pair_increase": 0.176896,
+      "expected": 0.176504,
+      "synergy": 0.000392
+    },
+    {
+      "group_1": "pitcher_arsenal",
+      "group_2": "deltas",
+      "pair_increase": 0.084623,
+      "expected": 0.084399,
+      "synergy": 0.000224
+    },
+    {
+      "group_1": "batter_pitch_type",
+      "group_2": "game_state",
+      "pair_increase": 0.015085,
+      "expected": 0.015433,
+      "synergy": -0.000348
+    }
+  ],
+  "calibration": {
+    "1B": [
+      {
+        "bin": "(0.00793, 0.0568]",
+        "n": 1377,
+        "avg_pred": 0.0441,
+        "avg_actual": 0.0283
+      },
+      {
+        "bin": "(0.0568, 0.0696]",
+        "n": 1376,
+        "avg_pred": 0.0636,
+        "avg_actual": 0.0574
+      },
+      {
+        "bin": "(0.0696, 0.08]",
+        "n": 1376,
+        "avg_pred": 0.0747,
+        "avg_actual": 0.0698
+      },
+      {
+        "bin": "(0.08, 0.0908]",
+        "n": 1377,
+        "avg_pred": 0.0852,
+        "avg_actual": 0.0719
+      },
+      {
+        "bin": "(0.0908, 0.103]",
+        "n": 1376,
+        "avg_pred": 0.0965,
+        "avg_actual": 0.1083
+      },
+      {
+        "bin": "(0.103, 0.116]",
+        "n": 1376,
+        "avg_pred": 0.109,
+        "avg_actual": 0.1286
+      },
+      {
+        "bin": "(0.116, 0.132]",
+        "n": 1377,
+        "avg_pred": 0.1239,
+        "avg_actual": 0.1612
+      },
+      {
+        "bin": "(0.132, 0.153]",
+        "n": 1376,
+        "avg_pred": 0.1422,
+        "avg_actual": 0.1722
+      },
+      {
+        "bin": "(0.153, 0.187]",
+        "n": 1376,
+        "avg_pred": 0.1684,
+        "avg_actual": 0.2042
+      },
+      {
+        "bin": "(0.187, 0.573]",
+        "n": 1377,
+        "avg_pred": 0.239,
+        "avg_actual": 0.3689
+      }
+    ],
+    "2B": [
+      {
+        "bin": "(-0.000392, 0.0113]",
+        "n": 1377,
+        "avg_pred": 0.0066,
+        "avg_actual": 0.0022
+      },
+      {
+        "bin": "(0.0113, 0.0202]",
+        "n": 1376,
+        "avg_pred": 0.0168,
+        "avg_actual": 0.0138
+      },
+      {
+        "bin": "(0.0202, 0.0245]",
+        "n": 1376,
+        "avg_pred": 0.0224,
+        "avg_actual": 0.0131
+      },
+      {
+        "bin": "(0.0245, 0.0284]",
+        "n": 1377,
+        "avg_pred": 0.0264,
+        "avg_actual": 0.0305
+      },
+      {
+        "bin": "(0.0284, 0.0323]",
+        "n": 1376,
+        "avg_pred": 0.0303,
+        "avg_actual": 0.0349
+      },
+      {
+        "bin": "(0.0323, 0.0371]",
+        "n": 1376,
+        "avg_pred": 0.0346,
+        "avg_actual": 0.0385
+      },
+      {
+        "bin": "(0.0371, 0.0423]",
+        "n": 1377,
+        "avg_pred": 0.0396,
+        "avg_actual": 0.0494
+      },
+      {
+        "bin": "(0.0423, 0.0498]",
+        "n": 1376,
+        "avg_pred": 0.0457,
+        "avg_actual": 0.0538
+      },
+      {
+        "bin": "(0.0498, 0.0618]",
+        "n": 1376,
+        "avg_pred": 0.0553,
+        "avg_actual": 0.0574
+      },
+      {
+        "bin": "(0.0618, 0.324]",
+        "n": 1377,
+        "avg_pred": 0.0832,
+        "avg_actual": 0.1191
+      }
+    ],
+    "3B": [
+      {
+        "bin": "(-0.000797, 0.00106]",
+        "n": 1377,
+        "avg_pred": 0.0008,
+        "avg_actual": 0.0015
+      },
+      {
+        "bin": "(0.00106, 0.00137]",
+        "n": 1376,
+        "avg_pred": 0.0012,
+        "avg_actual": 0.0007
+      },
+      {
+        "bin": "(0.00137, 0.00164]",
+        "n": 1376,
+        "avg_pred": 0.0015,
+        "avg_actual": 0.0022
+      },
+      {
+        "bin": "(0.00164, 0.00194]",
+        "n": 1377,
+        "avg_pred": 0.0018,
+        "avg_actual": 0.0007
+      },
+      {
+        "bin": "(0.00194, 0.00227]",
+        "n": 1376,
+        "avg_pred": 0.0021,
+        "avg_actual": 0.0007
+      },
+      {
+        "bin": "(0.00227, 0.00261]",
+        "n": 1376,
+        "avg_pred": 0.0024,
+        "avg_actual": 0.0022
+      },
+      {
+        "bin": "(0.00261, 0.00309]",
+        "n": 1377,
+        "avg_pred": 0.0028,
+        "avg_actual": 0.0029
+      },
+      {
+        "bin": "(0.00309, 0.00379]",
+        "n": 1376,
+        "avg_pred": 0.0034,
+        "avg_actual": 0.0029
+      },
+      {
+        "bin": "(0.00379, 0.00505]",
+        "n": 1376,
+        "avg_pred": 0.0043,
+        "avg_actual": 0.0036
+      },
+      {
+        "bin": "(0.00505, 0.0207]",
+        "n": 1377,
+        "avg_pred": 0.007,
+        "avg_actual": 0.0123
+      }
+    ],
+    "BB": [
+      {
+        "bin": "(-0.000334, 0.00622]",
+        "n": 1377,
+        "avg_pred": 0.004,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(0.00622, 0.0248]",
+        "n": 1376,
+        "avg_pred": 0.0143,
+        "avg_actual": 0.0022
+      },
+      {
+        "bin": "(0.0248, 0.0389]",
+        "n": 1376,
+        "avg_pred": 0.0323,
+        "avg_actual": 0.0116
+      },
+      {
+        "bin": "(0.0389, 0.0528]",
+        "n": 1377,
+        "avg_pred": 0.0459,
+        "avg_actual": 0.0276
+      },
+      {
+        "bin": "(0.0528, 0.0684]",
+        "n": 1376,
+        "avg_pred": 0.0603,
+        "avg_actual": 0.0436
+      },
+      {
+        "bin": "(0.0684, 0.0875]",
+        "n": 1376,
+        "avg_pred": 0.0775,
+        "avg_actual": 0.0712
+      },
+      {
+        "bin": "(0.0875, 0.111]",
+        "n": 1377,
+        "avg_pred": 0.0993,
+        "avg_actual": 0.0944
+      },
+      {
+        "bin": "(0.111, 0.145]",
+        "n": 1376,
+        "avg_pred": 0.1271,
+        "avg_actual": 0.1599
+      },
+      {
+        "bin": "(0.145, 0.198]",
+        "n": 1376,
+        "avg_pred": 0.1688,
+        "avg_actual": 0.2093
+      },
+      {
+        "bin": "(0.198, 0.545]",
+        "n": 1377,
+        "avg_pred": 0.2602,
+        "avg_actual": 0.3486
+      }
+    ],
+    "HBP": [
+      {
+        "bin": "(-4.100000000000002e-05, 0.00971]",
+        "n": 1377,
+        "avg_pred": 0.0082,
+        "avg_actual": 0.0022
+      },
+      {
+        "bin": "(0.00971, 0.0115]",
+        "n": 1376,
+        "avg_pred": 0.0107,
+        "avg_actual": 0.0051
+      },
+      {
+        "bin": "(0.0115, 0.0129]",
+        "n": 1376,
+        "avg_pred": 0.0122,
+        "avg_actual": 0.0051
+      },
+      {
+        "bin": "(0.0129, 0.0142]",
+        "n": 1377,
+        "avg_pred": 0.0135,
+        "avg_actual": 0.0058
+      },
+      {
+        "bin": "(0.0142, 0.0157]",
+        "n": 1376,
+        "avg_pred": 0.015,
+        "avg_actual": 0.0131
+      },
+      {
+        "bin": "(0.0157, 0.0172]",
+        "n": 1376,
+        "avg_pred": 0.0165,
+        "avg_actual": 0.0073
+      },
+      {
+        "bin": "(0.0172, 0.019]",
+        "n": 1377,
+        "avg_pred": 0.0181,
+        "avg_actual": 0.0087
+      },
+      {
+        "bin": "(0.019, 0.0213]",
+        "n": 1376,
+        "avg_pred": 0.0201,
+        "avg_actual": 0.0138
+      },
+      {
+        "bin": "(0.0213, 0.0251]",
+        "n": 1376,
+        "avg_pred": 0.0229,
+        "avg_actual": 0.0174
+      },
+      {
+        "bin": "(0.0251, 0.119]",
+        "n": 1377,
+        "avg_pred": 0.0307,
+        "avg_actual": 0.024
+      }
+    ],
+    "HR": [
+      {
+        "bin": "(-0.0009155000000000001, 0.000646]",
+        "n": 1377,
+        "avg_pred": 0.0005,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(0.000646, 0.000894]",
+        "n": 1376,
+        "avg_pred": 0.0008,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(0.000894, 0.00126]",
+        "n": 1376,
+        "avg_pred": 0.0011,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(0.00126, 0.00252]",
+        "n": 1377,
+        "avg_pred": 0.0017,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(0.00252, 0.0105]",
+        "n": 1376,
+        "avg_pred": 0.0071,
+        "avg_actual": 0.0007
+      },
+      {
+        "bin": "(0.0105, 0.0163]",
+        "n": 1376,
+        "avg_pred": 0.0133,
+        "avg_actual": 0.0044
+      },
+      {
+        "bin": "(0.0163, 0.0226]",
+        "n": 1377,
+        "avg_pred": 0.0193,
+        "avg_actual": 0.0065
+      },
+      {
+        "bin": "(0.0226, 0.0326]",
+        "n": 1376,
+        "avg_pred": 0.0271,
+        "avg_actual": 0.016
+      },
+      {
+        "bin": "(0.0326, 0.0532]",
+        "n": 1376,
+        "avg_pred": 0.0409,
+        "avg_actual": 0.0414
+      },
+      {
+        "bin": "(0.0532, 0.549]",
+        "n": 1377,
+        "avg_pred": 0.0988,
+        "avg_actual": 0.1757
+      }
+    ],
+    "IBB": [
+      {
+        "bin": "(-0.00099191, 3.2e-05]",
+        "n": 1377,
+        "avg_pred": 0.0,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(3.2e-05, 4.27e-05]",
+        "n": 1376,
+        "avg_pred": 0.0,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(4.27e-05, 5.43e-05]",
+        "n": 1376,
+        "avg_pred": 0.0,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(5.43e-05, 7e-05]",
+        "n": 1377,
+        "avg_pred": 0.0001,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(7e-05, 9.37e-05]",
+        "n": 1376,
+        "avg_pred": 0.0001,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(9.37e-05, 0.000138]",
+        "n": 1376,
+        "avg_pred": 0.0001,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(0.000138, 0.000228]",
+        "n": 1377,
+        "avg_pred": 0.0002,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(0.000228, 0.000509]",
+        "n": 1376,
+        "avg_pred": 0.0003,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(0.000509, 0.00226]",
+        "n": 1376,
+        "avg_pred": 0.001,
+        "avg_actual": 0.0
+      },
+      {
+        "bin": "(0.00226, 0.642]",
+        "n": 1377,
+        "avg_pred": 0.0278,
+        "avg_actual": 0.029
+      }
+    ],
+    "K": [
+      {
+        "bin": "(0.00452, 0.0487]",
+        "n": 1377,
+        "avg_pred": 0.0326,
+        "avg_actual": 0.024
+      },
+      {
+        "bin": "(0.0487, 0.0735]",
+        "n": 1376,
+        "avg_pred": 0.0618,
+        "avg_actual": 0.0676
+      },
+      {
+        "bin": "(0.0735, 0.094]",
+        "n": 1376,
+        "avg_pred": 0.0838,
+        "avg_actual": 0.1315
+      },
+      {
+        "bin": "(0.094, 0.114]",
+        "n": 1377,
+        "avg_pred": 0.1041,
+        "avg_actual": 0.159
+      },
+      {
+        "bin": "(0.114, 0.137]",
+        "n": 1376,
+        "avg_pred": 0.1254,
+        "avg_actual": 0.1962
+      },
+      {
+        "bin": "(0.137, 0.165]",
+        "n": 1376,
+        "avg_pred": 0.1509,
+        "avg_actual": 0.2515
+      },
+      {
+        "bin": "(0.165, 0.199]",
+        "n": 1377,
+        "avg_pred": 0.1816,
+        "avg_actual": 0.2948
+      },
+      {
+        "bin": "(0.199, 0.246]",
+        "n": 1376,
+        "avg_pred": 0.221,
+        "avg_actual": 0.3183
+      },
+      {
+        "bin": "(0.246, 0.322]",
+        "n": 1376,
+        "avg_pred": 0.2808,
+        "avg_actual": 0.3663
+      },
+      {
+        "bin": "(0.322, 0.95]",
+        "n": 1377,
+        "avg_pred": 0.4134,
+        "avg_actual": 0.52
+      }
+    ],
+    "OUT": [
+      {
+        "bin": "(0.0321, 0.355]",
+        "n": 1377,
+        "avg_pred": 0.2971,
+        "avg_actual": 0.2484
+      },
+      {
+        "bin": "(0.355, 0.417]",
+        "n": 1376,
+        "avg_pred": 0.3884,
+        "avg_actual": 0.343
+      },
+      {
+        "bin": "(0.417, 0.467]",
+        "n": 1376,
+        "avg_pred": 0.4422,
+        "avg_actual": 0.3699
+      },
+      {
+        "bin": "(0.467, 0.511]",
+        "n": 1377,
+        "avg_pred": 0.489,
+        "avg_actual": 0.4023
+      },
+      {
+        "bin": "(0.511, 0.554]",
+        "n": 1376,
+        "avg_pred": 0.5329,
+        "avg_actual": 0.4331
+      },
+      {
+        "bin": "(0.554, 0.601]",
+        "n": 1376,
+        "avg_pred": 0.578,
+        "avg_actual": 0.4273
+      },
+      {
+        "bin": "(0.601, 0.645]",
+        "n": 1377,
+        "avg_pred": 0.6232,
+        "avg_actual": 0.4735
+      },
+      {
+        "bin": "(0.645, 0.688]",
+        "n": 1376,
+        "avg_pred": 0.6664,
+        "avg_actual": 0.5167
+      },
+      {
+        "bin": "(0.688, 0.739]",
+        "n": 1376,
+        "avg_pred": 0.7125,
+        "avg_actual": 0.5734
+      },
+      {
+        "bin": "(0.739, 0.968]",
+        "n": 1377,
+        "avg_pred": 0.782,
+        "avg_actual": 0.7248
+      }
+    ]
+  },
+  "low_importance_features": [
+    "bat_avg_ev",
+    "bat_sweet_spot_rate",
+    "bvpt_xwoba_breaking",
+    "bvpt_w_xwoba",
+    "p_usage_breaking",
+    "bat_spray_entropy",
+    "p_pitch1_velo",
+    "bat_blend_xwoba",
+    "bvpt_w_zone_contact_rate",
+    "bvpt_w_hard_hit_rate",
+    "bat_delta_bb",
+    "bat_r14_chase_rate",
+    "bat_r14_barrel_rate",
+    "p_pitch1_whiff",
+    "bat_chase_rate",
+    "p_opp_gb_pull_pct",
+    "bat_pull_pct",
+    "p_usage_fastball",
+    "p_r14_k_delta",
+    "p_prev_avg_velo",
+    "p_prev_whiff_rate",
+    "matchup_xwoba_advantage",
+    "bat_hard_hit_rate",
+    "runner_on_3b",
+    "p_opp_pull_pct",
+    "p_r14_k_pct",
+    "p_num_pitches",
+    "p_total_thrown",
+    "bat_delta_xwoba",
+    "bat_fb_pull_pct",
+    "bat_gb_pull_pct",
+    "bat_avg_la",
+    "bat_prev_iso",
+    "interact_chase_chase",
+    "bat_blend_iso",
+    "bat_r14_k_pct",
+    "bvpt_hard_hit_rate_fastball",
+    "bvpt_hard_hit_rate_breaking",
+    "bvpt_chase_rate_offspeed",
+    "bat_blend_fb_rate",
+    "bvpt_zone_contact_rate_breaking",
+    "bat_blend_sweet_spot_rate",
+    "p_arsenal_entropy",
+    "p_opp_center_pct",
+    "bat_blend_avg_la",
+    "bvpt_whiff_rate_offspeed",
+    "bvpt_xwoba_fastball",
+    "bat_zone_swing_rate",
+    "bat_plat_chase_rate",
+    "bvpt_zone_contact_rate_fastball",
+    "bvpt_chase_rate_fastball",
+    "bvpt_chase_rate_breaking",
+    "day_of_season",
+    "bat_r14_xwoba",
+    "bat_blend_bb_pct",
+    "bat_barrel_rate",
+    "p_avg_control_plus",
+    "p_avg_stuff_plus",
+    "interact_barrel_stuff",
+    "bat_delta_barrel",
+    "matchup_power_advantage",
+    "p_pitch3_stuff",
+    "stuff_vs_contact",
+    "wl_pitches_last_7d",
+    "wl_pitches_last_14d",
+    "wl_apps_last_7d",
+    "wl_apps_last_14d",
+    "p_pitch2_stuff",
+    "p_pitch1_stuff",
+    "bat_prev_barrel_rate",
+    "bat_plat_barrel_rate",
+    "bat_blend_barrel_rate",
+    "p_prev_avg_stuff_plus",
+    "p_prev_avg_control_plus",
+    "bat_zone_contact_rate",
+    "p_pitch_type_count",
+    "p_opp_fb_pull_pct",
+    "p_prev_zone_rate",
+    "bat_blend_chase_rate",
+    "p_pitch2_usage",
+    "bat_delta_k",
+    "bat_whiff_rate",
+    "bat_prev_hard_hit_rate",
+    "bat_prev_bb_pct",
+    "p_pitch3_velo",
+    "bat_pull_hr_pct",
+    "bat_delta_iso",
+    "bat_blend_hard_hit_rate",
+    "interact_bb_zone",
+    "p_prev_xwoba",
+    "p_opp_oppo_pct",
+    "bat_prev_avg_ev",
+    "bat_blend_zone_swing_rate",
+    "interact_whiff_whiff",
+    "p_pitch2_velo",
+    "p_r14_chase_rate",
+    "bat_blend_avg_ev",
+    "bat_blend_whiff_rate",
+    "interact_hard_velo",
+    "bat_oppo_pct",
+    "bat_blend_k_pct",
+    "bat_delta_chase",
+    "bat_blend_zone_contact_rate",
+    "p_r14_xwoba",
+    "p_pitch1_usage",
+    "bat_r14_whiff_rate",
+    "bat_blend_gb_rate",
+    "interact_k_chase",
+    "bvpt_zone_contact_rate_offspeed",
+    "bat_r14_xwoba_delta",
+    "bat_delta_whiff",
+    "bat_prev_whiff_rate",
+    "bat_gb_rate",
+    "bvpt_whiff_rate_fastball",
+    "p_pitch2_whiff",
+    "bvpt_xwoba_offspeed",
+    "is_third_time_thru",
+    "p_r14_bb_pct",
+    "p_pitch3_usage",
+    "p_usage_offspeed",
+    "bat_prev_k_pct",
+    "wl_season_pitches_before",
+    "bat_prev_chase_rate",
+    "p_pitch3_whiff",
+    "bat_prev_zone_contact_rate",
+    "wl_season_ip_before",
+    "wl_pitches_last_30d",
+    "est_pitch_count",
+    "tto_squared",
+    "pitcher_days_rest",
+    "wl_days_rest",
+    "inning",
+    "n_thruorder_pitcher",
+    "wl_is_starter"
+  ]
+}

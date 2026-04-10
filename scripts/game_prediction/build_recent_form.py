@@ -48,9 +48,9 @@ def build_batter_recent_form():
             'swinging_strike','swinging_strike_blocked','foul_tip','missed_bunt',
             'foul','foul_bunt','hit_into_play'
         ) THEN 1 ELSE 0 END) AS chases,
-        SUM(estimated_woba_using_speedangle) AS sum_xwoba,
+        SUM(CASE WHEN estimated_woba_using_speedangle BETWEEN -1 AND 5 THEN estimated_woba_using_speedangle ELSE 0 END) AS sum_xwoba,
         COUNT(estimated_woba_using_speedangle) AS n_xwoba,
-        SUM(CASE WHEN launch_speed >= 98 AND launch_angle BETWEEN 26 AND 30 THEN 1 ELSE 0 END) AS barrels,
+        SUM(CASE WHEN launch_speed >= 98 AND launch_speed < 200 AND launch_angle BETWEEN 26 AND 30 THEN 1 ELSE 0 END) AS barrels,
         SUM(CASE WHEN events IN (
             'single','double','triple','home_run','field_out',
             'grounded_into_double_play','double_play','fielders_choice',
@@ -139,7 +139,7 @@ def build_pitcher_recent_form():
             'swinging_strike','swinging_strike_blocked','foul_tip','missed_bunt',
             'foul','foul_bunt','hit_into_play'
         ) THEN 1 ELSE 0 END) AS chases,
-        SUM(estimated_woba_using_speedangle) AS sum_xwoba,
+        SUM(CASE WHEN estimated_woba_using_speedangle BETWEEN -1 AND 5 THEN estimated_woba_using_speedangle ELSE 0 END) AS sum_xwoba,
         COUNT(estimated_woba_using_speedangle) AS n_xwoba
     FROM statcast_pitches
     WHERE game_type = 'R'
