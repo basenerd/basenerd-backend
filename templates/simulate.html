@@ -139,20 +139,35 @@
 /* Lineup cards in viewer */
 .sim-lineup-card { background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:12px; }
 .sim-lineup-card h3 { font-size:13px; font-weight:700; opacity:.5; text-transform:uppercase; margin-bottom:8px; }
-.sim-lineup-row { display:grid; grid-template-columns:20px 1fr 50px; gap:4px; padding:4px 0; font-size:13px; align-items:center; border-bottom:1px solid rgba(226,232,240,.04); }
-.sim-lineup-row.current { background:rgba(59,130,246,.08); border-radius:6px; padding:4px 6px; margin:0 -6px; }
+.sim-lineup-row { display:grid; grid-template-columns:20px 1fr auto; gap:4px; padding:5px 0; font-size:13px; align-items:center; border-bottom:1px solid rgba(226,232,240,.04); }
+.sim-lineup-row.current { background:rgba(59,130,246,.08); border-radius:6px; padding:5px 6px; margin:0 -6px; }
 .sim-lineup-spot { font-weight:800; opacity:.3; text-align:center; font-size:11px; }
 .sim-lineup-name { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.sim-lineup-line { font-family:'IBM Plex Mono',monospace; font-size:12px; opacity:.5; text-align:right; }
+.sim-lineup-pos { font-size:11px; opacity:.3; margin-left:4px; }
+.sim-lineup-statline { font-family:'IBM Plex Mono',monospace; font-size:11px; opacity:.5; text-align:right; white-space:nowrap; }
 
-/* BIP Takeover */
-.sim-bip-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.85); z-index:9999; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .3s; }
-.sim-bip-overlay.active { opacity:1; pointer-events:auto; }
-.sim-bip-card { background:#111318; border:1px solid var(--border); border-radius:16px; padding:24px; max-width:500px; width:90%; text-align:center; }
-.sim-bip-svg { width:250px; height:250px; margin:0 auto; }
-.sim-bip-event { font-weight:900; font-size:22px; margin:12px 0 4px; }
-.sim-bip-metrics { display:flex; justify-content:center; gap:20px; font-family:'IBM Plex Mono',monospace; font-size:13px; opacity:.6; }
-.sim-bip-desc { font-size:14px; opacity:.5; margin-top:8px; }
+/* BIP Takeover (matches gamecast) */
+.sim-bip-takeover { display:none; grid-column:1/-1; z-index:50; }
+.sim-bip-takeover.active { display:flex; align-items:stretch; }
+.sim-bip-takeover-card { width:100%; border-radius:14px; border:1px solid var(--border); background:var(--card-bg,#111318); box-shadow:0 18px 50px rgba(0,0,0,.12); animation:gcTakeoverIn .18s ease-out; padding:16px; }
+@keyframes gcTakeoverIn { from{transform:translateY(6px);opacity:0} to{transform:translateY(0);opacity:1} }
+.sim-bip-wrap { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgba(226,232,240,.15); border-radius:14px; background:rgba(255,255,255,.03); flex:0 0 auto; }
+.sim-bip-info { min-width:180px; flex:1; padding-top:4px; }
+.sim-bip-result-label { font-size:12px; opacity:.5; font-family:'IBM Plex Mono',monospace; text-transform:uppercase; }
+.sim-bip-event { font-weight:1000; font-size:18px; margin-top:4px; }
+.sim-bip-kind { display:inline-flex; padding:6px 10px; border:1px solid rgba(226,232,240,.15); border-radius:999px; background:rgba(15,23,42,.03); font-family:'IBM Plex Mono',monospace; font-size:12px; margin-top:10px; }
+.sim-bip-metrics { font-family:'IBM Plex Mono',monospace; font-size:12px; opacity:.5; margin-top:10px; display:flex; gap:14px; }
+.sim-bip-pop { margin-top:10px; padding:10px 12px; border:1px solid rgba(148,163,184,.15); border-radius:12px; background:rgba(15,23,42,.03); font-weight:900; line-height:1.35; max-width:320px; }
+@media(max-width:768px){ svg.sim-bip-svg { width:100%; height:auto; aspect-ratio:1; } }
+
+/* Play toast popups */
+.sim-toast-container { position:fixed; top:20px; right:20px; z-index:10000; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+.sim-toast { padding:10px 16px; border-radius:10px; background:#1e293b; border:1px solid #334155; color:#e2e8f0; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.4); animation:toastIn .25s ease-out; max-width:320px; pointer-events:auto; }
+.sim-toast.scoring { border-color:#f59e0b; background:rgba(245,158,11,.12); }
+.sim-toast.out { opacity:.8; }
+@keyframes toastIn { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
+@keyframes toastOut { from{opacity:1} to{opacity:0;transform:translateY(-10px)} }
 
 /* Pulse animation for latest pitch */
 @keyframes gc-pulse { 0%{r:3;opacity:1} 50%{r:12;opacity:.7} 100%{r:8;opacity:1} }
@@ -286,6 +301,26 @@
     <!-- Main game grid -->
     <div class="sim-game-grid" style="margin-top:16px;">
       <div class="sim-game-left">
+        <!-- BIP Takeover (inline, matches gamecast) -->
+        <div class="sim-bip-takeover" id="bipTakeover">
+          <div class="sim-bip-takeover-card">
+            <div style="font-weight:700; font-size:13px; opacity:.5; margin-bottom:10px;">BALL IN PLAY</div>
+            <div class="sim-bip-wrap">
+              <svg class="sim-bip-svg" id="bipSvg" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
+                <g class="sprayOverlay"></g>
+                <g class="sprayPoints"></g>
+              </svg>
+              <div class="sim-bip-info">
+                <div class="sim-bip-result-label">Result</div>
+                <div class="sim-bip-event" id="bipEvent">—</div>
+                <div class="sim-bip-kind" id="bipKind"></div>
+                <div class="sim-bip-metrics" id="bipMetrics"></div>
+                <div class="sim-bip-pop" id="bipPop"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Matchup -->
         <div class="sim-matchup">
           <div class="sim-matchup-player">
@@ -364,18 +399,8 @@
     </div>
   </div>
 
-  <!-- BIP Overlay -->
-  <div class="sim-bip-overlay" id="bipOverlay">
-    <div class="sim-bip-card">
-      <svg class="sim-bip-svg" id="bipSvg" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
-        <g class="stadium-bg"></g>
-        <g class="bip-point"></g>
-      </svg>
-      <div class="sim-bip-event" id="bipEvent">—</div>
-      <div class="sim-bip-metrics" id="bipMetrics"></div>
-      <div class="sim-bip-desc" id="bipDesc"></div>
-    </div>
-  </div>
+  <!-- Toast container -->
+  <div class="sim-toast-container" id="toastContainer"></div>
 </div>
 
 <script>
@@ -787,6 +812,8 @@
 
       gameData = data.game;
       currentPitch = 0;
+      lastToastEventIdx = -1;
+      __sim_last_bip_id = "";
 
       // Setup viewer
       document.getElementById("simLoading").classList.remove("active");
@@ -814,16 +841,66 @@
     }
   });
 
-  // ============ STADIUM SVG FOR BIP ============
-  let stadiumSvgContent = null;
+  // ============ STADIUM SVG FOR BIP (matches gamecast mapping) ============
+  const __SIM_BASE_W = 250;
+  const __SIM_BASE_H = 250;
+  const __SIM_PLATE = { x: 125, y: 199 };
+  const __SIM_EXTRA_SPREAD = 1.045;
+  const __SIM_NUDGE_X = 0;
+  const __SIM_NUDGE_Y = -10;
+  let __sim_overlay_svg_el = null;
+  let __sim_spray_vb = { minX: 0, minY: 0, w: 250, h: 250 };
+  let __sim_overlay_loaded = false;
+  let __sim_stadium_url = "";
+
+  function __sim_parse_viewbox(vb) {
+    const parts = (vb || "").split(/\s+/).map(Number).filter(n => isFinite(n));
+    if (parts.length === 4) return { minX: parts[0], minY: parts[1], w: parts[2], h: parts[3] };
+    return { minX: 0, minY: 0, w: 250, h: 250 };
+  }
+
+  function __sim_map_point(sx, sy, scaleX, scaleY) {
+    const dx = (sx - __SIM_PLATE.x) * scaleX;
+    const dy = (sy - __SIM_PLATE.y) * scaleY;
+    const x = __sim_spray_vb.minX + (__SIM_PLATE.x * scaleX) + (dx * __SIM_EXTRA_SPREAD) + __SIM_NUDGE_X;
+    const y = __sim_spray_vb.minY + (__SIM_PLATE.y * scaleY) + (dy * __SIM_EXTRA_SPREAD) + __SIM_NUDGE_Y;
+    return { x, y };
+  }
 
   async function loadStadiumSvg(filename) {
+    __sim_stadium_url = `/static/stadium_svgs/${filename}`;
+    __sim_overlay_loaded = false;
+    __sim_overlay_svg_el = null;
     try {
-      const res = await fetch(`/static/stadium_svgs/${filename}`);
-      if (res.ok) stadiumSvgContent = await res.text();
+      const res = await fetch(__sim_stadium_url, { cache: "force-cache" });
+      if (!res.ok) throw new Error("fetch failed");
+      const svgText = await res.text();
+      const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+      __sim_overlay_svg_el = doc.documentElement;
+      __sim_spray_vb = __sim_parse_viewbox(__sim_overlay_svg_el.getAttribute("viewBox"));
+      __sim_overlay_loaded = true;
     } catch(e) {
       console.warn("Stadium SVG load failed:", e);
+      __sim_overlay_svg_el = null;
     }
+  }
+
+  function __sim_inject_overlay(svg) {
+    if (!svg || !__sim_overlay_svg_el) return;
+    const g = svg.querySelector("g.sprayOverlay");
+    if (!g) return;
+    g.innerHTML = "";
+
+    const vb = __sim_overlay_svg_el.getAttribute("viewBox");
+    if (vb) svg.setAttribute("viewBox", vb);
+
+    const frag = document.createDocumentFragment();
+    Array.from(__sim_overlay_svg_el.childNodes).forEach(n => frag.appendChild(n.cloneNode(true)));
+    g.appendChild(frag);
+
+    // Flip ONLY the stadium overlay (not the dots) — matches gamecast
+    const ty = (2 * __sim_spray_vb.minY) + __sim_spray_vb.h;
+    g.setAttribute("transform", `translate(0 ${ty}) scale(1 -1)`);
   }
 
   // ============ RENDER STATE ============
@@ -882,10 +959,15 @@
     // Linescore
     renderLinescore(p);
 
-    // BIP check
+    // BIP check — show takeover on in-play, hide otherwise
     if (p.bip && p.is_in_play) {
       showBIP(p.bip);
+    } else {
+      hideBIP();
     }
+
+    // Toast popups for new events
+    checkForNewEvents();
 
     // Button states
     document.getElementById("btnPrevPitch").disabled = currentPitch <= 0;
@@ -1075,22 +1157,49 @@
       const p = gameData.pitches[i];
       if (!p.event) continue;
       const bid = p.batter_id;
-      if (!stats[bid]) stats[bid] = {ab: 0, h: 0};
-      if (["1B","2B","3B","HR"].includes(p.event)) { stats[bid].h++; stats[bid].ab++; }
-      else if (p.event === "K" || p.event === "OUT") { stats[bid].ab++; }
+      if (!stats[bid]) stats[bid] = {ab: 0, h: 0, hr: 0, rbi: 0, bb: 0, k: 0, r: 0};
+      const ev = p.event;
+      if (["1B","2B","3B","HR"].includes(ev)) {
+        stats[bid].h++;
+        stats[bid].ab++;
+        if (ev === "HR") stats[bid].hr++;
+      } else if (ev === "K") {
+        stats[bid].k++;
+        stats[bid].ab++;
+      } else if (ev === "OUT") {
+        stats[bid].ab++;
+      } else if (ev === "BB") {
+        stats[bid].bb++;
+      }
     }
+
+    // Count RBIs from events
+    const eventsThrough = gameData.events.filter(e => (e.pitch_index || 0) <= currentPitch);
+    eventsThrough.forEach(ev => {
+      const bid = ev.batter_id;
+      if (bid && stats[bid] && ev.rbi) stats[bid].rbi += ev.rbi;
+      if (bid && stats[bid] && ev.runs_scored && ev.type === "out") stats[bid].rbi += ev.runs_scored;
+    });
 
     const currentBatterId = gameData.pitches[currentPitch]?.batter_id;
 
     lineup.forEach((b, i) => {
-      const s = stats[b.id] || {ab: 0, h: 0};
-      const line = s.ab > 0 ? `${s.h}-${s.ab}` : "—";
+      const s = stats[b.id] || {ab: 0, h: 0, hr: 0, rbi: 0, bb: 0, k: 0};
+      let statline = "—";
+      if (s.ab > 0 || s.bb > 0) {
+        const parts = [`${s.h}-${s.ab}`];
+        if (s.hr) parts.push(`${s.hr} HR`);
+        if (s.rbi) parts.push(`${s.rbi} RBI`);
+        if (s.bb) parts.push(`${s.bb} BB`);
+        if (s.k) parts.push(`${s.k} K`);
+        statline = parts.join(", ");
+      }
       const row = document.createElement("div");
       row.className = `sim-lineup-row${b.id === currentBatterId ? " current" : ""}`;
       row.innerHTML = `
         <div class="sim-lineup-spot">${i+1}</div>
-        <div class="sim-lineup-name">${shortName(b.name)} <span style="opacity:.3;font-size:11px;">${b.pos}</span></div>
-        <div class="sim-lineup-line">${line}</div>
+        <div class="sim-lineup-name">${shortName(b.name)}<span class="sim-lineup-pos">${b.pos}</span></div>
+        <div class="sim-lineup-statline">${statline}</div>
       `;
       div.appendChild(row);
     });
@@ -1153,80 +1262,163 @@
     div.innerHTML = html;
   }
 
-  // ============ BIP OVERLAY ============
+  // ============ BIP TAKEOVER (matches gamecast animation) ============
+  let __sim_last_bip_id = "";
+
   function showBIP(bip) {
-    const overlay = document.getElementById("bipOverlay");
+    if (!bip || !bip.x) return;
+    const bipId = `sim-${currentPitch}`;
+    if (bipId === __sim_last_bip_id) return;
+    __sim_last_bip_id = bipId;
+
+    const takeover = document.getElementById("bipTakeover");
     const svg = document.getElementById("bipSvg");
     const eventEl = document.getElementById("bipEvent");
+    const kindEl = document.getElementById("bipKind");
     const metricsEl = document.getElementById("bipMetrics");
-    const descEl = document.getElementById("bipDesc");
+    const popEl = document.getElementById("bipPop");
 
-    eventEl.textContent = bip.event;
-    descEl.textContent = bip.is_out ? "Out" : "Hit!";
+    eventEl.textContent = bip.event || "In Play";
+    const isFly = (bip.la != null) ? (bip.la >= 15) : (bip.dist >= 140);
+    kindEl.textContent = isFly ? "Fly ball" : "Ground ball";
 
     const metrics = [];
-    if (bip.ev) metrics.push(`${bip.ev} mph EV`);
-    if (bip.la != null) metrics.push(`${bip.la}° LA`);
-    if (bip.dist) metrics.push(`${bip.dist} ft`);
-    metricsEl.textContent = metrics.join("  •  ");
+    if (bip.ev) metrics.push(`<span>${bip.ev} mph</span>`);
+    if (bip.la != null) metrics.push(`<span>${bip.la}°</span>`);
+    if (bip.dist) metrics.push(`<span>${bip.dist} ft</span>`);
+    metricsEl.innerHTML = metrics.join("");
 
-    // Render stadium + ball
-    const bgG = svg.querySelector(".stadium-bg");
-    const pointG = svg.querySelector(".bip-point");
-    bgG.innerHTML = "";
-    pointG.innerHTML = "";
+    popEl.textContent = bip.is_out ? "Out recorded" : (bip.event || "Ball in play");
 
-    // Inject stadium SVG as background
-    if (stadiumSvgContent) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(stadiumSvgContent, "image/svg+xml");
-      const inner = doc.documentElement;
-      // Clone all children
-      for(const child of inner.children) {
-        bgG.appendChild(child.cloneNode(true));
-      }
-    }
+    // Inject stadium overlay
+    const pointsG = svg.querySelector("g.sprayPoints");
+    pointsG.innerHTML = "";
+    __sim_inject_overlay(svg);
 
-    // Plot ball landing point
-    const cx = bip.x || 125;
-    const cy = bip.y || 125;
+    // Compute scale
+    const scaleX = __sim_spray_vb.w / __SIM_BASE_W;
+    const scaleY = __sim_spray_vb.h / __SIM_BASE_H;
 
-    // Animated ball from plate to landing
-    const plateX = 125, plateY = 208;
+    const pt = __sim_map_point(bip.x, bip.y, scaleX, scaleY);
+    const start = __sim_map_point(__SIM_PLATE.x, __SIM_PLATE.y, scaleX, scaleY);
+
+    // Arc calculation
+    const laVal = Number(bip.la);
+    const midX = (start.x + pt.x) / 2;
+    const midY = (start.y + pt.y) / 2;
+    const arc = isFly
+      ? Math.min(92, Math.max(28, (isFinite(laVal) ? laVal : 30) * 2.1))
+      : 8;
+    const ctrlX = midX;
+    const ctrlY = midY - arc;
+    const d = `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} Q ${ctrlX.toFixed(2)} ${ctrlY.toFixed(2)} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`;
+
+    // Dashed guide path
+    const guidePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    guidePath.setAttribute("d", d);
+    guidePath.setAttribute("fill", "none");
+    guidePath.setAttribute("stroke", isFly ? "rgba(59,130,246,.28)" : "rgba(15,23,42,.16)");
+    guidePath.setAttribute("stroke-width", isFly ? "2.2" : "1.6");
+    guidePath.setAttribute("stroke-linecap", "round");
+    guidePath.setAttribute("stroke-dasharray", isFly ? "5 6" : "3 6");
+    pointsG.appendChild(guidePath);
+
+    // Moving ball with animateMotion
+    const durMs = isFly ? 1600 : 1000;
     const ball = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    ball.setAttribute("r", 5);
-    ball.setAttribute("fill", bip.is_out ? "#ef4444" : "#3b82f6");
-    ball.setAttribute("stroke", "#fff");
-    ball.setAttribute("stroke-width", "1");
+    ball.setAttribute("r", isFly ? "5.0" : "4.6");
+    ball.setAttribute("fill", "rgba(59,130,246,.92)");
+    ball.setAttribute("stroke", "rgba(255,255,255,.85)");
+    ball.setAttribute("stroke-width", "1.1");
 
-    // Animate
-    const animX = document.createElementNS("http://www.w3.org/2000/svg", "animate");
-    animX.setAttribute("attributeName", "cx");
-    animX.setAttribute("from", plateX);
-    animX.setAttribute("to", cx);
-    animX.setAttribute("dur", bip.kind === "ground" ? "0.8s" : "1.2s");
-    animX.setAttribute("fill", "freeze");
+    const motion = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
+    motion.setAttribute("dur", `${durMs}ms`);
+    motion.setAttribute("fill", "freeze");
+    motion.setAttribute("path", d);
+    motion.setAttribute("keySplines", "0.2 0.8 0.2 1");
+    motion.setAttribute("calcMode", "spline");
+    motion.setAttribute("keyTimes", "0;1");
+    ball.appendChild(motion);
+    pointsG.appendChild(ball);
 
-    const animY = document.createElementNS("http://www.w3.org/2000/svg", "animate");
-    animY.setAttribute("attributeName", "cy");
-    animY.setAttribute("from", plateY);
-    animY.setAttribute("to", cy);
-    animY.setAttribute("dur", bip.kind === "ground" ? "0.8s" : "1.2s");
-    animY.setAttribute("fill", "freeze");
+    // Show takeover
+    takeover.classList.add("active");
 
-    ball.appendChild(animX);
-    ball.appendChild(animY);
-    pointG.appendChild(ball);
+    try { motion.beginElement(); } catch(e) {}
 
-    // Show overlay
-    overlay.classList.add("active");
-    setTimeout(() => overlay.classList.remove("active"), 2500);
+    // Final marker after animation
+    setTimeout(() => {
+      try { ball.remove(); } catch(e) {}
+      // Halo
+      const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      halo.setAttribute("cx", pt.x.toFixed(2));
+      halo.setAttribute("cy", pt.y.toFixed(2));
+      halo.setAttribute("r", "9.0");
+      halo.setAttribute("fill", "rgba(15,23,42,.14)");
+      pointsG.appendChild(halo);
+
+      if (bip.is_out) {
+        // Red X for outs
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        const s = 7.2;
+        const l1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        l1.setAttribute("x1", (pt.x-s).toFixed(2)); l1.setAttribute("y1", (pt.y-s).toFixed(2));
+        l1.setAttribute("x2", (pt.x+s).toFixed(2)); l1.setAttribute("y2", (pt.y+s).toFixed(2));
+        const l2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        l2.setAttribute("x1", (pt.x-s).toFixed(2)); l2.setAttribute("y1", (pt.y+s).toFixed(2));
+        l2.setAttribute("x2", (pt.x+s).toFixed(2)); l2.setAttribute("y2", (pt.y-s).toFixed(2));
+        [l1,l2].forEach(ln => { ln.setAttribute("stroke","rgba(239,68,68,.95)"); ln.setAttribute("stroke-width","3.1"); ln.setAttribute("stroke-linecap","round"); });
+        g.appendChild(l1); g.appendChild(l2);
+        pointsG.appendChild(g);
+      } else {
+        // Blue dot for hits
+        const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        c.setAttribute("cx", pt.x.toFixed(2)); c.setAttribute("cy", pt.y.toFixed(2));
+        c.setAttribute("r", "6.4");
+        c.setAttribute("fill", "rgba(59,130,246,.92)");
+        c.setAttribute("stroke", "rgba(255,255,255,.85)");
+        c.setAttribute("stroke-width", "1.2");
+        pointsG.appendChild(c);
+      }
+    }, durMs + 40);
+
+    // Auto-hide after 2.5s
+    setTimeout(() => hideBIP(), Math.max(durMs + 500, 2500));
   }
 
-  // Dismiss BIP on click
-  document.getElementById("bipOverlay").addEventListener("click", function(){
-    this.classList.remove("active");
-  });
+  function hideBIP() {
+    document.getElementById("bipTakeover").classList.remove("active");
+  }
+
+  // ============ PLAY TOAST POPUPS ============
+  let lastToastEventIdx = -1;
+
+  function showPlayToast(text, isScoring) {
+    const container = document.getElementById("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = `sim-toast${isScoring ? " scoring" : ""}`;
+    toast.textContent = text;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.animation = "toastOut .3s ease-in forwards";
+      setTimeout(() => toast.remove(), 300);
+    }, 2000);
+  }
+
+  function checkForNewEvents() {
+    if (!gameData) return;
+    const events = gameData.events;
+    for (let i = lastToastEventIdx + 1; i < events.length; i++) {
+      const ev = events[i];
+      if ((ev.pitch_index || 0) <= currentPitch) {
+        const inn = `${ev.half === "Top" ? "▲" : "▼"}${ev.inning}`;
+        showPlayToast(`${inn} ${ev.description || ev.type}`, (ev.runs_scored || 0) > 0);
+        lastToastEventIdx = i;
+      } else {
+        break;
+      }
+    }
+  }
 
   // ============ PLAYBACK CONTROLS ============
   document.getElementById("btnNextPitch").addEventListener("click", () => {
@@ -1239,12 +1431,16 @@
   document.getElementById("btnPrevPitch").addEventListener("click", () => {
     if (currentPitch > 0) {
       currentPitch--;
+      __sim_last_bip_id = "";
       renderState();
     }
   });
 
   document.getElementById("btnRewind").addEventListener("click", () => {
     currentPitch = 0;
+    lastToastEventIdx = -1;
+    __sim_last_bip_id = "";
+    document.getElementById("toastContainer").innerHTML = "";
     renderState();
   });
 
