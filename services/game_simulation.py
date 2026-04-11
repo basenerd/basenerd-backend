@@ -1022,8 +1022,8 @@ def simulate_game(
 
     # Current pitchers
     current_pitchers = {
-        "away": {**away_pitcher, "arsenal": away_pitcher_arsenal, "pitch_count": 0, "is_starter": True},
-        "home": {**home_pitcher, "arsenal": home_pitcher_arsenal, "pitch_count": 0, "is_starter": True},
+        "away": {**away_pitcher, "arsenal": away_pitcher_arsenal, "pitch_count": 0, "is_starter": True, "outs_recorded": 0, "recent_pas": []},
+        "home": {**home_pitcher, "arsenal": home_pitcher_arsenal, "pitch_count": 0, "is_starter": True, "outs_recorded": 0, "recent_pas": []},
     }
     bullpen_remaining = {
         "away": list(away_bullpen),
@@ -1084,9 +1084,25 @@ def simulate_game(
 
             while outs < 3:
                 # --- Check for pitching change ---
-                should_change = _should_change_pitcher(pitcher_info, inning, outs, bullpen_remaining[pitching_team])
+                # Figure out upcoming batters for handedness matching
+                batter_idx_peek = batting_index[batting_team] % 9
+                upcoming_batters = [lineup[batter_idx_peek]]
+
+                should_change = _should_change_pitcher(
+                    pitcher_info, inning, outs,
+                    bullpen_remaining[pitching_team],
+                    bases, score, batting_team, pitching_team,
+                    pitcher_info.get("recent_pas", [])[-6:],  # last 6 PA results
+                    rng,
+                )
                 if should_change and bullpen_remaining[pitching_team]:
-                    new_pitcher = bullpen_remaining[pitching_team].pop(0)
+                    score_lead = score[pitching_team] - score[batting_team]
+                    reliever_idx = _select_reliever(
+                        bullpen_remaining[pitching_team],
+                        inning, outs, bases, score_lead,
+                        upcoming_batters, rng,
+                    )
+                    new_pitcher = bullpen_remaining[pitching_team].pop(reliever_idx)
                     new_arsenal = _get_pitcher_arsenal_profile(new_pitcher["id"], season)
                     if not new_arsenal:
                         new_arsenal = _default_arsenal(new_pitcher.get("p_throws", "R"))
@@ -1111,6 +1127,7 @@ def simulate_game(
                         "old_pitcher_name": pitcher_info["name"],
                         "new_pitcher_id": new_pitcher["id"],
                         "new_pitcher_name": new_pitcher["name"],
+                        "description": f"Pitching change: {new_pitcher['name']} replaces {pitcher_info['name']}. ({pitcher_info.get('pitch_count', 0)} pitches)",
                         "pitch_index": len(pitches),
                     })
 
@@ -1119,6 +1136,8 @@ def simulate_game(
                         "arsenal": new_arsenal,
                         "pitch_count": 0,
                         "is_starter": False,
+                        "outs_recorded": 0,
+                        "recent_pas": [],
                     }
                     pitcher_info = current_pitchers[pitching_team]
 
@@ -1300,6 +1319,11 @@ def simulate_game(
                     prev_pitch_velo = mph
 
                 # --- PA complete: update game state ---
+                # Track on current pitcher for managerial decisions
+                pitcher_info.setdefault("recent_pas", []).append(pa_event)
+                if pa_event in ("K", "OUT"):
+                    pitcher_info["outs_recorded"] = pitcher_info.get("outs_recorded", 0) + 1
+
                 # Update player stats
                 ps = player_stats[batter["id"]]
                 pst = pitcher_stats[pitcher_info["id"]]
@@ -1563,30 +1587,169 @@ def _zone_intent(balls: int, strikes: int, pitcher_info: dict, rng: random.Rando
     return rng.random() < base_rate
 
 
-def _should_change_pitcher(pitcher_info: dict, inning: int, outs: int, bullpen: list) -> bool:
-    """Determine if an automatic pitching change should occur."""
+def _should_change_pitcher(
+    pitcher_info: dict,
+    inning: int,
+    outs: int,
+    bullpen: list,
+    bases: list,
+    score: dict,
+    batting_team: str,
+    pitching_team: str,
+    recent_pas: list,
+    rng: random.Random,
+) -> bool:
+    """
+    Determine if a manager would pull this pitcher. Models real managerial
+    behavior: pitch count, fatigue, inning role, score context, performance
+    in current outing, and mid-inning vs clean-break preferences.
+    """
     if not bullpen:
         return False
 
     pc = pitcher_info.get("pitch_count", 0)
     is_starter = pitcher_info.get("is_starter", False)
+    outs_recorded = pitcher_info.get("outs_recorded", 0)
 
+    # ---- Recent performance: how's this pitcher doing right now? ----
+    # Look at last 6 batters faced by this pitcher
+    recent_hits = sum(1 for pa in recent_pas if pa in ("1B", "2B", "3B", "HR"))
+    recent_walks = sum(1 for pa in recent_pas if pa in ("BB", "HBP"))
+    recent_trouble = recent_hits + recent_walks  # baserunners allowed recently
+    getting_shelled = recent_trouble >= 3  # 3+ of last 6 reached base
+
+    runners_on = sum(1 for b in bases if b is not None)
+    is_clean_break = outs == 0 and runners_on == 0  # start of half-inning, no one on
+
+    # Score context
+    lead = score[pitching_team] - score[batting_team]
+    is_close = abs(lead) <= 3
+    is_save_situation = lead > 0 and lead <= 3 and inning >= 9
+    is_blowout = abs(lead) >= 6
+
+    # ---- STARTER logic ----
     if is_starter:
-        # Starters pulled around 90-110 pitches
+        # Hard pull at 110 pitches no matter what
+        if pc >= 110:
+            return True
+
+        # Typical pull range: 90-105 depending on context
         if pc >= 100:
-            return True
-        if pc >= 85 and inning >= 7:
-            return True
-        if pc >= 75 and inning >= 8:
-            return True
-    else:
-        # Relievers usually go 1-2 innings (~25-40 pitches)
-        if pc >= 35:
-            return True
-        if pc >= 25 and outs == 0:  # clean inning break
-            return True
+            # Over 100 pitches — pull at next clean break or if in trouble
+            if is_clean_break or getting_shelled or runners_on >= 2:
+                return True
+            # Even without clean break, very likely to pull
+            return rng.random() < 0.75
+
+        if pc >= 90:
+            # 90-99 pitches — context dependent
+            if inning >= 7 and is_clean_break:
+                return True  # hand it to the pen for the late innings
+            if getting_shelled:
+                return True
+            if inning >= 8:
+                return True  # 8th+ with 90 pitches, time to go
+            # Might push through if dealing and it's mid-inning
+            if runners_on == 0 and not getting_shelled:
+                return rng.random() < 0.15  # low chance, let him work
+            return rng.random() < 0.40
+
+        if pc >= 80:
+            # 80-89: only pull if struggling or late in game
+            if getting_shelled and is_clean_break:
+                return True
+            if getting_shelled and runners_on >= 2:
+                return rng.random() < 0.60  # mid-inning pull if shelled with runners
+            if inning >= 8 and is_clean_break:
+                return rng.random() < 0.50
+            return False
+
+        if pc >= 60 and getting_shelled and is_clean_break:
+            # Early hook if getting absolutely bombed
+            return rng.random() < 0.30
+
+        return False
+
+    # ---- RELIEVER logic ----
+    # Relievers have shorter leashes
+
+    # Hard pull at 40 pitches
+    if pc >= 40:
+        return True
+
+    # Standard 1-inning stint: pull at clean break after recording 3+ outs
+    if outs_recorded >= 3 and is_clean_break:
+        return True
+
+    # Extended to ~30 pitches, pull at next clean break
+    if pc >= 30 and is_clean_break:
+        return True
+
+    # Mid-inning pull if struggling
+    if pc >= 20 and getting_shelled:
+        return rng.random() < 0.50
+
+    # Two-inning stint if dominant and it's not a high-leverage spot
+    if outs_recorded >= 6:
+        return True  # 2 full innings, that's enough
+
+    # Close game 9th inning — closer stays unless shelled
+    if is_save_situation and not getting_shelled:
+        return False
 
     return False
+
+
+def _select_reliever(
+    bullpen: list,
+    inning: int,
+    outs: int,
+    bases: list,
+    score_lead: int,
+    next_batters: list,
+    rng: random.Random,
+) -> int:
+    """
+    Pick the best reliever from the bullpen for this situation.
+    Returns the index into the bullpen list.
+
+    Strategy:
+    - Save situation (9th, leading 1-3): use last reliever (closer)
+    - 8th inning close game: use second-to-last (setup)
+    - Handedness matchup: prefer same-hand vs upcoming batters
+    - Blowout: use first available (mop-up)
+    """
+    if not bullpen:
+        return 0
+
+    n = len(bullpen)
+    is_save = score_lead > 0 and score_lead <= 3 and inning >= 9
+    is_setup = score_lead > 0 and score_lead <= 3 and inning == 8
+    is_close = abs(score_lead) <= 3
+    runners_on = sum(1 for b in bases if b is not None)
+
+    # Save situation: use the closer (last pitcher in bullpen)
+    if is_save and n >= 2:
+        return n - 1
+
+    # Setup situation: use second-to-last
+    if is_setup and n >= 3:
+        return n - 2
+
+    # Close game with runners on: use best available (later in bullpen = higher leverage)
+    if is_close and runners_on >= 2 and n >= 2:
+        return n - 1
+
+    # Handedness matchup: check next batter(s)
+    if next_batters:
+        next_stand = next_batters[0].get("stand", "R")
+        # Prefer same-hand reliever
+        for i, rp in enumerate(bullpen):
+            if rp.get("p_throws", "R") == next_stand:
+                return i
+
+    # Default: use first available (preserve high-leverage arms)
+    return 0
 
 
 def _default_arsenal(p_throws: str) -> list:
