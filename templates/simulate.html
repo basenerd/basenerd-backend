@@ -177,13 +177,7 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
 .sim-bip-pop { margin-top:10px; padding:10px 12px; border:1px solid rgba(148,163,184,.15); border-radius:12px; background:rgba(15,23,42,.03); font-weight:900; line-height:1.35; max-width:320px; }
 @media(max-width:768px){ svg.sim-bip-svg { width:100%; height:auto; aspect-ratio:1; } }
 
-/* Play toast popups */
-.sim-toast-container { position:fixed; top:20px; right:20px; z-index:10000; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
-.sim-toast { padding:10px 16px; border-radius:10px; background:#1e293b; border:1px solid #334155; color:#e2e8f0; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.4); animation:toastIn .25s ease-out; max-width:320px; pointer-events:auto; }
-.sim-toast.scoring { border-color:#f59e0b; background:rgba(245,158,11,.12); }
-.sim-toast.out { opacity:.8; }
-@keyframes toastIn { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
-@keyframes toastOut { from{opacity:1} to{opacity:0;transform:translateY(-10px)} }
+/* (toast system replaced by inline takeovers) */
 
 /* Pulse animation for latest pitch */
 @keyframes gc-pulse { 0%{r:3;opacity:1} 50%{r:12;opacity:.7} 100%{r:8;opacity:1} }
@@ -472,8 +466,6 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     </div>
   </div>
 
-  <!-- Toast container -->
-  <div class="sim-toast-container" id="toastContainer"></div>
 </div>
 
 <script>
@@ -1003,8 +995,7 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
 
       gameData = data.game;
       currentPitch = 0;
-      lastToastEventIdx = -1;
-      __sim_last_bip_id = "";
+      __sim_last_takeover_pitch = -1;
 
       // Setup viewer
       document.getElementById("simLoading").classList.remove("active");
@@ -1150,15 +1141,8 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     // Lineups
     renderViewerLineups();
 
-    // BIP check — show takeover on in-play, hide otherwise
-    if (p.bip && p.is_in_play) {
-      showBIP(p.bip);
-    } else {
-      hideBIP();
-    }
-
-    // Toast popups for new events
-    checkForNewEvents();
+    // Event takeovers — check for new events on this pitch
+    checkForEventTakeovers(p);
 
     // Button states
     document.getElementById("btnPrevPitch").disabled = currentPitch <= 0;
@@ -1436,165 +1420,217 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   // ============ LINESCORE ============
   // Linescore removed — scorebar in header card handles score display
 
-  // ============ BIP TAKEOVER (matches gamecast animation) ============
-  let __sim_last_bip_id = "";
+  // ============ TAKEOVER SYSTEM (matches gamecast) ============
+  let __sim_takeover_timer = null;
+  let __sim_takeover_kind = "";
+  let __sim_last_takeover_pitch = -1;
 
-  function showBIP(bip) {
-    if (!bip || !bip.x) return;
-    const bipId = `sim-${currentPitch}`;
-    if (bipId === __sim_last_bip_id) return;
-    __sim_last_bip_id = bipId;
+  const __sim_event_meta = {
+    strikeout:       { label: "Strikeout",        badge: "K",   icon: "🫵", color: "#dc2626", bg: "rgba(239,68,68,.10)" },
+    walk:            { label: "Walk",             badge: "BB",  icon: "🚶", color: "#2563eb", bg: "rgba(59,130,246,.12)" },
+    hit:             { label: "Hit",              badge: "HIT", icon: "💥", color: "#16a34a", bg: "rgba(34,197,94,.12)" },
+    home_run:        { label: "Home Run",         badge: "HR",  icon: "💣", color: "#16a34a", bg: "rgba(34,197,94,.18)" },
+    out:             { label: "Out",              badge: "OUT", icon: "👊", color: "#64748b", bg: "rgba(148,163,184,.08)" },
+    pitching_change: { label: "Pitching Change",  badge: "SUB", icon: "🔄", color: "#4f46e5", bg: "rgba(99,102,241,.10)" },
+  };
 
-    const takeover = document.getElementById("bipTakeover");
-    const svg = document.getElementById("bipSvg");
-    const eventEl = document.getElementById("bipEvent");
-    const kindEl = document.getElementById("bipKind");
-    const metricsEl = document.getElementById("bipMetrics");
-    const popEl = document.getElementById("bipPop");
+  function showTakeover(title, subtitle, bodyHTML, ms, kind) {
+    const wrap = document.getElementById("bipTakeover");
+    if (!wrap) return;
 
-    eventEl.textContent = bip.event || "In Play";
-    const isFly = (bip.la != null) ? (bip.la >= 15) : (bip.dist >= 140);
-    kindEl.textContent = isFly ? "Fly ball" : "Ground ball";
+    wrap.innerHTML = `
+      <div class="card gc-takeover-card" style="margin:0;">
+        <div class="card-header">
+          <div class="card-title">${title || "—"}</div>
+          <div class="card-subtitle mono" style="opacity:.75;">${subtitle || ""}</div>
+        </div>
+        <div class="card-body" style="padding:14px;">${bodyHTML || ""}</div>
+      </div>`;
 
-    const metrics = [];
-    if (bip.ev) metrics.push(`<span>${bip.ev} mph</span>`);
-    if (bip.la != null) metrics.push(`<span>${bip.la}°</span>`);
-    if (bip.dist) metrics.push(`<span>${bip.dist} ft</span>`);
-    metricsEl.innerHTML = metrics.join("");
+    wrap.style.display = "flex";
+    const midgrid = wrap.closest(".gc-midgrid");
+    if (midgrid) midgrid.classList.add("takeover-active");
 
-    popEl.textContent = bip.is_out ? "Out recorded" : (bip.event || "Ball in play");
+    __sim_takeover_kind = kind || "";
 
-    // Inject stadium overlay
-    const pointsG = svg.querySelector("g.sprayPoints");
-    pointsG.innerHTML = "";
-    __sim_inject_overlay(svg);
+    if (__sim_takeover_timer) clearTimeout(__sim_takeover_timer);
+    __sim_takeover_timer = null;
 
-    // Compute scale
-    const scaleX = __sim_spray_vb.w / __SIM_BASE_W;
-    const scaleY = __sim_spray_vb.h / __SIM_BASE_H;
-
-    const pt = __sim_map_point(bip.x, bip.y, scaleX, scaleY);
-    const start = __sim_map_point(__SIM_PLATE.x, __SIM_PLATE.y, scaleX, scaleY);
-
-    // Arc calculation
-    const laVal = Number(bip.la);
-    const midX = (start.x + pt.x) / 2;
-    const midY = (start.y + pt.y) / 2;
-    const arc = isFly
-      ? Math.min(92, Math.max(28, (isFinite(laVal) ? laVal : 30) * 2.1))
-      : 8;
-    const ctrlX = midX;
-    const ctrlY = midY - arc;
-    const d = `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} Q ${ctrlX.toFixed(2)} ${ctrlY.toFixed(2)} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`;
-
-    // Dashed guide path
-    const guidePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    guidePath.setAttribute("d", d);
-    guidePath.setAttribute("fill", "none");
-    guidePath.setAttribute("stroke", isFly ? "rgba(59,130,246,.28)" : "rgba(15,23,42,.16)");
-    guidePath.setAttribute("stroke-width", isFly ? "2.2" : "1.6");
-    guidePath.setAttribute("stroke-linecap", "round");
-    guidePath.setAttribute("stroke-dasharray", isFly ? "5 6" : "3 6");
-    pointsG.appendChild(guidePath);
-
-    // Moving ball with animateMotion
-    const durMs = isFly ? 1600 : 1000;
-    const ball = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    ball.setAttribute("r", isFly ? "5.0" : "4.6");
-    ball.setAttribute("fill", "rgba(59,130,246,.92)");
-    ball.setAttribute("stroke", "rgba(255,255,255,.85)");
-    ball.setAttribute("stroke-width", "1.1");
-
-    const motion = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
-    motion.setAttribute("dur", `${durMs}ms`);
-    motion.setAttribute("fill", "freeze");
-    motion.setAttribute("path", d);
-    motion.setAttribute("keySplines", "0.2 0.8 0.2 1");
-    motion.setAttribute("calcMode", "spline");
-    motion.setAttribute("keyTimes", "0;1");
-    ball.appendChild(motion);
-    pointsG.appendChild(ball);
-
-    // Show takeover (gamecast pattern: add to midgrid)
-    takeover.style.display = "flex";
-    takeover.closest(".gc-midgrid").classList.add("takeover-active");
-
-    try { motion.beginElement(); } catch(e) {}
-
-    // Final marker after animation
-    setTimeout(() => {
-      try { ball.remove(); } catch(e) {}
-      // Halo
-      const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      halo.setAttribute("cx", pt.x.toFixed(2));
-      halo.setAttribute("cy", pt.y.toFixed(2));
-      halo.setAttribute("r", "9.0");
-      halo.setAttribute("fill", "rgba(15,23,42,.14)");
-      pointsG.appendChild(halo);
-
-      if (bip.is_out) {
-        // Red X for outs
-        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        const s = 7.2;
-        const l1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        l1.setAttribute("x1", (pt.x-s).toFixed(2)); l1.setAttribute("y1", (pt.y-s).toFixed(2));
-        l1.setAttribute("x2", (pt.x+s).toFixed(2)); l1.setAttribute("y2", (pt.y+s).toFixed(2));
-        const l2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        l2.setAttribute("x1", (pt.x-s).toFixed(2)); l2.setAttribute("y1", (pt.y+s).toFixed(2));
-        l2.setAttribute("x2", (pt.x+s).toFixed(2)); l2.setAttribute("y2", (pt.y-s).toFixed(2));
-        [l1,l2].forEach(ln => { ln.setAttribute("stroke","rgba(239,68,68,.95)"); ln.setAttribute("stroke-width","3.1"); ln.setAttribute("stroke-linecap","round"); });
-        g.appendChild(l1); g.appendChild(l2);
-        pointsG.appendChild(g);
-      } else {
-        // Blue dot for hits
-        const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        c.setAttribute("cx", pt.x.toFixed(2)); c.setAttribute("cy", pt.y.toFixed(2));
-        c.setAttribute("r", "6.4");
-        c.setAttribute("fill", "rgba(59,130,246,.92)");
-        c.setAttribute("stroke", "rgba(255,255,255,.85)");
-        c.setAttribute("stroke-width", "1.2");
-        pointsG.appendChild(c);
-      }
-    }, durMs + 40);
-
-    // Auto-hide after 2.5s
-    setTimeout(() => hideBIP(), Math.max(durMs + 500, 2500));
+    if (ms != null) {
+      __sim_takeover_timer = setTimeout(hideTakeover, ms);
+    }
   }
 
-  function hideBIP() {
-    const takeover = document.getElementById("bipTakeover");
-    takeover.style.display = "none";
-    const midgrid = takeover.closest(".gc-midgrid");
+  function hideTakeover() {
+    const wrap = document.getElementById("bipTakeover");
+    if (!wrap) return;
+    wrap.style.display = "none";
+    const midgrid = wrap.closest(".gc-midgrid");
     if (midgrid) midgrid.classList.remove("takeover-active");
+    __sim_takeover_kind = "";
+    if (__sim_takeover_timer) clearTimeout(__sim_takeover_timer);
+    __sim_takeover_timer = null;
   }
 
-  // ============ PLAY TOAST POPUPS ============
-  let lastToastEventIdx = -1;
+  function showEventTakeover(ev) {
+    let metaKey = ev.type;
+    if (ev.type === "hit" && ev.event && ev.event.includes("Home Run")) metaKey = "home_run";
+    const meta = __sim_event_meta[metaKey] || __sim_event_meta.out;
 
-  function showPlayToast(text, isScoring) {
-    const container = document.getElementById("toastContainer");
-    const toast = document.createElement("div");
-    toast.className = `sim-toast${isScoring ? " scoring" : ""}`;
-    toast.textContent = text;
-    container.appendChild(toast);
-    setTimeout(() => {
-      toast.style.animation = "toastOut .3s ease-in forwards";
-      setTimeout(() => toast.remove(), 300);
-    }, 2000);
+    const inn = `${ev.half === "Top" ? "▲" : "▼"} ${ev.inning}`;
+    const scoring = (ev.runs_scored || 0) > 0;
+    const runsHTML = scoring ? `<div style="font-weight:800;font-size:14px;color:#16a34a;margin-top:4px;">${ev.runs_scored} run${ev.runs_scored > 1 ? "s" : ""} score!</div>` : "";
+
+    const body = `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0 4px;">
+        <div style="font-size:36px;line-height:1;">${meta.icon}</div>
+        <div style="font-size:18px;font-weight:700;text-align:center;max-width:400px;line-height:1.4;">
+          ${ev.description || ev.type}
+        </div>
+        <div style="background:${meta.bg};color:${meta.color};font-weight:700;font-size:13px;padding:4px 12px;border-radius:6px;letter-spacing:.5px;">
+          ${meta.badge}
+        </div>
+        ${runsHTML}
+      </div>`;
+
+    showTakeover(inn, meta.label, body, 5000, "action");
   }
 
-  function checkForNewEvents() {
-    if (!gameData) return;
-    const events = gameData.events;
-    for (let i = lastToastEventIdx + 1; i < events.length; i++) {
-      const ev = events[i];
-      if ((ev.pitch_index || 0) <= currentPitch) {
-        const inn = `${ev.half === "Top" ? "▲" : "▼"}${ev.inning}`;
-        showPlayToast(`${inn} ${ev.description || ev.type}`, (ev.runs_scored || 0) > 0);
-        lastToastEventIdx = i;
-      } else {
-        break;
+  function showBIPTakeover(bip) {
+    const isFly = (bip.la != null) ? (bip.la >= 15) : (bip.dist >= 140);
+    const kindLabel = isFly ? "Fly ball" : "Ground ball";
+    const metrics = [];
+    if (bip.ev) metrics.push(`${bip.ev} mph`);
+    if (bip.la != null) metrics.push(`${bip.la}°`);
+    if (bip.dist) metrics.push(`${bip.dist} ft`);
+
+    const body = `
+      <div class="gc-bip-wrap">
+        <div style="flex:0 0 auto;">
+          <svg id="bipSvg" class="gc-bip-svg" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
+            <g class="sprayOverlay"></g>
+            <g class="sprayPoints"></g>
+          </svg>
+          <div class="gc-bip-pop">${bip.event || "Ball in play"}</div>
+        </div>
+        <div style="min-width:180px; flex:1; padding-top:2px;">
+          <div class="mono" style="opacity:.75; font-size:12px;">RESULT</div>
+          <div style="font-weight:1000; font-size:18px; margin-top:4px;">${bip.event || "In Play"}</div>
+          <div class="mono" style="margin-top:10px; display:inline-flex; padding:6px 10px; border:1px solid rgba(226,232,240,.15); border-radius:999px;">${kindLabel}</div>
+          <div class="mono" style="opacity:.5; margin-top:10px; font-size:12px;">${metrics.join("  ·  ")}</div>
+        </div>
+      </div>`;
+
+    const p = gameData.pitches[currentPitch];
+    const inn = `${p.half === "Top" ? "▲" : "▼"} ${p.inning}`;
+    showTakeover(inn, "Ball In Play", body, 7000, "bip");
+
+    // Now animate the ball on the SVG
+    requestAnimationFrame(() => {
+      const svg = document.getElementById("bipSvg");
+      if (!svg) return;
+      const pointsG = svg.querySelector("g.sprayPoints");
+      if (!pointsG) return;
+      pointsG.innerHTML = "";
+      __sim_inject_overlay(svg);
+
+      const scaleX = __sim_spray_vb.w / __SIM_BASE_W;
+      const scaleY = __sim_spray_vb.h / __SIM_BASE_H;
+      const pt = __sim_map_point(bip.x, bip.y, scaleX, scaleY);
+      const start = __sim_map_point(__SIM_PLATE.x, __SIM_PLATE.y, scaleX, scaleY);
+
+      const laVal = Number(bip.la);
+      const midX = (start.x + pt.x) / 2;
+      const midY = (start.y + pt.y) / 2;
+      const arc = isFly ? Math.min(92, Math.max(28, (isFinite(laVal) ? laVal : 30) * 2.1)) : 8;
+      const ctrlX = midX;
+      const ctrlY = midY - arc;
+      const d = `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} Q ${ctrlX.toFixed(2)} ${ctrlY.toFixed(2)} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`;
+
+      // Dashed guide path
+      const guidePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      guidePath.setAttribute("d", d);
+      guidePath.setAttribute("fill", "none");
+      guidePath.setAttribute("stroke", isFly ? "rgba(59,130,246,.28)" : "rgba(15,23,42,.16)");
+      guidePath.setAttribute("stroke-width", isFly ? "2.2" : "1.6");
+      guidePath.setAttribute("stroke-linecap", "round");
+      guidePath.setAttribute("stroke-dasharray", isFly ? "5 6" : "3 6");
+      pointsG.appendChild(guidePath);
+
+      const durMs = isFly ? 1600 : 1000;
+      const ball = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      ball.setAttribute("r", isFly ? "5.0" : "4.6");
+      ball.setAttribute("fill", "rgba(59,130,246,.92)");
+      ball.setAttribute("stroke", "rgba(255,255,255,.85)");
+      ball.setAttribute("stroke-width", "1.1");
+
+      const motion = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
+      motion.setAttribute("dur", `${durMs}ms`);
+      motion.setAttribute("fill", "freeze");
+      motion.setAttribute("path", d);
+      motion.setAttribute("keySplines", "0.2 0.8 0.2 1");
+      motion.setAttribute("calcMode", "spline");
+      motion.setAttribute("keyTimes", "0;1");
+      ball.appendChild(motion);
+      pointsG.appendChild(ball);
+
+      try { motion.beginElement(); } catch(e) {}
+
+      setTimeout(() => {
+        try { ball.remove(); } catch(e) {}
+        const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        halo.setAttribute("cx", pt.x.toFixed(2)); halo.setAttribute("cy", pt.y.toFixed(2));
+        halo.setAttribute("r", "9.0"); halo.setAttribute("fill", "rgba(15,23,42,.14)");
+        pointsG.appendChild(halo);
+
+        if (bip.is_out) {
+          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          const s = 7.2;
+          const l1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          l1.setAttribute("x1",(pt.x-s).toFixed(2)); l1.setAttribute("y1",(pt.y-s).toFixed(2));
+          l1.setAttribute("x2",(pt.x+s).toFixed(2)); l1.setAttribute("y2",(pt.y+s).toFixed(2));
+          const l2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          l2.setAttribute("x1",(pt.x-s).toFixed(2)); l2.setAttribute("y1",(pt.y+s).toFixed(2));
+          l2.setAttribute("x2",(pt.x+s).toFixed(2)); l2.setAttribute("y2",(pt.y-s).toFixed(2));
+          [l1,l2].forEach(ln => { ln.setAttribute("stroke","rgba(239,68,68,.95)"); ln.setAttribute("stroke-width","3.1"); ln.setAttribute("stroke-linecap","round"); });
+          g.appendChild(l1); g.appendChild(l2); pointsG.appendChild(g);
+        } else {
+          const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          c.setAttribute("cx",pt.x.toFixed(2)); c.setAttribute("cy",pt.y.toFixed(2));
+          c.setAttribute("r","6.4"); c.setAttribute("fill","rgba(59,130,246,.92)");
+          c.setAttribute("stroke","rgba(255,255,255,.85)"); c.setAttribute("stroke-width","1.2");
+          pointsG.appendChild(c);
+        }
+      }, durMs + 40);
+    });
+  }
+
+  // ============ EVENT TAKEOVER DISPATCHER ============
+  function checkForEventTakeovers(p) {
+    // Only show takeover on PA-ending pitches (pitches with an event)
+    if (!p.event) {
+      // No event on this pitch — hide takeover if it's from a previous event
+      // But only if we've moved past the event pitch
+      if (__sim_takeover_kind && __sim_last_takeover_pitch < currentPitch) {
+        // Let the timer handle it
       }
+      return;
+    }
+
+    // Already showed takeover for this pitch
+    if (__sim_last_takeover_pitch === currentPitch) return;
+    __sim_last_takeover_pitch = currentPitch;
+
+    // BIP events get the full stadium animation
+    if (p.bip && p.is_in_play) {
+      showBIPTakeover(p.bip);
+      return;
+    }
+
+    // Find the matching event for this pitch
+    const ev = gameData.events.find(e => e.pitch_index === p.idx);
+    if (ev) {
+      showEventTakeover(ev);
     }
   }
 
@@ -1609,16 +1645,16 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   document.getElementById("btnPrevPitch").addEventListener("click", () => {
     if (currentPitch > 0) {
       currentPitch--;
-      __sim_last_bip_id = "";
+      __sim_last_takeover_pitch = -1;
+      hideTakeover();
       renderState();
     }
   });
 
   document.getElementById("btnRewind").addEventListener("click", () => {
     currentPitch = 0;
-    lastToastEventIdx = -1;
-    __sim_last_bip_id = "";
-    document.getElementById("toastContainer").innerHTML = "";
+    __sim_last_takeover_pitch = -1;
+    hideTakeover();
     renderState();
   });
 
