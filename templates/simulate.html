@@ -59,69 +59,81 @@
 .sim-loading .spinner { display:inline-block; width:40px; height:40px; border:3px solid rgba(255,255,255,.1); border-top-color:#2563eb; border-radius:50%; animation:spin 0.8s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
 
-/* ============== GAME VIEWER ============== */
+/* ============== GAME VIEWER (gamecast-matching) ============== */
 .sim-viewer { display:none; }
 .sim-viewer.active { display:block; }
 
-/* Scoreboard */
-.sim-scoreboard { display:flex; align-items:center; justify-content:center; gap:20px; padding:16px 20px; background:var(--card-bg); border:1px solid var(--border); border-radius:14px; margin-bottom:16px; }
-.sim-sb-team { text-align:center; min-width:80px; }
-.sim-sb-team-name { font-weight:800; font-size:14px; }
-.sim-sb-score { font-size:36px; font-weight:900; font-family:'IBM Plex Mono',monospace; }
-.sim-sb-inning { text-align:center; }
-.sim-sb-inning-label { font-size:13px; opacity:.5; }
-.sim-sb-inning-num { font-size:22px; font-weight:800; }
-.sim-sb-vs { font-size:14px; opacity:.3; font-weight:800; }
+/* 3-column grid: lineups on sides, center for matchup */
+.sim-viewer .gc-grid { display:grid; gap:14px; align-items:start; grid-template-columns:minmax(180px,260px) 1fr minmax(180px,260px); }
+.sim-viewer .gc-center { min-width:0; }
+.sim-viewer .gc-midgrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start; position:relative; }
+.sim-viewer .gc-midgrid .gc-pitchescard { grid-column:1/-1; }
+.sim-viewer .gc-midgrid > .card { height:100%; }
 
-/* Linescore */
-.sim-linescore { overflow-x:auto; margin-bottom:16px; }
-.sim-linescore table { width:100%; border-collapse:collapse; font-size:13px; font-family:'IBM Plex Mono',monospace; }
-.sim-linescore th, .sim-linescore td { padding:4px 8px; text-align:center; border:1px solid rgba(226,232,240,.08); min-width:28px; }
-.sim-linescore th { font-weight:700; opacity:.5; font-size:11px; }
-.sim-linescore .active-inn { background:rgba(59,130,246,.12); }
+/* Matchup persons */
+.sim-viewer .gc-matchup { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.sim-viewer .gc-person { border:1px solid rgba(148,163,184,.22); border-radius:14px; padding:10px 12px; background:rgba(255,255,255,.03); min-width:0; }
+.sim-viewer .gc-person-top { display:flex; gap:10px; align-items:center; }
+.sim-viewer .gc-person-role { font-size:12px; opacity:.7; }
+.sim-viewer .gc-person-name { font-weight:800; font-size:16px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sim-viewer .gc-person-line { margin-top:6px; font-size:12px; opacity:.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sim-viewer .gc-hand-badge { display:inline-block; font-size:10px; font-weight:700; padding:1px 5px; border-radius:6px; background:rgba(59,130,246,.12); color:rgba(59,130,246,1); vertical-align:middle; margin-left:4px; }
 
-/* Main game grid */
-.sim-game-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-.sim-game-left { display:flex; flex-direction:column; gap:16px; }
-.sim-game-right { display:flex; flex-direction:column; gap:16px; }
+/* BSO dots */
+.sim-viewer .gc-dots { display:flex; gap:6px; align-items:center; }
+.sim-viewer .gc-dot { width:10px; height:10px; border-radius:999px; border:1px solid rgba(148,163,184,.18); background:rgba(148,163,184,.25); }
+.sim-viewer .gc-dot.on.ball { background:rgba(34,197,94,1); }
+.sim-viewer .gc-dot.on.strike { background:rgba(239,68,68,1); }
+.sim-viewer .gc-dot.on.out { background:rgba(239,68,68,1); }
 
-/* Matchup card */
-.sim-matchup { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:var(--card-bg); border:1px solid var(--border); border-radius:14px; }
-.sim-matchup-player { display:flex; align-items:center; gap:10px; }
-.sim-matchup-name { font-weight:700; font-size:15px; }
-.sim-matchup-sub { font-size:12px; opacity:.5; }
-.sim-matchup-vs { font-weight:800; opacity:.2; }
+/* Lineup cards */
+.sim-viewer .gc-lineup { padding:10px 10px 12px; display:flex; flex-direction:column; gap:6px; }
+.sim-viewer .gc-player { border:1px solid rgba(148,163,184,.22); border-radius:12px; background:rgba(15,23,42,.02); overflow:hidden; }
+.sim-viewer .gc-player.active { background:rgba(59,130,246,.06); border-color:rgba(59,130,246,.25); }
+.sim-viewer .gc-row { display:flex; gap:8px; align-items:center; padding:8px 10px; }
+.sim-viewer .gc-row-main { min-width:0; flex:1 1 auto; }
+.sim-viewer .gc-name { font-weight:700; display:flex; align-items:center; gap:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; }
+.sim-viewer .gc-pos { font-size:11px; opacity:.7; padding:1px 6px; border-radius:999px; border:1px solid rgba(148,163,184,.25); background:rgba(255,255,255,.05); flex:0 0 auto; }
+.sim-viewer .gc-statline { font-size:11px; opacity:.75; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:'IBM Plex Mono',monospace; }
 
-/* Zone card */
-.sim-zone-card { background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:16px; text-align:center; }
-.sim-zone-svg { width:200px; height:240px; margin:0 auto; display:block; }
+/* Takeover */
+.sim-viewer .gc-takeover { grid-column:1/-1; z-index:50; display:flex; align-items:stretch; }
+.sim-viewer .gc-midgrid.takeover-active > *:not(.gc-takeover) { display:none !important; }
+.sim-viewer .gc-takeover-card { width:100%; border-radius:14px; box-shadow:0 18px 50px rgba(0,0,0,.12); animation:gcTakeoverIn .18s ease-out; }
+svg.gc-bip-svg { width:320px; height:320px; display:block; border:1px solid rgba(226,232,240,.15); border-radius:14px; background:rgba(255,255,255,.03); }
+.gc-bip-wrap { display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+.gc-bip-pop { margin-top:10px; padding:10px 12px; border:1px solid rgba(148,163,184,.15); border-radius:12px; background:rgba(15,23,42,.03); font-weight:900; line-height:1.35; max-width:360px; }
+@keyframes gcTakeoverIn { from{transform:translateY(6px);opacity:0} to{transform:translateY(0);opacity:1} }
 
-/* Count display */
-.sim-count { display:flex; align-items:center; justify-content:center; gap:16px; margin:10px 0; font-family:'IBM Plex Mono',monospace; font-weight:700; }
-.sim-count-group { display:flex; gap:4px; align-items:center; }
-.sim-count-label { font-size:11px; opacity:.4; margin-right:4px; }
-.sim-dot { width:14px; height:14px; border-radius:50%; border:2px solid rgba(226,232,240,.2); }
-.sim-dot.filled-b { background:#22c55e; border-color:#22c55e; }
-.sim-dot.filled-s { background:#ef4444; border-color:#ef4444; }
-.sim-dot.filled-o { background:#f59e0b; border-color:#f59e0b; }
+/* Feed */
+.gc-feed-item { display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border-bottom:1px solid rgba(226,232,240,.07); font-size:13px; line-height:1.35; }
+.gc-feed-item:last-child { border-bottom:none; }
+.gc-feed-inning { flex:0 0 auto; font-size:11px; font-weight:700; opacity:.6; min-width:36px; text-align:right; white-space:nowrap; }
+.gc-feed-desc { flex:1; min-width:0; }
+.gc-feed-badge { flex:0 0 auto; display:inline-flex; align-items:center; font-size:10px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; padding:2px 7px; border-radius:6px; white-space:nowrap; }
+.gc-feed-badge.scoring { background:rgba(34,197,94,.18); color:rgba(22,101,52,1); }
+.gc-feed-badge.k { background:rgba(239,68,68,.12); color:rgba(220,38,38,1); }
+.gc-feed-badge.bb { background:rgba(59,130,246,.14); color:rgba(37,99,235,1); }
+.gc-feed-badge.hit { background:rgba(34,197,94,.12); color:rgba(22,163,74,1); }
+.gc-feed-badge.out { background:rgba(15,23,42,.06); color:rgba(15,23,42,.5); }
+.gc-feed-badge.sub { background:rgba(99,102,241,.12); color:rgba(79,70,229,1); }
 
-/* Pitch table */
-.sim-pitch-table { width:100%; border-collapse:collapse; font-size:12px; }
-.sim-pitch-table th { font-weight:700; opacity:.4; text-transform:uppercase; font-size:10px; padding:6px 8px; text-align:left; border-bottom:1px solid var(--border); }
-.sim-pitch-table td { padding:5px 8px; border-bottom:1px solid rgba(226,232,240,.04); }
-.sim-pitch-table .result-ball { color:#22c55e; }
-.sim-pitch-table .result-strike { color:#ef4444; }
-.sim-pitch-table .result-foul { color:#94a3b8; }
-.sim-pitch-table .result-inplay { color:#3b82f6; font-weight:700; }
+/* Pulse */
+@keyframes gcPulse { 0%{transform:scale(0.35);opacity:0} 35%{transform:scale(1.15);opacity:.95} 100%{transform:scale(1);opacity:1} }
+.gc-pulse { transform-box:fill-box; transform-origin:center; animation:gcPulse 650ms ease-out 1; }
 
-/* Bases */
-.sim-bases { display:flex; justify-content:center; margin:10px 0; }
-.sim-diamond { position:relative; width:60px; height:60px; }
-.sim-base { position:absolute; width:14px; height:14px; transform:rotate(45deg); border:2px solid rgba(226,232,240,.2); background:transparent; }
-.sim-base.occupied { background:#f59e0b; border-color:#f59e0b; }
-.sim-base-1b { right:0; top:50%; transform:rotate(45deg) translateY(-50%); top:22px; right:0; }
-.sim-base-2b { left:50%; top:0; transform:rotate(45deg) translate(-50%,0); left:23px; top:2px; }
-.sim-base-3b { left:0; top:50%; transform:rotate(45deg) translateY(-50%); top:22px; left:0; }
+/* Responsive */
+@media (max-width:960px) {
+  .sim-viewer .gc-grid { grid-template-columns:1fr 1fr; }
+  .sim-viewer .gc-center { grid-column:1/-1; order:-1; }
+}
+@media (max-width:600px) {
+  .sim-viewer .gc-grid { grid-template-columns:1fr; }
+  .sim-viewer .gc-center { grid-column:1; order:-1; }
+  .sim-viewer .gc-midgrid { grid-template-columns:1fr; }
+  .sim-viewer .gc-matchup { grid-template-columns:1fr; gap:8px; }
+  svg.gc-bip-svg { width:100%; height:auto; aspect-ratio:1; }
+}
 
 /* Playback controls */
 .sim-controls { display:flex; align-items:center; justify-content:center; gap:10px; padding:16px; background:var(--card-bg); border:1px solid var(--border); border-radius:14px; flex-wrap:wrap; }
@@ -268,35 +280,51 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     <p style="margin-top:16px; opacity:.6;">Simulating game pitch by pitch...</p>
   </div>
 
-  <!-- ============ GAME VIEWER ============ -->
+  <!-- ============ GAME VIEWER (matches gamecast layout) ============ -->
   <div class="sim-viewer" id="simViewer">
-    <!-- Scoreboard -->
-    <div class="sim-scoreboard" id="simScoreboard">
-      <div class="sim-sb-team">
-        <div class="sim-sb-team-name" id="sbAwayName">AWAY</div>
-        <div class="sim-sb-score" id="sbAwayScore">0</div>
+
+    <!-- Header card: scorebar + count + last play -->
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Simulation</div>
+        <div class="card-subtitle" style="display:flex; gap:10px; align-items:center;">
+          <span class="pill" id="gc-inning-pill">Top 1</span>
+          <span class="mono" id="gc-count-label" style="opacity:.85;">0-0</span>
+        </div>
       </div>
-      <div class="sim-sb-inning">
-        <div class="sim-sb-inning-label" id="sbHalf">Top</div>
-        <div class="sim-sb-inning-num" id="sbInning">1</div>
-      </div>
-      <div class="sim-sb-team">
-        <div class="sim-sb-team-name" id="sbHomeName">HOME</div>
-        <div class="sim-sb-score" id="sbHomeScore">0</div>
+      <div style="padding:14px;">
+        <!-- Scorebar -->
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+          <div class="mono" style="font-size:18px; font-weight:700;"><span id="sbAwayName">AWAY</span> <span id="sbAwayScore">0</span></div>
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <div class="mono" style="opacity:.7; font-size:12px;">B</div>
+              <div class="gc-dots" id="gc-balls"></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <div class="mono" style="opacity:.7; font-size:12px;">S</div>
+              <div class="gc-dots" id="gc-strikes"></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <div class="mono" style="opacity:.7; font-size:12px;">O</div>
+              <div class="gc-dots" id="gc-outs"></div>
+            </div>
+          </div>
+          <div class="mono" style="font-size:18px; font-weight:700;"><span id="sbHomeScore">0</span> <span id="sbHomeName">HOME</span></div>
+        </div>
+        <!-- Last play -->
+        <div class="mono" id="gc-lastplay" style="margin-top:10px; padding:10px 12px; border:1px solid rgba(148,163,184,.25); border-radius:12px; background:rgba(15,23,42,.02);">—</div>
       </div>
     </div>
 
-    <!-- Linescore -->
-    <div class="sim-linescore" id="simLinescore"></div>
-
     <!-- Playback controls -->
-    <div class="sim-controls">
-      <button class="sim-ctrl-btn" id="btnRewind" title="Rewind">⏮ Rewind</button>
+    <div class="sim-controls" style="margin-top:14px;">
+      <button class="sim-ctrl-btn" id="btnRewind" title="Rewind">⏮</button>
       <button class="sim-ctrl-btn" id="btnPrevPitch" title="Previous Pitch">◀</button>
       <button class="sim-ctrl-btn primary" id="btnNextPitch" title="Next Pitch">Next Pitch ▶</button>
       <button class="sim-ctrl-btn" id="btnNextPA" title="Skip to end of PA">Next PA ⏭</button>
-      <button class="sim-ctrl-btn" id="btnNextInning" title="Skip to next half-inning">Next Inning ⏩</button>
-      <button class="sim-ctrl-btn" id="btnAutoplay">▶ Auto-play</button>
+      <button class="sim-ctrl-btn" id="btnNextInning" title="Skip to next half-inning">Next ½ ⏩</button>
+      <button class="sim-ctrl-btn" id="btnAutoplay">▶ Auto</button>
       <div class="sim-speed-wrap">
         <label>Speed</label>
         <input type="range" class="sim-speed-slider" id="speedSlider" min="200" max="3000" value="800" step="100">
@@ -304,103 +332,140 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
       <span class="sim-pitch-counter" id="pitchCounter">0 / 0</span>
     </div>
 
-    <!-- Main game grid -->
-    <div class="sim-game-grid" style="margin-top:16px;">
-      <div class="sim-game-left">
-        <!-- BIP Takeover (inline, matches gamecast) -->
-        <div class="sim-bip-takeover" id="bipTakeover">
-          <div class="sim-bip-takeover-card">
-            <div style="font-weight:700; font-size:13px; opacity:.5; margin-bottom:10px;">BALL IN PLAY</div>
-            <div class="sim-bip-wrap">
-              <svg class="sim-bip-svg" id="bipSvg" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
-                <g class="sprayOverlay"></g>
-                <g class="sprayPoints"></g>
-              </svg>
-              <div class="sim-bip-info">
-                <div class="sim-bip-result-label">Result</div>
-                <div class="sim-bip-event" id="bipEvent">—</div>
-                <div class="sim-bip-kind" id="bipKind"></div>
-                <div class="sim-bip-metrics" id="bipMetrics"></div>
-                <div class="sim-bip-pop" id="bipPop"></div>
+    <!-- 3-column grid: Away Lineup | Center (matchup + zone + bases + pitches) | Home Lineup -->
+    <div class="gc-grid" style="margin-top:14px;">
+
+      <!-- Away lineup -->
+      <div class="card" style="margin:0;">
+        <div class="card-header">
+          <div class="card-title" id="awayLineupLabel">Away</div>
+        </div>
+        <div class="gc-lineup" id="viewerAwayLineup"></div>
+      </div>
+
+      <!-- Center column -->
+      <div class="gc-center">
+        <div class="card" style="margin:0;">
+          <div class="card-header"><div class="card-title">Current Matchup</div></div>
+          <div style="padding:14px;">
+            <!-- Matchup: batter vs pitcher -->
+            <div class="gc-matchup">
+              <div class="gc-person" id="gc-batter">
+                <div class="gc-person-top">
+                  <div>
+                    <div class="gc-person-role">At Bat</div>
+                    <div class="gc-person-name" id="matchBatter">—</div>
+                  </div>
+                </div>
+                <div class="gc-person-line" id="matchBatterLine"></div>
+              </div>
+              <div class="gc-person" id="gc-pitcher">
+                <div class="gc-person-top">
+                  <div>
+                    <div class="gc-person-role">Pitching</div>
+                    <div class="gc-person-name" id="matchPitcher">—</div>
+                  </div>
+                </div>
+                <div class="gc-person-line" id="matchPitcherLine"></div>
+              </div>
+            </div>
+
+            <!-- Mid grid: Zone + Bases row, then Pitches table full-width -->
+            <div class="gc-midgrid" style="margin-top:14px;">
+
+              <!-- BIP Takeover -->
+              <div id="bipTakeover" class="gc-takeover" style="display:none;">
+                <div class="card gc-takeover-card" style="margin:0;">
+                  <div class="card-header">
+                    <div class="card-title">Ball In Play</div>
+                  </div>
+                  <div class="card-body">
+                    <div class="gc-bip-wrap">
+                      <div style="flex:0 0 auto;">
+                        <svg id="bipSvg" class="gc-bip-svg" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
+                          <g class="sprayOverlay"></g>
+                          <g class="sprayPoints"></g>
+                        </svg>
+                        <div class="gc-bip-pop" id="bipPop"></div>
+                      </div>
+                      <div style="min-width:180px; flex:1; padding-top:2px;">
+                        <div class="mono" style="opacity:.75; font-size:12px;">RESULT</div>
+                        <div style="font-weight:1000; font-size:16px; margin-top:4px;" id="bipEvent">—</div>
+                        <div class="mono" style="margin-top:10px; display:inline-flex; padding:6px 10px; border:1px solid rgba(226,232,240,.15); border-radius:999px;" id="bipKind"></div>
+                        <div class="mono" style="opacity:.5; margin-top:10px; font-size:12px;" id="bipMetrics"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Zone -->
+              <div class="card" style="margin:0;">
+                <div class="card-header"><div class="card-title">Zone</div></div>
+                <div style="padding:12px; display:flex; justify-content:center;">
+                  <svg id="simZoneSvg" class="strike-zone" width="220" height="260" style="overflow:visible;"></svg>
+                </div>
+              </div>
+
+              <!-- Bases -->
+              <div class="card" style="margin:0;">
+                <div class="card-header">
+                  <div class="card-title">Bases</div>
+                  <div class="card-subtitle mono" style="opacity:.75;">Runners</div>
+                </div>
+                <div style="padding:12px; display:flex; justify-content:center;">
+                  <div class="gc-bases-diamond" style="position:relative; width:140px; height:140px;">
+                    <div class="gc-base second" id="base2" style="position:absolute;left:50%;top:20%;width:24px;height:24px;border-radius:6px;border:1px solid rgba(148,163,184,.35);background:rgba(255,255,255,.75);transform:translate(-50%,-50%) rotate(45deg);"></div>
+                    <div class="gc-base third" id="base3" style="position:absolute;left:20%;top:50%;width:24px;height:24px;border-radius:6px;border:1px solid rgba(148,163,184,.35);background:rgba(255,255,255,.75);transform:translate(-50%,-50%) rotate(45deg);"></div>
+                    <div class="gc-base first" id="base1" style="position:absolute;left:80%;top:50%;width:24px;height:24px;border-radius:6px;border:1px solid rgba(148,163,184,.35);background:rgba(255,255,255,.75);transform:translate(-50%,-50%) rotate(45deg);"></div>
+                    <div style="position:absolute;left:50%;top:80%;width:24px;height:24px;border-radius:6px;border:1px solid rgba(148,163,184,.15);background:rgba(255,255,255,.35);transform:translate(-50%,-50%) rotate(45deg);"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pitches table (full width) -->
+              <div class="card gc-pitchescard" style="margin:0;">
+                <div class="card-header">
+                  <div class="card-title">Pitches</div>
+                  <div class="card-subtitle mono" style="opacity:.75;">This plate appearance</div>
+                </div>
+                <div style="padding:0 12px 12px; overflow:hidden;">
+                  <table class="tbl" id="gc-pitch-tbl" style="margin-top:10px; width:100%; table-layout:auto;">
+                    <thead>
+                      <tr>
+                        <th class="mono">#</th>
+                        <th>Pitch</th>
+                        <th class="mono" style="text-align:right;">MPH</th>
+                        <th class="mono" style="text-align:right;">Spin</th>
+                        <th>Outcome</th>
+                      </tr>
+                    </thead>
+                    <tbody id="pitchTableBody"></tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
         </div>
-
-        <!-- Matchup -->
-        <div class="sim-matchup">
-          <div class="sim-matchup-player">
-            <div>
-              <div class="sim-matchup-name" id="matchBatter">—</div>
-              <div class="sim-matchup-sub" id="matchBatterSub">At Bat</div>
-            </div>
-          </div>
-          <div class="sim-matchup-vs">VS</div>
-          <div class="sim-matchup-player">
-            <div style="text-align:right;">
-              <div class="sim-matchup-name" id="matchPitcher">—</div>
-              <div class="sim-matchup-sub" id="matchPitcherSub">Pitching</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Zone + Count + Bases -->
-        <div class="sim-zone-card">
-          <div class="sim-count" id="simCount">
-            <div class="sim-count-group">
-              <span class="sim-count-label">B</span>
-              <span class="sim-dot" id="b0"></span>
-              <span class="sim-dot" id="b1"></span>
-              <span class="sim-dot" id="b2"></span>
-              <span class="sim-dot" id="b3"></span>
-            </div>
-            <div class="sim-count-group">
-              <span class="sim-count-label">S</span>
-              <span class="sim-dot" id="s0"></span>
-              <span class="sim-dot" id="s1"></span>
-            </div>
-            <div class="sim-count-group">
-              <span class="sim-count-label">O</span>
-              <span class="sim-dot" id="o0"></span>
-              <span class="sim-dot" id="o1"></span>
-            </div>
-          </div>
-          <svg class="sim-zone-svg" id="simZoneSvg" width="200" height="240" xmlns="http://www.w3.org/2000/svg"></svg>
-          <div class="sim-bases">
-            <div class="sim-diamond">
-              <div class="sim-base sim-base-2b" id="base2"></div>
-              <div class="sim-base sim-base-3b" id="base3"></div>
-              <div class="sim-base sim-base-1b" id="base1"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Pitch table -->
-        <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:12px; overflow-x:auto;">
-          <table class="sim-pitch-table">
-            <thead>
-              <tr><th>#</th><th>Type</th><th>MPH</th><th>Spin</th><th>Result</th></tr>
-            </thead>
-            <tbody id="pitchTableBody"></tbody>
-          </table>
-        </div>
       </div>
 
-      <div class="sim-game-right">
-        <!-- Feed -->
-        <div class="sim-feed" id="simFeed">
-          <div style="opacity:.4; font-size:13px; text-align:center;">Game events will appear here</div>
+      <!-- Home lineup -->
+      <div class="card" style="margin:0;">
+        <div class="card-header">
+          <div class="card-title" id="homeLineupLabel">Home</div>
         </div>
+        <div class="gc-lineup" id="viewerHomeLineup"></div>
+      </div>
+    </div>
 
-        <!-- Lineups -->
-        <div class="sim-lineup-card">
-          <h3 id="awayLineupLabel">Away</h3>
-          <div id="viewerAwayLineup"></div>
-        </div>
-        <div class="sim-lineup-card">
-          <h3 id="homeLineupLabel">Home</h3>
-          <div id="viewerHomeLineup"></div>
-        </div>
+    <!-- Live Feed -->
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="card-title">Live Feed</div>
+        <div class="card-subtitle mono" style="opacity:.75;">Plays &amp; events</div>
+      </div>
+      <div style="max-height:320px; overflow-y:auto; padding:0 10px 10px;">
+        <div id="simFeed"></div>
       </div>
     </div>
   </div>
@@ -976,35 +1041,34 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     const total = pitches.length;
     const p = pitches[currentPitch] || pitches[total - 1];
 
-    // Scoreboard
+    // Scorebar
     document.getElementById("sbAwayScore").textContent = p.score_away;
     document.getElementById("sbHomeScore").textContent = p.score_home;
-    document.getElementById("sbHalf").textContent = p.half === "Top" ? "▲" : "▼";
-    document.getElementById("sbInning").textContent = p.inning;
+    document.getElementById("gc-inning-pill").textContent = `${p.half} ${p.inning}`;
 
     // Matchup
-    document.getElementById("matchBatter").textContent = p.batter_name;
-    document.getElementById("matchBatterSub").textContent = `${p.batter_stand} | At Bat`;
-    document.getElementById("matchPitcher").textContent = p.pitcher_name;
-    document.getElementById("matchPitcherSub").textContent = `${p.pitcher_throws}HP | Pitching`;
+    document.getElementById("matchBatter").innerHTML = `${p.batter_name}<span class="gc-hand-badge">${p.batter_stand}</span>`;
+    document.getElementById("matchPitcher").innerHTML = `${p.pitcher_name}<span class="gc-hand-badge">${p.pitcher_throws}HP</span>`;
+    // Batter/pitcher stat lines
+    const bStats = computePlayerStats(p.batter_id);
+    document.getElementById("matchBatterLine").textContent = bStats.ab > 0 ? formatStatline(bStats) : "First PA";
+    const pStats = computePitcherStats(p.pitcher_id);
+    document.getElementById("matchPitcherLine").textContent = pStats.bf > 0 ? `${pStats.ip} IP, ${pStats.k} K, ${pStats.h} H, ${pStats.r} R` : "Starting";
 
-    // Count dots
-    const balls = p.balls + (p.result === "ball" ? 1 : 0);
-    const strikes = p.strikes + (p.result === "called_strike" || p.result === "swinging_strike" ? 1 : p.result === "foul" && p.strikes < 2 ? 1 : 0);
-    const outs = p.outs + (p.event === "OUT" || p.event === "K" ? 1 : 0);
-
-    for(let i = 0; i < 4; i++) {
-      const el = document.getElementById(`b${i}`);
-      if(el) el.className = `sim-dot${i < (p.is_ball ? balls : p.balls) ? " filled-b" : ""}`;
-    }
-    // Actually, let's use the raw count from the pitch + update
-    updateCountDots(p);
+    // BSO dots (gamecast style)
+    updateBSO(p);
 
     // Bases
     const runners = p.runners || [false, false, false];
-    document.getElementById("base1").className = `sim-base sim-base-1b${runners[0] ? " occupied" : ""}`;
-    document.getElementById("base2").className = `sim-base sim-base-2b${runners[1] ? " occupied" : ""}`;
-    document.getElementById("base3").className = `sim-base sim-base-3b${runners[2] ? " occupied" : ""}`;
+    const b1 = document.getElementById("base1");
+    const b2 = document.getElementById("base2");
+    const b3 = document.getElementById("base3");
+    b1.style.background = runners[0] ? "rgba(250,204,21,.95)" : "rgba(255,255,255,.75)";
+    b1.style.borderColor = runners[0] ? "rgba(234,179,8,.95)" : "rgba(148,163,184,.35)";
+    b2.style.background = runners[1] ? "rgba(250,204,21,.95)" : "rgba(255,255,255,.75)";
+    b2.style.borderColor = runners[1] ? "rgba(234,179,8,.95)" : "rgba(148,163,184,.35)";
+    b3.style.background = runners[2] ? "rgba(250,204,21,.95)" : "rgba(255,255,255,.75)";
+    b3.style.borderColor = runners[2] ? "rgba(234,179,8,.95)" : "rgba(148,163,184,.35)";
 
     // Strike zone - collect pitches in current PA
     const paPitches = collectPAPitches(currentPitch);
@@ -1016,14 +1080,15 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     // Pitch counter
     document.getElementById("pitchCounter").textContent = `${currentPitch + 1} / ${total}`;
 
+    // Last play text
+    const lastEvent = [...gameData.events].reverse().find(e => (e.pitch_index || 0) <= currentPitch);
+    document.getElementById("gc-lastplay").textContent = lastEvent ? lastEvent.description || "—" : "—";
+
     // Feed
     renderFeed();
 
     // Lineups
     renderViewerLineups();
-
-    // Linescore
-    renderLinescore(p);
 
     // BIP check — show takeover on in-play, hide otherwise
     if (p.bip && p.is_in_play) {
@@ -1043,29 +1108,76 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     document.getElementById("btnNextInning").disabled = currentPitch >= total - 1;
   }
 
-  function updateCountDots(p) {
-    let b = p.balls, s = p.strikes;
-    // After the current pitch result
+  function updateBSO(p) {
+    let b = p.balls, s = p.strikes, o = p.outs;
     if (p.result === "ball") b++;
     else if (p.result === "called_strike" || p.result === "swinging_strike") s++;
     else if (p.result === "foul" && p.strikes < 2) s++;
-    // Clamp
-    b = Math.min(b, 4); s = Math.min(s, 3);
-    let o = p.outs;
     if (p.event === "K" || p.event === "OUT") o = Math.min(o + 1, 3);
+    b = Math.min(b, 4); s = Math.min(s, 3);
 
-    for(let i = 0; i < 4; i++) {
-      const el = document.getElementById(`b${i}`);
-      if(el) el.className = `sim-dot${i < b ? " filled-b" : ""}`;
+    // Render gamecast-style dots
+    function renderDots(containerId, count, max, cls) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      let html = "";
+      for (let i = 0; i < max; i++) {
+        html += `<div class="gc-dot${i < count ? ` on ${cls}` : ""}"></div>`;
+      }
+      el.innerHTML = html;
     }
-    for(let i = 0; i < 2; i++) {
-      const el = document.getElementById(`s${i}`);
-      if(el) el.className = `sim-dot${i < s ? " filled-s" : ""}`;
+    renderDots("gc-balls", b, 4, "ball");
+    renderDots("gc-strikes", s, 3, "strike");
+    renderDots("gc-outs", o, 3, "out");
+
+    document.getElementById("gc-count-label").textContent = `${b}-${s}`;
+  }
+
+  // Stat computation helpers
+  function computePlayerStats(playerId) {
+    const s = {ab:0, h:0, hr:0, rbi:0, bb:0, k:0, r:0};
+    for (let i = 0; i <= currentPitch; i++) {
+      const p = gameData.pitches[i];
+      if (!p.event || p.batter_id !== playerId) continue;
+      if (["1B","2B","3B","HR"].includes(p.event)) { s.h++; s.ab++; if (p.event==="HR") s.hr++; }
+      else if (p.event === "K") { s.k++; s.ab++; }
+      else if (p.event === "OUT") { s.ab++; }
+      else if (p.event === "BB") { s.bb++; }
     }
-    for(let i = 0; i < 2; i++) {
-      const el = document.getElementById(`o${i}`);
-      if(el) el.className = `sim-dot${i < o ? " filled-o" : ""}`;
+    // RBIs from events
+    gameData.events.filter(e => (e.pitch_index||0) <= currentPitch && e.batter_id === playerId).forEach(e => {
+      if (e.rbi) s.rbi += e.rbi;
+      else if (e.runs_scored && e.type === "out") s.rbi += e.runs_scored;
+    });
+    return s;
+  }
+
+  function computePitcherStats(pitcherId) {
+    let outs = 0, h = 0, r = 0, k = 0, bb = 0, bf = 0, pitches = 0;
+    for (let i = 0; i <= currentPitch; i++) {
+      const p = gameData.pitches[i];
+      if (p.pitcher_id !== pitcherId) continue;
+      pitches++;
+      if (!p.event) continue;
+      bf++;
+      if (p.event === "K") { k++; outs++; }
+      else if (p.event === "OUT") { outs++; }
+      else if (p.event === "BB") { bb++; }
+      else if (["1B","2B","3B","HR"].includes(p.event)) { h++; }
     }
+    // Runs
+    gameData.events.filter(e => (e.pitch_index||0) <= currentPitch && e.pitcher_id === pitcherId && e.runs_scored).forEach(e => { r += e.runs_scored; });
+    const ip = `${Math.floor(outs/3)}.${outs%3}`;
+    return {ip, h, r, k, bb, bf, pitches};
+  }
+
+  function formatStatline(s) {
+    const parts = [`${s.h}-${s.ab}`];
+    if (s.hr) parts.push(`${s.hr} HR`);
+    if (s.rbi) parts.push(`${s.rbi} RBI`);
+    if (s.bb) parts.push(`${s.bb} BB`);
+    if (s.k) parts.push(`${s.k} K`);
+    return parts.join(", ");
   }
 
   function collectPAPitches(idx) {
@@ -1193,16 +1305,30 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     const feedDiv = document.getElementById("simFeed");
     const events = gameData.events.filter(e => (e.pitch_index || 0) <= currentPitch);
     if (!events.length) {
-      feedDiv.innerHTML = '<div style="opacity:.4;font-size:13px;text-align:center;">Game events will appear here</div>';
+      feedDiv.innerHTML = '<div style="opacity:.4;font-size:13px;text-align:center;padding:12px;">Game events will appear here</div>';
       return;
     }
     feedDiv.innerHTML = "";
-    // Show most recent first
     [...events].reverse().forEach(ev => {
       const div = document.createElement("div");
-      div.className = `sim-feed-item${ev.runs_scored > 0 ? " sim-feed-scoring" : ""}`;
+      div.className = "gc-feed-item";
       const inn = `${ev.half === "Top" ? "▲" : "▼"}${ev.inning}`;
-      div.innerHTML = `<span class="sim-feed-inning">${inn}</span>${ev.description || ev.type}`;
+
+      let badgeCls = "out";
+      if (ev.runs_scored > 0) badgeCls = "scoring";
+      else if (ev.type === "strikeout") badgeCls = "k";
+      else if (ev.type === "walk") badgeCls = "bb";
+      else if (ev.type === "hit") badgeCls = "hit";
+      else if (ev.type === "pitching_change") badgeCls = "sub";
+
+      let badgeText = ev.type === "strikeout" ? "K" : ev.type === "walk" ? "BB" : ev.type === "hit" ? "HIT" : ev.type === "pitching_change" ? "SUB" : ev.type === "out" ? "OUT" : ev.type.toUpperCase();
+      if (ev.runs_scored > 0) badgeText = `${ev.runs_scored} RUN${ev.runs_scored > 1 ? "S" : ""}`;
+
+      div.innerHTML = `
+        <span class="gc-feed-inning">${inn}</span>
+        <span class="gc-feed-badge ${badgeCls}">${badgeText}</span>
+        <span class="gc-feed-desc">${ev.description || ""}</span>
+      `;
       feedDiv.appendChild(div);
     });
   }
@@ -1217,57 +1343,28 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     const div = document.getElementById(containerId);
     div.innerHTML = "";
 
-    // Compute stats through current pitch
-    const stats = {};
-    for(let i = 0; i <= currentPitch; i++) {
-      const p = gameData.pitches[i];
-      if (!p.event) continue;
-      const bid = p.batter_id;
-      if (!stats[bid]) stats[bid] = {ab: 0, h: 0, hr: 0, rbi: 0, bb: 0, k: 0, r: 0};
-      const ev = p.event;
-      if (["1B","2B","3B","HR"].includes(ev)) {
-        stats[bid].h++;
-        stats[bid].ab++;
-        if (ev === "HR") stats[bid].hr++;
-      } else if (ev === "K") {
-        stats[bid].k++;
-        stats[bid].ab++;
-      } else if (ev === "OUT") {
-        stats[bid].ab++;
-      } else if (ev === "BB") {
-        stats[bid].bb++;
-      }
-    }
-
-    // Count RBIs from events
-    const eventsThrough = gameData.events.filter(e => (e.pitch_index || 0) <= currentPitch);
-    eventsThrough.forEach(ev => {
-      const bid = ev.batter_id;
-      if (bid && stats[bid] && ev.rbi) stats[bid].rbi += ev.rbi;
-      if (bid && stats[bid] && ev.runs_scored && ev.type === "out") stats[bid].rbi += ev.runs_scored;
-    });
-
     const currentBatterId = gameData.pitches[currentPitch]?.batter_id;
 
     lineup.forEach((b, i) => {
-      const s = stats[b.id] || {ab: 0, h: 0, hr: 0, rbi: 0, bb: 0, k: 0};
-      let statline = "—";
-      if (s.ab > 0 || s.bb > 0) {
-        const parts = [`${s.h}-${s.ab}`];
-        if (s.hr) parts.push(`${s.hr} HR`);
-        if (s.rbi) parts.push(`${s.rbi} RBI`);
-        if (s.bb) parts.push(`${s.bb} BB`);
-        if (s.k) parts.push(`${s.k} K`);
-        statline = parts.join(", ");
-      }
-      const row = document.createElement("div");
-      row.className = `sim-lineup-row${b.id === currentBatterId ? " current" : ""}`;
-      row.innerHTML = `
-        <div class="sim-lineup-spot">${i+1}</div>
-        <div class="sim-lineup-name">${shortName(b.name)}<span class="sim-lineup-pos">${b.pos}</span></div>
-        <div class="sim-lineup-statline">${statline}</div>
+      const s = computePlayerStats(b.id);
+      let statline = "";
+      if (s.ab > 0 || s.bb > 0) statline = formatStatline(s);
+
+      const isActive = b.id === currentBatterId;
+      const player = document.createElement("div");
+      player.className = `gc-player${isActive ? " active" : ""}`;
+      player.innerHTML = `
+        <div class="gc-row">
+          <div class="gc-row-main">
+            <div class="gc-name">
+              ${shortName(b.name)}
+              <span class="gc-pos">${b.pos}</span>
+            </div>
+            <div class="gc-statline">${statline || "—"}</div>
+          </div>
+        </div>
       `;
-      div.appendChild(row);
+      div.appendChild(player);
     });
   }
 
@@ -1277,56 +1374,7 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   }
 
   // ============ LINESCORE ============
-  function renderLinescore(p) {
-    const div = document.getElementById("simLinescore");
-    const ls = gameData.linescore;
-    const maxInn = Math.max(ls.away.length, ls.home.length, p.inning);
-
-    // Compute running linescore through current pitch
-    const awayByInn = new Array(maxInn).fill(0);
-    const homeByInn = new Array(maxInn).fill(0);
-    let lastScore = {away: 0, home: 0};
-
-    for(let i = 0; i <= currentPitch; i++) {
-      const pi = gameData.pitches[i];
-      if (pi.event) {
-        const team = pi.half === "Top" ? "away" : "home";
-        const innIdx = pi.inning - 1;
-        if (team === "away") {
-          awayByInn[innIdx] = pi.score_away - (innIdx > 0 ? gameData.pitches.slice(0, i).filter(x => x.half === "Top" && x.inning < pi.inning && x.event).reduce((acc, x) => Math.max(acc, x.score_away), 0) : 0);
-        }
-      }
-    }
-
-    // Simpler approach: just use the final linescore data, showing only through current inning
-    let html = '<table><thead><tr><th></th>';
-    for(let i = 1; i <= maxInn; i++) {
-      const isActive = i === p.inning;
-      html += `<th class="${isActive ? 'active-inn' : ''}">${i}</th>`;
-    }
-    html += '<th>R</th><th>H</th></tr></thead><tbody>';
-
-    // Away
-    html += '<tr><td style="font-weight:700;text-align:left;">' + (document.getElementById("sbAwayName").textContent) + '</td>';
-    for(let i = 0; i < maxInn; i++) {
-      const show = (i + 1 < p.inning) || (i + 1 === p.inning && p.half !== "Top");
-      const isActive = i + 1 === p.inning;
-      html += `<td class="${isActive ? 'active-inn' : ''}">${show ? (ls.away[i] ?? "") : (i + 1 === p.inning && p.half === "Top" ? "•" : "")}</td>`;
-    }
-    html += `<td style="font-weight:700;">${p.score_away}</td><td>—</td></tr>`;
-
-    // Home
-    html += '<tr><td style="font-weight:700;text-align:left;">' + (document.getElementById("sbHomeName").textContent) + '</td>';
-    for(let i = 0; i < maxInn; i++) {
-      const show = (i + 1 < p.inning) || (i + 1 === p.inning && p.half !== "Top" && p.half !== "Bottom");
-      const isActive = i + 1 === p.inning;
-      html += `<td class="${isActive ? 'active-inn' : ''}">${show ? (ls.home[i] ?? "") : (i + 1 === p.inning && p.half === "Bottom" ? "•" : "")}</td>`;
-    }
-    html += `<td style="font-weight:700;">${p.score_home}</td><td>—</td></tr>`;
-
-    html += '</tbody></table>';
-    div.innerHTML = html;
-  }
+  // Linescore removed — scorebar in header card handles score display
 
   // ============ BIP TAKEOVER (matches gamecast animation) ============
   let __sim_last_bip_id = "";
@@ -1407,8 +1455,9 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     ball.appendChild(motion);
     pointsG.appendChild(ball);
 
-    // Show takeover
-    takeover.classList.add("active");
+    // Show takeover (gamecast pattern: add to midgrid)
+    takeover.style.display = "flex";
+    takeover.closest(".gc-midgrid").classList.add("takeover-active");
 
     try { motion.beginElement(); } catch(e) {}
 
@@ -1453,7 +1502,10 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   }
 
   function hideBIP() {
-    document.getElementById("bipTakeover").classList.remove("active");
+    const takeover = document.getElementById("bipTakeover");
+    takeover.style.display = "none";
+    const midgrid = takeover.closest(".gc-midgrid");
+    if (midgrid) midgrid.classList.remove("takeover-active");
   }
 
   // ============ PLAY TOAST POPUPS ============
