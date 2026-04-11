@@ -144,8 +144,6 @@ svg.gc-bip-svg { width:320px; height:320px; display:block; border:1px solid rgba
 .sim-ctrl-btn:disabled { opacity:.3; cursor:not-allowed; }
 .sim-pitch-counter { font-family:'IBM Plex Mono',monospace; font-size:13px; opacity:.5; }
 .sim-speed-wrap { display:flex; align-items:center; gap:6px; }
-.sim-speed-wrap label { font-size:11px; opacity:.4; }
-.sim-speed-slider { width:80px; }
 
 /* Feed */
 .sim-feed { background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:12px; max-height:300px; overflow-y:auto; }
@@ -326,8 +324,11 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
       <button class="sim-ctrl-btn" id="btnNextInning" title="Skip to next half-inning">Next ½ ⏩</button>
       <button class="sim-ctrl-btn" id="btnAutoplay">▶ Auto</button>
       <div class="sim-speed-wrap">
-        <label>Speed</label>
-        <input type="range" class="sim-speed-slider" id="speedSlider" min="200" max="3000" value="800" step="100">
+        <select id="speedSelect" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:#0b0e13; color:#fff; font-size:12px; font-family:inherit; cursor:pointer;">
+          <option value="2000">Slow</option>
+          <option value="1000" selected>Normal</option>
+          <option value="400">Fast</option>
+        </select>
       </div>
       <span class="sim-pitch-counter" id="pitchCounter">0 / 0</span>
     </div>
@@ -1593,41 +1594,36 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   });
 
   // Auto-play
-  document.getElementById("btnAutoplay").addEventListener("click", function(){
-    if (autoplayTimer) {
-      clearInterval(autoplayTimer);
-      autoplayTimer = null;
-      this.textContent = "▶ Auto-play";
-      return;
-    }
-    this.textContent = "⏸ Pause";
-    const speed = parseInt(document.getElementById("speedSlider").value) || 800;
+  function getSpeed() { return parseInt(document.getElementById("speedSelect").value) || 1000; }
+
+  function startAutoplay() {
+    if (autoplayTimer) return;
+    document.getElementById("btnAutoplay").textContent = "⏸ Pause";
     autoplayTimer = setInterval(() => {
       if (currentPitch >= gameData.pitches.length - 1) {
-        clearInterval(autoplayTimer);
-        autoplayTimer = null;
-        document.getElementById("btnAutoplay").textContent = "▶ Auto-play";
+        stopAutoplay();
         return;
       }
       currentPitch++;
       renderState();
-    }, speed);
+    }, getSpeed());
+  }
+
+  function stopAutoplay() {
+    clearInterval(autoplayTimer);
+    autoplayTimer = null;
+    document.getElementById("btnAutoplay").textContent = "▶ Auto";
+  }
+
+  document.getElementById("btnAutoplay").addEventListener("click", function(){
+    if (autoplayTimer) stopAutoplay();
+    else startAutoplay();
   });
 
-  document.getElementById("speedSlider").addEventListener("input", function(){
+  document.getElementById("speedSelect").addEventListener("change", function(){
     if (autoplayTimer) {
-      clearInterval(autoplayTimer);
-      const speed = parseInt(this.value) || 800;
-      autoplayTimer = setInterval(() => {
-        if (currentPitch >= gameData.pitches.length - 1) {
-          clearInterval(autoplayTimer);
-          autoplayTimer = null;
-          document.getElementById("btnAutoplay").textContent = "▶ Auto-play";
-          return;
-        }
-        currentPitch++;
-        renderState();
-      }, speed);
+      stopAutoplay();
+      startAutoplay();
     }
   });
 
