@@ -292,6 +292,7 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   top:0;
   align-self:flex-start;
   height:100vh;
+  overflow-y:auto;
 }
 
 .side-nav a{
@@ -387,7 +388,19 @@ td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Pl
   padding:14px 12px;
   display:flex;
   flex-direction:column;
+  overflow:hidden;
 }
+.sidebar-inner .side-nav{
+  flex:1 1 auto;
+  overflow-y:auto;
+  margin:0 -12px;
+  padding:0 12px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(0,0,0,.12) transparent;
+}
+.sidebar-inner .side-nav::-webkit-scrollbar{ width:4px; }
+.sidebar-inner .side-nav::-webkit-scrollbar-thumb{ background:rgba(0,0,0,.12); border-radius:4px; }
+.sidebar-inner .side-nav::-webkit-scrollbar-track{ background:transparent; }
 
 .main{
   flex:1 1 auto;
