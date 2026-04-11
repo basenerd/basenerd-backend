@@ -3752,6 +3752,15 @@ _sim_cache = {}  # In-memory cache for simulated games
 def simulate_page():
     from services.game_simulation import MLB_TEAMS, TEAM_TO_SVG, STADIUM_DIMENSIONS, STADIUM_NAMES
     teams_list = sorted(MLB_TEAMS.values(), key=lambda t: t["name"])
+
+    # Load pre-built player dictionary for custom lineup builder
+    sim_players_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "sim_players.json")
+    try:
+        with open(sim_players_path) as f:
+            sim_players = f.read()
+    except Exception:
+        sim_players = "[]"
+
     return render_template(
         "simulate.html",
         title="Game Simulation Tool",
@@ -3760,6 +3769,7 @@ def simulate_page():
         team_to_svg=json.dumps(TEAM_TO_SVG),
         stadium_dims=json.dumps(STADIUM_DIMENSIONS),
         stadium_names=json.dumps(STADIUM_NAMES),
+        sim_players_json=sim_players,
     )
 
 

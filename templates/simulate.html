@@ -29,13 +29,19 @@
 .sim-pitcher-hand { font-size:12px; opacity:.5; }
 .sim-pitcher-select { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:#0b0e13; color:#fff; font-size:13px; font-family:inherit; }
 
-/* Custom search */
+/* Custom player picker */
 .sim-search-wrap { position:relative; }
 .sim-search-input { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:#0b0e13; color:#fff; font-size:13px; font-family:inherit; box-sizing:border-box; }
 .sim-search-results { position:absolute; top:100%; left:0; right:0; background:#111318; border:1px solid var(--border); border-radius:8px; max-height:200px; overflow-y:auto; z-index:100; display:none; }
 .sim-search-results.open { display:block; }
 .sim-search-item { padding:8px 10px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:8px; }
 .sim-search-item:hover { background:rgba(59,130,246,.1); }
+.sim-search-item-team { font-size:11px; opacity:.4; }
+
+/* Player filter row */
+.sim-filter-row { display:flex; gap:6px; margin-bottom:6px; }
+.sim-filter-row select { flex:1; padding:6px 8px; border-radius:6px; border:1px solid var(--border); background:#0b0e13; color:#fff; font-size:12px; font-family:inherit; }
+.sim-player-select { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:#0b0e13; color:#fff; font-size:13px; font-family:inherit; }
 
 /* Venue picker */
 .sim-venue-row { display:flex; gap:12px; align-items:center; justify-content:center; margin:0 0 20px; }
@@ -410,6 +416,17 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   const TEAM_TO_SVG = {{ team_to_svg|safe }};
   const STADIUM_DIMS = {{ stadium_dims|safe }};
   const STADIUM_NAMES = {{ stadium_names|safe }};
+  const SIM_PLAYERS = {{ sim_players_json|safe }};
+
+  // Build lookup indexes for fast filtering
+  const SIM_PLAYERS_BY_TEAM = {};
+  const SIM_TEAMS_SET = new Set();
+  SIM_PLAYERS.forEach(p => {
+    if (!SIM_PLAYERS_BY_TEAM[p.team]) SIM_PLAYERS_BY_TEAM[p.team] = [];
+    SIM_PLAYERS_BY_TEAM[p.team].push(p);
+    SIM_TEAMS_SET.add(p.team);
+  });
+  const SIM_TEAM_LIST = [...SIM_TEAMS_SET].sort();
 
   // Populate venue select with "Stadium Name (Team)" format
   const venueEl = document.getElementById("venueSelect");
@@ -602,20 +619,32 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     bullpenDiv.innerHTML = "";
     spSearchDiv.innerHTML = "";
 
-    // Create 9 search slots for batters
+    // Build team option HTML once
+    const teamOpts = '<option value="">All Teams</option>' +
+      SIM_TEAM_LIST.map(t => `<option value="${t}">${t}</option>`).join("");
+
+    const posOpts = {
+      batter: '<option value="">All Positions</option><option>C</option><option>1B</option><option>2B</option><option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option><option>DH</option><option>OF</option>',
+      pitcher: '<option value="">All</option><option value="P">P</option>',
+    };
+
+    // Create 9 lineup slots with team/position filters + player dropdown
     for(let i = 0; i < 9; i++) {
       const slot = document.createElement("div");
-      slot.className = "sim-lineup-slot";
+      slot.style.marginBottom = "8px";
       slot.innerHTML = `
-        <div class="sim-slot-num">${i+1}</div>
-        <div class="sim-slot-player" style="flex:1;">
-          <div class="sim-search-wrap" style="width:100%;">
-            <input class="sim-search-input custom-player-search" placeholder="Search player..." data-side="${side}" data-slot="${i}" data-role="batter">
-            <div class="sim-search-results" id="search-${side}-${i}"></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <span class="sim-slot-num" style="min-width:20px;">${i+1}</span>
+          <div class="sim-filter-row" style="flex:1;margin-bottom:0;">
+            <select class="custom-team-filter" data-side="${side}" data-slot="${i}" data-role="batter">${teamOpts}</select>
+            <select class="custom-pos-filter" data-side="${side}" data-slot="${i}" data-role="batter">${posOpts.batter}</select>
           </div>
         </div>
-        <div class="sim-slot-pos">
-          <select class="pos-select" data-side="${side}" data-slot="${i}">
+        <div style="display:flex;gap:6px;padding-left:26px;">
+          <select class="sim-player-select custom-player-pick" data-side="${side}" data-slot="${i}" data-role="batter" style="flex:1;">
+            <option value="">— Select Player —</option>
+          </select>
+          <select class="pos-select" data-side="${side}" data-slot="${i}" style="width:60px;">
             <option>DH</option><option>C</option><option>1B</option><option>2B</option>
             <option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option>
           </select>
@@ -624,81 +653,119 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
       lineupDiv.appendChild(slot);
     }
 
-    // SP search
+    // SP picker
     spSearchDiv.innerHTML = `
-      <div class="sim-search-wrap">
-        <input class="sim-search-input custom-player-search" placeholder="Search starting pitcher..." data-side="${side}" data-slot="sp" data-role="pitcher">
-        <div class="sim-search-results" id="search-${side}-sp"></div>
+      <div class="sim-filter-row">
+        <select class="custom-team-filter" data-side="${side}" data-slot="sp" data-role="pitcher">${teamOpts}</select>
       </div>
+      <select class="sim-player-select custom-player-pick" data-side="${side}" data-slot="sp" data-role="pitcher" style="width:100%;">
+        <option value="">— Select Starting Pitcher —</option>
+      </select>
     `;
 
-    // Bullpen searches
+    // Bullpen pickers
     for(let i = 0; i < 3; i++) {
       const div = document.createElement("div");
-      div.className = "sim-search-wrap";
       div.style.marginBottom = "6px";
       div.innerHTML = `
-        <input class="sim-search-input custom-player-search" placeholder="Reliever ${i+1}..." data-side="${side}" data-slot="bp${i}" data-role="pitcher">
-        <div class="sim-search-results" id="search-${side}-bp${i}"></div>
+        <div class="sim-filter-row">
+          <select class="custom-team-filter" data-side="${side}" data-slot="bp${i}" data-role="pitcher">${teamOpts}</select>
+        </div>
+        <select class="sim-player-select custom-player-pick" data-side="${side}" data-slot="bp${i}" data-role="pitcher" style="width:100%;">
+          <option value="">— Reliever ${i+1} —</option>
+        </select>
       `;
       bullpenDiv.appendChild(div);
     }
 
-    // Wire up search
-    setupCustomSearch();
+    // Populate initial player dropdowns and wire up filters
+    wireCustomFilters(side);
   }
 
-  // Player search for custom mode
-  let searchTimeout = null;
   const customSelections = {}; // key: `${side}-${slot}` -> player object
 
-  function setupCustomSearch() {
-    document.querySelectorAll(".custom-player-search").forEach(input => {
-      input.addEventListener("input", function() {
-        clearTimeout(searchTimeout);
-        const q = this.value.trim();
-        const side = this.dataset.side;
+  function wireCustomFilters(side) {
+    // Team and position filter changes → repopulate player dropdown
+    document.querySelectorAll(`.custom-team-filter[data-side="${side}"], .custom-pos-filter[data-side="${side}"]`).forEach(filter => {
+      filter.addEventListener("change", function() {
         const slot = this.dataset.slot;
-        const resultsDiv = document.getElementById(`search-${side}-${slot}`);
-        if (q.length < 2) { resultsDiv.classList.remove("open"); return; }
-        searchTimeout = setTimeout(async () => {
-          try {
-            const res = await fetch(`/players/suggest?q=${encodeURIComponent(q)}`);
-            const suggestions = await res.json();
-            resultsDiv.innerHTML = "";
-            (suggestions || []).slice(0, 8).forEach(s => {
-              const item = document.createElement("div");
-              item.className = "sim-search-item";
-              item.textContent = s.label || s.name || s;
-              item.addEventListener("click", async () => {
-                const playerId = s.id || s.player_id;
-                // Fetch full player info
-                const infoRes = await fetch(`/api/simulate/player/${playerId}/info`);
-                const info = await infoRes.json();
-                if (info.ok) {
-                  const key = `${side}-${slot}`;
-                  customSelections[key] = info;
-                  input.value = info.name;
-                  input.dataset.playerId = info.id;
-                  resultsDiv.classList.remove("open");
-                  checkReady();
-                }
-              });
-              resultsDiv.appendChild(item);
-            });
-            resultsDiv.classList.add("open");
-          } catch(e) { console.error(e); }
-        }, 300);
-      });
-
-      input.addEventListener("blur", () => {
-        setTimeout(() => {
-          const side = input.dataset.side;
-          const slot = input.dataset.slot;
-          document.getElementById(`search-${side}-${slot}`)?.classList.remove("open");
-        }, 200);
+        const role = this.dataset.role;
+        populatePlayerDropdown(side, slot, role);
       });
     });
+
+    // Player selection
+    document.querySelectorAll(`.custom-player-pick[data-side="${side}"]`).forEach(sel => {
+      sel.addEventListener("change", function() {
+        const slot = this.dataset.slot;
+        const key = `${side}-${slot}`;
+        if (this.value) {
+          customSelections[key] = JSON.parse(this.value);
+          // Auto-set position if it's a batter slot
+          if (slot.match(/^\d+$/)) {
+            const posEl = document.querySelector(`.pos-select[data-side="${side}"][data-slot="${slot}"]`);
+            const p = customSelections[key];
+            if (posEl && p.pos && p.pos !== "P") {
+              for (const o of posEl.options) { if (o.value === p.pos) { posEl.value = p.pos; break; } }
+            }
+          }
+        } else {
+          delete customSelections[key];
+        }
+        checkReady();
+      });
+    });
+
+    // Initial populate — show all pitchers for SP/bullpen, all hitters for lineup slots
+    document.querySelectorAll(`.custom-player-pick[data-side="${side}"]`).forEach(sel => {
+      populatePlayerDropdown(side, sel.dataset.slot, sel.dataset.role);
+    });
+  }
+
+  function populatePlayerDropdown(side, slot, role) {
+    const teamFilter = document.querySelector(`.custom-team-filter[data-side="${side}"][data-slot="${slot}"]`);
+    const posFilter = document.querySelector(`.custom-pos-filter[data-side="${side}"][data-slot="${slot}"]`);
+    const playerSel = document.querySelector(`.custom-player-pick[data-side="${side}"][data-slot="${slot}"]`);
+    if (!playerSel) return;
+
+    const team = teamFilter ? teamFilter.value : "";
+    const pos = posFilter ? posFilter.value : "";
+
+    // Filter players
+    let filtered = SIM_PLAYERS;
+    if (team) filtered = filtered.filter(p => p.team === team);
+    if (pos) {
+      if (pos === "OF") filtered = filtered.filter(p => ["LF","CF","RF","OF"].includes(p.pos));
+      else filtered = filtered.filter(p => p.pos === pos);
+    }
+
+    // For pitcher slots, only show pitchers
+    if (role === "pitcher") {
+      filtered = filtered.filter(p => p.pos === "P");
+    }
+    // For batter slots, exclude pitchers by default (unless position filter is set)
+    if (role === "batter" && !pos) {
+      filtered = filtered.filter(p => p.pos !== "P");
+    }
+
+    // Remember current selection
+    const key = `${side}-${slot}`;
+    const currentVal = customSelections[key];
+    const currentId = currentVal ? currentVal.id : null;
+
+    // Build options
+    const defaultLabel = role === "pitcher"
+      ? (slot === "sp" ? "— Select Starting Pitcher —" : `— Reliever —`)
+      : "— Select Player —";
+
+    let html = `<option value="">${defaultLabel}</option>`;
+    filtered.forEach(p => {
+      const val = JSON.stringify({id: p.id, name: p.name, stand: p.stand, pos: p.pos, p_throws: p.p_throws});
+      const selected = p.id === currentId ? " selected" : "";
+      const hand = role === "pitcher" ? ` (${p.p_throws}HP)` : ` (${p.stand})`;
+      html += `<option value='${val.replace(/'/g, "&#39;")}'${selected}>${p.name} — ${p.team} ${p.pos}${hand}</option>`;
+    });
+    playerSel.innerHTML = html;
   }
 
   // ============ TEAM SELECT HANDLERS ============
@@ -729,14 +796,13 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
 
   function getLineup(side) {
     if (isCustomMode) {
-      // Custom mode
       const lineup = [];
       for (let i = 0; i < 9; i++) {
         const key = `${side}-${i}`;
         const p = customSelections[key];
         if (p) {
           const posEl = document.querySelector(`.pos-select[data-side="${side}"][data-slot="${i}"]`);
-          lineup.push({id: p.id, name: p.name, stand: p.stand || "R", pos: posEl?.value || "DH"});
+          lineup.push({id: p.id, name: p.name, stand: p.stand || "R", pos: posEl?.value || p.pos || "DH"});
         }
       }
       return lineup;
