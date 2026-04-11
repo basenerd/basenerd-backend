@@ -958,6 +958,307 @@ def _advance_runners_on_out(
 
 
 # ---------------------------------------------------------------------------
+# Between-pitch baserunning events
+# ---------------------------------------------------------------------------
+
+# League-average rates (per opportunity, 2021-2025 approx)
+_SB_ATTEMPT_RATE = 0.08    # ~8% of pitches with runner on 1B/2B, someone attempts
+_SB_SUCCESS_RATE = 0.78    # ~78% success rate on steal attempts
+_WP_RATE = 0.004           # ~0.4% of pitches are wild pitches
+_PB_RATE = 0.001           # ~0.1% of pitches are passed balls
+_BALK_RATE = 0.0003        # ~0.03% of pitches with runners on
+_PICKOFF_ATTEMPT_RATE = 0.03  # ~3% of pitches with runner on 1B
+_PICKOFF_SUCCESS_RATE = 0.06  # ~6% of pickoff attempts catch the runner
+
+
+def _check_baserunning_events(
+    bases: list,
+    outs: int,
+    balls: int,
+    strikes: int,
+    pitch_type: str,
+    pitch_result: str,
+    inning: int,
+    half: str,
+    score: dict,
+    batting_team: str,
+    pitching_team: str,
+    pitcher_info: dict,
+    batter: dict,
+    pitch_index: int,
+    rng: random.Random,
+) -> list:
+    """
+    Check for between-pitch baserunning events: stolen bases, caught stealing,
+    wild pitches, passed balls, pickoffs, balks.
+    Returns list of event dicts, each with new_bases, runs, out flag, and event dict.
+    """
+    results = []
+    runners_on = sum(1 for b in bases if b is not None)
+    if runners_on == 0:
+        return results
+
+    lead = score[pitching_team] - score[batting_team]
+    is_close = abs(lead) <= 3
+
+    # --- Wild pitch / passed ball (happens on the pitch just thrown) ---
+    # More likely on breaking balls in the dirt, balls, and swinging strikes
+    wp_mult = 1.0
+    if pitch_type in ("CU", "SL", "KC", "SV", "ST"):
+        wp_mult = 1.8  # breaking balls more likely to get away
+    if pitch_type in ("CH", "FS"):
+        wp_mult = 1.4
+    if pitch_result == "ball":
+        wp_mult *= 1.3
+    if pitch_result == "swinging_strike":
+        wp_mult *= 1.2
+
+    if rng.random() < _WP_RATE * wp_mult:
+        new_bases = bases.copy()
+        runs = 0
+        # Advance all runners one base
+        if new_bases[2] is not None:
+            runs += 1
+            new_bases[2] = None
+        if new_bases[1] is not None:
+            new_bases[2] = new_bases[1]
+            new_bases[1] = None
+        if new_bases[0] is not None:
+            new_bases[1] = new_bases[0]
+            new_bases[0] = None
+
+        results.append({
+            "new_bases": new_bases,
+            "runs": runs,
+            "out": False,
+            "event": {
+                "type": "wild_pitch",
+                "inning": inning, "half": half,
+                "pitcher_id": pitcher_info["id"],
+                "pitcher_name": pitcher_info["name"],
+                "description": f"Wild pitch by {pitcher_info['name']}. Runner{'s' if runners_on > 1 else ''} advance." + (f" {runs} run{'s' if runs > 1 else ''} score{'s' if runs == 1 else ''}!" if runs else ""),
+                "runs_scored": runs,
+                "pitch_index": pitch_index,
+            },
+        })
+        bases = new_bases
+        return results  # Only one event per pitch
+
+    if rng.random() < _PB_RATE * wp_mult * 0.5:
+        new_bases = bases.copy()
+        runs = 0
+        if new_bases[2] is not None:
+            runs += 1
+            new_bases[2] = None
+        if new_bases[1] is not None:
+            new_bases[2] = new_bases[1]
+            new_bases[1] = None
+        if new_bases[0] is not None:
+            new_bases[1] = new_bases[0]
+            new_bases[0] = None
+
+        results.append({
+            "new_bases": new_bases,
+            "runs": runs,
+            "out": False,
+            "event": {
+                "type": "passed_ball",
+                "inning": inning, "half": half,
+                "description": f"Passed ball. Runner{'s' if runners_on > 1 else ''} advance." + (f" {runs} run{'s' if runs > 1 else ''} score{'s' if runs == 1 else ''}!" if runs else ""),
+                "runs_scored": runs,
+                "pitch_index": pitch_index,
+            },
+        })
+        bases = new_bases
+        return results
+
+    # --- Balk (very rare, only with runners on) ---
+    if rng.random() < _BALK_RATE:
+        new_bases = bases.copy()
+        runs = 0
+        if new_bases[2] is not None:
+            runs += 1
+            new_bases[2] = None
+        if new_bases[1] is not None:
+            new_bases[2] = new_bases[1]
+            new_bases[1] = None
+        if new_bases[0] is not None:
+            new_bases[1] = new_bases[0]
+            new_bases[0] = None
+
+        results.append({
+            "new_bases": new_bases,
+            "runs": runs,
+            "out": False,
+            "event": {
+                "type": "balk",
+                "inning": inning, "half": half,
+                "pitcher_id": pitcher_info["id"],
+                "pitcher_name": pitcher_info["name"],
+                "description": f"Balk by {pitcher_info['name']}. Runners advance." + (f" Run scores!" if runs else ""),
+                "runs_scored": runs,
+                "pitch_index": pitch_index,
+            },
+        })
+        return results
+
+    # --- Stolen base attempts (before the next pitch) ---
+    # Only attempt if not already in play, runner on 1B or 2B, < 2 outs
+    if outs >= 2:
+        # Less likely to steal with 2 outs
+        sb_mult = 0.3
+    else:
+        sb_mult = 1.0
+
+    # Close game = more steals; blowout = fewer
+    if is_close:
+        sb_mult *= 1.2
+    elif abs(lead) >= 5:
+        sb_mult *= 0.3
+
+    # More likely on certain counts (pitcher focusing on batter)
+    if balls >= 2:
+        sb_mult *= 1.3  # pitcher likely throwing fastball
+    if strikes == 2:
+        sb_mult *= 0.6  # batter protecting, less likely to go
+
+    # Check each base for steal opportunity
+    # Steal 2B (runner on 1B, 2B empty)
+    if bases[0] is not None and bases[1] is None:
+        if rng.random() < _SB_ATTEMPT_RATE * sb_mult:
+            if rng.random() < _SB_SUCCESS_RATE:
+                # Successful steal
+                new_bases = bases.copy()
+                new_bases[1] = new_bases[0]
+                new_bases[0] = None
+                results.append({
+                    "new_bases": new_bases,
+                    "runs": 0,
+                    "out": False,
+                    "event": {
+                        "type": "stolen_base",
+                        "inning": inning, "half": half,
+                        "description": f"Stolen base! Runner steals 2nd.",
+                        "runs_scored": 0,
+                        "pitch_index": pitch_index,
+                    },
+                })
+            else:
+                # Caught stealing
+                new_bases = bases.copy()
+                new_bases[0] = None
+                results.append({
+                    "new_bases": new_bases,
+                    "runs": 0,
+                    "out": True,
+                    "event": {
+                        "type": "caught_stealing",
+                        "inning": inning, "half": half,
+                        "description": f"Caught stealing! Runner thrown out at 2nd.",
+                        "runs_scored": 0,
+                        "pitch_index": pitch_index,
+                    },
+                })
+            return results
+
+    # Steal 3B (runner on 2B, 3B empty) — less common
+    if bases[1] is not None and bases[2] is None:
+        if rng.random() < _SB_ATTEMPT_RATE * sb_mult * 0.35:  # much rarer
+            if rng.random() < _SB_SUCCESS_RATE * 0.85:  # slightly lower success
+                new_bases = bases.copy()
+                new_bases[2] = new_bases[1]
+                new_bases[1] = None
+                results.append({
+                    "new_bases": new_bases,
+                    "runs": 0,
+                    "out": False,
+                    "event": {
+                        "type": "stolen_base",
+                        "inning": inning, "half": half,
+                        "description": f"Stolen base! Runner steals 3rd.",
+                        "runs_scored": 0,
+                        "pitch_index": pitch_index,
+                    },
+                })
+            else:
+                new_bases = bases.copy()
+                new_bases[1] = None
+                results.append({
+                    "new_bases": new_bases,
+                    "runs": 0,
+                    "out": True,
+                    "event": {
+                        "type": "caught_stealing",
+                        "inning": inning, "half": half,
+                        "description": f"Caught stealing! Runner thrown out at 3rd.",
+                        "runs_scored": 0,
+                        "pitch_index": pitch_index,
+                    },
+                })
+            return results
+
+    # Steal home (runner on 3B) — extremely rare
+    if bases[2] is not None and outs < 2:
+        if rng.random() < 0.001:  # ~0.1% per pitch
+            if rng.random() < 0.60:
+                new_bases = bases.copy()
+                new_bases[2] = None
+                results.append({
+                    "new_bases": new_bases,
+                    "runs": 1,
+                    "out": False,
+                    "event": {
+                        "type": "stolen_base",
+                        "inning": inning, "half": half,
+                        "description": f"Steal of home! Runner scores!",
+                        "runs_scored": 1,
+                        "pitch_index": pitch_index,
+                    },
+                })
+            else:
+                new_bases = bases.copy()
+                new_bases[2] = None
+                results.append({
+                    "new_bases": new_bases,
+                    "runs": 0,
+                    "out": True,
+                    "event": {
+                        "type": "caught_stealing",
+                        "inning": inning, "half": half,
+                        "description": f"Caught stealing home! Runner tagged out at the plate.",
+                        "runs_scored": 0,
+                        "pitch_index": pitch_index,
+                    },
+                })
+            return results
+
+    # --- Pickoff attempt (before next pitch, runner on 1B) ---
+    if bases[0] is not None:
+        if rng.random() < _PICKOFF_ATTEMPT_RATE:
+            if rng.random() < _PICKOFF_SUCCESS_RATE:
+                # Picked off!
+                new_bases = bases.copy()
+                new_bases[0] = None
+                results.append({
+                    "new_bases": new_bases,
+                    "runs": 0,
+                    "out": True,
+                    "event": {
+                        "type": "pickoff",
+                        "inning": inning, "half": half,
+                        "pitcher_id": pitcher_info["id"],
+                        "pitcher_name": pitcher_info["name"],
+                        "description": f"Pickoff! {pitcher_info['name']} picks off runner at 1st.",
+                        "runs_scored": 0,
+                        "pitch_index": pitch_index,
+                    },
+                })
+            # If pickoff fails, nothing happens (runner safe, no event needed)
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Main simulation engine
 # ---------------------------------------------------------------------------
 
@@ -1317,6 +1618,26 @@ def simulate_game(
 
                     prev_pitch = pitch_type
                     prev_pitch_velo = mph
+
+                    # --- Between-pitch baserunning events ---
+                    if not pa_complete:
+                        br_events = _check_baserunning_events(
+                            bases, outs, balls, strikes, pitch_type, result,
+                            inning, half, score, batting_team, pitching_team,
+                            pitcher_info, batter,
+                            len(pitches) - 1, rng,
+                        )
+                        for br in br_events:
+                            bases = br["new_bases"]
+                            if br.get("runs", 0) > 0:
+                                score[batting_team] += br["runs"]
+                                inning_runs += br["runs"]
+                            if br.get("out"):
+                                outs += 1
+                                if outs >= 3:
+                                    pa_complete = True
+                                    pa_event = "OUT"  # inning ends on CS
+                            events.append(br["event"])
 
                 # --- PA complete: update game state ---
                 # Track on current pitcher for managerial decisions

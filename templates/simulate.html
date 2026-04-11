@@ -996,6 +996,7 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
       gameData = data.game;
       currentPitch = 0;
       __sim_last_takeover_pitch = -1;
+      __sim_shown_event_keys = new Set();
 
       // Setup viewer
       document.getElementById("simLoading").classList.remove("active");
@@ -1358,14 +1359,20 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
       div.className = "gc-feed-item";
       const inn = `${ev.half === "Top" ? "▲" : "▼"}${ev.inning}`;
 
-      let badgeCls = "out";
+      const badgeMap = {
+        strikeout:"k", walk:"bb", hit:"hit", pitching_change:"sub", out:"out",
+        stolen_base:"hit", caught_stealing:"k", wild_pitch:"out", passed_ball:"out",
+        balk:"out", pickoff:"k",
+      };
+      let badgeCls = badgeMap[ev.type] || "out";
       if (ev.runs_scored > 0) badgeCls = "scoring";
-      else if (ev.type === "strikeout") badgeCls = "k";
-      else if (ev.type === "walk") badgeCls = "bb";
-      else if (ev.type === "hit") badgeCls = "hit";
-      else if (ev.type === "pitching_change") badgeCls = "sub";
 
-      let badgeText = ev.type === "strikeout" ? "K" : ev.type === "walk" ? "BB" : ev.type === "hit" ? "HIT" : ev.type === "pitching_change" ? "SUB" : ev.type === "out" ? "OUT" : ev.type.toUpperCase();
+      const textMap = {
+        strikeout:"K", walk:"BB", hit:"HIT", pitching_change:"SUB", out:"OUT",
+        stolen_base:"SB", caught_stealing:"CS", wild_pitch:"WP", passed_ball:"PB",
+        balk:"BK", pickoff:"PO",
+      };
+      let badgeText = textMap[ev.type] || ev.type.toUpperCase();
       if (ev.runs_scored > 0) badgeText = `${ev.runs_scored} RUN${ev.runs_scored > 1 ? "S" : ""}`;
 
       div.innerHTML = `
@@ -1432,6 +1439,12 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     home_run:        { label: "Home Run",         badge: "HR",  icon: "💣", color: "#16a34a", bg: "rgba(34,197,94,.18)" },
     out:             { label: "Out",              badge: "OUT", icon: "👊", color: "#64748b", bg: "rgba(148,163,184,.08)" },
     pitching_change: { label: "Pitching Change",  badge: "SUB", icon: "🔄", color: "#4f46e5", bg: "rgba(99,102,241,.10)" },
+    stolen_base:     { label: "Stolen Base",      badge: "SB",  icon: "💨", color: "#16a34a", bg: "rgba(34,197,94,.12)" },
+    caught_stealing: { label: "Caught Stealing",  badge: "CS",  icon: "🚨", color: "#dc2626", bg: "rgba(239,68,68,.10)" },
+    wild_pitch:      { label: "Wild Pitch",       badge: "WP",  icon: "⚾", color: "#b45309", bg: "rgba(251,191,36,.12)" },
+    passed_ball:     { label: "Passed Ball",      badge: "PB",  icon: "⚾", color: "#b45309", bg: "rgba(251,191,36,.12)" },
+    balk:            { label: "Balk",             badge: "BK",  icon: "⚠️", color: "#b45309", bg: "rgba(251,191,36,.12)" },
+    pickoff:         { label: "Pickoff",          badge: "PO",  icon: "👀", color: "#c2410c", bg: "rgba(251,146,60,.12)" },
   };
 
   function showTakeover(title, subtitle, bodyHTML, ms, kind) {
@@ -1606,32 +1619,41 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   }
 
   // ============ EVENT TAKEOVER DISPATCHER ============
-  function checkForEventTakeovers(p) {
-    // Only show takeover on PA-ending pitches (pitches with an event)
-    if (!p.event) {
-      // No event on this pitch — hide takeover if it's from a previous event
-      // But only if we've moved past the event pitch
-      if (__sim_takeover_kind && __sim_last_takeover_pitch < currentPitch) {
-        // Let the timer handle it
-      }
-      return;
-    }
+  let __sim_shown_event_keys = new Set();
 
-    // Already showed takeover for this pitch
-    if (__sim_last_takeover_pitch === currentPitch) return;
-    __sim_last_takeover_pitch = currentPitch;
+  function _eventKey(ev) {
+    return `${ev.type}|${ev.pitch_index}|${(ev.description||"").slice(0,80)}`;
+  }
+
+  function checkForEventTakeovers(p) {
+    // Check for ALL events on or before this pitch that haven't been shown yet
+    // This catches between-pitch events (SB, WP, etc.) and PA-ending events
+    const pendingEvents = gameData.events.filter(ev => {
+      if ((ev.pitch_index || 0) > currentPitch) return false;
+      const key = _eventKey(ev);
+      return !__sim_shown_event_keys.has(key);
+    });
+
+    if (!pendingEvents.length) return;
+
+    // Show the first unseen event
+    const ev = pendingEvents[0];
+    const key = _eventKey(ev);
+    __sim_shown_event_keys.add(key);
 
     // BIP events get the full stadium animation
-    if (p.bip && p.is_in_play) {
+    if (p.bip && p.is_in_play && (ev.type === "hit" || ev.type === "out") && ev.bip) {
       showBIPTakeover(p.bip);
       return;
     }
 
-    // Find the matching event for this pitch
-    const ev = gameData.events.find(e => e.pitch_index === p.idx);
-    if (ev) {
-      showEventTakeover(ev);
+    // PA-ending pitch with BIP but event is different (edge case)
+    if (p.bip && p.is_in_play && ev.pitch_index === p.idx) {
+      showBIPTakeover(p.bip);
+      return;
     }
+
+    showEventTakeover(ev);
   }
 
   // ============ PLAYBACK CONTROLS ============
@@ -1646,6 +1668,8 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     if (currentPitch > 0) {
       currentPitch--;
       __sim_last_takeover_pitch = -1;
+      __sim_shown_event_keys = new Set();
+      gameData.events.forEach(ev => { if ((ev.pitch_index||0) < currentPitch) __sim_shown_event_keys.add(_eventKey(ev)); });
       hideTakeover();
       renderState();
     }
@@ -1654,6 +1678,7 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   document.getElementById("btnRewind").addEventListener("click", () => {
     currentPitch = 0;
     __sim_last_takeover_pitch = -1;
+    __sim_shown_event_keys = new Set();
     hideTakeover();
     renderState();
   });
