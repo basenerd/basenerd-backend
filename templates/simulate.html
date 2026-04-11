@@ -1,0 +1,1269 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ============== SIMULATOR STYLES ============== */
+.sim-page { max-width:1200px; margin:0 auto; padding:0 12px; }
+.sim-header { text-align:center; margin:20px 0 24px; }
+.sim-header h1 { font-size:28px; font-weight:800; letter-spacing:-.5px; }
+.sim-header p { opacity:.6; font-size:14px; margin-top:4px; }
+
+/* Lineup Builder */
+.sim-builder { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.sim-builder-side { background:var(--card-bg,#111318); border:1px solid var(--border,rgba(226,232,240,.12)); border-radius:14px; padding:16px; }
+.sim-side-label { font-weight:800; font-size:18px; text-align:center; margin-bottom:12px; }
+.sim-team-select, .sim-venue-select { width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:#0b0e13; color:#fff; font-size:14px; font-family:inherit; margin-bottom:10px; }
+.sim-section-label { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; opacity:.5; margin:12px 0 6px; }
+
+/* Lineup slots */
+.sim-lineup-slot { display:grid; grid-template-columns:28px 1fr 60px; gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid rgba(226,232,240,.06); }
+.sim-slot-num { font-weight:800; font-size:14px; opacity:.4; text-align:center; }
+.sim-slot-player { display:flex; align-items:center; gap:8px; }
+.sim-slot-headshot { width:32px; height:32px; border-radius:50%; background:#1a1d24; object-fit:cover; }
+.sim-slot-name { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sim-slot-hand { font-size:11px; opacity:.4; }
+.sim-slot-pos select { width:100%; padding:4px; border-radius:6px; border:1px solid var(--border); background:#0b0e13; color:#fff; font-size:12px; font-family:inherit; }
+
+/* Pitcher / bullpen */
+.sim-pitcher-slot { display:flex; align-items:center; gap:10px; padding:8px 10px; background:rgba(59,130,246,.06); border:1px solid rgba(59,130,246,.15); border-radius:10px; margin:4px 0; }
+.sim-pitcher-name { font-weight:700; font-size:14px; }
+.sim-pitcher-hand { font-size:12px; opacity:.5; }
+.sim-pitcher-select { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:#0b0e13; color:#fff; font-size:13px; font-family:inherit; }
+
+/* Custom search */
+.sim-search-wrap { position:relative; }
+.sim-search-input { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:#0b0e13; color:#fff; font-size:13px; font-family:inherit; box-sizing:border-box; }
+.sim-search-results { position:absolute; top:100%; left:0; right:0; background:#111318; border:1px solid var(--border); border-radius:8px; max-height:200px; overflow-y:auto; z-index:100; display:none; }
+.sim-search-results.open { display:block; }
+.sim-search-item { padding:8px 10px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:8px; }
+.sim-search-item:hover { background:rgba(59,130,246,.1); }
+
+/* Venue picker */
+.sim-venue-row { display:flex; gap:12px; align-items:center; justify-content:center; margin:0 0 20px; }
+.sim-venue-row label { font-weight:700; font-size:13px; opacity:.6; }
+
+/* Start button */
+.sim-start-wrap { text-align:center; margin:24px 0; }
+.sim-start-btn { padding:14px 48px; border-radius:12px; border:none; background:linear-gradient(135deg,#2563eb,#7c3aed); color:#fff; font-weight:800; font-size:16px; cursor:pointer; font-family:inherit; letter-spacing:.3px; transition:transform .15s; }
+.sim-start-btn:hover { transform:scale(1.03); }
+.sim-start-btn:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+
+/* Loading overlay */
+.sim-loading { text-align:center; padding:60px 0; display:none; }
+.sim-loading.active { display:block; }
+.sim-loading .spinner { display:inline-block; width:40px; height:40px; border:3px solid rgba(255,255,255,.1); border-top-color:#2563eb; border-radius:50%; animation:spin 0.8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ============== GAME VIEWER ============== */
+.sim-viewer { display:none; }
+.sim-viewer.active { display:block; }
+
+/* Scoreboard */
+.sim-scoreboard { display:flex; align-items:center; justify-content:center; gap:20px; padding:16px 20px; background:var(--card-bg); border:1px solid var(--border); border-radius:14px; margin-bottom:16px; }
+.sim-sb-team { text-align:center; min-width:80px; }
+.sim-sb-team-name { font-weight:800; font-size:14px; }
+.sim-sb-score { font-size:36px; font-weight:900; font-family:'IBM Plex Mono',monospace; }
+.sim-sb-inning { text-align:center; }
+.sim-sb-inning-label { font-size:13px; opacity:.5; }
+.sim-sb-inning-num { font-size:22px; font-weight:800; }
+.sim-sb-vs { font-size:14px; opacity:.3; font-weight:800; }
+
+/* Linescore */
+.sim-linescore { overflow-x:auto; margin-bottom:16px; }
+.sim-linescore table { width:100%; border-collapse:collapse; font-size:13px; font-family:'IBM Plex Mono',monospace; }
+.sim-linescore th, .sim-linescore td { padding:4px 8px; text-align:center; border:1px solid rgba(226,232,240,.08); min-width:28px; }
+.sim-linescore th { font-weight:700; opacity:.5; font-size:11px; }
+.sim-linescore .active-inn { background:rgba(59,130,246,.12); }
+
+/* Main game grid */
+.sim-game-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.sim-game-left { display:flex; flex-direction:column; gap:16px; }
+.sim-game-right { display:flex; flex-direction:column; gap:16px; }
+
+/* Matchup card */
+.sim-matchup { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:var(--card-bg); border:1px solid var(--border); border-radius:14px; }
+.sim-matchup-player { display:flex; align-items:center; gap:10px; }
+.sim-matchup-name { font-weight:700; font-size:15px; }
+.sim-matchup-sub { font-size:12px; opacity:.5; }
+.sim-matchup-vs { font-weight:800; opacity:.2; }
+
+/* Zone card */
+.sim-zone-card { background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:16px; text-align:center; }
+.sim-zone-svg { width:200px; height:240px; margin:0 auto; display:block; }
+
+/* Count display */
+.sim-count { display:flex; align-items:center; justify-content:center; gap:16px; margin:10px 0; font-family:'IBM Plex Mono',monospace; font-weight:700; }
+.sim-count-group { display:flex; gap:4px; align-items:center; }
+.sim-count-label { font-size:11px; opacity:.4; margin-right:4px; }
+.sim-dot { width:14px; height:14px; border-radius:50%; border:2px solid rgba(226,232,240,.2); }
+.sim-dot.filled-b { background:#22c55e; border-color:#22c55e; }
+.sim-dot.filled-s { background:#ef4444; border-color:#ef4444; }
+.sim-dot.filled-o { background:#f59e0b; border-color:#f59e0b; }
+
+/* Pitch table */
+.sim-pitch-table { width:100%; border-collapse:collapse; font-size:12px; }
+.sim-pitch-table th { font-weight:700; opacity:.4; text-transform:uppercase; font-size:10px; padding:6px 8px; text-align:left; border-bottom:1px solid var(--border); }
+.sim-pitch-table td { padding:5px 8px; border-bottom:1px solid rgba(226,232,240,.04); }
+.sim-pitch-table .result-ball { color:#22c55e; }
+.sim-pitch-table .result-strike { color:#ef4444; }
+.sim-pitch-table .result-foul { color:#94a3b8; }
+.sim-pitch-table .result-inplay { color:#3b82f6; font-weight:700; }
+
+/* Bases */
+.sim-bases { display:flex; justify-content:center; margin:10px 0; }
+.sim-diamond { position:relative; width:60px; height:60px; }
+.sim-base { position:absolute; width:14px; height:14px; transform:rotate(45deg); border:2px solid rgba(226,232,240,.2); background:transparent; }
+.sim-base.occupied { background:#f59e0b; border-color:#f59e0b; }
+.sim-base-1b { right:0; top:50%; transform:rotate(45deg) translateY(-50%); top:22px; right:0; }
+.sim-base-2b { left:50%; top:0; transform:rotate(45deg) translate(-50%,0); left:23px; top:2px; }
+.sim-base-3b { left:0; top:50%; transform:rotate(45deg) translateY(-50%); top:22px; left:0; }
+
+/* Playback controls */
+.sim-controls { display:flex; align-items:center; justify-content:center; gap:10px; padding:16px; background:var(--card-bg); border:1px solid var(--border); border-radius:14px; flex-wrap:wrap; }
+.sim-ctrl-btn { padding:8px 16px; border-radius:8px; border:1px solid var(--border); background:rgba(59,130,246,.08); color:#fff; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit; transition:background .15s; }
+.sim-ctrl-btn:hover { background:rgba(59,130,246,.2); }
+.sim-ctrl-btn.primary { background:#2563eb; border-color:#2563eb; }
+.sim-ctrl-btn.primary:hover { background:#1d4ed8; }
+.sim-ctrl-btn:disabled { opacity:.3; cursor:not-allowed; }
+.sim-pitch-counter { font-family:'IBM Plex Mono',monospace; font-size:13px; opacity:.5; }
+.sim-speed-wrap { display:flex; align-items:center; gap:6px; }
+.sim-speed-wrap label { font-size:11px; opacity:.4; }
+.sim-speed-slider { width:80px; }
+
+/* Feed */
+.sim-feed { background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:12px; max-height:300px; overflow-y:auto; }
+.sim-feed-item { padding:6px 0; border-bottom:1px solid rgba(226,232,240,.04); font-size:13px; }
+.sim-feed-item:last-child { border-bottom:none; }
+.sim-feed-inning { font-size:11px; opacity:.3; font-weight:700; margin-right:6px; }
+.sim-feed-scoring { color:#f59e0b; font-weight:700; }
+
+/* Lineup cards in viewer */
+.sim-lineup-card { background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:12px; }
+.sim-lineup-card h3 { font-size:13px; font-weight:700; opacity:.5; text-transform:uppercase; margin-bottom:8px; }
+.sim-lineup-row { display:grid; grid-template-columns:20px 1fr 50px; gap:4px; padding:4px 0; font-size:13px; align-items:center; border-bottom:1px solid rgba(226,232,240,.04); }
+.sim-lineup-row.current { background:rgba(59,130,246,.08); border-radius:6px; padding:4px 6px; margin:0 -6px; }
+.sim-lineup-spot { font-weight:800; opacity:.3; text-align:center; font-size:11px; }
+.sim-lineup-name { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sim-lineup-line { font-family:'IBM Plex Mono',monospace; font-size:12px; opacity:.5; text-align:right; }
+
+/* BIP Takeover */
+.sim-bip-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.85); z-index:9999; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .3s; }
+.sim-bip-overlay.active { opacity:1; pointer-events:auto; }
+.sim-bip-card { background:#111318; border:1px solid var(--border); border-radius:16px; padding:24px; max-width:500px; width:90%; text-align:center; }
+.sim-bip-svg { width:250px; height:250px; margin:0 auto; }
+.sim-bip-event { font-weight:900; font-size:22px; margin:12px 0 4px; }
+.sim-bip-metrics { display:flex; justify-content:center; gap:20px; font-family:'IBM Plex Mono',monospace; font-size:13px; opacity:.6; }
+.sim-bip-desc { font-size:14px; opacity:.5; margin-top:8px; }
+
+/* Pulse animation for latest pitch */
+@keyframes gc-pulse { 0%{r:3;opacity:1} 50%{r:12;opacity:.7} 100%{r:8;opacity:1} }
+.gc-pulse { animation: gc-pulse .6s ease-out; }
+
+/* Responsive */
+@media (max-width:768px) {
+  .sim-builder { grid-template-columns:1fr; }
+  .sim-game-grid { grid-template-columns:1fr; }
+  .sim-scoreboard { gap:12px; padding:12px; }
+  .sim-sb-score { font-size:28px; }
+  .sim-team-select, .sim-venue-select, .sim-pitcher-select, .sim-search-input { font-size:16px !important; }
+}
+</style>
+
+<div class="sim-page">
+  <!-- ============ HEADER ============ -->
+  <div class="sim-header">
+    <h1>Game Simulation Tool</h1>
+    <p>Build lineups, pick a stadium, and simulate a pitch-by-pitch game</p>
+  </div>
+
+  <!-- ============ BUILDER ============ -->
+  <div id="simBuilder">
+    <!-- Venue -->
+    <div class="sim-venue-row">
+      <label>Stadium</label>
+      <select id="venueSelect" class="sim-venue-select" style="max-width:300px;">
+        <option value="NYY">Yankee Stadium</option>
+      </select>
+    </div>
+
+    <div class="sim-builder">
+      <!-- AWAY TEAM -->
+      <div class="sim-builder-side" id="awayBuilder">
+        <div class="sim-side-label">Away Team</div>
+        <select class="sim-team-select" id="awayTeamSelect">
+          <option value="">— Select Team —</option>
+          <option value="custom">Custom Lineup</option>
+        </select>
+        <div class="sim-section-label">Starting Pitcher</div>
+        <select class="sim-pitcher-select" id="awaySPSelect"><option value="">— Select —</option></select>
+        <div class="sim-section-label">Batting Order</div>
+        <div id="awayLineup"></div>
+        <div class="sim-section-label">Bullpen</div>
+        <div id="awayBullpen"></div>
+      </div>
+
+      <!-- HOME TEAM -->
+      <div class="sim-builder-side" id="homeBuilder">
+        <div class="sim-side-label">Home Team</div>
+        <select class="sim-team-select" id="homeTeamSelect">
+          <option value="">— Select Team —</option>
+          <option value="custom">Custom Lineup</option>
+        </select>
+        <div class="sim-section-label">Starting Pitcher</div>
+        <select class="sim-pitcher-select" id="homeSPSelect"><option value="">— Select —</option></select>
+        <div class="sim-section-label">Batting Order</div>
+        <div id="homeLineup"></div>
+        <div class="sim-section-label">Bullpen</div>
+        <div id="homeBullpen"></div>
+      </div>
+    </div>
+
+    <div class="sim-start-wrap">
+      <button class="sim-start-btn" id="simStartBtn" disabled>Simulate Game</button>
+    </div>
+  </div>
+
+  <!-- ============ LOADING ============ -->
+  <div class="sim-loading" id="simLoading">
+    <div class="spinner"></div>
+    <p style="margin-top:16px; opacity:.6;">Simulating game pitch by pitch...</p>
+  </div>
+
+  <!-- ============ GAME VIEWER ============ -->
+  <div class="sim-viewer" id="simViewer">
+    <!-- Scoreboard -->
+    <div class="sim-scoreboard" id="simScoreboard">
+      <div class="sim-sb-team">
+        <div class="sim-sb-team-name" id="sbAwayName">AWAY</div>
+        <div class="sim-sb-score" id="sbAwayScore">0</div>
+      </div>
+      <div class="sim-sb-inning">
+        <div class="sim-sb-inning-label" id="sbHalf">Top</div>
+        <div class="sim-sb-inning-num" id="sbInning">1</div>
+      </div>
+      <div class="sim-sb-team">
+        <div class="sim-sb-team-name" id="sbHomeName">HOME</div>
+        <div class="sim-sb-score" id="sbHomeScore">0</div>
+      </div>
+    </div>
+
+    <!-- Linescore -->
+    <div class="sim-linescore" id="simLinescore"></div>
+
+    <!-- Playback controls -->
+    <div class="sim-controls">
+      <button class="sim-ctrl-btn" id="btnRewind" title="Rewind">⏮ Rewind</button>
+      <button class="sim-ctrl-btn" id="btnPrevPitch" title="Previous Pitch">◀</button>
+      <button class="sim-ctrl-btn primary" id="btnNextPitch" title="Next Pitch">Next Pitch ▶</button>
+      <button class="sim-ctrl-btn" id="btnNextPA" title="Skip to end of PA">Next PA ⏭</button>
+      <button class="sim-ctrl-btn" id="btnNextInning" title="Skip to next half-inning">Next Inning ⏩</button>
+      <button class="sim-ctrl-btn" id="btnAutoplay">▶ Auto-play</button>
+      <div class="sim-speed-wrap">
+        <label>Speed</label>
+        <input type="range" class="sim-speed-slider" id="speedSlider" min="200" max="3000" value="800" step="100">
+      </div>
+      <span class="sim-pitch-counter" id="pitchCounter">0 / 0</span>
+    </div>
+
+    <!-- Main game grid -->
+    <div class="sim-game-grid" style="margin-top:16px;">
+      <div class="sim-game-left">
+        <!-- Matchup -->
+        <div class="sim-matchup">
+          <div class="sim-matchup-player">
+            <div>
+              <div class="sim-matchup-name" id="matchBatter">—</div>
+              <div class="sim-matchup-sub" id="matchBatterSub">At Bat</div>
+            </div>
+          </div>
+          <div class="sim-matchup-vs">VS</div>
+          <div class="sim-matchup-player">
+            <div style="text-align:right;">
+              <div class="sim-matchup-name" id="matchPitcher">—</div>
+              <div class="sim-matchup-sub" id="matchPitcherSub">Pitching</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zone + Count + Bases -->
+        <div class="sim-zone-card">
+          <div class="sim-count" id="simCount">
+            <div class="sim-count-group">
+              <span class="sim-count-label">B</span>
+              <span class="sim-dot" id="b0"></span>
+              <span class="sim-dot" id="b1"></span>
+              <span class="sim-dot" id="b2"></span>
+              <span class="sim-dot" id="b3"></span>
+            </div>
+            <div class="sim-count-group">
+              <span class="sim-count-label">S</span>
+              <span class="sim-dot" id="s0"></span>
+              <span class="sim-dot" id="s1"></span>
+            </div>
+            <div class="sim-count-group">
+              <span class="sim-count-label">O</span>
+              <span class="sim-dot" id="o0"></span>
+              <span class="sim-dot" id="o1"></span>
+            </div>
+          </div>
+          <svg class="sim-zone-svg" id="simZoneSvg" width="200" height="240" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div class="sim-bases">
+            <div class="sim-diamond">
+              <div class="sim-base sim-base-2b" id="base2"></div>
+              <div class="sim-base sim-base-3b" id="base3"></div>
+              <div class="sim-base sim-base-1b" id="base1"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pitch table -->
+        <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:12px; overflow-x:auto;">
+          <table class="sim-pitch-table">
+            <thead>
+              <tr><th>#</th><th>Type</th><th>MPH</th><th>Spin</th><th>Result</th></tr>
+            </thead>
+            <tbody id="pitchTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sim-game-right">
+        <!-- Feed -->
+        <div class="sim-feed" id="simFeed">
+          <div style="opacity:.4; font-size:13px; text-align:center;">Game events will appear here</div>
+        </div>
+
+        <!-- Lineups -->
+        <div class="sim-lineup-card">
+          <h3 id="awayLineupLabel">Away</h3>
+          <div id="viewerAwayLineup"></div>
+        </div>
+        <div class="sim-lineup-card">
+          <h3 id="homeLineupLabel">Home</h3>
+          <div id="viewerHomeLineup"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BIP Overlay -->
+  <div class="sim-bip-overlay" id="bipOverlay">
+    <div class="sim-bip-card">
+      <svg class="sim-bip-svg" id="bipSvg" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
+        <g class="stadium-bg"></g>
+        <g class="bip-point"></g>
+      </svg>
+      <div class="sim-bip-event" id="bipEvent">—</div>
+      <div class="sim-bip-metrics" id="bipMetrics"></div>
+      <div class="sim-bip-desc" id="bipDesc"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ============ DATA ============
+  const TEAMS = {{ teams_json|safe }};
+  const TEAM_TO_SVG = {{ team_to_svg|safe }};
+  const STADIUM_DIMS = {{ stadium_dims|safe }};
+
+  // Team abbrev -> venue label mapping
+  const VENUE_LABELS = {};
+  TEAMS.forEach(t => { VENUE_LABELS[t.abbrev] = t.name; });
+
+  // Populate venue select
+  const venueEl = document.getElementById("venueSelect");
+  venueEl.innerHTML = "";
+  const venueKeys = Object.keys(STADIUM_DIMS).sort((a,b) => (VENUE_LABELS[a]||a).localeCompare(VENUE_LABELS[b]||b));
+  venueKeys.forEach(k => {
+    const opt = document.createElement("option");
+    opt.value = k;
+    opt.textContent = VENUE_LABELS[k] || k;
+    venueEl.appendChild(opt);
+  });
+  venueEl.value = "NYY";
+
+  // Populate team selects
+  ["awayTeamSelect","homeTeamSelect"].forEach(id => {
+    const sel = document.getElementById(id);
+    TEAMS.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = t.name;
+      opt.dataset.abbrev = t.abbrev;
+      sel.appendChild(opt);
+    });
+  });
+
+  // ============ STATE ============
+  let awayRoster = null, homeRoster = null;
+  let awayCustom = false, homeCustom = false;
+  let gameData = null;
+  let currentPitch = 0;
+  let autoplayTimer = null;
+
+  // ============ ROSTER LOADING ============
+  async function loadRoster(teamId, side) {
+    try {
+      const res = await fetch(`/api/simulate/roster/${teamId}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      if (side === "away") awayRoster = data.roster;
+      else homeRoster = data.roster;
+      buildLineupFromRoster(data.roster, side);
+
+      // Update venue to home team's park
+      if (side === "home") {
+        const sel = document.getElementById("homeTeamSelect");
+        const opt = sel.selectedOptions[0];
+        if (opt && opt.dataset.abbrev) {
+          venueEl.value = opt.dataset.abbrev;
+        }
+      }
+    } catch(e) {
+      console.error("Roster load failed:", e);
+    }
+  }
+
+  function buildLineupFromRoster(roster, side) {
+    const pitcherDiv = document.getElementById(side === "away" ? "awaySPSelect" : "homeSPSelect");
+    const lineupDiv = document.getElementById(side === "away" ? "awayLineup" : "homeLineup");
+    const bullpenDiv = document.getElementById(side === "away" ? "awayBullpen" : "homeBullpen");
+
+    // Build pitcher options
+    const pitchers = roster.Pitcher || [];
+    pitcherDiv.innerHTML = '<option value="">— Select Starting Pitcher —</option>';
+    pitchers.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = JSON.stringify({id: p.id, name: p.name, p_throws: (p.bt||"R/R").split("/")[1] || "R"});
+      opt.textContent = `${p.name} (${p.pos})`;
+      pitcherDiv.appendChild(opt);
+    });
+
+    // Build lineup slots from position players
+    const hitters = [...(roster.Catcher||[]), ...(roster.Infielder||[]), ...(roster.Outfielder||[])];
+    lineupDiv.innerHTML = "";
+    for(let i = 0; i < 9; i++) {
+      const slot = document.createElement("div");
+      slot.className = "sim-lineup-slot";
+      slot.innerHTML = `
+        <div class="sim-slot-num">${i+1}</div>
+        <div class="sim-slot-player">
+          <select class="sim-search-input lineup-player-select" data-side="${side}" data-slot="${i}">
+            <option value="">— Select —</option>
+          </select>
+        </div>
+        <div class="sim-slot-pos">
+          <select class="pos-select" data-side="${side}" data-slot="${i}">
+            <option>DH</option><option>C</option><option>1B</option><option>2B</option>
+            <option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option>
+          </select>
+        </div>
+      `;
+      const playerSel = slot.querySelector(".lineup-player-select");
+      hitters.forEach(h => {
+        const opt = document.createElement("option");
+        opt.value = JSON.stringify({id: h.id, name: h.name, stand: (h.bt||"R/R").split("/")[0] || "R", pos: h.pos});
+        opt.textContent = `${h.name} (${h.pos})`;
+        playerSel.appendChild(opt);
+      });
+      // Auto-select first 9 hitters
+      if (i < hitters.length) {
+        const h = hitters[i];
+        playerSel.value = JSON.stringify({id: h.id, name: h.name, stand: (h.bt||"R/R").split("/")[0] || "R", pos: h.pos});
+        const posSel = slot.querySelector(".pos-select");
+        const posVal = h.pos || "DH";
+        for(let o of posSel.options) { if(o.value === posVal) { posSel.value = posVal; break; } }
+      }
+      lineupDiv.appendChild(slot);
+    }
+
+    // Bullpen
+    bullpenDiv.innerHTML = "";
+    const relieverCount = Math.min(5, pitchers.length);
+    for(let i = 0; i < relieverCount; i++) {
+      const div = document.createElement("div");
+      div.innerHTML = `<select class="sim-pitcher-select bullpen-select" data-side="${side}" data-idx="${i}">
+        <option value="">— Reliever ${i+1} —</option>
+      </select>`;
+      const sel = div.querySelector("select");
+      pitchers.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = JSON.stringify({id: p.id, name: p.name, p_throws: (p.bt||"R/R").split("/")[1] || "R"});
+        opt.textContent = `${p.name} (${p.pos})`;
+        sel.appendChild(opt);
+      });
+      bullpenDiv.appendChild(div);
+    }
+
+    checkReady();
+  }
+
+  function buildCustomLineup(side) {
+    const lineupDiv = document.getElementById(side === "away" ? "awayLineup" : "homeLineup");
+    const bullpenDiv = document.getElementById(side === "away" ? "awayBullpen" : "homeBullpen");
+    const pitcherDiv = document.getElementById(side === "away" ? "awaySPSelect" : "homeSPSelect");
+
+    pitcherDiv.innerHTML = '<option value="">— Type pitcher name —</option>';
+    lineupDiv.innerHTML = "";
+    bullpenDiv.innerHTML = "";
+
+    // Create 9 search slots for batters
+    for(let i = 0; i < 9; i++) {
+      const slot = document.createElement("div");
+      slot.className = "sim-lineup-slot";
+      slot.innerHTML = `
+        <div class="sim-slot-num">${i+1}</div>
+        <div class="sim-slot-player" style="flex:1;">
+          <div class="sim-search-wrap" style="width:100%;">
+            <input class="sim-search-input custom-player-search" placeholder="Search player..." data-side="${side}" data-slot="${i}" data-role="batter">
+            <div class="sim-search-results" id="search-${side}-${i}"></div>
+          </div>
+        </div>
+        <div class="sim-slot-pos">
+          <select class="pos-select" data-side="${side}" data-slot="${i}">
+            <option>DH</option><option>C</option><option>1B</option><option>2B</option>
+            <option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option>
+          </select>
+        </div>
+      `;
+      lineupDiv.appendChild(slot);
+    }
+
+    // SP search
+    const spWrap = document.createElement("div");
+    spWrap.className = "sim-search-wrap";
+    spWrap.innerHTML = `
+      <input class="sim-search-input custom-player-search" placeholder="Search starting pitcher..." data-side="${side}" data-slot="sp" data-role="pitcher">
+      <div class="sim-search-results" id="search-${side}-sp"></div>
+    `;
+    pitcherDiv.parentElement.insertBefore(spWrap, pitcherDiv.nextSibling);
+    pitcherDiv.style.display = "none";
+
+    // Bullpen searches
+    for(let i = 0; i < 3; i++) {
+      const div = document.createElement("div");
+      div.className = "sim-search-wrap";
+      div.style.marginBottom = "6px";
+      div.innerHTML = `
+        <input class="sim-search-input custom-player-search" placeholder="Reliever ${i+1}..." data-side="${side}" data-slot="bp${i}" data-role="pitcher">
+        <div class="sim-search-results" id="search-${side}-bp${i}"></div>
+      `;
+      bullpenDiv.appendChild(div);
+    }
+
+    // Wire up search
+    setupCustomSearch();
+  }
+
+  // Player search for custom mode
+  let searchTimeout = null;
+  const customSelections = {}; // key: `${side}-${slot}` -> player object
+
+  function setupCustomSearch() {
+    document.querySelectorAll(".custom-player-search").forEach(input => {
+      input.addEventListener("input", function() {
+        clearTimeout(searchTimeout);
+        const q = this.value.trim();
+        const side = this.dataset.side;
+        const slot = this.dataset.slot;
+        const resultsDiv = document.getElementById(`search-${side}-${slot}`);
+        if (q.length < 2) { resultsDiv.classList.remove("open"); return; }
+        searchTimeout = setTimeout(async () => {
+          try {
+            const res = await fetch(`/players/suggest?q=${encodeURIComponent(q)}`);
+            const suggestions = await res.json();
+            resultsDiv.innerHTML = "";
+            (suggestions || []).slice(0, 8).forEach(s => {
+              const item = document.createElement("div");
+              item.className = "sim-search-item";
+              item.textContent = s.label || s.name || s;
+              item.addEventListener("click", async () => {
+                const playerId = s.id || s.player_id;
+                // Fetch full player info
+                const infoRes = await fetch(`/api/simulate/player/${playerId}/info`);
+                const info = await infoRes.json();
+                if (info.ok) {
+                  const key = `${side}-${slot}`;
+                  customSelections[key] = info;
+                  input.value = info.name;
+                  input.dataset.playerId = info.id;
+                  resultsDiv.classList.remove("open");
+                  checkReady();
+                }
+              });
+              resultsDiv.appendChild(item);
+            });
+            resultsDiv.classList.add("open");
+          } catch(e) { console.error(e); }
+        }, 300);
+      });
+
+      input.addEventListener("blur", () => {
+        setTimeout(() => {
+          const side = input.dataset.side;
+          const slot = input.dataset.slot;
+          document.getElementById(`search-${side}-${slot}`)?.classList.remove("open");
+        }, 200);
+      });
+    });
+  }
+
+  // ============ TEAM SELECT HANDLERS ============
+  document.getElementById("awayTeamSelect").addEventListener("change", function(){
+    if (this.value === "custom") { awayCustom = true; buildCustomLineup("away"); }
+    else if (this.value) { awayCustom = false; loadRoster(parseInt(this.value), "away"); }
+  });
+  document.getElementById("homeTeamSelect").addEventListener("change", function(){
+    if (this.value === "custom") { homeCustom = true; buildCustomLineup("home"); }
+    else if (this.value) { homeCustom = false; loadRoster(parseInt(this.value), "home"); }
+  });
+
+  // ============ READINESS CHECK ============
+  function checkReady() {
+    const btn = document.getElementById("simStartBtn");
+    // Check we have enough data to simulate
+    const awayLineup = getLineup("away");
+    const homeLineup = getLineup("home");
+    const awaySP = getSP("away");
+    const homeSP = getSP("home");
+    btn.disabled = !(awayLineup.length >= 9 && homeLineup.length >= 9 && awaySP && homeSP);
+  }
+
+  // Listen for changes
+  document.addEventListener("change", function(e) {
+    if (e.target.matches(".lineup-player-select, .bullpen-select, .sim-pitcher-select, .pos-select")) {
+      checkReady();
+    }
+  });
+
+  function getLineup(side) {
+    if (side === "away" && awayCustom || side === "home" && homeCustom) {
+      // Custom mode
+      const lineup = [];
+      for (let i = 0; i < 9; i++) {
+        const key = `${side}-${i}`;
+        const p = customSelections[key];
+        if (p) {
+          const posEl = document.querySelector(`.pos-select[data-side="${side}"][data-slot="${i}"]`);
+          lineup.push({id: p.id, name: p.name, stand: p.stand || "R", pos: posEl?.value || "DH"});
+        }
+      }
+      return lineup;
+    }
+
+    // Roster mode
+    const lineup = [];
+    document.querySelectorAll(`.lineup-player-select[data-side="${side}"]`).forEach(sel => {
+      if (sel.value) {
+        try {
+          const p = JSON.parse(sel.value);
+          const slot = sel.dataset.slot;
+          const posEl = document.querySelector(`.pos-select[data-side="${side}"][data-slot="${slot}"]`);
+          lineup.push({id: p.id, name: p.name, stand: p.stand || "R", pos: posEl?.value || p.pos || "DH"});
+        } catch(e) {}
+      }
+    });
+    return lineup;
+  }
+
+  function getSP(side) {
+    if ((side === "away" && awayCustom) || (side === "home" && homeCustom)) {
+      const key = `${side}-sp`;
+      const p = customSelections[key];
+      return p ? {id: p.id, name: p.name, p_throws: p.p_throws || "R"} : null;
+    }
+    const sel = document.getElementById(side === "away" ? "awaySPSelect" : "homeSPSelect");
+    if (sel.value) {
+      try { return JSON.parse(sel.value); } catch(e) {}
+    }
+    return null;
+  }
+
+  function getBullpen(side) {
+    if ((side === "away" && awayCustom) || (side === "home" && homeCustom)) {
+      const bp = [];
+      for(let i = 0; i < 5; i++) {
+        const key = `${side}-bp${i}`;
+        const p = customSelections[key];
+        if (p) bp.push({id: p.id, name: p.name, p_throws: p.p_throws || "R"});
+      }
+      return bp;
+    }
+    const bp = [];
+    document.querySelectorAll(`.bullpen-select[data-side="${side}"]`).forEach(sel => {
+      if (sel.value) {
+        try { bp.push(JSON.parse(sel.value)); } catch(e) {}
+      }
+    });
+    return bp;
+  }
+
+  // ============ START SIMULATION ============
+  document.getElementById("simStartBtn").addEventListener("click", async function(){
+    this.disabled = true;
+    document.getElementById("simBuilder").style.display = "none";
+    document.getElementById("simLoading").classList.add("active");
+
+    const body = {
+      away: { lineup: getLineup("away"), pitcher: getSP("away"), bullpen: getBullpen("away") },
+      home: { lineup: getLineup("home"), pitcher: getSP("home"), bullpen: getBullpen("home") },
+      venue: venueEl.value,
+    };
+
+    try {
+      const res = await fetch("/api/simulate/start", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Simulation failed");
+
+      gameData = data.game;
+      currentPitch = 0;
+
+      // Setup viewer
+      document.getElementById("simLoading").classList.remove("active");
+      document.getElementById("simViewer").classList.add("active");
+
+      // Set team names
+      const awayTeamEl = document.getElementById("awayTeamSelect");
+      const homeTeamEl = document.getElementById("homeTeamSelect");
+      const awayName = awayTeamEl.selectedOptions[0]?.textContent || "Away";
+      const homeName = homeTeamEl.selectedOptions[0]?.textContent || "Home";
+      document.getElementById("sbAwayName").textContent = awayName.split(" ").pop();
+      document.getElementById("sbHomeName").textContent = homeName.split(" ").pop();
+      document.getElementById("awayLineupLabel").textContent = awayName;
+      document.getElementById("homeLineupLabel").textContent = homeName;
+
+      // Load stadium SVG for BIP
+      loadStadiumSvg(gameData.stadium_svg);
+
+      renderState();
+    } catch(e) {
+      alert("Simulation error: " + e.message);
+      document.getElementById("simLoading").classList.remove("active");
+      document.getElementById("simBuilder").style.display = "";
+      this.disabled = false;
+    }
+  });
+
+  // ============ STADIUM SVG FOR BIP ============
+  let stadiumSvgContent = null;
+
+  async function loadStadiumSvg(filename) {
+    try {
+      const res = await fetch(`/static/stadium_svgs/${filename}`);
+      if (res.ok) stadiumSvgContent = await res.text();
+    } catch(e) {
+      console.warn("Stadium SVG load failed:", e);
+    }
+  }
+
+  // ============ RENDER STATE ============
+  function renderState() {
+    if (!gameData) return;
+    const pitches = gameData.pitches;
+    const total = pitches.length;
+    const p = pitches[currentPitch] || pitches[total - 1];
+
+    // Scoreboard
+    document.getElementById("sbAwayScore").textContent = p.score_away;
+    document.getElementById("sbHomeScore").textContent = p.score_home;
+    document.getElementById("sbHalf").textContent = p.half === "Top" ? "▲" : "▼";
+    document.getElementById("sbInning").textContent = p.inning;
+
+    // Matchup
+    document.getElementById("matchBatter").textContent = p.batter_name;
+    document.getElementById("matchBatterSub").textContent = `${p.batter_stand} | At Bat`;
+    document.getElementById("matchPitcher").textContent = p.pitcher_name;
+    document.getElementById("matchPitcherSub").textContent = `${p.pitcher_throws}HP | Pitching`;
+
+    // Count dots
+    const balls = p.balls + (p.result === "ball" ? 1 : 0);
+    const strikes = p.strikes + (p.result === "called_strike" || p.result === "swinging_strike" ? 1 : p.result === "foul" && p.strikes < 2 ? 1 : 0);
+    const outs = p.outs + (p.event === "OUT" || p.event === "K" ? 1 : 0);
+
+    for(let i = 0; i < 4; i++) {
+      const el = document.getElementById(`b${i}`);
+      if(el) el.className = `sim-dot${i < (p.is_ball ? balls : p.balls) ? " filled-b" : ""}`;
+    }
+    // Actually, let's use the raw count from the pitch + update
+    updateCountDots(p);
+
+    // Bases
+    const runners = p.runners || [false, false, false];
+    document.getElementById("base1").className = `sim-base sim-base-1b${runners[0] ? " occupied" : ""}`;
+    document.getElementById("base2").className = `sim-base sim-base-2b${runners[1] ? " occupied" : ""}`;
+    document.getElementById("base3").className = `sim-base sim-base-3b${runners[2] ? " occupied" : ""}`;
+
+    // Strike zone - collect pitches in current PA
+    const paPitches = collectPAPitches(currentPitch);
+    renderZone(document.getElementById("simZoneSvg"), paPitches);
+
+    // Pitch table
+    renderPitchTable(paPitches);
+
+    // Pitch counter
+    document.getElementById("pitchCounter").textContent = `${currentPitch + 1} / ${total}`;
+
+    // Feed
+    renderFeed();
+
+    // Lineups
+    renderViewerLineups();
+
+    // Linescore
+    renderLinescore(p);
+
+    // BIP check
+    if (p.bip && p.is_in_play) {
+      showBIP(p.bip);
+    }
+
+    // Button states
+    document.getElementById("btnPrevPitch").disabled = currentPitch <= 0;
+    document.getElementById("btnRewind").disabled = currentPitch <= 0;
+    document.getElementById("btnNextPitch").disabled = currentPitch >= total - 1;
+    document.getElementById("btnNextPA").disabled = currentPitch >= total - 1;
+    document.getElementById("btnNextInning").disabled = currentPitch >= total - 1;
+  }
+
+  function updateCountDots(p) {
+    let b = p.balls, s = p.strikes;
+    // After the current pitch result
+    if (p.result === "ball") b++;
+    else if (p.result === "called_strike" || p.result === "swinging_strike") s++;
+    else if (p.result === "foul" && p.strikes < 2) s++;
+    // Clamp
+    b = Math.min(b, 4); s = Math.min(s, 3);
+    let o = p.outs;
+    if (p.event === "K" || p.event === "OUT") o = Math.min(o + 1, 3);
+
+    for(let i = 0; i < 4; i++) {
+      const el = document.getElementById(`b${i}`);
+      if(el) el.className = `sim-dot${i < b ? " filled-b" : ""}`;
+    }
+    for(let i = 0; i < 2; i++) {
+      const el = document.getElementById(`s${i}`);
+      if(el) el.className = `sim-dot${i < s ? " filled-s" : ""}`;
+    }
+    for(let i = 0; i < 2; i++) {
+      const el = document.getElementById(`o${i}`);
+      if(el) el.className = `sim-dot${i < o ? " filled-o" : ""}`;
+    }
+  }
+
+  function collectPAPitches(idx) {
+    const pitches = gameData.pitches;
+    const current = pitches[idx];
+    const pa = [];
+    // Walk backwards to find start of this PA
+    for(let i = idx; i >= 0; i--) {
+      const p = pitches[i];
+      if (p.batter_id === current.batter_id && p.inning === current.inning && p.half === current.half) {
+        pa.unshift(p);
+      } else {
+        break;
+      }
+    }
+    // Format for renderZone
+    return pa.map((p, i) => ({
+      n: i + 1,
+      px: p.px,
+      pz: p.pz,
+      sz_top: p.sz_top,
+      sz_bot: p.sz_bot,
+      pitchType: p.pitch_name,
+      mph: p.mph,
+      spinRate: p.spin,
+      isBall: p.is_ball,
+      isStrike: p.is_strike,
+      isFoul: p.is_foul,
+      isInPlay: p.is_in_play,
+      result: p.result,
+      event: p.event,
+    }));
+  }
+
+  // ============ ZONE RENDERER (from Game Caster) ============
+  function renderZone(svg, pitches) {
+    const w = parseFloat(svg.getAttribute("width") || 200);
+    const h = parseFloat(svg.getAttribute("height") || 240);
+
+    const tops = pitches.map(p => p.sz_top).filter(v => v != null);
+    const bots = pitches.map(p => p.sz_bot).filter(v => v != null);
+    const zoneTop = tops.length ? tops.reduce((a,b) => a+b, 0) / tops.length : 3.5;
+    const zoneBot = bots.length ? bots.reduce((a,b) => a+b, 0) / bots.length : 1.5;
+
+    const xMin = -1.5, xMax = 1.5;
+    const yMin = zoneBot - 0.8, yMax = zoneTop + 0.8;
+
+    const xScale = x => ((x - xMin) / (xMax - xMin)) * w;
+    const yScale = y => h - ((y - yMin) / (yMax - yMin)) * h;
+
+    svg.innerHTML = "";
+
+    // Zone rectangle
+    const plateHalf = 17/24;
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", xScale(-plateHalf));
+    rect.setAttribute("y", yScale(zoneTop));
+    rect.setAttribute("width", xScale(plateHalf) - xScale(-plateHalf));
+    rect.setAttribute("height", yScale(zoneBot) - yScale(zoneTop));
+    rect.setAttribute("fill", "rgba(15,23,42,.03)");
+    rect.setAttribute("stroke", "rgba(226,232,240,.9)");
+    rect.setAttribute("stroke-width", "1");
+    svg.appendChild(rect);
+
+    // Pitch dots
+    pitches.forEach((p, idx) => {
+      if (p.px == null || p.pz == null) return;
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", xScale(p.px));
+      c.setAttribute("cy", yScale(p.pz));
+      c.setAttribute("r", 8);
+
+      let fill = "rgba(148,163,184,1)";
+      if (p.isFoul) fill = "rgba(148,163,184,1)";
+      else if (p.isInPlay) fill = "rgba(59,130,246,1)";
+      else if (p.isBall) fill = "rgba(34,197,94,1)";
+      else if (p.isStrike) fill = "rgba(239,68,68,1)";
+
+      c.setAttribute("fill", fill);
+      c.setAttribute("stroke", "rgba(15,23,42,.25)");
+      c.setAttribute("stroke-width", "0.5");
+
+      if (idx === pitches.length - 1) c.classList.add("gc-pulse");
+
+      svg.appendChild(c);
+
+      const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t.setAttribute("x", xScale(p.px));
+      t.setAttribute("y", yScale(p.pz) + 3);
+      t.setAttribute("text-anchor", "middle");
+      t.setAttribute("font-size", "9");
+      t.setAttribute("font-family", "IBM Plex Mono, monospace");
+      t.setAttribute("fill", "rgba(255,255,255,.95)");
+      t.textContent = p.n;
+      svg.appendChild(t);
+    });
+  }
+
+  // ============ PITCH TABLE ============
+  function renderPitchTable(paPitches) {
+    const tbody = document.getElementById("pitchTableBody");
+    tbody.innerHTML = "";
+    paPitches.forEach(p => {
+      const tr = document.createElement("tr");
+      let resultClass = "";
+      let resultText = p.result;
+      if (p.isBall) { resultClass = "result-ball"; resultText = "Ball"; }
+      else if (p.isInPlay) { resultClass = "result-inplay"; resultText = p.event || "In Play"; }
+      else if (p.isFoul) { resultClass = "result-foul"; resultText = "Foul"; }
+      else if (p.isStrike) { resultClass = "result-strike"; resultText = p.result === "called_strike" ? "Called Strike" : "Swinging Strike"; }
+
+      tr.innerHTML = `
+        <td>${p.n}</td>
+        <td>${p.pitchType}</td>
+        <td>${p.mph}</td>
+        <td>${p.spinRate || "—"}</td>
+        <td class="${resultClass}">${resultText}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ============ FEED ============
+  function renderFeed() {
+    const feedDiv = document.getElementById("simFeed");
+    const events = gameData.events.filter(e => (e.pitch_index || 0) <= currentPitch);
+    if (!events.length) {
+      feedDiv.innerHTML = '<div style="opacity:.4;font-size:13px;text-align:center;">Game events will appear here</div>';
+      return;
+    }
+    feedDiv.innerHTML = "";
+    // Show most recent first
+    [...events].reverse().forEach(ev => {
+      const div = document.createElement("div");
+      div.className = `sim-feed-item${ev.runs_scored > 0 ? " sim-feed-scoring" : ""}`;
+      const inn = `${ev.half === "Top" ? "▲" : "▼"}${ev.inning}`;
+      div.innerHTML = `<span class="sim-feed-inning">${inn}</span>${ev.description || ev.type}`;
+      feedDiv.appendChild(div);
+    });
+  }
+
+  // ============ LINEUPS ============
+  function renderViewerLineups() {
+    renderLineupCard(gameData.away_lineup, "viewerAwayLineup", "away");
+    renderLineupCard(gameData.home_lineup, "viewerHomeLineup", "home");
+  }
+
+  function renderLineupCard(lineup, containerId, team) {
+    const div = document.getElementById(containerId);
+    div.innerHTML = "";
+
+    // Compute stats through current pitch
+    const stats = {};
+    for(let i = 0; i <= currentPitch; i++) {
+      const p = gameData.pitches[i];
+      if (!p.event) continue;
+      const bid = p.batter_id;
+      if (!stats[bid]) stats[bid] = {ab: 0, h: 0};
+      if (["1B","2B","3B","HR"].includes(p.event)) { stats[bid].h++; stats[bid].ab++; }
+      else if (p.event === "K" || p.event === "OUT") { stats[bid].ab++; }
+    }
+
+    const currentBatterId = gameData.pitches[currentPitch]?.batter_id;
+
+    lineup.forEach((b, i) => {
+      const s = stats[b.id] || {ab: 0, h: 0};
+      const line = s.ab > 0 ? `${s.h}-${s.ab}` : "—";
+      const row = document.createElement("div");
+      row.className = `sim-lineup-row${b.id === currentBatterId ? " current" : ""}`;
+      row.innerHTML = `
+        <div class="sim-lineup-spot">${i+1}</div>
+        <div class="sim-lineup-name">${shortName(b.name)} <span style="opacity:.3;font-size:11px;">${b.pos}</span></div>
+        <div class="sim-lineup-line">${line}</div>
+      `;
+      div.appendChild(row);
+    });
+  }
+
+  function shortName(name) {
+    const parts = (name || "").split(" ");
+    return parts.length >= 2 ? `${parts[0][0]}. ${parts[parts.length-1]}` : name;
+  }
+
+  // ============ LINESCORE ============
+  function renderLinescore(p) {
+    const div = document.getElementById("simLinescore");
+    const ls = gameData.linescore;
+    const maxInn = Math.max(ls.away.length, ls.home.length, p.inning);
+
+    // Compute running linescore through current pitch
+    const awayByInn = new Array(maxInn).fill(0);
+    const homeByInn = new Array(maxInn).fill(0);
+    let lastScore = {away: 0, home: 0};
+
+    for(let i = 0; i <= currentPitch; i++) {
+      const pi = gameData.pitches[i];
+      if (pi.event) {
+        const team = pi.half === "Top" ? "away" : "home";
+        const innIdx = pi.inning - 1;
+        if (team === "away") {
+          awayByInn[innIdx] = pi.score_away - (innIdx > 0 ? gameData.pitches.slice(0, i).filter(x => x.half === "Top" && x.inning < pi.inning && x.event).reduce((acc, x) => Math.max(acc, x.score_away), 0) : 0);
+        }
+      }
+    }
+
+    // Simpler approach: just use the final linescore data, showing only through current inning
+    let html = '<table><thead><tr><th></th>';
+    for(let i = 1; i <= maxInn; i++) {
+      const isActive = i === p.inning;
+      html += `<th class="${isActive ? 'active-inn' : ''}">${i}</th>`;
+    }
+    html += '<th>R</th><th>H</th></tr></thead><tbody>';
+
+    // Away
+    html += '<tr><td style="font-weight:700;text-align:left;">' + (document.getElementById("sbAwayName").textContent) + '</td>';
+    for(let i = 0; i < maxInn; i++) {
+      const show = (i + 1 < p.inning) || (i + 1 === p.inning && p.half !== "Top");
+      const isActive = i + 1 === p.inning;
+      html += `<td class="${isActive ? 'active-inn' : ''}">${show ? (ls.away[i] ?? "") : (i + 1 === p.inning && p.half === "Top" ? "•" : "")}</td>`;
+    }
+    html += `<td style="font-weight:700;">${p.score_away}</td><td>—</td></tr>`;
+
+    // Home
+    html += '<tr><td style="font-weight:700;text-align:left;">' + (document.getElementById("sbHomeName").textContent) + '</td>';
+    for(let i = 0; i < maxInn; i++) {
+      const show = (i + 1 < p.inning) || (i + 1 === p.inning && p.half !== "Top" && p.half !== "Bottom");
+      const isActive = i + 1 === p.inning;
+      html += `<td class="${isActive ? 'active-inn' : ''}">${show ? (ls.home[i] ?? "") : (i + 1 === p.inning && p.half === "Bottom" ? "•" : "")}</td>`;
+    }
+    html += `<td style="font-weight:700;">${p.score_home}</td><td>—</td></tr>`;
+
+    html += '</tbody></table>';
+    div.innerHTML = html;
+  }
+
+  // ============ BIP OVERLAY ============
+  function showBIP(bip) {
+    const overlay = document.getElementById("bipOverlay");
+    const svg = document.getElementById("bipSvg");
+    const eventEl = document.getElementById("bipEvent");
+    const metricsEl = document.getElementById("bipMetrics");
+    const descEl = document.getElementById("bipDesc");
+
+    eventEl.textContent = bip.event;
+    descEl.textContent = bip.is_out ? "Out" : "Hit!";
+
+    const metrics = [];
+    if (bip.ev) metrics.push(`${bip.ev} mph EV`);
+    if (bip.la != null) metrics.push(`${bip.la}° LA`);
+    if (bip.dist) metrics.push(`${bip.dist} ft`);
+    metricsEl.textContent = metrics.join("  •  ");
+
+    // Render stadium + ball
+    const bgG = svg.querySelector(".stadium-bg");
+    const pointG = svg.querySelector(".bip-point");
+    bgG.innerHTML = "";
+    pointG.innerHTML = "";
+
+    // Inject stadium SVG as background
+    if (stadiumSvgContent) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(stadiumSvgContent, "image/svg+xml");
+      const inner = doc.documentElement;
+      // Clone all children
+      for(const child of inner.children) {
+        bgG.appendChild(child.cloneNode(true));
+      }
+    }
+
+    // Plot ball landing point
+    const cx = bip.x || 125;
+    const cy = bip.y || 125;
+
+    // Animated ball from plate to landing
+    const plateX = 125, plateY = 208;
+    const ball = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    ball.setAttribute("r", 5);
+    ball.setAttribute("fill", bip.is_out ? "#ef4444" : "#3b82f6");
+    ball.setAttribute("stroke", "#fff");
+    ball.setAttribute("stroke-width", "1");
+
+    // Animate
+    const animX = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+    animX.setAttribute("attributeName", "cx");
+    animX.setAttribute("from", plateX);
+    animX.setAttribute("to", cx);
+    animX.setAttribute("dur", bip.kind === "ground" ? "0.8s" : "1.2s");
+    animX.setAttribute("fill", "freeze");
+
+    const animY = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+    animY.setAttribute("attributeName", "cy");
+    animY.setAttribute("from", plateY);
+    animY.setAttribute("to", cy);
+    animY.setAttribute("dur", bip.kind === "ground" ? "0.8s" : "1.2s");
+    animY.setAttribute("fill", "freeze");
+
+    ball.appendChild(animX);
+    ball.appendChild(animY);
+    pointG.appendChild(ball);
+
+    // Show overlay
+    overlay.classList.add("active");
+    setTimeout(() => overlay.classList.remove("active"), 2500);
+  }
+
+  // Dismiss BIP on click
+  document.getElementById("bipOverlay").addEventListener("click", function(){
+    this.classList.remove("active");
+  });
+
+  // ============ PLAYBACK CONTROLS ============
+  document.getElementById("btnNextPitch").addEventListener("click", () => {
+    if (currentPitch < gameData.pitches.length - 1) {
+      currentPitch++;
+      renderState();
+    }
+  });
+
+  document.getElementById("btnPrevPitch").addEventListener("click", () => {
+    if (currentPitch > 0) {
+      currentPitch--;
+      renderState();
+    }
+  });
+
+  document.getElementById("btnRewind").addEventListener("click", () => {
+    currentPitch = 0;
+    renderState();
+  });
+
+  document.getElementById("btnNextPA").addEventListener("click", () => {
+    // Skip to the end of the current PA (next pitch with an event)
+    const pitches = gameData.pitches;
+    for(let i = currentPitch + 1; i < pitches.length; i++) {
+      if (pitches[i].event) {
+        currentPitch = i;
+        renderState();
+        return;
+      }
+    }
+    currentPitch = pitches.length - 1;
+    renderState();
+  });
+
+  document.getElementById("btnNextInning").addEventListener("click", () => {
+    // Skip to the first pitch of the next half-inning
+    const pitches = gameData.pitches;
+    const curHalf = pitches[currentPitch].half;
+    const curInn = pitches[currentPitch].inning;
+    for(let i = currentPitch + 1; i < pitches.length; i++) {
+      if (pitches[i].inning !== curInn || pitches[i].half !== curHalf) {
+        currentPitch = i;
+        renderState();
+        return;
+      }
+    }
+    currentPitch = pitches.length - 1;
+    renderState();
+  });
+
+  // Auto-play
+  document.getElementById("btnAutoplay").addEventListener("click", function(){
+    if (autoplayTimer) {
+      clearInterval(autoplayTimer);
+      autoplayTimer = null;
+      this.textContent = "▶ Auto-play";
+      return;
+    }
+    this.textContent = "⏸ Pause";
+    const speed = parseInt(document.getElementById("speedSlider").value) || 800;
+    autoplayTimer = setInterval(() => {
+      if (currentPitch >= gameData.pitches.length - 1) {
+        clearInterval(autoplayTimer);
+        autoplayTimer = null;
+        document.getElementById("btnAutoplay").textContent = "▶ Auto-play";
+        return;
+      }
+      currentPitch++;
+      renderState();
+    }, speed);
+  });
+
+  document.getElementById("speedSlider").addEventListener("input", function(){
+    if (autoplayTimer) {
+      clearInterval(autoplayTimer);
+      const speed = parseInt(this.value) || 800;
+      autoplayTimer = setInterval(() => {
+        if (currentPitch >= gameData.pitches.length - 1) {
+          clearInterval(autoplayTimer);
+          autoplayTimer = null;
+          document.getElementById("btnAutoplay").textContent = "▶ Auto-play";
+          return;
+        }
+        currentPitch++;
+        renderState();
+      }, speed);
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener("keydown", function(e) {
+    if (!gameData) return;
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+    if (e.key === "ArrowRight" || e.key === " ") {
+      e.preventDefault();
+      if (currentPitch < gameData.pitches.length - 1) { currentPitch++; renderState(); }
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      if (currentPitch > 0) { currentPitch--; renderState(); }
+    }
+  });
+
+})();
+</script>
+{% endblock %}

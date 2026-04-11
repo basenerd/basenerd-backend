@@ -3743,5 +3743,127 @@ def admin_roof_set():
     return jsonify({"ok": True, "game_pk": game_pk, "roof_open": overrides.get(game_pk)})
 
 
+# =========================================================================
+# Game Simulator
+# =========================================================================
+_sim_cache = {}  # In-memory cache for simulated games
+
+@app.get("/simulate")
+def simulate_page():
+    from services.game_simulation import MLB_TEAMS, TEAM_TO_SVG, STADIUM_DIMENSIONS
+    teams_list = sorted(MLB_TEAMS.values(), key=lambda t: t["name"])
+    return render_template(
+        "simulate.html",
+        title="Game Simulation Tool",
+        teams=teams_list,
+        teams_json=json.dumps(teams_list),
+        team_to_svg=json.dumps(TEAM_TO_SVG),
+        stadium_dims=json.dumps(STADIUM_DIMENSIONS),
+    )
+
+
+@app.get("/api/simulate/roster/<int:team_id>")
+def simulate_roster(team_id: int):
+    """Return grouped 40-man roster for lineup builder."""
+    from services.mlb_api import get_40man_roster_grouped
+    try:
+        grouped, other = get_40man_roster_grouped(team_id)
+        return jsonify({"ok": True, "roster": grouped, "other": other})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@app.get("/api/simulate/player/<int:player_id>/info")
+def simulate_player_info(player_id: int):
+    """Return basic player info for custom lineup builder."""
+    from services.mlb_api import get_player_full
+    try:
+        data = get_player_full(player_id)
+        if not data:
+            return jsonify({"ok": False, "error": "Player not found"})
+        people = data.get("people", [])
+        if not people:
+            return jsonify({"ok": False, "error": "Player not found"})
+        p = people[0]
+        return jsonify({
+            "ok": True,
+            "id": player_id,
+            "name": p.get("fullName", "Unknown"),
+            "pos": p.get("primaryPosition", {}).get("abbreviation", "DH"),
+            "stand": p.get("batSide", {}).get("code", "R"),
+            "p_throws": p.get("pitchHand", {}).get("code", "R"),
+            "headshot": get_player_headshot_url(player_id, size=80),
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@app.post("/api/simulate/start")
+def simulate_start():
+    """Run a full game simulation. Returns game_id + full game data."""
+    from services.game_simulation import simulate_game
+    import uuid as _uuid
+
+    body = request.get_json(force=True) or {}
+    away = body.get("away", {})
+    home = body.get("home", {})
+    venue = body.get("venue", "NYY")
+    seed = body.get("seed")
+
+    # Validate minimum data
+    away_lineup = away.get("lineup", [])
+    home_lineup = home.get("lineup", [])
+    if len(away_lineup) < 9 or len(home_lineup) < 9:
+        return jsonify({"ok": False, "error": "Each team needs 9 batters in the lineup"})
+
+    away_pitcher = away.get("pitcher")
+    home_pitcher = home.get("pitcher")
+    if not away_pitcher or not home_pitcher:
+        return jsonify({"ok": False, "error": "Each team needs a starting pitcher"})
+
+    away_bullpen = away.get("bullpen", [])
+    home_bullpen = home.get("bullpen", [])
+
+    try:
+        result = simulate_game(
+            away_lineup=away_lineup,
+            home_lineup=home_lineup,
+            away_pitcher=away_pitcher,
+            home_pitcher=home_pitcher,
+            away_bullpen=away_bullpen,
+            home_bullpen=home_bullpen,
+            venue=venue,
+            season=2026,
+            seed=seed,
+        )
+        game_id = result["game_id"]
+        _sim_cache[game_id] = result
+
+        # Trim cache to last 20 games
+        if len(_sim_cache) > 20:
+            oldest = list(_sim_cache.keys())[0]
+            del _sim_cache[oldest]
+
+        return jsonify({"ok": True, "game": result})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@app.get("/api/simulate/<game_id>/state")
+def simulate_state(game_id: str):
+    """Get gamecast-compatible state at a specific pitch number."""
+    from services.game_simulation import build_state_at_pitch
+
+    game_data = _sim_cache.get(game_id)
+    if not game_data:
+        return jsonify({"ok": False, "error": "Game not found. It may have expired."})
+
+    through = request.args.get("through", 0, type=int)
+    state = build_state_at_pitch(game_data, through)
+    return jsonify(state)
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
