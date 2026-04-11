@@ -269,6 +269,7 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
 
     <div class="sim-start-wrap">
       <button class="sim-start-btn" id="simStartBtn" disabled>Simulate Game</button>
+      <div id="simValidationMsg" style="margin-top:10px; font-size:13px; color:#ef4444; text-align:center; min-height:20px;"></div>
     </div>
   </div>
 
@@ -845,17 +846,55 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   // ============ READINESS CHECK ============
   function checkReady() {
     const btn = document.getElementById("simStartBtn");
-    // Check we have enough data to simulate
+    const msgEl = document.getElementById("simValidationMsg");
+    const errors = [];
+
     const awayLineup = getLineup("away");
     const homeLineup = getLineup("home");
     const awaySP = getSP("away");
     const homeSP = getSP("home");
-    btn.disabled = !(awayLineup.length >= 9 && homeLineup.length >= 9 && awaySP && homeSP);
+    const awayBP = getBullpen("away");
+    const homeBP = getBullpen("home");
+
+    // Check lineup sizes
+    if (awayLineup.length < 9) errors.push(`Away team needs ${9 - awayLineup.length} more batter${9 - awayLineup.length > 1 ? "s" : ""}`);
+    if (homeLineup.length < 9) errors.push(`Home team needs ${9 - homeLineup.length} more batter${9 - homeLineup.length > 1 ? "s" : ""}`);
+    if (!awaySP) errors.push("Away team needs a starting pitcher");
+    if (!homeSP) errors.push("Home team needs a starting pitcher");
+
+    // Check for duplicate players across the entire game
+    const allIds = new Map(); // id -> name
+    const dupes = [];
+
+    function trackPlayer(p, label) {
+      if (!p || !p.id) return;
+      if (allIds.has(p.id)) {
+        dupes.push(p.name || `Player ${p.id}`);
+      } else {
+        allIds.set(p.id, p.name);
+      }
+    }
+
+    awayLineup.forEach(p => trackPlayer(p, "away lineup"));
+    homeLineup.forEach(p => trackPlayer(p, "home lineup"));
+    if (awaySP) trackPlayer(awaySP, "away SP");
+    if (homeSP) trackPlayer(homeSP, "home SP");
+    awayBP.forEach(p => trackPlayer(p, "away bullpen"));
+    homeBP.forEach(p => trackPlayer(p, "home bullpen"));
+
+    if (dupes.length > 0) {
+      const unique = [...new Set(dupes)];
+      errors.push(`Duplicate player${unique.length > 1 ? "s" : ""}: ${unique.join(", ")}`);
+    }
+
+    // Show first error or clear
+    msgEl.textContent = errors.length > 0 ? errors[0] : "";
+    btn.disabled = errors.length > 0;
   }
 
-  // Listen for changes
+  // Listen for changes — covers both roster mode and custom mode
   document.addEventListener("change", function(e) {
-    if (e.target.matches(".lineup-player-select, .bullpen-select, .sim-pitcher-select, .pos-select")) {
+    if (e.target.matches(".lineup-player-select, .bullpen-select, .sim-pitcher-select, .pos-select, .custom-player-pick, .custom-team-filter, .custom-pos-filter")) {
       checkReady();
     }
   });

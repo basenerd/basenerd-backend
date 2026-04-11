@@ -3835,6 +3835,18 @@ def simulate_start():
     away_bullpen = away.get("bullpen", [])
     home_bullpen = home.get("bullpen", [])
 
+    # Check for duplicate player IDs across the entire game
+    all_ids = []
+    for p in away_lineup + home_lineup:
+        all_ids.append(p.get("id"))
+    all_ids.append(away_pitcher.get("id"))
+    all_ids.append(home_pitcher.get("id"))
+    for p in away_bullpen + home_bullpen:
+        all_ids.append(p.get("id"))
+    all_ids = [x for x in all_ids if x]
+    if len(all_ids) != len(set(all_ids)):
+        return jsonify({"ok": False, "error": "Duplicate player detected. Each player can only appear once."})
+
     try:
         result = simulate_game(
             away_lineup=away_lineup,
