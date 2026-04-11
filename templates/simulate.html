@@ -177,10 +177,10 @@
 
   <!-- ============ MODE PICKER ============ -->
   <div id="simModePicker" style="display:flex; justify-content:center; gap:16px; margin-bottom:24px;">
-    <button class="sim-mode-btn active" id="modeTeams" style="padding:14px 32px; border-radius:12px; border:2px solid #2563eb; background:rgba(37,99,235,.12); color:#fff; font-weight:800; font-size:15px; cursor:pointer; font-family:inherit; transition:all .15s;">
+    <button class="sim-mode-btn active" id="modeTeams" style="padding:14px 32px; border-radius:12px; border:2px solid #2563eb; background:#2563eb; color:#0b0e13; font-weight:800; font-size:15px; cursor:pointer; font-family:inherit; transition:all .15s;">
       Use Existing Teams
     </button>
-    <button class="sim-mode-btn" id="modeCustom" style="padding:14px 32px; border-radius:12px; border:2px solid var(--border,rgba(226,232,240,.12)); background:transparent; color:#fff; font-weight:800; font-size:15px; cursor:pointer; font-family:inherit; transition:all .15s; opacity:.6;">
+    <button class="sim-mode-btn" id="modeCustom" style="padding:14px 32px; border-radius:12px; border:2px solid rgba(226,232,240,.25); background:rgba(226,232,240,.08); color:#0b0e13; font-weight:800; font-size:15px; cursor:pointer; font-family:inherit; transition:all .15s; opacity:.6;">
       Custom Lineups
     </button>
   </div>
@@ -426,11 +426,11 @@
     isCustomMode = custom;
 
     // Style buttons
-    modeTeamsBtn.style.borderColor = custom ? "var(--border,rgba(226,232,240,.12))" : "#2563eb";
-    modeTeamsBtn.style.background = custom ? "transparent" : "rgba(37,99,235,.12)";
+    modeTeamsBtn.style.borderColor = custom ? "rgba(226,232,240,.25)" : "#2563eb";
+    modeTeamsBtn.style.background = custom ? "rgba(226,232,240,.08)" : "#2563eb";
     modeTeamsBtn.style.opacity = custom ? ".6" : "1";
-    modeCustomBtn.style.borderColor = custom ? "#2563eb" : "var(--border,rgba(226,232,240,.12))";
-    modeCustomBtn.style.background = custom ? "rgba(37,99,235,.12)" : "transparent";
+    modeCustomBtn.style.borderColor = custom ? "#2563eb" : "rgba(226,232,240,.25)";
+    modeCustomBtn.style.background = custom ? "#2563eb" : "rgba(226,232,240,.08)";
     modeCustomBtn.style.opacity = custom ? "1" : ".6";
 
     modeDesc.textContent = custom
