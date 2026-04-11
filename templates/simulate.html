@@ -175,13 +175,24 @@
     <p>Build lineups, pick a stadium, and simulate a pitch-by-pitch game</p>
   </div>
 
+  <!-- ============ MODE PICKER ============ -->
+  <div id="simModePicker" style="display:flex; justify-content:center; gap:16px; margin-bottom:24px;">
+    <button class="sim-mode-btn active" id="modeTeams" style="padding:14px 32px; border-radius:12px; border:2px solid #2563eb; background:rgba(37,99,235,.12); color:#fff; font-weight:800; font-size:15px; cursor:pointer; font-family:inherit; transition:all .15s;">
+      Use Existing Teams
+    </button>
+    <button class="sim-mode-btn" id="modeCustom" style="padding:14px 32px; border-radius:12px; border:2px solid var(--border,rgba(226,232,240,.12)); background:transparent; color:#fff; font-weight:800; font-size:15px; cursor:pointer; font-family:inherit; transition:all .15s; opacity:.6;">
+      Custom Lineups
+    </button>
+  </div>
+  <p id="modeDesc" style="text-align:center; font-size:13px; opacity:.5; margin:-16px 0 20px;">Select two MLB teams and build lineups from their rosters</p>
+
   <!-- ============ BUILDER ============ -->
   <div id="simBuilder">
     <!-- Venue -->
     <div class="sim-venue-row">
       <label>Stadium</label>
-      <select id="venueSelect" class="sim-venue-select" style="max-width:300px;">
-        <option value="NYY">Yankee Stadium</option>
+      <select id="venueSelect" class="sim-venue-select" style="max-width:400px;">
+        <option value="NYY">Yankee Stadium (Yankees)</option>
       </select>
     </div>
 
@@ -189,12 +200,17 @@
       <!-- AWAY TEAM -->
       <div class="sim-builder-side" id="awayBuilder">
         <div class="sim-side-label">Away Team</div>
-        <select class="sim-team-select" id="awayTeamSelect">
+        <!-- Team mode: team selector -->
+        <select class="sim-team-select team-mode-el" id="awayTeamSelect">
           <option value="">— Select Team —</option>
-          <option value="custom">Custom Lineup</option>
         </select>
+        <!-- Custom mode: hidden by default -->
+        <div class="custom-mode-el" style="display:none;">
+          <div style="font-size:13px; opacity:.5; margin-bottom:8px;">Search any MLB player for each slot</div>
+        </div>
         <div class="sim-section-label">Starting Pitcher</div>
         <select class="sim-pitcher-select" id="awaySPSelect"><option value="">— Select —</option></select>
+        <div id="awaySPSearch" class="custom-mode-el" style="display:none;"></div>
         <div class="sim-section-label">Batting Order</div>
         <div id="awayLineup"></div>
         <div class="sim-section-label">Bullpen</div>
@@ -204,12 +220,15 @@
       <!-- HOME TEAM -->
       <div class="sim-builder-side" id="homeBuilder">
         <div class="sim-side-label">Home Team</div>
-        <select class="sim-team-select" id="homeTeamSelect">
+        <select class="sim-team-select team-mode-el" id="homeTeamSelect">
           <option value="">— Select Team —</option>
-          <option value="custom">Custom Lineup</option>
         </select>
+        <div class="custom-mode-el" style="display:none;">
+          <div style="font-size:13px; opacity:.5; margin-bottom:8px;">Search any MLB player for each slot</div>
+        </div>
         <div class="sim-section-label">Starting Pitcher</div>
         <select class="sim-pitcher-select" id="homeSPSelect"><option value="">— Select —</option></select>
+        <div id="homeSPSearch" class="custom-mode-el" style="display:none;"></div>
         <div class="sim-section-label">Batting Order</div>
         <div id="homeLineup"></div>
         <div class="sim-section-label">Bullpen</div>
@@ -365,19 +384,16 @@
   const TEAMS = {{ teams_json|safe }};
   const TEAM_TO_SVG = {{ team_to_svg|safe }};
   const STADIUM_DIMS = {{ stadium_dims|safe }};
+  const STADIUM_NAMES = {{ stadium_names|safe }};
 
-  // Team abbrev -> venue label mapping
-  const VENUE_LABELS = {};
-  TEAMS.forEach(t => { VENUE_LABELS[t.abbrev] = t.name; });
-
-  // Populate venue select
+  // Populate venue select with "Stadium Name (Team)" format
   const venueEl = document.getElementById("venueSelect");
   venueEl.innerHTML = "";
-  const venueKeys = Object.keys(STADIUM_DIMS).sort((a,b) => (VENUE_LABELS[a]||a).localeCompare(VENUE_LABELS[b]||b));
+  const venueKeys = Object.keys(STADIUM_NAMES).sort((a,b) => STADIUM_NAMES[a].localeCompare(STADIUM_NAMES[b]));
   venueKeys.forEach(k => {
     const opt = document.createElement("option");
     opt.value = k;
-    opt.textContent = VENUE_LABELS[k] || k;
+    opt.textContent = STADIUM_NAMES[k];
     venueEl.appendChild(opt);
   });
   venueEl.value = "NYY";
@@ -396,10 +412,64 @@
 
   // ============ STATE ============
   let awayRoster = null, homeRoster = null;
-  let awayCustom = false, homeCustom = false;
+  let isCustomMode = false;
   let gameData = null;
   let currentPitch = 0;
   let autoplayTimer = null;
+
+  // ============ MODE TOGGLE ============
+  const modeTeamsBtn = document.getElementById("modeTeams");
+  const modeCustomBtn = document.getElementById("modeCustom");
+  const modeDesc = document.getElementById("modeDesc");
+
+  function setMode(custom) {
+    isCustomMode = custom;
+
+    // Style buttons
+    modeTeamsBtn.style.borderColor = custom ? "var(--border,rgba(226,232,240,.12))" : "#2563eb";
+    modeTeamsBtn.style.background = custom ? "transparent" : "rgba(37,99,235,.12)";
+    modeTeamsBtn.style.opacity = custom ? ".6" : "1";
+    modeCustomBtn.style.borderColor = custom ? "#2563eb" : "var(--border,rgba(226,232,240,.12))";
+    modeCustomBtn.style.background = custom ? "rgba(37,99,235,.12)" : "transparent";
+    modeCustomBtn.style.opacity = custom ? "1" : ".6";
+
+    modeDesc.textContent = custom
+      ? "Build lineups from scratch — pick any MLB player for any slot"
+      : "Select two MLB teams and build lineups from their rosters";
+
+    // Show/hide team vs custom elements
+    document.querySelectorAll(".team-mode-el").forEach(el => el.style.display = custom ? "none" : "");
+    document.querySelectorAll(".custom-mode-el").forEach(el => el.style.display = custom ? "" : "none");
+
+    // Reset builder state
+    resetBuilder("away");
+    resetBuilder("home");
+
+    // In custom mode, immediately build search-based lineup slots
+    if (custom) {
+      buildCustomLineup("away");
+      buildCustomLineup("home");
+    }
+
+    checkReady();
+  }
+
+  function resetBuilder(side) {
+    const lineupDiv = document.getElementById(side === "away" ? "awayLineup" : "homeLineup");
+    const bullpenDiv = document.getElementById(side === "away" ? "awayBullpen" : "homeBullpen");
+    const spSelect = document.getElementById(side === "away" ? "awaySPSelect" : "homeSPSelect");
+    const spSearch = document.getElementById(side === "away" ? "awaySPSearch" : "homeSPSearch");
+    lineupDiv.innerHTML = "";
+    bullpenDiv.innerHTML = "";
+    spSelect.innerHTML = '<option value="">— Select —</option>';
+    spSelect.style.display = isCustomMode ? "none" : "";
+    spSearch.innerHTML = "";
+    if (side === "away") awayRoster = null;
+    else homeRoster = null;
+  }
+
+  modeTeamsBtn.addEventListener("click", () => setMode(false));
+  modeCustomBtn.addEventListener("click", () => setMode(true));
 
   // ============ ROSTER LOADING ============
   async function loadRoster(teamId, side) {
@@ -501,11 +571,11 @@
   function buildCustomLineup(side) {
     const lineupDiv = document.getElementById(side === "away" ? "awayLineup" : "homeLineup");
     const bullpenDiv = document.getElementById(side === "away" ? "awayBullpen" : "homeBullpen");
-    const pitcherDiv = document.getElementById(side === "away" ? "awaySPSelect" : "homeSPSelect");
+    const spSearchDiv = document.getElementById(side === "away" ? "awaySPSearch" : "homeSPSearch");
 
-    pitcherDiv.innerHTML = '<option value="">— Type pitcher name —</option>';
     lineupDiv.innerHTML = "";
     bullpenDiv.innerHTML = "";
+    spSearchDiv.innerHTML = "";
 
     // Create 9 search slots for batters
     for(let i = 0; i < 9; i++) {
@@ -530,14 +600,12 @@
     }
 
     // SP search
-    const spWrap = document.createElement("div");
-    spWrap.className = "sim-search-wrap";
-    spWrap.innerHTML = `
-      <input class="sim-search-input custom-player-search" placeholder="Search starting pitcher..." data-side="${side}" data-slot="sp" data-role="pitcher">
-      <div class="sim-search-results" id="search-${side}-sp"></div>
+    spSearchDiv.innerHTML = `
+      <div class="sim-search-wrap">
+        <input class="sim-search-input custom-player-search" placeholder="Search starting pitcher..." data-side="${side}" data-slot="sp" data-role="pitcher">
+        <div class="sim-search-results" id="search-${side}-sp"></div>
+      </div>
     `;
-    pitcherDiv.parentElement.insertBefore(spWrap, pitcherDiv.nextSibling);
-    pitcherDiv.style.display = "none";
 
     // Bullpen searches
     for(let i = 0; i < 3; i++) {
@@ -610,12 +678,10 @@
 
   // ============ TEAM SELECT HANDLERS ============
   document.getElementById("awayTeamSelect").addEventListener("change", function(){
-    if (this.value === "custom") { awayCustom = true; buildCustomLineup("away"); }
-    else if (this.value) { awayCustom = false; loadRoster(parseInt(this.value), "away"); }
+    if (this.value) loadRoster(parseInt(this.value), "away");
   });
   document.getElementById("homeTeamSelect").addEventListener("change", function(){
-    if (this.value === "custom") { homeCustom = true; buildCustomLineup("home"); }
-    else if (this.value) { homeCustom = false; loadRoster(parseInt(this.value), "home"); }
+    if (this.value) loadRoster(parseInt(this.value), "home");
   });
 
   // ============ READINESS CHECK ============
@@ -637,7 +703,7 @@
   });
 
   function getLineup(side) {
-    if (side === "away" && awayCustom || side === "home" && homeCustom) {
+    if (isCustomMode) {
       // Custom mode
       const lineup = [];
       for (let i = 0; i < 9; i++) {
@@ -667,7 +733,7 @@
   }
 
   function getSP(side) {
-    if ((side === "away" && awayCustom) || (side === "home" && homeCustom)) {
+    if (isCustomMode) {
       const key = `${side}-sp`;
       const p = customSelections[key];
       return p ? {id: p.id, name: p.name, p_throws: p.p_throws || "R"} : null;
@@ -680,7 +746,7 @@
   }
 
   function getBullpen(side) {
-    if ((side === "away" && awayCustom) || (side === "home" && homeCustom)) {
+    if (isCustomMode) {
       const bp = [];
       for(let i = 0; i < 5; i++) {
         const key = `${side}-bp${i}`;

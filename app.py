@@ -3750,7 +3750,7 @@ _sim_cache = {}  # In-memory cache for simulated games
 
 @app.get("/simulate")
 def simulate_page():
-    from services.game_simulation import MLB_TEAMS, TEAM_TO_SVG, STADIUM_DIMENSIONS
+    from services.game_simulation import MLB_TEAMS, TEAM_TO_SVG, STADIUM_DIMENSIONS, STADIUM_NAMES
     teams_list = sorted(MLB_TEAMS.values(), key=lambda t: t["name"])
     return render_template(
         "simulate.html",
@@ -3759,6 +3759,7 @@ def simulate_page():
         teams_json=json.dumps(teams_list),
         team_to_svg=json.dumps(TEAM_TO_SVG),
         stadium_dims=json.dumps(STADIUM_DIMENSIONS),
+        stadium_names=json.dumps(STADIUM_NAMES),
     )
 
 

@@ -63,6 +63,40 @@ STADIUM_DIMENSIONS = {
     "WSH": {"lf": 336, "lcf": 377, "cf": 402, "rcf": 370, "rf": 335, "wall": 8},
 }
 
+# Stadium display names: "Park Name (Team)"
+STADIUM_NAMES = {
+    "AZ":  "Chase Field (Diamondbacks)",
+    "ATL": "Truist Park (Braves)",
+    "BAL": "Camden Yards (Orioles)",
+    "BOS": "Fenway Park (Red Sox)",
+    "CHC": "Wrigley Field (Cubs)",
+    "CIN": "Great American Ball Park (Reds)",
+    "CLE": "Progressive Field (Guardians)",
+    "COL": "Coors Field (Rockies)",
+    "CWS": "Guaranteed Rate Field (White Sox)",
+    "DET": "Comerica Park (Tigers)",
+    "HOU": "Minute Maid Park (Astros)",
+    "KC":  "Kauffman Stadium (Royals)",
+    "LAA": "Angel Stadium (Angels)",
+    "LAD": "Dodger Stadium (Dodgers)",
+    "MIA": "LoanDepot Park (Marlins)",
+    "MIL": "American Family Field (Brewers)",
+    "MIN": "Target Field (Twins)",
+    "NYM": "Citi Field (Mets)",
+    "NYY": "Yankee Stadium (Yankees)",
+    "ATH": "Oakland Coliseum (Athletics)",
+    "PHI": "Citizens Bank Park (Phillies)",
+    "PIT": "PNC Park (Pirates)",
+    "SD":  "Petco Park (Padres)",
+    "SF":  "Oracle Park (Giants)",
+    "SEA": "T-Mobile Park (Mariners)",
+    "STL": "Busch Stadium (Cardinals)",
+    "TB":  "Tropicana Field (Rays)",
+    "TEX": "Globe Life Field (Rangers)",
+    "TOR": "Rogers Centre (Blue Jays)",
+    "WSH": "Nationals Park (Nationals)",
+}
+
 # Mapping from team abbreviation to stadium SVG filename
 TEAM_TO_SVG = {
     "AZ": "diamondbacks.svg", "ATL": "braves.svg", "BAL": "orioles.svg",
