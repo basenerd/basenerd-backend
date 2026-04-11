@@ -656,23 +656,31 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
       lineupDiv.appendChild(slot);
     }
 
-    // Bullpen
+    // Bullpen — labeled roles ordered low → high leverage
     bullpenDiv.innerHTML = "";
-    const relieverCount = Math.min(5, pitchers.length);
-    for(let i = 0; i < relieverCount; i++) {
+    const BP_ROLES = [
+      {key: "long", label: "Long Relief"},
+      {key: "mid", label: "Middle Relief"},
+      {key: "setup", label: "Setup Man"},
+      {key: "closer", label: "Closer"},
+    ];
+    BP_ROLES.forEach((role, i) => {
       const div = document.createElement("div");
-      div.innerHTML = `<select class="sim-pitcher-select bullpen-select" data-side="${side}" data-idx="${i}">
-        <option value="">— Reliever ${i+1} —</option>
-      </select>`;
+      div.style.marginBottom = "4px";
+      div.innerHTML = `
+        <div style="font-size:11px; font-weight:700; opacity:.4; text-transform:uppercase; letter-spacing:.3px; margin-bottom:2px;">${role.label}</div>
+        <select class="sim-pitcher-select bullpen-select" data-side="${side}" data-idx="${i}" data-role="${role.key}">
+          <option value="">— Select ${role.label} —</option>
+        </select>`;
       const sel = div.querySelector("select");
       pitchers.forEach(p => {
         const opt = document.createElement("option");
-        opt.value = JSON.stringify({id: p.id, name: p.name, p_throws: (p.bt||"R/R").split("/")[1] || "R"});
+        opt.value = JSON.stringify({id: p.id, name: p.name, p_throws: (p.bt||"R/R").split("/")[1] || "R", role: role.key});
         opt.textContent = `${p.name} (${p.pos})`;
         sel.appendChild(opt);
       });
       bullpenDiv.appendChild(div);
-    }
+    });
 
     checkReady();
   }
@@ -730,20 +738,27 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
       </select>
     `;
 
-    // Bullpen pickers
-    for(let i = 0; i < 3; i++) {
+    // Bullpen pickers — labeled roles ordered low → high leverage
+    const BP_ROLES_CUSTOM = [
+      {key: "long", label: "Long Relief", slot: "bp0"},
+      {key: "mid", label: "Middle Relief", slot: "bp1"},
+      {key: "setup", label: "Setup Man", slot: "bp2"},
+      {key: "closer", label: "Closer", slot: "bp3"},
+    ];
+    BP_ROLES_CUSTOM.forEach(role => {
       const div = document.createElement("div");
       div.style.marginBottom = "6px";
       div.innerHTML = `
+        <div style="font-size:11px; font-weight:700; opacity:.4; text-transform:uppercase; letter-spacing:.3px; margin-bottom:2px;">${role.label}</div>
         <div class="sim-filter-row">
-          <select class="custom-team-filter" data-side="${side}" data-slot="bp${i}" data-role="pitcher">${teamOpts}</select>
+          <select class="custom-team-filter" data-side="${side}" data-slot="${role.slot}" data-role="pitcher">${teamOpts}</select>
         </div>
-        <select class="sim-player-select custom-player-pick" data-side="${side}" data-slot="bp${i}" data-role="pitcher" style="width:100%;">
-          <option value="">— Reliever ${i+1} —</option>
+        <select class="sim-player-select custom-player-pick" data-side="${side}" data-slot="${role.slot}" data-role="pitcher" style="width:100%;">
+          <option value="">— Select ${role.label} —</option>
         </select>
       `;
       bullpenDiv.appendChild(div);
-    }
+    });
 
     // Populate initial player dropdowns and wire up filters
     wireCustomFilters(side);
@@ -821,8 +836,9 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     const currentId = currentVal ? currentVal.id : null;
 
     // Build options
+    const bpLabels = {bp0: "Long Relief", bp1: "Middle Relief", bp2: "Setup Man", bp3: "Closer"};
     const defaultLabel = role === "pitcher"
-      ? (slot === "sp" ? "— Select Starting Pitcher —" : `— Reliever —`)
+      ? (slot === "sp" ? "— Select Starting Pitcher —" : `— Select ${bpLabels[slot] || "Reliever"} —`)
       : "— Select Player —";
 
     let html = `<option value="">${defaultLabel}</option>`;
@@ -942,15 +958,19 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   }
 
   function getBullpen(side) {
+    // Returns array ordered: [long relief, middle relief, setup, closer]
+    // The _select_reliever function uses index position: last = highest leverage
     if (isCustomMode) {
+      const roles = ["bp0","bp1","bp2","bp3"];
       const bp = [];
-      for(let i = 0; i < 5; i++) {
-        const key = `${side}-bp${i}`;
+      roles.forEach(slot => {
+        const key = `${side}-${slot}`;
         const p = customSelections[key];
         if (p) bp.push({id: p.id, name: p.name, p_throws: p.p_throws || "R"});
-      }
+      });
       return bp;
     }
+    // Roster mode: bullpen selects are already in order (long, mid, setup, closer)
     const bp = [];
     document.querySelectorAll(`.bullpen-select[data-side="${side}"]`).forEach(sel => {
       if (sel.value) {
