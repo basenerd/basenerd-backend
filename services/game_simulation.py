@@ -179,13 +179,39 @@ _BASE_CHASE_WHIFF_RATE = 0.38
 _BASE_FOUL_GIVEN_CONTACT = 0.42  # foul / (foul + in_play) when contact is made
 
 # Outcome distributions for BIP exit velo / launch angle by result
+# Distance is computed from EV + LA, not sampled independently
 _BIP_PROFILES = {
-    "HR":  {"ev_mean": 103.0, "ev_std": 4.0, "la_mean": 28.0, "la_std": 5.0, "dist_mean": 395, "dist_std": 20},
-    "3B":  {"ev_mean": 100.0, "ev_std": 5.0, "la_mean": 15.0, "la_std": 8.0, "dist_mean": 340, "dist_std": 30},
-    "2B":  {"ev_mean": 97.0,  "ev_std": 6.0, "la_mean": 18.0, "la_std": 10.0, "dist_mean": 300, "dist_std": 40},
-    "1B":  {"ev_mean": 91.0,  "ev_std": 8.0, "la_mean": 5.0,  "la_std": 15.0, "dist_mean": 220, "dist_std": 60},
-    "OUT": {"ev_mean": 87.0,  "ev_std": 10.0, "la_mean": 25.0, "la_std": 20.0, "dist_mean": 260, "dist_std": 80},
+    "HR":  {"ev_mean": 103.0, "ev_std": 4.0, "la_mean": 28.0, "la_std": 5.0},
+    "3B":  {"ev_mean": 100.0, "ev_std": 5.0, "la_mean": 15.0, "la_std": 8.0},
+    "2B":  {"ev_mean": 97.0,  "ev_std": 6.0, "la_mean": 18.0, "la_std": 10.0},
+    "1B":  {"ev_mean": 91.0,  "ev_std": 8.0, "la_mean": 5.0,  "la_std": 15.0},
+    "OUT": {"ev_mean": 87.0,  "ev_std": 10.0, "la_mean": 20.0, "la_std": 18.0},
 }
+
+
+def _estimate_distance(ev: float, la: float) -> float:
+    """
+    Estimate batted ball distance from exit velocity and launch angle.
+    Simplified model based on Statcast averages.
+    Ground balls (la < 10): short distance, driven by EV
+    Line drives (10-25): medium distance
+    Fly balls (25+): distance peaks around 25-30 degrees
+    """
+    if la < -10:
+        # Chopper / topped ball
+        return max(10, 20 + ev * 0.5)
+    if la < 10:
+        # Ground ball: distance = roughly EV * 1.2 to 1.8
+        return max(30, ev * 1.5 + random.gauss(0, 15))
+    if la < 25:
+        # Line drive
+        return max(80, ev * 2.5 + la * 2 + random.gauss(0, 20))
+    if la < 40:
+        # Fly ball — peak carry
+        carry = ev * 3.2 + (la - 10) * 3.5 - (la - 28) ** 2 * 0.4
+        return max(100, carry + random.gauss(0, 15))
+    # Pop up (la >= 40): very short
+    return max(50, 200 - (la - 40) * 4 + random.gauss(0, 15))
 
 # Lazy-loaded data
 _park_factors_df = None
@@ -636,13 +662,29 @@ def _generate_bip_data(
 ) -> dict:
     """
     Generate ball-in-play data: coordinates, exit velo, launch angle, distance.
-    Coordinates are in the 0-250 normalized space used by stadium SVGs.
+    Coordinates match the MLB Statcast hc_x/hc_y space (0-250) where
+    home plate is at approximately (125, 199) and y decreases going to outfield.
     """
     profile = _BIP_PROFILES.get(outcome, _BIP_PROFILES["OUT"])
 
     ev = max(50, rng.gauss(profile["ev_mean"], profile["ev_std"]))
     la = rng.gauss(profile["la_mean"], profile["la_std"])
-    dist = max(30, rng.gauss(profile["dist_mean"], profile["dist_std"]))
+
+    # Compute distance from EV + LA (physics-based)
+    dist = _estimate_distance(ev, la)
+
+    # Clamp distance by outcome type
+    if outcome == "HR":
+        dist = max(320, dist)
+    elif outcome == "3B":
+        dist = max(250, min(420, dist))
+    elif outcome == "2B":
+        dist = max(180, min(380, dist))
+    elif outcome == "1B":
+        dist = max(60, min(320, dist))
+    else:
+        # OUT — no special clamp, physics handles it
+        pass
 
     # Spray angle based on batter tendency
     pull_pct = spray_profile.get("pull_pct", 0.40)
@@ -651,37 +693,39 @@ def _generate_bip_data(
 
     spray_roll = rng.random()
     if spray_roll < pull_pct:
-        # Pull side
         if batter_stand == "R":
-            angle = rng.gauss(-25, 12)  # Left field
+            angle = rng.gauss(-25, 12)
         else:
-            angle = rng.gauss(25, 12)   # Right field
+            angle = rng.gauss(25, 12)
     elif spray_roll < pull_pct + center_pct:
-        # Center
         angle = rng.gauss(0, 10)
     else:
-        # Opposite field
         if batter_stand == "R":
-            angle = rng.gauss(25, 12)   # Right field
+            angle = rng.gauss(25, 12)
         else:
-            angle = rng.gauss(-25, 12)  # Left field
+            angle = rng.gauss(-25, 12)
 
     angle = max(-45, min(45, angle))
 
-    # Convert spray angle + distance to (x, y) in 0-250 coordinate space
-    # Home plate at (125, 208), y decreases going to outfield
+    # Ground balls pull more and have tighter spray
+    if la < 10:
+        angle *= 1.1  # ground balls tend to be more pulled
+        angle = max(-45, min(45, angle))
+
+    # Convert spray angle + distance to (x, y) in MLB Statcast coordinate space
+    # Home plate at (125, 199), y DECREASES going to outfield
+    # Scale: ~400ft CF distance maps to ~160 pixels (plate at 199, CF fence ~39)
     angle_rad = math.radians(angle)
-    # Scale: ~400ft = ~180 pixels
-    scale = 180 / 400
+    scale = 160.0 / 400.0
     dx = dist * math.sin(angle_rad) * scale
-    dy = -dist * math.cos(angle_rad) * scale  # negative because y goes up
+    dy = -dist * math.cos(angle_rad) * scale  # negative = toward outfield (lower y)
 
-    x = 125 + dx
-    y = 208 + dy
+    x = 125.0 + dx
+    y = 199.0 + dy
 
-    # Clamp to field
-    x = max(5, min(245, x))
-    y = max(5, min(230, y))
+    # Clamp to field area
+    x = max(10, min(240, x))
+    y = max(20, min(210, y))
 
     # Determine if it's a ground ball or fly ball
     is_ground = la < 10
