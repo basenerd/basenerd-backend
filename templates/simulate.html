@@ -1087,12 +1087,36 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   }
 
   // ============ RENDER STATE ============
+  let __sim_render_pending = false;
+
   function renderState() {
     if (!gameData) return;
+
+    // If a takeover is currently showing, defer the full UI update until it clears.
+    // This prevents the next at-bat / baserunning from visually appearing behind the card.
+    if (__sim_takeover_active) {
+      __sim_render_pending = true;
+      return;
+    }
+
+    __sim_render_pending = false;
     const pitches = gameData.pitches;
     const total = pitches.length;
     const p = pitches[currentPitch] || pitches[total - 1];
 
+    // Check for event takeovers FIRST — if one fires, defer the rest of the render
+    const hadTakeover = _checkAndShowTakeover(p);
+    if (hadTakeover) {
+      __sim_render_pending = true;
+      // Only update pitch counter so user sees progress
+      document.getElementById("pitchCounter").textContent = `${currentPitch + 1} / ${total}`;
+      return;
+    }
+
+    _renderStateInner(p, total);
+  }
+
+  function _renderStateInner(p, total) {
     // Scorebar
     document.getElementById("sbAwayScore").textContent = p.score_away;
     document.getElementById("sbHomeScore").textContent = p.score_home;
@@ -1141,9 +1165,6 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
 
     // Lineups
     renderViewerLineups();
-
-    // Event takeovers — check for new events on this pitch
-    checkForEventTakeovers(p);
 
     // Button states
     document.getElementById("btnPrevPitch").disabled = currentPitch <= 0;
@@ -1431,6 +1452,7 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
   let __sim_takeover_timer = null;
   let __sim_takeover_kind = "";
   let __sim_last_takeover_pitch = -1;
+  let __sim_takeover_active = false;
 
   const __sim_event_meta = {
     strikeout:       { label: "Strikeout",        badge: "K",   icon: "🫵", color: "#dc2626", bg: "rgba(239,68,68,.10)" },
@@ -1465,6 +1487,7 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     if (midgrid) midgrid.classList.add("takeover-active");
 
     __sim_takeover_kind = kind || "";
+    __sim_takeover_active = true;
 
     if (__sim_takeover_timer) clearTimeout(__sim_takeover_timer);
     __sim_takeover_timer = null;
@@ -1481,8 +1504,18 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     const midgrid = wrap.closest(".gc-midgrid");
     if (midgrid) midgrid.classList.remove("takeover-active");
     __sim_takeover_kind = "";
+    __sim_takeover_active = false;
     if (__sim_takeover_timer) clearTimeout(__sim_takeover_timer);
     __sim_takeover_timer = null;
+
+    // Flush any deferred render now that the takeover is gone
+    if (__sim_render_pending) {
+      __sim_render_pending = false;
+      renderState();
+    }
+
+    // Resume autoplay if it was running (and renderState didn't trigger another takeover)
+    if (autoplayTimer && !__sim_takeover_active) scheduleNextAutoplayPitch();
   }
 
   function showEventTakeover(ev) {
@@ -1530,7 +1563,20 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
           <div class="mono" style="opacity:.75; font-size:12px;">RESULT</div>
           <div style="font-weight:1000; font-size:18px; margin-top:4px;">${bip.event || "In Play"}</div>
           <div class="mono" style="margin-top:10px; display:inline-flex; padding:6px 10px; border:1px solid rgba(226,232,240,.15); border-radius:999px;">${kindLabel}</div>
-          <div class="mono" style="opacity:.5; margin-top:10px; font-size:12px;">${metrics.join("  ·  ")}</div>
+          <div style="display:flex; gap:12px; margin-top:14px; flex-wrap:wrap;">
+            ${bip.ev ? `<div style="text-align:center;">
+              <div style="font-weight:900; font-size:22px; letter-spacing:-.5px; line-height:1;">${bip.ev}</div>
+              <div class="mono" style="opacity:.55; font-size:10px; margin-top:3px;">MPH</div>
+            </div>` : ""}
+            ${bip.la != null ? `<div style="text-align:center;">
+              <div style="font-weight:900; font-size:22px; letter-spacing:-.5px; line-height:1;">${bip.la}°</div>
+              <div class="mono" style="opacity:.55; font-size:10px; margin-top:3px;">LAUNCH</div>
+            </div>` : ""}
+            ${bip.dist ? `<div style="text-align:center;">
+              <div style="font-weight:900; font-size:22px; letter-spacing:-.5px; line-height:1;">${bip.dist}</div>
+              <div class="mono" style="opacity:.55; font-size:10px; margin-top:3px;">FEET</div>
+            </div>` : ""}
+          </div>
         </div>
       </div>`;
 
@@ -1625,7 +1671,7 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     return `${ev.type}|${ev.pitch_index}|${(ev.description||"").slice(0,80)}`;
   }
 
-  function checkForEventTakeovers(p) {
+  function _checkAndShowTakeover(p) {
     // Check for ALL events on or before this pitch that haven't been shown yet
     // This catches between-pitch events (SB, WP, etc.) and PA-ending events
     const pendingEvents = gameData.events.filter(ev => {
@@ -1634,7 +1680,7 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
       return !__sim_shown_event_keys.has(key);
     });
 
-    if (!pendingEvents.length) return;
+    if (!pendingEvents.length) return false;
 
     // Show the first unseen event
     const ev = pendingEvents[0];
@@ -1644,20 +1690,22 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     // BIP events get the full stadium animation
     if (p.bip && p.is_in_play && (ev.type === "hit" || ev.type === "out") && ev.bip) {
       showBIPTakeover(p.bip);
-      return;
+      return true;
     }
 
     // PA-ending pitch with BIP but event is different (edge case)
     if (p.bip && p.is_in_play && ev.pitch_index === p.idx) {
       showBIPTakeover(p.bip);
-      return;
+      return true;
     }
 
     showEventTakeover(ev);
+    return true;
   }
 
   // ============ PLAYBACK CONTROLS ============
   document.getElementById("btnNextPitch").addEventListener("click", () => {
+    if (__sim_takeover_active) { hideTakeover(); return; }
     if (currentPitch < gameData.pitches.length - 1) {
       currentPitch++;
       renderState();
@@ -1713,24 +1761,45 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     renderState();
   });
 
-  // Auto-play
+  // Auto-play (setTimeout-based so takeovers can pause it)
   function getSpeed() { return parseInt(document.getElementById("speedSelect").value) || 1000; }
+
+  function scheduleNextAutoplayPitch() {
+    // Clear any existing scheduled tick
+    if (autoplayTimer) clearTimeout(autoplayTimer);
+    autoplayTimer = null;
+
+    // Don't schedule while takeover is showing — hideTakeover will call us back
+    if (__sim_takeover_active) {
+      // Keep autoplayTimer truthy so we know autoplay is "on"
+      autoplayTimer = -1;
+      return;
+    }
+
+    if (currentPitch >= gameData.pitches.length - 1) {
+      stopAutoplay();
+      return;
+    }
+
+    autoplayTimer = setTimeout(() => {
+      if (!autoplayTimer) return; // stopped while waiting
+      currentPitch++;
+      renderState();
+      // After renderState, if a takeover just appeared, don't schedule —
+      // hideTakeover will resume us. Otherwise schedule the next tick.
+      if (!__sim_takeover_active) scheduleNextAutoplayPitch();
+      else autoplayTimer = -1; // sentinel: autoplay is on but paused for takeover
+    }, getSpeed());
+  }
 
   function startAutoplay() {
     if (autoplayTimer) return;
     document.getElementById("btnAutoplay").textContent = "⏸ Pause";
-    autoplayTimer = setInterval(() => {
-      if (currentPitch >= gameData.pitches.length - 1) {
-        stopAutoplay();
-        return;
-      }
-      currentPitch++;
-      renderState();
-    }, getSpeed());
+    scheduleNextAutoplayPitch();
   }
 
   function stopAutoplay() {
-    clearInterval(autoplayTimer);
+    if (autoplayTimer && autoplayTimer !== -1) clearTimeout(autoplayTimer);
     autoplayTimer = null;
     document.getElementById("btnAutoplay").textContent = "▶ Auto";
   }
@@ -1753,6 +1822,7 @@ svg.sim-bip-svg { width:320px; height:320px; display:block; border:1px solid rgb
     if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
     if (e.key === "ArrowRight" || e.key === " ") {
       e.preventDefault();
+      if (__sim_takeover_active) { hideTakeover(); return; }
       if (currentPitch < gameData.pitches.length - 1) { currentPitch++; renderState(); }
     } else if (e.key === "ArrowLeft") {
       e.preventDefault();
