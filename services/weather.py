@@ -6,7 +6,7 @@ import json
 import math
 import logging
 import os
-import urllib.request
+import requests as _requests
 from datetime import datetime, timezone
 
 from services.venue_meta import get_venue_meta
@@ -386,9 +386,9 @@ def fetch_game_weather(venue_id, game_datetime_str, game_pk=None):
             f"&temperature_unit=fahrenheit&wind_speed_unit=mph"
             f"&timezone=auto&start_date={date_str}&end_date={date_str}"
         )
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            data = json.loads(resp.read())
+        resp = _requests.get(url, timeout=8)
+        resp.raise_for_status()
+        data = resp.json()
 
         hourly = data.get("hourly", {})
         times     = hourly.get("time", [])
@@ -429,7 +429,7 @@ def fetch_game_weather(venue_id, game_datetime_str, game_pk=None):
         return result
 
     except Exception as e:
-        log.warning("Weather fetch failed for venue %s: %s", venue_id, e)
+        log.error("Weather fetch failed for venue %s: %s: %s", venue_id, type(e).__name__, e)
         return _fallback(venue)
 
 
