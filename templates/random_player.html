@@ -8,11 +8,17 @@
 <div class="card-header" style="position: relative;">
     <div class="card-title">🎲 Random MLB Player</div>
     <div class="card-subtitle">
-        <select id="modeSelect" onchange="updateNextRoll()" 
+        <select id="modeSelect" onchange="updateNextRoll()"
                 style="background: transparent; border: 1px solid rgba(0,0,0,0.2); border-radius: 4px; color: inherit; font-family: inherit; font-size: inherit; padding: 2px 5px; cursor: pointer;">
             <option value="all" {% if mode != 'active' %}selected{% endif %}>1990 → Present</option>
             <option value="active" {% if mode == 'active' %}selected{% endif %}>Active Only</option>
         </select>
+        <label style="margin-left:10px; cursor:pointer; font-size:inherit;">
+            <input type="checkbox" id="awardsOnly" onchange="updateNextRoll()"
+                   {% if awards_only %}checked{% endif %}
+                   style="cursor:pointer; vertical-align:middle;">
+            Awards Only
+        </label>
     </div>
 </div>
 
@@ -555,13 +561,14 @@ btn?.addEventListener("click", (e) => {
 <script>
 function updateNextRoll() {
     var mode = document.getElementById("modeSelect").value;
+    var awardsOnly = document.getElementById("awardsOnly").checked;
     var btn = document.getElementById("rollBtn");
+    var params = [];
 
-    if (mode === "active") {
-        btn.href = "/random-player/play?mode=active";
-    } else {
-        btn.href = "/random-player/play";
-    }
+    if (mode === "active") params.push("mode=active");
+    if (awardsOnly) params.push("awards=1");
+
+    btn.href = "/random-player/play" + (params.length ? "?" + params.join("&") : "");
 }
 </script>
 

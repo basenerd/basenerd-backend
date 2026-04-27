@@ -906,7 +906,8 @@ def pregame_json(game_pk):
 @app.get("/random-player/play")
 def random_player_play():
     mode = request.args.get("mode")
-    
+    awards_only = request.args.get("awards", "").strip() in ("1", "true", "yes")
+
     for _ in range(15):
         try:
             # === NEW Active Player LOGIC ===
@@ -957,6 +958,11 @@ def random_player_play():
             accolades = build_accolade_pills(awards)
             award_year_map = build_award_year_map(awards)
 
+            # Skip players with no accolades if filter is on
+            if awards_only and not accolades:
+                print(f"[random-player] skipping {pid}: no accolades (awards_only)")
+                continue
+
             yby_bg_hitting = {}
             yby_bg_pitching = {}
 
@@ -974,7 +980,8 @@ def random_player_play():
                 accolades=accolades,
                 award_year_map=award_year_map,
                 title="Random Player • Basenerd",
-                mode=mode
+                mode=mode,
+                awards_only=awards_only
             )
 
         except Exception as e:
