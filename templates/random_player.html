@@ -569,7 +569,24 @@ function updateNextRoll() {
     if (awardsOnly) params.push("awards=1");
 
     btn.href = "/random-player/play" + (params.length ? "?" + params.join("&") : "");
+
+    // Persist filter preferences in localStorage
+    localStorage.setItem("randomPlayer_mode", mode);
+    localStorage.setItem("randomPlayer_awardsOnly", awardsOnly ? "1" : "0");
 }
+
+// Restore saved preferences on page load
+(function() {
+    var savedMode = localStorage.getItem("randomPlayer_mode");
+    var savedAwards = localStorage.getItem("randomPlayer_awardsOnly");
+    var modeSelect = document.getElementById("modeSelect");
+    var awardsBox = document.getElementById("awardsOnly");
+
+    if (savedMode) modeSelect.value = savedMode;
+    if (savedAwards === "1") awardsBox.checked = true;
+
+    updateNextRoll();
+})();
 </script>
 
 {% endblock %}
