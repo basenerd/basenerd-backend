@@ -924,7 +924,7 @@ def random_player_play():
 
             headshot_url = get_player_headshot_url(pid, size=420)
             yby = extract_year_by_year_rows(player)
-            
+
             role = get_player_role(player)
             if role == "pitching":
                 pitching_groups = group_year_by_year(yby, "pitching")
@@ -938,6 +938,20 @@ def random_player_play():
 
             career_hitting = get_player_career_totals(pid, "hitting") if role != "pitching" else None
             career_pitching = get_player_career_totals(pid, "pitching") if role != "hitting" else None
+
+            # Skip players with very short careers
+            MIN_AB = 100
+            MIN_IP = 30.0
+            if role == "hitting" or role == "both":
+                ab = int(career_hitting.get("atBats", 0)) if career_hitting else 0
+                if ab < MIN_AB:
+                    print(f"[random-player] skipping {pid}: only {ab} career AB")
+                    continue
+            if role == "pitching":
+                ip = float(career_pitching.get("inningsPitched", 0)) if career_pitching else 0
+                if ip < MIN_IP:
+                    print(f"[random-player] skipping {pid}: only {ip} career IP")
+                    continue
             
             awards = get_player_awards(pid)
             accolades = build_accolade_pills(awards)
