@@ -39,12 +39,14 @@ def update_percentiles():
     # 3. Clean and map columns to match 'savant_batting_season' schema
     df.columns = [c.strip() for c in df.columns]
     
-    # Force the player ID to match your column name if it came down as player_id
-    if 'player_id' not in df.columns and 'year' in df.columns:
-        df = df.rename(columns={'player_id': 'player_id'})
-        
-    # FORCE the season column to be 2026 for every single row so the DB constraint passes!
+    # FORCE the season column to be 2026 for every single row
     df['season'] = int(YEAR)
+    
+    # Cover all bases: ensure the ID is mapped to both potential column names
+    if 'player_id' in df.columns:
+        df['batter_id'] = df['player_id']
+    elif 'batter_id' in df.columns:
+        df['player_id'] = df['batter_id']
 
     # 4. Sync with the true table name: savant_batting_season
     with engine.begin() as conn:
