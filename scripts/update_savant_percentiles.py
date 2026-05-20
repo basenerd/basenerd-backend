@@ -30,14 +30,14 @@ def update_percentiles():
     # Force the season and ensure IDs map to both potential column names
     df['season'] = int(YEAR)
     
-    # Map Savant's percentile headers to your DB columns
+    # Map Savant's headers to your DB columns
     df = df.rename(columns={
         'player_id': 'player_id',
-        'xwoba': 'xwoba',
-        'xba': 'xba',
-        'xslg': 'xslg',
+        'est_woba': 'xwoba',             # Savant's name for expected wOBA
+        'est_ba': 'xba',                 # Savant's name for expected BA
+        'est_slg': 'xslg',               # Savant's name for expected SLG
         'exit_velocity': 'avg_exit_velocity',
-        'k_percentile': 'k_pct',
+        'k_percentile': 'k_pct', 
         'bb_percentile': 'bb_pct',
         'barrel_percentile': 'barrel_pct',
         'hard_hit_percentile': 'hardhit_pct',
