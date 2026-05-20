@@ -3911,17 +3911,3 @@ def simulate_state(game_id: str):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-
-
-import subprocess
-
-@app.route('/secret-update-percentiles')
-def secret_percentiles():
-    # This commands the server to run the brand new script we just made
-    cmd = ["python3", "scripts/update_savant_percentiles.py"]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
-        return f"<h1>Percentile Sync Complete!</h1><pre>{result.stdout}\n{result.stderr}</pre>"
-    except Exception as e:
-        return f"<h1>Execution Failed:</h1><p>{str(e)}</p>"
-
