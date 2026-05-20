@@ -36,28 +36,28 @@ def update_percentiles():
     
     engine = create_engine(db_url, connect_args={"ssl_context": ssl_context}, future=True)
     
-    # 3. Clean and map columns to your exact 'savant_data' table layout
+    # 3. Clean and map columns to match 'savant_batting_season' schema
     df.columns = [c.strip() for c in df.columns]
     df = df.rename(columns={
-        'player_id': 'batter_id',
-        'year': 'year'
+        'player_id': 'player_id', # Keeps your original ID column name
+        'year': 'season'          # Changed 'year' to 'season' to match your DB!
     })
     
-    # Ensure columns match what your app's SQL query expects
-    # (Checking against your table columns automatically)
+    # 4. Sync with the true table name: savant_batting_season
     with engine.begin() as conn:
         print("Syncing with database...", flush=True)
-        conn.execute(text(f"DELETE FROM savant_data WHERE year = {YEAR}"))
+        # Wipe out old 2026 stats before inserting fresh ones
+        conn.execute(text(f"DELETE FROM savant_batting_season WHERE season = {YEAR}"))
         
         # Keep only the columns that actually exist in your Postgres table
-        db_cols = {r[0] for r in conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='savant_data'")).fetchall()}
+        db_cols = {r[0] for r in conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='savant_batting_season'")).fetchall()}
         keep_cols = [c for c in df.columns if c in db_cols]
         
         df_final = df[keep_cols].copy()
         
         # Write to database
-        df_final.to_sql("savant_data", conn, if_exists="append", index=False)
-        print(f"SUCCESS: Loaded percentiles for {len(df_final)} players!", flush=True)
+        df_final.to_sql("savant_batting_season", conn, if_exists="append", index=False)
+        print(f"SUCCESS: Loaded percentiles for {len(df_final)} players into savant_batting_season!", flush=True)
 
 if __name__ == "__main__":
     update_percentiles()
