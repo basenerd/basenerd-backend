@@ -60,18 +60,23 @@ def update_percentiles():
     
     with engine.begin() as conn:
         print("Syncing with database table 'savant_batting_season'...", flush=True)
-        # Wipe old 2026 data
+        # 1. Wipe old 2026 data
         conn.execute(text(f"DELETE FROM savant_batting_season WHERE season = {YEAR}"))
         
-        # Get actual DB columns to prevent 'column not found' errors
-        db_cols = {r[0] for r in conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='savant_batting_season'")).fetchall()}
-        keep_cols = [c for c in df.columns if c in db_cols]
+        # 2. Explicitly define what columns to keep based on your DB schema
+        # This bypasses the 'keep_cols' filter that is currently stripping your data
+        columns_to_keep = [
+            'player_id', 'batter_id', 'season', 'xwoba', 'xba', 'xslg', 
+            'avg_exit_velocity', 'k_pct', 'bb_pct', 'barrel_pct', 
+            'hardhit_pct', 'whiff_pct', 'chase_pct', 'sweet_spot_pct'
+        ]
         
-        df_final = df[keep_cols].copy()
+        # Filter the dataframe to ONLY these columns
+        df_final = df[[c for c in df.columns if c in columns_to_keep]].copy()
         
-        # Write to database
+        # 3. Write to database
         df_final.to_sql("savant_batting_season", conn, if_exists="append", index=False)
-        print(f"SUCCESS: Loaded {len(df_final)} player profiles into savant_batting_season!", flush=True)
+        print(f"SUCCESS: Loaded {len(df_final)} players with mapped columns!", flush=True)
 
 if __name__ == "__main__":
     update_percentiles()
