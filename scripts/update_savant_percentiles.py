@@ -47,14 +47,14 @@ def update_percentiles():
         'player_name': 'player_name',
         'team_name_alt': 'team',
         'batted_ball_as_percent': 'bbe',
-        'strikeout_percent': 'k_pct',
-        'walk_percent': 'bb_pct',
-        'barrel_batted_rate': 'barrel_pct',
+        'k_percent': 'k_pct',          # Fixed mapping
+        'bb_percent': 'bb_pct',          # Fixed mapping
+        'barrel_percent': 'barrel_pct',  # Fixed mapping
         'hard_hit_percent': 'hardhit_pct',
         'whiff_percent': 'whiff_pct',
-        'chase_percent': 'chase_pct',
+        'edge_sc_percent': 'chase_pct',  # Maps Savant's chase metric
         'sweet_spot_percent': 'sweet_spot_pct',
-        'avg_hit_speed': 'avg_exit_velocity'
+        'avg_best_speed': 'avg_exit_velocity'
     })
 
     # 4. Combine both datasets on player_id
