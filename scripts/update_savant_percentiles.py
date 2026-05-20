@@ -29,8 +29,6 @@ def update_percentiles():
     
     # Force the season and ensure IDs map to both potential column names
     df['season'] = int(YEAR)
-    if 'player_id' in df.columns:
-        df['batter_id'] = df['player_id']
     
     # Map Savant's percentile headers to your DB columns
     df = df.rename(columns={
@@ -60,21 +58,17 @@ def update_percentiles():
     
     with engine.begin() as conn:
         print("Syncing with database table 'savant_batting_season'...", flush=True)
-        # 1. Wipe old 2026 data
         conn.execute(text(f"DELETE FROM savant_batting_season WHERE season = {YEAR}"))
         
-        # 2. Explicitly define what columns to keep based on your DB schema
-        # This bypasses the 'keep_cols' filter that is currently stripping your data
+        # Update this list to ONLY include 'player_id'
         columns_to_keep = [
-            'player_id', 'batter_id', 'season', 'xwoba', 'xba', 'xslg', 
+            'player_id', 'season', 'xwoba', 'xba', 'xslg', 
             'avg_exit_velocity', 'k_pct', 'bb_pct', 'barrel_pct', 
             'hardhit_pct', 'whiff_pct', 'chase_pct', 'sweet_spot_pct'
         ]
         
-        # Filter the dataframe to ONLY these columns
         df_final = df[[c for c in df.columns if c in columns_to_keep]].copy()
         
-        # 3. Write to database
         df_final.to_sql("savant_batting_season", conn, if_exists="append", index=False)
         print(f"SUCCESS: Loaded {len(df_final)} players with mapped columns!", flush=True)
 
