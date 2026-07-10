@@ -1,6 +1,14 @@
 """
 Matchup prediction service v2.
 
+============================================================================
+DEPRECATED / NOT WIRED IN. The live app uses services/matchup_predict.py
+(v1), which loads the same v2.2 model file. Nothing imports this module
+except test scripts. Make live serving/feature changes in matchup_predict.py,
+NOT here. Kept as a reference for the blended-stat / prior-year approach that
+could be promoted later; delete if that's abandoned.
+============================================================================
+
 Drop-in replacement for matchup_predict.py that uses the v2 model
 with enhanced features (count, score, prior-year, blended stats,
 interactions, deltas, sample size awareness).
