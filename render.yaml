@@ -59,10 +59,20 @@ services:
       - fromGroup: shared-db
 
   - type: cron
+    name: score-pitches
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    schedule: "5 6 * * *"  # 6:05 AM UTC, after statcast update, before rebuild-profiles
+    startCommand: "python -u scripts/score_pitches.py"
+    plan: free
+    envVars:
+      - fromGroup: shared-db
+
+  - type: cron
     name: rebuild-profiles
     runtime: python
     buildCommand: "pip install -r requirements.txt"
-    schedule: "10 6 * * *"  # 6:10 AM UTC, after statcast update
+    schedule: "10 6 * * *"  # 6:10 AM UTC, after statcast update + scoring
     startCommand: "python -u scripts/daily_rebuild_profiles.py"
     plan: free
     envVars:

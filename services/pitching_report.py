@@ -196,7 +196,7 @@ def _fetch_pitches(
 ) -> List[Dict[str, Any]]:
     """
     Pull pitch-level Statcast rows for a pitcher.
-    Tries a LEFT JOIN with statcast_pitches_live to get stuff_plus;
+    Tries a LEFT JOIN with pitch_model_scores to get stuff_plus/control_plus;
     falls back to statcast_pitches-only if the join table is missing.
     """
     base_filter = "WHERE sp.pitcher = %s AND sp.game_year = %s"
@@ -227,7 +227,7 @@ def _fetch_pitches(
 
     _join_clause = f"""
     FROM statcast_pitches sp
-    LEFT JOIN statcast_pitches_live spl
+    LEFT JOIN pitch_model_scores spl
       ON sp.game_pk = spl.game_pk
      AND sp.at_bat_number = spl.at_bat_number
      AND sp.pitch_number = spl.pitch_number

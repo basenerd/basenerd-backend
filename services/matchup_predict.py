@@ -426,8 +426,8 @@ _stuff_plus_cache = {}
 
 def _get_stuff_plus_from_live(pitcher_id):
     """
-    Look up average stuff+ for a pitcher from statcast_pitches_live (2026 spring data).
-    Returns a dict {pitch_type: avg_stuff_plus} or empty dict.
+    Look up average stuff+ for a pitcher from pitch_model_scores (per-pitch model
+    scores keyed to statcast_pitches). Returns {pitch_type: avg_stuff_plus} or {}.
     """
     if pitcher_id in _stuff_plus_cache:
         return _stuff_plus_cache[pitcher_id]
@@ -440,10 +440,14 @@ def _get_stuff_plus_from_live(pitcher_id):
         with psycopg.connect(db_url) as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT pitch_type, AVG(stuff_plus) AS avg_stuff
-                    FROM statcast_pitches_live
-                    WHERE pitcher = %s AND stuff_plus IS NOT NULL
-                    GROUP BY pitch_type
+                    SELECT sp.pitch_type, AVG(s.stuff_plus) AS avg_stuff
+                    FROM pitch_model_scores s
+                    JOIN statcast_pitches sp
+                      ON sp.game_pk = s.game_pk
+                     AND sp.at_bat_number = s.at_bat_number
+                     AND sp.pitch_number = s.pitch_number
+                    WHERE sp.pitcher = %s AND s.stuff_plus IS NOT NULL
+                    GROUP BY sp.pitch_type
                 """, (pitcher_id,))
                 rows = cur.fetchall()
                 result = {row[0]: float(row[1]) for row in rows}
@@ -468,7 +472,7 @@ def _get_pitcher_features(pitcher_id, season):
     2. MLB API pitchArsenal + season stats (fallback for pitchers not in parquet)
     3. League-average defaults
 
-    Stuff+ is enriched from statcast_pitches_live when parquet values are NULL.
+    Stuff+ is enriched from pitch_model_scores when parquet values are NULL.
     """
     _DEFAULT_RESULT = dict(_LEAGUE_AVG_PITCHER)
     _DEFAULT_RESULT.update({
@@ -579,7 +583,7 @@ def _get_pitcher_features(pitcher_id, season):
             val = _wavg(col) if col in df_season.columns else None
             result[feat] = val if val is not None else default
 
-    # --- Enrich stuff+ from statcast_pitches_live if still NULL ---
+    # --- Enrich stuff+ from pitch_model_scores if still NULL ---
     live_stuff = _get_stuff_plus_from_live(pitcher_id)
     if result["p_avg_stuff_plus"] == 100.0 and live_stuff:
         stuff_vals = []

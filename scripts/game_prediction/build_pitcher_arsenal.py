@@ -60,7 +60,7 @@ def build_pitcher_arsenal():
         SUM(CASE WHEN sp.description = 'called_strike' THEN 1 ELSE 0 END) AS called_strikes,
         AVG(CASE WHEN sp.estimated_woba_using_speedangle BETWEEN -1 AND 5 THEN sp.estimated_woba_using_speedangle END) AS xwoba
     FROM statcast_pitches sp
-    LEFT JOIN statcast_pitches_live spl
+    LEFT JOIN pitch_model_scores spl
         ON sp.game_pk = spl.game_pk
         AND sp.at_bat_number = spl.at_bat_number
         AND sp.pitch_number = spl.pitch_number
