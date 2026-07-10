@@ -12,7 +12,7 @@ import pandas as pd
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import query_df
+from db_utils import query_df, write_df
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 OUTPUT_PATH = os.path.join(OUTPUT_DIR, "batter_profiles.parquet")
@@ -136,6 +136,10 @@ def build_batter_profiles():
     result.to_parquet(OUTPUT_PATH, index=False)
     print(f"\nBatter profiles saved to {OUTPUT_PATH}")
     print(f"  {len(result):,} rows ({result['batter'].nunique():,} batters)")
+
+    # Write to Postgres so the web service picks up fresh data (parquet stays
+    # on the cron's ephemeral disk and never reaches the web app on Render).
+    write_df(result, "profile_batter")
 
 
 if __name__ == "__main__":

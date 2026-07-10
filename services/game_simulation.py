@@ -228,8 +228,14 @@ def _load_data():
         _park_factors_df = pd.read_parquet(os.path.join(_DATA_DIR, "park_factors.parquet"))
     except Exception:
         _park_factors_df = pd.DataFrame()
+    # Pitcher arsenal is rebuilt nightly — read from Postgres (fresh data),
+    # falling back to the committed parquet file.
     try:
-        _pitcher_arsenal_df = pd.read_parquet(os.path.join(_DATA_DIR, "pitcher_arsenal.parquet"))
+        from services.profile_store import load_profile
+        _pitcher_arsenal_df = load_profile(
+            "profile_pitcher_arsenal",
+            os.path.join(_DATA_DIR, "pitcher_arsenal.parquet"),
+        )
     except Exception:
         _pitcher_arsenal_df = pd.DataFrame()
     try:
