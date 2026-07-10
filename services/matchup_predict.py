@@ -138,19 +138,27 @@ def _load():
         log.info("Pitch selection model not available: %s", e)
         _pitch_sel = None
 
-    for name, path, attr in [
-        ("Batter profiles", "batter_profiles.parquet", "_batter_profiles"),
-        ("Batter pitch-type profiles", "batter_pitch_type_profiles.parquet", "_batter_pitch_types"),
-        ("Pitcher arsenal", "pitcher_arsenal.parquet", "_pitcher_arsenal"),
-        ("Park factors", "park_factors.parquet", "_park_factors"),
+    # Profiles rebuilt nightly by the rebuild-profiles cron: read from Postgres
+    # (the cron writes there so fresh data survives Render's ephemeral disks),
+    # falling back to the committed parquet files.
+    from services.profile_store import load_profile
+
+    for attr, table, path in [
+        ("_batter_profiles", "profile_batter", "batter_profiles.parquet"),
+        ("_batter_pitch_types", "profile_batter_pitch_type", "batter_pitch_type_profiles.parquet"),
+        ("_pitcher_arsenal", "profile_pitcher_arsenal", "pitcher_arsenal.parquet"),
     ]:
-        try:
-            df = pd.read_parquet(os.path.join(_DATA_DIR, path))
-            globals()[attr] = df
-            log.info("%s: %d rows", name, len(df))
-        except Exception as e:
-            log.warning("Could not load %s: %s", name, e)
-            globals()[attr] = pd.DataFrame()
+        df = load_profile(table, os.path.join(_DATA_DIR, path))
+        globals()[attr] = df
+        log.info("%s: %d rows", table, len(df))
+
+    # Park factors are not rebuilt nightly — still parquet only.
+    try:
+        _park_factors = pd.read_parquet(os.path.join(_DATA_DIR, "park_factors.parquet"))
+        log.info("Park factors: %d rows", len(_park_factors))
+    except Exception as e:
+        log.warning("Could not load Park factors: %s", e)
+        _park_factors = pd.DataFrame()
 
 
 def _get_batter_features(batter_id, season, p_throws):
