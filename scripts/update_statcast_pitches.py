@@ -207,6 +207,26 @@ def coerce_df_to_db_types(df: pd.DataFrame, coltypes: dict[str, str], cols: list
 
     float_cols = [c for c in cols if coltypes.get(c) in ("double precision", "real", "numeric", "decimal")]
     bool_cols = [c for c in cols if coltypes.get(c) == "boolean"]
+    text_cols = [c for c in cols if coltypes.get(c) in ("text", "character varying", "varchar", "character", "char")]
+
+    # Defensive: never let a stringified missing value ("nan"/"none"/"") land in a
+    # text column — it slips past IS NOT NULL filters and corrupts per-PA rates
+    # (e.g. events='nan' inflating plate-appearance counts). Force to real NULL.
+    def _clean_text(v):
+        if v is None:
+            return None
+        try:
+            if pd.isna(v):
+                return None
+        except (TypeError, ValueError):
+            pass
+        if isinstance(v, str) and v.strip().lower() in ("nan", "none", ""):
+            return None
+        return v
+
+    for c in text_cols:
+        if c in df.columns:
+            df[c] = df[c].map(_clean_text)
 
     for c in int_cols:
         if c in df.columns:
