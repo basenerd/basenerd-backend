@@ -3223,6 +3223,13 @@
     letter-spacing:.03em; text-transform:uppercase; color:var(--muted);
     padding:8px 10px; border-top:2px solid var(--border);
   }
+  #tab-splits tr.spl-colhead th{
+    text-align:left; font-size:10.5px; color:var(--muted);
+    padding:6px 8px; border-bottom:1px solid var(--border);
+    font-weight:600; white-space:nowrap; cursor:pointer;
+    font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  #tab-splits tr.spl-colhead th.spl-sorted{ text-decoration:underline; }
 </style>
 
 <!-- UMPIRE REPORT -->
@@ -7370,6 +7377,19 @@ document.addEventListener("DOMContentLoaded", ()=>{
     tbody.appendChild(tr);
   }
 
+  function makeHeaderCell(c){
+    const th = document.createElement('th');
+    th.textContent = c.label;
+    if(!c.txt) th.className = 'mono';
+    if(c.k === splSort.key) th.classList.add('spl-sorted');
+    th.addEventListener('click', ()=>{
+      if(splSort.key === c.k){ splSort.dir *= -1; }
+      else { splSort.key = c.k; splSort.dir = c.txt ? 1 : -1; }
+      renderTable();
+    });
+    return th;
+  }
+
   function appendGroupHeader(tbody, label){
     const tr = document.createElement('tr');
     tr.className = 'spl-group';
@@ -7380,23 +7400,19 @@ document.addEventListener("DOMContentLoaded", ()=>{
     tbody.appendChild(tr);
   }
 
+  function appendColHeaderRow(tbody){
+    const tr = document.createElement('tr');
+    tr.className = 'spl-colhead';
+    splCols.forEach(c=>tr.appendChild(makeHeaderCell(c)));
+    tbody.appendChild(tr);
+  }
+
   function renderTable(){
     const thead = $('spl-thead');
     const tbody = $('spl-tbody');
     thead.innerHTML = '';
     tbody.innerHTML = '';
-    splCols.forEach(c=>{
-      const th = document.createElement('th');
-      th.textContent = c.label;
-      if(!c.txt) th.className = 'mono';
-      if(c.k === splSort.key) th.classList.add('spl-sorted');
-      th.addEventListener('click', ()=>{
-        if(splSort.key === c.k){ splSort.dir *= -1; }
-        else { splSort.key = c.k; splSort.dir = c.txt ? 1 : -1; }
-        renderTable();
-      });
-      thead.appendChild(th);
-    });
+    splCols.forEach(c=>thead.appendChild(makeHeaderCell(c)));
 
     // Always render visiting (away) team on top, home team on the bottom,
     // each as its own group. Players never share a combined list.
@@ -7412,8 +7428,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
     if(leftovers.length) groups.push({abbrev:'', rows:leftovers});
 
     const showHeaders = (splGroup === 'player') && groups.length > 1;
-    groups.forEach(g=>{
-      if(showHeaders && g.abbrev) appendGroupHeader(tbody, g.abbrev);
+    groups.forEach((g, i)=>{
+      if(showHeaders){
+        // Repeat the column headers above every team after the first so they
+        // stay visible when scrolling down to the home team.
+        if(i > 0) appendColHeaderRow(tbody);
+        if(g.abbrev) appendGroupHeader(tbody, g.abbrev);
+      }
       sortRows(g.rows).forEach(r=>appendDataRow(tbody, r));
     });
   }
