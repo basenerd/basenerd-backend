@@ -79,6 +79,17 @@ services:
       - fromGroup: shared-db
 
   - type: cron
+    name: track-predictions
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    schedule: "0 13 * * *"  # Daily 13:00 UTC — grade logged predictions vs actual outcomes
+    startCommand: "python -u scripts/game_prediction/track_predictions.py"
+    plan: free
+    envVars:
+      - fromGroup: shared-db
+      - fromGroup: gmail
+
+  - type: cron
     name: update-standings
     runtime: python
     buildCommand: "pip install -r requirements.txt"

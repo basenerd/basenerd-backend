@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Which Swings Beat Which Pitches? A Swing-Pitch Interaction Model</title>
+<style>
+:root {
+  --bg: #f8f9fa; --card-bg: #fff; --text: #2c3e50; --muted: #6c757d;
+  --border: #e9ecef; --accent: #2563eb; --row: #fff; --rowAlt: #f7f8fa;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+.card { background: var(--card-bg); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden; max-width: 900px; margin: 0 auto; }
+.card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.card-body { padding: 16px 20px; }
+.card-subtitle { font-size: 13px; color: var(--muted); }
+/* ===== Basenerd Theme (from old standings.html) ===== */
+:root{
+  --bg:#ffffff;
+  --card:#ffffff;
+  --muted:#5b6577;
+  --text:#111318;
+  --accent:#f0b90b;
+  --row:#fafbfc;
+  --rowAlt:#f4f6f9;
+  --border:#e2e8f0;
+  --header-bg:#ffffff;
+  --header-text:#0b0e13;
+  --link:#0b5cab;
+  --link-hover:#084a8a;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size:13px;
+  line-height:1.35;
+}
+
+a{
+  color:var(--link);
+  text-decoration:none;
+}
+a:hover{ color:var(--link-hover); text-decoration:underline; }
+
+.small{ font-size:11px; color:var(--muted); }
+.muted{ color:var(--muted); }
+
+hr{ border:0; border-top:1px solid var(--border); margin:16px 0; }
+
+/* ===== Common layout helpers ===== */
+.wrap{ max-width:1200px; margin:16px auto 56px; padding:0 12px; }
+.grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media(max-width:900px){ .grid-2{ grid-template-columns:1fr; } }
+
+.site-banner-wrap{
+  height: 95px;
+  border-bottom: 1px solid var(--border);
+  background: #0b0e13;
+  overflow: hidden;
+}
+
+.site-banner{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;        /* fills the 95px strip cleanly */
+  object-position: center;  /* centers the crop */
+}
+
+/* shrink on mobile */
+@media (max-width: 900px){
+  .site-banner-wrap{ height: 70px; }
+}
+
+
+/* ===== Header (if you use a top header anywhere) ===== */
+header.site-header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 16px;
+  background:var(--header-bg);
+  color:var(--header-text);
+  border-bottom:2px solid var(--border);
+}
+
+header.site-header img{ height:32px; }
+header.site-header .title{ margin:0; font-size:17px; letter-spacing:.2px; font-weight:600; }
+
+/* ===== Cards ===== */
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  margin-bottom:10px;
+}
+
+.card-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 12px;
+  background:linear-gradient(180deg, #f6f8fb, #eef2f7);
+  border-bottom:1px solid var(--border);
+}
+
+.card-title{
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:.2px;
+  margin:0;
+  color:#394150;
+}
+
+.card-subtitle{
+  font-size:11px;
+  color:var(--muted);
+  margin-top:2px;
+}
+
+.card-body{ padding:12px; }
+
+/* ===== Sub-sections (used for division blocks etc.) ===== */
+.subcard{
+  padding:10px 12px;
+  border-top:1px solid var(--border);
+  background:#fff;
+}
+.ticker-row{
+  display:flex;
+  gap:10px;
+  overflow-x:auto;
+  padding-bottom:6px; /* space for scrollbar */
+  scroll-snap-type:x proximity;
+}
+.ticker-row::-webkit-scrollbar{ height:10px; }
+.ticker-row::-webkit-scrollbar-thumb{ background: rgba(15,23,42,.18); border-radius:999px; }
+
+.ticker-game{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:10px 10px 9px 10px;
+  min-width: 210px;
+  max-width: 240px;
+  flex: 0 0 auto;
+  text-decoration:none;
+  color:inherit;
+  scroll-snap-align:start;
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.ticker-game:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(0,0,0,.10);
+}
+
+.ticker-top{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.badge-f{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:18px;
+  height:18px;
+  border-radius:6px;
+  font-weight:900;
+  font-size:11px;
+  border:1px solid rgba(15,23,42,.22);
+  background: rgba(15,23,42,.08);
+  color: rgba(15,23,42,.95);
+}
+.ticker-bot{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.bases{
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.bases .base{
+  width:8px;
+  height:8px;
+  border-radius:2px;
+  border:1px solid rgba(15,23,42,.22);
+  background: rgba(15,23,42,.05);
+  transform: rotate(45deg);
+}
+.bases .base.on{
+  background: rgba(15,23,42,.75);
+  border-color: rgba(15,23,42,.75);
+}
+
+.subcard-title{
+  font-weight:700;
+  font-size:12px;
+  color:#394150;
+  margin:0 0 8px 0;
+  letter-spacing:.2px;
+}
+
+/* ===== Tables ===== */
+.table-wrap{ width:100%; overflow:auto; }
+
+table{ width:100%; border-collapse:collapse; table-layout:fixed; }
+
+.table thead th,
+thead th{
+  text-align:left;
+  font-size:10.5px;
+  color:var(--muted);
+  padding:6px 8px;
+  border-bottom:1px solid var(--border);
+  font-weight:600;
+  font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space:nowrap;
+}
+
+.table thead th.num,
+thead th.num{ text-align:right; }
+
+.table tbody tr:nth-child(odd),
+tbody tr:nth-child(odd){ background:var(--row); }
+
+.table tbody tr:nth-child(even),
+tbody tr:nth-child(even){ background:var(--rowAlt); }
+
+.table td,
+td{
+  padding:6px 8px;
+  font-size:11.5px;
+  vertical-align:middle;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+td.num{ text-align:right; font-variant-numeric:tabular-nums; font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
+
+/* ===== Team rows ===== */
+.teamcell{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+
+.teamlogo{ height:16px; width:auto; flex:0 0 auto; }
+
+.teamlink{
+  font-weight:700;
+  letter-spacing:.2px;
+}
+
+/* ===== Simple lists used on Teams grouped view ===== */
+.team-list{ list-style:none; padding:0; margin:0; }
+.team-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:6px 0;
+  border-bottom:1px solid rgba(226,232,240,.6);
+}
+.team-row:last-child{ border-bottom:0; }
+
+/* ===== Errors ===== */
+.error-banner{
+  background:#fdecec;
+  border:1px solid #f7b7b7;
+  color:#7a1e1e;
+  padding:8px 10px;
+  border-radius:10px;
+  margin:10px 0;
+  font-size:12px;
+}
+
+/* ===== Site shell: header + sidebar nav ===== */
+
+.app-shell{
+  display:flex;
+  min-height:100vh;
+}
+
+.side-nav{
+  width:220px;
+  padding:14px 12px;
+  border-right:1px solid var(--border);
+  background:linear-gradient(180deg, #f6f8fb, #ffffff);
+  position:sticky;
+  top:0;
+  align-self:flex-start;
+  height:100vh;
+}
+
+.side-nav a{
+  display:block;
+  padding:10px 10px;
+  border-radius:10px;
+  color:#1f2937;
+  font-weight:600;
+  text-decoration:none;
+  margin-bottom:6px;
+}
+
+.side-nav a:hover{
+  background:#eef2f7;
+  text-decoration:none;
+}
+
+.side-nav a.active{
+  background:#e9edf5;
+  border:1px solid var(--border);
+}
+
+.main{
+  flex:1;
+  min-width:0;
+}
+
+.top-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 16px;
+  border-bottom:1px solid var(--border);
+  background:#ffffff;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.brand img{
+  height:34px;
+  width:auto;
+}
+
+.brand .brand-title{
+  font-size:16px;
+  font-weight:800;
+  letter-spacing:.2px;
+  color:#111318;
+}
+
+.page{
+  max-width:1200px;
+  margin:16px auto 56px;
+  padding:0 12px;
+}
+
+/* Mobile: sidebar becomes top */
+@media (max-width: 900px){
+  .app-shell{ flex-direction:column; }
+  .side-nav{
+    width:100%;
+    height:auto;
+    position:static;
+    border-right:0;
+    border-bottom:1px solid var(--border);
+    display:flex;
+    gap:8px;
+    overflow:auto;
+  }
+  .side-nav a{ white-space:nowrap; margin-bottom:0; }
+}
+/* ===== Restore base layout (sidebar + main side-by-side) ===== */
+.layout{
+  display:flex;
+  min-height:100vh;
+}
+
+.sidebar{
+  flex:0 0 240px;          /* sidebar width */
+  border-right:1px solid var(--border);
+  background:linear-gradient(180deg, #f6f8fb, #ffffff);
+}
+
+.sidebar-inner{
+  position:sticky;
+  top:0;
+  height:100vh;
+  padding:14px 12px;
+  display:flex;
+  flex-direction:column;
+}
+
+.main{
+  flex:1 1 auto;
+  min-width:0;             /* prevents overflow pushing layout */
+}
+
+.main-inner{ min-height:100vh; }
+
+.container{
+  max-width:1200px;
+  margin:16px auto 56px;
+  padding:0 12px;
+}
+
+.roster-section { margin-top: 24px; }
+.section-title { font-size: 20px; margin-bottom: 12px; }
+
+.roster-bucket { margin-bottom: 20px; }
+.bucket-title { font-size: 16px; margin: 10px 0; opacity: 0.9; }
+
+.roster-pos-group { margin: 10px 0 14px; }
+.pos-header { font-weight: 600; margin-bottom: 6px; opacity: 0.9; }
+
+.roster-grid { display: grid; gap: 6px; }
+.roster-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 70px 75px !important;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+}
+
+.jersey { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.bt { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.85; }
+
+.status-badge {
+  justify-self: end;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  opacity: 0.95;
+}
+.status-spacer { height: 1px; }
+
+.article-img-icon {
+  width: 50px;
+  height: auto;
+}
+
+.article-img-tiny {
+  width: 100px;
+  height: auto;
+}
+
+.article-img-small {
+  width: 220px;
+  height: auto;
+  border-radius: 6px;
+}
+
+.article-img-medium {
+  width: 420px;
+  height: auto;
+}
+
+.article-img-large {
+  width: 700px;
+  max-width: 100%;
+  height: auto;
+}
+
+/* ===== Article styling ===== */
+.article-title { font-size: 28px; font-weight: 700; line-height: 1.25; letter-spacing: -0.02em; color: #000; margin-bottom: 4px; }
+/* ===== Article content styling ===== */
+.article-content { font-size: 15px; line-height: 1.7; color: var(--text); max-width: 720px; margin: 0 auto; }
+.article-content h2 { font-size: 20px; margin: 32px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.article-content h3 { font-size: 17px; margin: 24px 0 8px; }
+.article-content p { margin: 14px 0; }
+.article-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 20px auto; display: block; }
+.article-content ul, .article-content ol { margin: 12px 0; padding-left: 24px; }
+.article-content li { margin: 6px 0; }
+.article-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+.article-content th { background: var(--rowAlt); padding: 8px 12px; text-align: left; border: 1px solid var(--border); font-weight: 600; }
+.article-content td { padding: 8px 12px; border: 1px solid var(--border); }
+.article-content tr:nth-child(even) td { background: var(--row); }
+.article-content strong { font-weight: 600; }
+.article-content sub { font-size: 0.75em; }
+.article-content blockquote { border-left: 3px solid var(--accent); margin: 16px 0; padding: 8px 16px; color: var(--muted); }
+.article-content code { background: var(--rowAlt); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+/* Article hero */
+.article-hero { background: #1a1a2e; margin: -16px -16px 28px; padding: 48px 32px 40px; border-radius: 8px 8px 0 0; text-align: center; }
+.article-hero-label { font-size: 11px; text-transform: uppercase; letter-spacing: 2.5px; color: #64ffda; margin-bottom: 14px; font-weight: 600; }
+.article-hero-title { font-size: 38px; font-weight: 800; line-height: 1.15; color: #fff; letter-spacing: -0.03em; margin: 0 0 14px; }
+.article-hero-subtitle { font-size: 15px; color: #8892b0; font-style: italic; }
+/* Dark-bg visuals in light article */
+.article-figure { margin: 24px -12px; background: #1a1a2e; border-radius: 10px; padding: 12px; text-align: center; }
+.article-figure img { margin: 0; border-radius: 6px; border: none; }
+.article-figure figcaption { color: #8892b0; font-size: 12px; margin-top: 8px; font-style: italic; line-height: 1.5; padding: 0 12px; }
+.article-figure-wide { margin: 32px -24px; padding: 16px 20px; border-radius: 12px; }
+/* Article callout boxes */
+.article-callout { background: var(--rowAlt); border-left: 3px solid var(--accent); border-radius: 6px; padding: 14px 18px; margin: 20px 0; font-size: 15px; line-height: 1.6; }
+.article-callout-muted { color: var(--muted); font-size: 13px; }
+.article-callout-highlight { background: #1a1a2e; border-left-color: #64ffda; color: #ccd6f6; }
+.article-callout-highlight strong { color: #64ffda; }
+@media(max-width:640px){
+  .article-title { font-size: 22px; }
+  .article-hero { margin: -12px -12px 20px; padding: 32px 16px 28px; }
+  .article-hero-title { font-size: 26px; }
+  .article-hero-subtitle { font-size: 13px; }
+  .article-content { font-size: 14px; }
+  .article-content h2 { font-size: 18px; }
+  .article-content h3 { font-size: 16px; }
+  .article-figure { margin: 16px -8px; padding: 8px; }
+  .article-figure-wide { margin: 20px -12px; padding: 10px; }
+  .article-callout { padding: 12px 14px; }
+}
+
+.home-nav-card{
+  text-decoration:none;
+  color:inherit;
+  transition: transform .06s ease, box-shadow .06s ease, border-color .06s ease;
+}
+
+.home-nav-card:hover{
+  transform: translateY(-1px);
+  border-color: rgba(11,92,171,.25);
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+  text-decoration:none;
+}
+
+/* ===== Player page ===== */
+.player-header{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  min-width:0;
+}
+.player-headshot{
+  width:110px;
+  height:110px;
+  border-radius:14px;
+  object-fit:cover;
+  flex:0 0 auto;
+  border:1px solid var(--border);
+}
+.player-meta{ min-width:0; }
+.player-name{
+  font-size:18px;
+  font-weight:800;
+  letter-spacing:.2px;
+  margin-bottom:4px;
+}
+.player-lines > div{ line-height:1.25; margin:2px 0; }
+
+.seg-toggle{
+  display:flex;
+  gap:6px;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:3px;
+}
+.seg{
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:12px;
+  color:var(--muted);
+}
+.seg.active{
+  background:#0b0e13;
+  color:#fff;
+}
+
+.headline-grid{
+  display:grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap:10px;
+}
+@media(max-width:900px){
+  .headline-grid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.headline-stat{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:12px;
+  padding:8px 10px;
+  background:#fff;
+}
+.headline-stat .k{
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  font-size:10px;
+  color:var(--muted);
+  margin-bottom:2px;
+}
+.headline-stat .v{
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  font-size:13px;
+  font-weight:800;
+}
+
+
+.statcell{
+  border-radius:8px;
+  padding:3px 8px;
+  display:inline-block;
+  min-width:0;
+  text-align:inherit;
+}
+.tabs{
+  display:flex;
+  gap:8px;
+  margin:12px 0;
+  flex-wrap:wrap;
+}
+.tab-btn{
+  border:1px solid var(--border);
+  background:#fff;
+  border-radius:999px;
+  padding:7px 12px;
+  font-weight:800;
+  font-size:12px;
+  cursor:pointer;
+  color:#394150;
+}
+.tab-btn.active{
+  background:#0b0e13;
+  color:#fff;
+  border-color:#0b0e13;
+}
+.tab-panel{ display:none; }
+.tab-panel.active{ display:block; }
+
+.select{
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:6px 10px;
+  background:#fff;
+}
+.btn{
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:6px 10px;
+  background:#fff;
+  font-weight:800;
+  cursor:pointer;
+}
+.btn:hover{ border-color: rgba(11,92,171,.25); }
+
+.tx-list{ display:flex; flex-direction:column; gap:10px; }
+.tx-row{
+  display:grid;
+  grid-template-columns: 120px 1fr;
+  gap:12px;
+  padding:10px 12px;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:12px;
+  background:#fff;
+}
+.tx-date{ font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; color:var(--muted); }
+.tx-desc{ min-width:0; }
+
+/* Player header: photo fills card height */
+.player-top .card-header{ padding:0; }
+.player-header-card{ padding:0 !important; }
+.player-header{
+  display:flex;
+  align-items:stretch;   /* key: makes headshot stretch full height */
+  gap:14px;
+}
+.player-headshot{
+  width:160px;
+  height:100%;
+  min-height:140px;      /* ensures the card has some height even if bio is short */
+  object-fit:cover;
+  border-radius:0;       /* photo feels like it is “part of the card” */
+  border-right:1px solid var(--border);
+}
+.player-meta{
+  padding:14px 14px 14px 0;
+  min-width:0;
+}
+.player-name{
+  font-size:18px;
+  font-weight:900;
+  margin-bottom:6px;
+}
+.player-lines > div{ margin:3px 0; line-height:1.2; }
+
+/* Mini stat cards row */
+.headline-grid{
+  display:grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap:10px;
+}
+@media(max-width:900px){
+  .headline-grid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.headline-stat{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:12px;
+  padding:8px 10px;
+  background:#fff;
+}
+.headline-stat .k{
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  font-size:10px;
+  color:var(--muted);
+  margin-bottom:2px;
+}
+.headline-stat .v{
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  font-size:13px;
+  font-weight:900;
+}
+
+/* Button match */
+.btn{
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:6px 10px;
+  background:#fff;
+  font-weight:900;
+  cursor:pointer;
+}
+
+/* ----------------------------- */
+/* GAMES GRID / GAME CARDS       */
+/* ----------------------------- */
+.games-grid{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:12px;
+}
+@media (max-width: 1100px){
+  .games-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px){
+  .games-grid{ grid-template-columns: 1fr; }
+}
+
+.game-card{
+  display:block;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:12px 12px 10px 12px;
+  text-decoration:none;
+  color:inherit;
+  transition: transform .08s ease, box-shadow .08s ease;
+  min-width:0;
+}
+.game-card:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(0,0,0,.10);
+}
+
+.game-card-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background: rgba(255,255,255,.7);
+  font-weight:900;
+  font-size:12px;
+}
+
+.mono{
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+
+.matchup{ display:flex; flex-direction:column; gap:8px; }
+.team-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.team-left{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+}
+.team-logo{
+  width:22px;
+  height:22px;
+  display:block;
+}
+.team-abbrev{
+  font-weight:900;
+  letter-spacing:.3px;
+}
+.team-score{
+  font-weight:900;
+  font-size:16px;
+}
+
+.game-meta{ margin-top:10px; display:flex; flex-direction:column; gap:4px; }
+.small{ font-size:12px; }
+.muted{ opacity:.75; }
+
+/* ----------------------------- */
+/* GAME PAGE SCOREBOARD          */
+/* ----------------------------- */
+.scoreboard{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:10px;
+}
+.sb-team{
+  display:grid;
+  grid-template-columns: auto 1fr auto;
+  align-items:center;
+  gap:12px;
+  padding:10px 12px;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+}
+.team-logo-lg{
+  width:32px;
+  height:32px;
+  display:block;
+}
+.sb-abbrev{
+  font-weight:1000;
+  letter-spacing:.4px;
+  font-size:16px;
+}
+.sb-score{
+  font-weight:1000;
+  font-size:20px;
+}
+.input{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:10px;
+  padding:6px 10px;
+  background:#fff;
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+
+.tag{
+  display:inline-flex;
+  align-items:center;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background: rgba(248,250,252,.9);
+  font-weight:900;
+  font-size:12px;
+  white-space:nowrap;
+}
+.team-line-top{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  flex-wrap:wrap;
+}
+.game-card-top{
+  flex-wrap: nowrap;        /* keep top row single-line */
+}
+.game-time{
+  white-space: nowrap;      /* never wrap the time */
+  flex: 0 0 auto;
+}
+.game-card-top > div:first-child{
+  min-width: 0;             /* allow left group to shrink instead of pushing time */
+  flex: 1 1 auto;
+}
+
+/* ----------------------------- */
+/* GAME PAGE: tabs + PAs         */
+/* ----------------------------- */
+.tabs{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.tab-btn{
+  border:1px solid var(--border);
+  background:#fff;
+  border-radius:999px;
+  padding:6px 12px;
+  font-weight:900;
+  cursor:pointer;
+}
+.tab-btn.active{
+  background: rgba(15,23,42,.06);
+  color: #0b0e13;
+  font-weight: 900;
+  border-color: rgba(15, 23, 42, 0.2);
+}
+
+.tab-panel{ display:none; }
+.tab-panel.active{ display:block; }
+
+.game-head{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+@media(max-width: 720px){
+  .game-head{ grid-template-columns: 1fr; }
+}
+.team-side{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  padding:10px 12px;
+  background:#fff;
+}
+.team-logo-lg{ width:34px; height:34px; display:block; }
+.team-meta{ min-width:0; }
+.team-abbrev-lg{ font-weight:900; font-size:16px; }
+.team-score-lg{ margin-left:auto; font-weight:900; font-size:18px; }
+
+.box-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+  padding: 0 14px 14px 14px;
+}
+@media(max-width: 980px){
+  .box-grid{ grid-template-columns: 1fr; }
+}
+.box-panel{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:10px 10px 8px 10px;
+  min-width:0;
+}
+.box-panel-title{
+  font-weight:900;
+  margin-bottom:8px;
+}
+.table-wrap{ overflow-x:auto; }
+
+.scoring-list, .pbp-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.scoring-row, .pbp-row{
+  display:grid;
+  grid-template-columns: 90px 1fr 80px;
+  gap:12px;
+  padding:10px 12px;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:12px;
+  background:#fff;
+}
+.scoring-desc, .pbp-desc{ min-width:0; }
+
+.pa-details{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:10px 12px;
+  margin-bottom:10px;
+}
+.pa-summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  cursor:pointer;
+  list-style:none;
+}
+.pa-summary::-webkit-details-marker{ display:none; }
+.pa-left{ display:flex; align-items:center; gap:10px; min-width:0; }
+.pa-right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+
+.pa-body{ margin-top:10px; }
+.pa-grid{
+  display:grid;
+  grid-template-columns: auto 1fr;
+  gap:12px;
+}
+@media(max-width: 900px){
+  .pa-grid{ grid-template-columns: 1fr; }
+}
+.zone-title{ font-weight:900; margin-bottom:8px; }
+.zone-wrap, .pitch-wrap{
+  /* gradient pills for velo / EV */
+  
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:10px 10px 8px 10px;
+}
+
+.inning-details{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:10px 12px;
+  margin-bottom:12px;
+}
+
+.inning-summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  cursor:pointer;
+  list-style:none;
+}
+.inning-summary::-webkit-details-marker{ display:none; }
+
+.inning-pill{
+  display:inline-flex;
+  align-items:center;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background: rgba(15,23,42,.03);
+  font-weight:900;
+}
+
+.half-header{
+  padding:6px 2px 10px 2px;
+  border-bottom:1px dashed rgba(226,232,240,.9);
+  margin-bottom:10px;
+}
+
+/* ===== Game page additions ===== */
+
+.grid2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:14px;
+}
+@media(max-width:900px){
+  .grid2{ grid-template-columns:1fr; }
+}
+
+/* table used in game.html */
+.tbl{
+  width:100%;
+  border-collapse:collapse;
+  table-layout:auto;
+}
+.tbl thead th{
+  text-align:left;
+  font-size:10.5px;
+  color:var(--muted);
+  padding:6px 8px;
+  border-bottom:1px solid var(--border);
+  font-weight:600;
+  font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space:nowrap;
+}
+.tbl td{
+  padding:6px 8px;
+  font-size:11.5px;
+  vertical-align:middle;
+  white-space:nowrap;
+  border-bottom:1px solid rgba(226,232,240,.6);
+}
+.tbl tbody tr:last-child td{ border-bottom:0; }
+
+/* Game hero card */
+.game-hero{
+  border-radius:16px;
+}
+.game-hero-inner{
+  display:flex;
+  align-items:stretch;
+  justify-content:space-between;
+  gap:18px;
+  padding:14px 14px;
+  background: linear-gradient(180deg, #f6f8fb, #eef2f7);
+}
+@media(max-width:900px){
+  .game-hero-inner{ flex-direction:column; }
+}
+
+.game-hero-title{
+  font-weight:900;
+  font-size:16px;
+  letter-spacing:.2px;
+  color:#111318;
+}
+.game-hero-sub{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:6px;
+  font-size:11.5px;
+  color:var(--muted);
+}
+.pill-status{
+  display:inline-flex;
+  align-items:center;
+  padding:5px 10px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background:#fff;
+  font-weight:800;
+  color:#111318;
+}
+
+.game-hero-notes{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:8px;
+  font-size:11px;
+}
+
+.game-hero-row{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+}
+
+.pill-lite{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background:#fff;
+  font-weight:700;
+}
+
+.game-hero-score{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:14px;
+  min-width:320px;
+}
+@media(max-width:900px){
+  .game-hero-score{ justify-content:flex-start; min-width:0; }
+}
+
+.team-score{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.team-score .teamlogo{ height:42px; }
+
+.team-score-line{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+}
+.team-abbrev{ font-size:16px; font-weight:900; }
+.team-runs{ font-size:40px; font-weight:900; line-height:1; letter-spacing:-.5px; }
+.team-score.vs{
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  font-weight:800;
+  color:rgba(91,101,119,.8);
+}
+
+/* PBP tweaks */
+.half-pill{
+  display:inline-flex;
+  align-items:center;
+  padding:3px 8px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background: rgba(15,23,42,.03);
+  font-weight:900;
+  font-size:10.5px;
+  flex:0 0 auto;
+}
+
+.bb-row{
+  margin-top:10px;
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+
+/* ===== Gradient pills (velo / EV) ===== */
+.grad-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:2px 8px;
+  border-radius:999px;
+  font-variant-numeric:tabular-nums;
+  line-height:1.1;
+  white-space:nowrap;
+}
+
+/* Make strike-zone panel shrink to content width */
+.zone-wrap{ width: fit-content; }
+.strike-zone{ display:block; }
+
+/* Box score indentation + totals */
+.box-indent{ padding-left:14px; display:inline-block; }
+.tr-totals td{ font-weight:900; background:rgba(15,23,42,.02); }
+
+/* ----------------------STATS LEADERBOARD*/
+/* ----------------------------- */
+.stats-controls{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.stats-controls .select,
+.stats-controls .btn{
+  height:34px;
+}
+
+.stats-table td{
+  vertical-align:middle;
+}
+
+.player-chip{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+}
+
+.player-chip .mini-headshot{
+  width:26px;
+  height:26px;
+  border-radius:999px;
+  object-fit:cover;
+  border:1px solid var(--border);
+  flex:0 0 auto;
+}
+
+.player-chip .mini-teamlogo{
+  width:18px;
+  height:18px;
+  flex:0 0 auto;
+}
+
+.player-chip .pname{
+  font-weight:800;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.pager{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+
+.pager .range-pill{
+  font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  font-size:11px;
+  color:var(--muted);
+  border:1px solid var(--border);
+  padding:6px 10px;
+  border-radius:999px;
+  background:#fff;
+}
+
+.stats-table th.sortable:hover{
+  text-decoration: underline;
+  opacity: 0.9;
+}
+/* Stats table: allow horizontal scroll when many columns are selected */
+.table-wrap{
+  overflow-x: auto;
+}
+
+.stats-table{
+  width: max-content;   /* expands to fit columns */
+  min-width: 100%;      /* but never smaller than container */
+}
+
+.stats-table th,
+.stats-table td{
+  white-space: nowrap;  /* prevents cutoffs/wrapping */
+}
+
+/* ============================= */
+/* HOME (revamp)                 */
+/* ============================= */
+
+.home-hero{
+  border-radius:16px;
+  overflow:hidden;
+}
+.home-hero .card-body{
+  background: linear-gradient(180deg, rgba(246,248,251,1), rgba(238,242,247,.95));
+}
+
+.home-hero-grid{
+  display:grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap:14px;
+  align-items:stretch;
+}
+@media(max-width: 900px){
+  .home-hero-grid{ grid-template-columns: 1fr; }
+}
+
+.home-eyebrow{
+  font-size:12px;
+  opacity:.8;
+  letter-spacing:.6px;
+  margin-bottom:6px;
+}
+.home-headline{
+  font-size:28px;
+  font-weight:1000;
+  letter-spacing:.2px;
+  margin-bottom:6px;
+}
+.home-subhead{
+  font-size:14px;
+  line-height:1.35;
+  opacity:.9;
+  max-width: 720px;
+}
+
+.home-cta{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+
+.btn.primary{
+  background:#0b0e13;
+  color:#fff;
+  border-color:#0b0e13;
+}
+.btn.primary:hover{
+  opacity:.95;
+}
+
+.home-kpi-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+.home-kpi{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background: rgba(255,255,255,.85);
+  padding:10px 12px;
+}
+.home-kpi .k{
+  font-size:10px;
+  color:var(--muted);
+  margin-bottom:2px;
+}
+.home-kpi .v{
+  font-weight:1000;
+  letter-spacing:.2px;
+}
+
+.home-callout{
+  margin-top:10px;
+  border:1px dashed rgba(226,232,240,.9);
+  border-radius:14px;
+  background: rgba(255,255,255,.65);
+  padding:10px 12px;
+}
+.home-callout-title{
+  font-weight:900;
+  margin-bottom:6px;
+}
+.home-callout-links{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.home-mini-link{
+  font-size:12px;
+  text-decoration:none;
+}
+.home-mini-link:hover{ text-decoration:underline; }
+
+.home-nav-grid{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap:12px;
+}
+@media(max-width: 1100px){
+  .home-nav-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media(max-width: 640px){
+  .home-nav-grid{ grid-template-columns: 1fr; }
+}
+
+.home-nav-tile{
+  padding:0;              /* keep card spacing consistent */
+}
+.home-nav-tile .card-subtitle{
+  margin-top:2px;
+}
+
+.home-nav-top{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 12px 0 12px;
+}
+.home-nav-emoji{
+  width:34px;
+  height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:12px;
+  background: rgba(15,23,42,.05);
+  border:1px solid rgba(226,232,240,.9);
+  font-size:16px;
+}
+.home-nav-title{
+  font-weight:1000;
+  letter-spacing:.2px;
+}
+
+.home-articles{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap:10px;
+}
+@media(max-width: 900px){
+  .home-articles{ grid-template-columns: 1fr; }
+}
+
+.home-article{
+  display:block;
+  text-decoration:none;
+  color:inherit;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  padding:10px 12px;
+  transition: transform .06s ease, box-shadow .06s ease, border-color .06s ease;
+}
+.home-article:hover{
+  transform: translateY(-1px);
+  border-color: rgba(11,92,171,.25);
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+  text-decoration:none;
+}
+
+.home-article-title{
+  font-weight:1000;
+  letter-spacing:.15px;
+  margin-bottom:6px;
+}
+.home-article-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:6px;
+}
+.home-article-meta{
+  font-size:11px;
+  color:var(--muted);
+}
+.home-article-pill{
+  display:inline-flex;
+  align-items:center;
+  padding:3px 10px;
+  border-radius:999px;
+  border:1px solid rgba(226,232,240,.9);
+  background: rgba(248,250,252,.9);
+  font-weight:900;
+  font-size:11px;
+  white-space:nowrap;
+}
+.home-article-snippet{
+  font-size:12px;
+  opacity:.85;
+  line-height:1.3;
+}
+
+/* ----------------------------- */
+/* HOME PAGE V2                  */
+/* ----------------------------- */
+.home-hero-v2{
+  border-radius:16px;
+  overflow:hidden;
+  border:1px solid rgba(226,232,240,.9);
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
+}
+.home-hero-v2-inner{
+  display:grid;
+  grid-template-columns: 1.3fr .7fr;
+  gap:24px;
+  align-items:center;
+  padding:28px 28px;
+}
+@media(max-width: 900px){
+  .home-hero-v2-inner{ grid-template-columns: 1fr; padding:20px 16px; }
+}
+.home-hero-v2-text{}
+.home-eyebrow-v2{
+  font-size:11px;
+  letter-spacing:1.5px;
+  opacity:.55;
+  margin-bottom:8px;
+}
+.home-headline-v2{
+  font-size:36px;
+  font-weight:1000;
+  letter-spacing:.2px;
+  margin:0 0 8px 0;
+  line-height:1.1;
+}
+.home-subhead-v2{
+  font-size:15px;
+  line-height:1.45;
+  opacity:.8;
+  max-width:540px;
+  margin:0;
+}
+.home-cta-v2{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:16px;
+}
+
+.home-hero-v2-stats{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.home-stat-row{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+.home-stat{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:12px;
+  background:rgba(255,255,255,.85);
+  padding:12px 14px;
+  text-align:center;
+}
+.home-stat-num{
+  font-size:20px;
+  font-weight:1000;
+  letter-spacing:.3px;
+  color:#0b0e13;
+}
+.home-stat-label{
+  font-size:11px;
+  opacity:.6;
+  margin-top:2px;
+  font-weight:700;
+}
+
+/* Feature cards */
+.home-features{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap:12px;
+}
+@media(max-width: 1100px){
+  .home-features{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media(max-width: 640px){
+  .home-features{ grid-template-columns: 1fr; }
+}
+.home-feature-card{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  padding:16px;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background:#fff;
+  text-decoration:none;
+  color:inherit;
+  transition: transform .08s ease, box-shadow .08s ease, border-color .08s ease;
+}
+.home-feature-card:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0,0,0,.07);
+  border-color: rgba(11,92,171,.2);
+  text-decoration:none;
+}
+.home-feature-icon{
+  flex:0 0 auto;
+  width:38px;
+  height:38px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:12px;
+  background: rgba(15,23,42,.04);
+  border:1px solid rgba(226,232,240,.8);
+  font-size:18px;
+}
+.home-feature-body{
+  flex:1 1 auto;
+  min-width:0;
+}
+.home-feature-title{
+  font-weight:1000;
+  letter-spacing:.2px;
+  margin-bottom:4px;
+}
+.home-feature-desc{
+  font-size:12px;
+  line-height:1.4;
+  opacity:.7;
+}
+.home-feature-arrow{
+  flex:0 0 auto;
+  font-weight:900;
+  opacity:.3;
+  font-size:16px;
+  margin-top:2px;
+}
+.home-feature-card:hover .home-feature-arrow{
+  opacity:.7;
+}
+
+/* About blurb */
+.home-about{
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:14px;
+  background: rgba(248,250,252,.9);
+  padding:16px 20px;
+}
+.home-about-inner{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+}
+.home-about-text{
+  flex:1 1 auto;
+  min-width:0;
+}
+
+/* Game page only – flip the field overlay, not the dots */
+.game-container .spray-chart svg .spray-bg {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scaleY(-1);
+}
+/* =========================
+   Pitching report (player scouting)
+   ========================= */
+.pr-controls{
+  display:flex;
+  gap:10px;
+  align-items:flex-end;
+  flex-wrap:wrap;
+  margin-bottom:10px;
+}
+.pr-label{
+  display:block;
+  font-size:11px;
+  opacity:.75;
+  margin-bottom:2px;
+}
+.pr-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+@media (max-width: 900px){
+  .pr-grid{ grid-template-columns: 1fr; }
+}
+.pr-shapes-wrap{
+  width:100%;
+  overflow:auto;
+}
+.pr-shapes-svg{
+  width:100%;
+  height:auto;
+  min-height:280px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  padding:6px;
+  background: rgba(0,0,0,.08);
+}
+.pr-heat-row{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+@media (max-width: 900px){
+  .pr-heat-row{ grid-template-columns: 1fr; }
+}
+.pr-heat{
+  width:100%;
+  height:auto;
+  aspect-ratio: 1.18 / 1;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  background: rgba(0,0,0,.08);
+}
+.pr-heat-title{
+  font-size:12px;
+  opacity:.85;
+  margin-bottom:6px;
+}
+.pr-heat-note{
+  margin-top:8px;
+  font-size:11px;
+  opacity:.7;
+}
+.pr-metric{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.pr-metric-btn.active{
+  outline: 2px solid rgba(255,255,255,.18);
+}
+
+/* FORCE RED INJURY STATUS (D60, IL, etc.) */
+.status-pill.status-other, 
+span.status-pill.status-other {
+    background-color: #fdecec !important; 
+    color: #7a1e1e !important;
+    border: 1px solid #f7b7b7 !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    font-size: 10px !important;
+    letter-spacing: 0.3px !important;
+    padding: 2px 8px !important;
+    border-radius: 999px !important;
+    display: inline-block !important;
+    opacity: 1 !important;
+}
+
+/* Date Navigation Arrows */
+.date-arrow {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 20px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 4px;
+    transition: background 0.15s ease;
+}
+
+.date-arrow:hover {
+    background: var(--rowAlt);
+}
+
+/* ONLY affects the last column (Res) of the Exit Velocity table */
+.ev-table th:last-child,
+.ev-table td:last-child {
+    min-width: 75px !important; 
+    width: 75px !important;
+    max-width: 75px !important;
+    white-space: nowrap !important; 
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    text-align: center;
+}
+
+/* ===== LIVE GAME HIGHLIGHT ===== */
+.game-card.is-live {
+    border-color: rgba(239, 68, 68, 0.5); 
+}
+
+.game-card.is-live:hover {
+    border-color: rgba(239, 68, 68, 0.8);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
+}
+
+/* ===== PITCH STATS TABLE ===== */
+.pitch-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.pitch-stats-table th {
+    padding: 10px 8px;
+    border-bottom: 2px solid #e5e7eb; 
+    color: #4b5563;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-align: center; 
+}
+
+.pitch-stats-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #f3f4f6;
+    color: #111827; 
+    text-align: center; 
+}
+
+.pitch-stats-table th:first-child, 
+.pitch-stats-table td:first-child {
+    text-align: left;
+}
+
+.pitch-stats-table tr:hover td {
+    background-color: #f9fafb;
+}
+
+/* =============================================
+   MOBILE IMPROVEMENTS
+   ============================================= */
+
+/* Slightly larger base text on mobile for readability */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+
+  /* Prevent iOS auto-zoom on form inputs (must be ≥ 16px) */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Touch-friendly tap targets (44px min) */
+  .btn,
+  .tab-btn,
+  .date-arrow {
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .select {
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 16px !important;
+  }
+
+  /* Side nav links: larger tap area */
+  .side-nav a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+  }
+
+  /* Card header: allow wrapping on narrow screens */
+  .card-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* Headline stat grids: max 3 cols on mobile */
+  .headline-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  /* Transaction rows: stack date above description */
+  .tx-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  /* Scoring / play-by-play rows: stack */
+  .scoring-row,
+  .pbp-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  /* Home hero headline: slightly smaller so it doesn't overflow */
+  .home-headline {
+    font-size: 22px;
+  }
+  .home-headline-v2 {
+    font-size: 26px;
+  }
+
+  /* Stats controls: tighter gap */
+  .stats-controls {
+    gap: 8px;
+  }
+
+  .stats-controls .select,
+  .stats-controls .btn {
+    height: auto;
+    min-height: 44px;
+  }
+
+  /* Games date picker form: allow full-width wrap */
+  .card-header form {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  /* Ensure table wrappers always scroll horizontally */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Seg toggle: wrap on small screens */
+  .seg-toggle {
+    flex-wrap: wrap;
+  }
+
+  /* Pager: wrap on small screens */
+  .pager {
+    flex-wrap: wrap;
+  }
+
+  /* Game hero score: full width on mobile */
+  .game-hero-score {
+    min-width: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* Team runs number: slightly smaller on mobile */
+  .team-runs {
+    font-size: 30px;
+  }
+
+  /* PR (pitching report) controls: wrap */
+  .pr-controls {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Container/page padding: a bit more breathing room */
+  .container,
+  .page,
+  .wrap {
+    padding: 0 14px;
+  }
+}
+
+/* =============================================
+   VERY SMALL PHONES (≤ 400px)
+   ============================================= */
+@media (max-width: 400px) {
+  /* 2-column headline grid on very small phones */
+  .headline-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Home nav tiles: single column */
+  .home-nav-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-headline {
+    font-size: 20px;
+  }
+
+  /* Team runs: smaller on tiny phones */
+  .team-runs {
+    font-size: 26px;
+  }
+}
+
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="article-title">Which Swings Beat Which Pitches? A Swing-Pitch Interaction Model</div>
+      <div class="card-subtitle">2026-03-07 &bull; Nick Labella</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="article-content">
+      <div class="article-hero">
+  <div class="article-hero-label">Basenerd Research</div>
+  <h1 class="article-hero-title">Which Swings Beat<br>Which Pitches?</h1>
+  <div class="article-hero-subtitle">Mapping the Interaction Between Swing Mechanics and Pitch Shape</div>
+</div>
+
+<p>Baseball&rsquo;s bat-tracking era has given us an unprecedented window into how hitters actually swing the bat. We know bat speed. We know attack angle. We know swing length and swing-path tilt. And we&rsquo;ve had Statcast pitch data &ndash; velocity, movement, arm angle, spin &ndash; for years.</p>
+<p>But the two datasets are rarely combined. Pitch data lives in the pitcher&rsquo;s world. Swing data lives in the hitter&rsquo;s world. The question nobody is really answering is: <strong>how do specific swing profiles interact with specific pitch profiles to produce outcomes?</strong></p>
+<p>We built a model to find out.</p>
+<h2 id="the-idea">The Idea</h2>
+<p>Every swing-pitch matchup is an interaction. A steep uppercut swing might crush a flat four-seam fastball but whiff badly on a diving splitter. A short, flat swing might spray line drives off sliders but struggle to lift sinkers. These aren&rsquo;t random &ndash; they&rsquo;re mechanical matchups, and they should be predictable.</p>
+<p>We trained two XGBoost models on <strong>661,640 swings</strong> from the 2024-2025 MLB seasons:</p>
+<ol>
+<li><strong>Whiff Model</strong> &ndash; predicts the probability of a swing-and-miss given the pitch shape and swing characteristics (AUC: 0.81)</li>
+<li><strong>Contact Quality Model</strong> &ndash; predicts expected wOBA on balls in play given the same features</li>
+</ol>
+<p>Both models take the same inputs: everything about the pitch (type, velocity, spin, movement, arm angle, location) and everything about the swing (bat speed, attack angle, swing length, swing-path tilt, attack direction).</p>
+<h2 id="what-drives-swing-outcomes">What Drives Swing Outcomes?</h2>
+<p>Before looking at matchups, we need to understand what matters most. The feature importance charts tell a clear story.</p>
+<figure class="article-figure article-figure-wide">
+<img src="spm-feature-importance.png" alt="Feature importance for whiff and contact quality models">
+<figcaption>Top features for each model. The whiff model is dominated by swing geometry; the contact quality model is dominated by bat speed.</figcaption>
+</figure>
+
+<p><strong>For whiffs</strong>, the single most important feature is <strong>attack direction</strong> &ndash; the horizontal angle of the bat path through the zone. This makes intuitive sense: a bat moving in the wrong direction relative to the pitch has almost no chance of making contact. Pitch height, the mismatch between attack angle and induced vertical break, and attack angle itself round out the top four. These are all geometry features. Whether you miss depends mostly on whether your swing plane can physically intersect the ball&rsquo;s path.</p>
+<p><strong>For contact quality</strong>, it&rsquo;s a different story. <strong>Bat speed</strong> dominates &ndash; when you do make contact, how hard you hit it depends on how fast the bat is moving. Horizontal distance from center (edge of the zone vs. middle) is second, because pitches on the black produce weaker contact regardless of swing type. Attack direction and batter handedness also matter, reflecting the importance of pulling the ball or driving it to the right field.</p>
+<div class="article-callout">
+<strong>The two models tell different stories.</strong> Whether you <em>miss</em> is about swing geometry matching pitch trajectory. Whether you <em>barrel it</em> is about raw bat speed and pitch location.
+</div>
+
+<h2 id="swing-archetypes">Swing Archetypes</h2>
+<p>To make this actionable, we classified every swing into archetypes based on two dimensions: bat speed (slow/medium/fast) and attack angle (flat/medium loft/uppercut), creating a 3x3 grid of nine swing profiles.</p>
+<figure class="article-figure article-figure-wide">
+<img src="spm-archetype-rankings.png" alt="Swing archetype performance rankings">
+<figcaption>Each swing archetype ranked by whiff rate, xwOBA on contact, and average bat speed. Fast Bat / Medium Loft is the best overall profile.</figcaption>
+</figure>
+
+<p>The rankings are stark:</p>
+<ul>
+<li><strong>Fast Bat / Medium Loft</strong> is the best overall swing profile &ndash; lowest whiff rate among fast-bat hitters (49%) and the highest contact quality (.444 xwOBA). This is the Goldilocks swing: enough loft to drive the ball, enough speed to punish mistakes, and a swing plane that covers the zone well.</li>
+<li><strong>Fast Bat / Uppercut</strong> produces elite damage when it connects (.460+ xwOBA) but comes with a 69% whiff rate. High-risk, high-reward.</li>
+<li><strong>Slow Bat / Uppercut</strong> is the worst archetype across the board &ndash; 78% whiff rate and just .236 xwOBA on contact. A long, slow, steep swing is the worst combination in baseball.</li>
+</ul>
+<h2 id="real-players">Real Players</h2>
+<p>This isn&rsquo;t just abstract math. These archetypes map directly to real hitters.</p>
+<figure class="article-figure article-figure-wide">
+<img src="spm-player-scatter.png" alt="MLB hitter swing profiles scatter plot">
+<figcaption>Every qualifying MLB hitter (300+ swings, 2024-2025) plotted by average bat speed and attack angle, colored by xwOBA on contact. The upper-right quadrant (fast bat, steep angle) belongs to the game's elite sluggers.</figcaption>
+</figure>
+
+<p><strong>Fast Bat / Medium Loft</strong> (the ideal profile): Yordan Alvarez (75.1 mph bat speed, 8.4° attack angle, .455 xwOBA), Oneil Cruz (76.3 / 8.0° / .453), Pete Alonso (73.5 / 9.5° / .448), and Giancarlo Stanton (79.4 / 8.7° / .503 &ndash; the fastest bat in the dataset). These hitters combine raw power with a swing plane that stays in the zone.</p>
+<p><strong>Fast Bat / Uppercut</strong> (power at a price): Aaron Judge (75.2 / 13.7° / .601 xwOBA on contact &ndash; the best in baseball), Shohei Ohtani (74.4 / 12.7° / .557), Juan Soto (72.1 / 11.1° / .508), Kyle Schwarber (74.6 / 13.7° / .505). When these guys connect, it&rsquo;s a different sport. But the 66-68% whiff rates are the cost of doing business.</p>
+<p><strong>Fast Bat / Flat</strong> (contact-first power): Bobby Witt Jr. (72.9 / 4.8° / .441), Vladimir Guerrero Jr. (75.0 / 1.9° / .434), Julio Rodriguez (74.7 / 6.7° / .433), Mike Trout (72.2 / 6.8° / .486). These hitters have elite bat speed but flatter swing paths, producing line drives and hard ground balls rather than towering fly balls.</p>
+<p><strong>Slow Bat / Flat</strong> (contact over power): Luis Arraez (60.9 / 5.1° / .310), Steven Kwan (61.9 / 2.1° / .315), Nico Hoerner (66.7 / 4.6° / .322). Pure contact hitters. They don&rsquo;t miss much, but they also don&rsquo;t hit the ball very hard.</p>
+<p><strong>Slow Bat / Uppercut</strong> (the worst matchups): Austin Hedges (66.5 / 11.8° / .243), Mark Canha (66.5 / 10.5° / .300). A steep swing without the bat speed to catch up to pitches is a recipe for weak contact and lots of whiffs.</p>
+<h2 id="the-matchup-matrix">The Matchup Matrix</h2>
+<p>Here&rsquo;s the core output: how each swing archetype performs against each pitch type.</p>
+<figure class="article-figure article-figure-wide">
+<img src="spm-matchup-heatmap.png" alt="Swing archetype vs pitch type matchup heatmap">
+<figcaption>Left: predicted whiff rate for each swing-pitch combination. Right: predicted xwOBA on contact. Green is good for the hitter, red is bad.</figcaption>
+</figure>
+
+<p>The heatmaps reveal several clear patterns:</p>
+<p><strong>Curveballs and changeups are the most hittable pitches for fast-bat hitters.</strong> Fast Bat / Medium Loft profiles whiff on just 38-40% of curveballs and changeups, compared to 48-58% on fastballs. And when they make contact, the damage is enormous &ndash; .468 xwOBA on curveballs, .386 on changeups. Slower pitch speeds give fast-bat hitters more time to adjust.</p>
+<p><strong>Fastballs produce the highest contact quality but also high whiff rates.</strong> Four-seamers against Fast Bat / Uppercut hitters yield .493 xwOBA on contact &ndash; the highest single cell on the board. But the whiff rate is 55%. The pitch is coming in too fast and too flat for the steep swing to consistently catch, but when it does, the combined pitch speed and bat speed create absolute destruction.</p>
+<p><strong>Splitters and sweepers are universal swing-missers.</strong> Every archetype struggles with splitters (FS) and sweepers (ST). Even the best-performing archetype (Fast Bat / Medium Loft) still whiffs on 41% of splitters. The late, sharp movement of these pitches defeats swing geometry regardless of bat speed.</p>
+<p><strong>Slow-bat hitters can&rsquo;t hit anything.</strong> The entire bottom-right of the xwOBA heatmap is red. Slow Bat / Uppercut profiles produce .249-.262 xwOBA across all pitch types. There is no pitch that this archetype handles well.</p>
+<h2 id="how-pitches-look-to-different-swings">How Pitches Look to Different Swings</h2>
+<figure class="article-figure article-figure-wide">
+<img src="spm-pitch-vulnerability.png" alt="Pitch vulnerability by archetype">
+<figcaption>Whiff rates and xwOBA by pitch type for the four corner archetypes. Fast Bat / Medium Loft (green) handles every pitch type better than the alternatives.</figcaption>
+</figure>
+
+<p>The grouped bar chart makes the archetype gap even clearer. Fast Bat / Medium Loft hitters (green) have the lowest whiff rate against every single pitch type. They&rsquo;re especially dominant against curveballs, where their 39% whiff rate is 20+ percentage points lower than Slow Bat / Uppercut hitters.</p>
+<p>On the contact quality side, the gap is even wider. Fast Bat / Medium Loft hitters produce .45+ xwOBA against fastballs, sinkers, and curveballs. Slow Bat / Uppercut hitters barely crack .280 against any pitch.</p>
+<h2 id="the-arm-angle-factor">The Arm Angle Factor</h2>
+<p>Pitcher arm slot creates interesting matchup asymmetries.</p>
+<figure class="article-figure article-figure-wide">
+<img src="spm-arm-angle.png" alt="Whiff rate by arm slot and swing archetype">
+<figcaption>Whiff rates by pitcher arm slot for four swing archetypes. Over-the-top pitchers are dramatically easier for flat swingers to handle.</figcaption>
+</figure>
+
+<p>The standout finding: <strong>over-the-top pitchers (75-100° arm angle) are dramatically easier for flat-swing, fast-bat hitters.</strong> Fast Bat / Medium Loft hitters whiff on just 34% of pitches from extreme over-the-top arms, compared to 50% from submarine angles. The explanation is geometric &ndash; an over-the-top delivery creates a steeper vertical approach angle, and a flatter swing path naturally matches that plane better.</p>
+<p>Meanwhile, Slow Bat / Flat hitters spike to a 90%+ whiff rate against over-the-top arms. Without the bat speed to catch up, the steep downward trajectory exploits the flat swing plane.</p>
+<p>Submarine and sidearm pitchers (0-25°) are more equitable &ndash; all archetypes struggle more against low-slot pitchers because the horizontal release point creates unusual pitch trajectories that don&rsquo;t match conventional swing planes.</p>
+<h2 id="practical-takeaways">Practical Takeaways</h2>
+<p><strong>1. Bat speed is king, but swing plane is queen.</strong> If you can only optimize one thing, make the bat faster. But among hitters with similar bat speed, the attack angle separates elite performers from average ones. Medium loft (8-10°) is the sweet spot.</p>
+<p><strong>2. The &ldquo;launch angle revolution&rdquo; has a ceiling.</strong> Extreme uppercut swings (13°+ attack angle) produce incredible exit velocities on contact but dramatically increase whiff rates. Judge and Ohtani make it work because they have elite bat speed to compensate. Without that bat speed, an uppercut is just a long swing that misses a lot.</p>
+<p><strong>3. Pitchers should attack swing weaknesses, not just hitter weaknesses.</strong> A hitter with a steep uppercut is vulnerable to splitters and sweepers regardless of whether he&rsquo;s a &ldquo;good hitter&rdquo; overall. A flat-swinging contact hitter can be exploited with over-the-top fastballs up in the zone. The matchup matters more than the overall stat line.</p>
+<p><strong>4. Curveball usage against elite bat-speed hitters is risky.</strong> Our model shows curveballs are the most hittable pitch type for fast-bat hitters. The slower speed gives them more time to adjust, and the arc of the pitch brings it into the zone in a way that matches a lofted swing. Pitchers facing high-bat-speed lineups should lean on splitters and sweepers instead.</p>
+<p><strong>5. The &ldquo;just put the ball in play&rdquo; approach has limits.</strong> Contact-oriented hitters like Arraez and Kwan avoid whiffs, but their contact quality is significantly lower (.310-.322 xwOBA) than power-profile hitters who connect (.440-.601 xwOBA). In a game increasingly built around run prevention, the gap between &ldquo;making contact&rdquo; and &ldquo;making hard contact&rdquo; is widening.</p>
+<h2 id="methodology">Methodology</h2>
+<p>This analysis uses two XGBoost gradient-boosted tree models trained on 661,640 swings from the 2024-2025 MLB seasons (all pitches where Statcast bat-tracking data was available).</p>
+<p><strong>Features (27 total):</strong>
+- <em>Pitch shape:</em> velocity, spin rate, horizontal break, induced vertical break, arm angle, extension, spin axis, vertical approach angle, horizontal approach angle
+- <em>Pitch location:</em> plate_x, plate_z, normalized zone height, absolute horizontal distance from center
+- <em>Swing mechanics:</em> bat speed, swing length, attack angle, attack direction, swing-path tilt
+- <em>Context:</em> platoon indicator, batter side, pitcher hand, pitch type, count
+- <em>Interactions:</em> bat speed minus pitch velocity, attack angle vs. IVB mismatch, swing tilt vs. spin axis alignment</p>
+<p><strong>Whiff Model:</strong> XGBoost classifier, 500 trees, max depth 6, AUC 0.81 on held-out test set.</p>
+<p><strong>Contact Quality Model:</strong> XGBoost regressor predicting xwOBA on balls in play, 500 trees, max depth 6, MAE 0.278. The lower R² (0.077) reflects that single-pitch xwOBA is inherently noisy &ndash; the model captures systematic patterns in swing-pitch interactions even though individual pitch outcomes have high variance.</p>
+<p>Swing archetypes are defined by terciles of bat speed and attack angle across all swings in the dataset. &ldquo;Fast&rdquo; = top third of bat speed (&gt;70.5 mph), &ldquo;Slow&rdquo; = bottom third (&lt;68.1 mph). &ldquo;Uppercut&rdquo; = top third of attack angle (&gt;10.2°), &ldquo;Flat&rdquo; = bottom third (&lt;7.6°).</p>
+<p>All code, models, and data behind this analysis are part of the Basenerd analytics platform.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -3655,6 +3655,21 @@ def umpire_report_json(game_pk: int):
     return jsonify(data)
 
 
+@app.get("/game/<int:game_pk>/splits.json")
+def game_splits_json(game_pk: int):
+    from services.game_splits import game_splits
+    args = request.args
+    filters = {k: args.get(k) for k in
+               ("team", "hand", "venue", "daynight", "range", "count", "bases")}
+    data = game_splits(
+        game_pk,
+        side=args.get("side", "batting"),
+        group=args.get("group", "player"),
+        filters=filters,
+    )
+    return jsonify(data)
+
+
 @app.get("/umpire/<int:umpire_id>")
 def umpire_page(umpire_id: int):
     season = request.args.get("season", type=int) or 2026

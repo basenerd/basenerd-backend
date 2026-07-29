@@ -1855,6 +1855,7 @@
   <button class="tab-btn" data-tab="scoring">Scoring</button>
   <button class="tab-btn" data-tab="pbp">Play-by-Play</button>
   <button class="tab-btn" data-tab="analytics">Analytics</button>
+  <button class="tab-btn" data-tab="splits">Splits</button>
   {% if is_final %}<button class="tab-btn" data-tab="umpire">Umpire</button>{% endif %}
 </div>
 
@@ -3097,6 +3098,116 @@
     </div>
   </div>
 </div>
+
+<!-- SPLITS -->
+<div class="tab-panel" id="tab-splits">
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Splits Explorer</div>
+        <div class="card-subtitle">Season stats for both teams — mix &amp; match any filters.</div>
+      </div>
+    </div>
+    <div style="padding:14px;">
+      <!-- Filter bar -->
+      <div id="spl-filters" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px;">
+        <label class="spl-fl">Side
+          <select id="spl-side" class="spl-sel">
+            <option value="batting">Batting</option>
+            <option value="pitching">Pitching</option>
+          </select>
+        </label>
+        <label class="spl-fl">View
+          <select id="spl-group" class="spl-sel">
+            <option value="player">By Player</option>
+            <option value="team">By Team</option>
+          </select>
+        </label>
+        <label class="spl-fl">Team
+          <select id="spl-team" class="spl-sel">
+            <option value="both">Both Teams</option>
+            <option value="away">{{ game.away.abbrev }}</option>
+            <option value="home">{{ game.home.abbrev }}</option>
+          </select>
+        </label>
+        <label class="spl-fl" id="spl-hand-wrap">Handedness
+          <select id="spl-hand" class="spl-sel">
+            <option value="all">All</option>
+            <option value="L" data-bat="vs LHP" data-pit="vs LHB">vs LHP</option>
+            <option value="R" data-bat="vs RHP" data-pit="vs RHB">vs RHP</option>
+          </select>
+        </label>
+        <label class="spl-fl">Venue
+          <select id="spl-venue" class="spl-sel">
+            <option value="all">Home &amp; Away</option>
+            <option value="home">Home</option>
+            <option value="away">Away</option>
+          </select>
+        </label>
+        <label class="spl-fl">Day / Night
+          <select id="spl-dn" class="spl-sel">
+            <option value="all">Day &amp; Night</option>
+            <option value="day">Day games</option>
+            <option value="night">Night games</option>
+          </select>
+        </label>
+        <label class="spl-fl">Time Frame
+          <select id="spl-range" class="spl-sel">
+            <option value="season">Full Season</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="14d">Last 14 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="g7">Last 7 Games</option>
+            <option value="g15">Last 15 Games</option>
+            <option value="g30">Last 30 Games</option>
+          </select>
+        </label>
+        <label class="spl-fl">Count
+          <select id="spl-count" class="spl-sel">
+            <option value="any">Any Count</option>
+            <option value="first">First Pitch</option>
+            <option value="ahead">Ahead in Count</option>
+            <option value="behind">Behind in Count</option>
+            <option value="even">Even Count</option>
+            <option value="2k">2 Strikes</option>
+            <option value="3b">3 Balls</option>
+          </select>
+        </label>
+        <label class="spl-fl">Baserunners
+          <select id="spl-bases" class="spl-sel">
+            <option value="any">Any</option>
+            <option value="risp">RISP</option>
+            <option value="on">Runners On</option>
+            <option value="empty">Bases Empty</option>
+            <option value="loaded">Bases Loaded</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="spl-loading" class="mono muted small" style="padding:20px 0;">Loading splits…</div>
+      <div id="spl-empty" style="display:none; text-align:center; padding:30px 20px;">
+        <div style="font-weight:700; margin-bottom:6px;">No data for this combination</div>
+        <div class="muted small">Try widening the filters (fewer conditions or a longer time frame).</div>
+      </div>
+      <div id="spl-table-wrap" style="display:none; overflow-x:auto;">
+        <table class="tbl" id="spl-table" style="min-width:720px;">
+          <thead><tr id="spl-thead"></tr></thead>
+          <tbody id="spl-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #tab-splits .spl-fl{ display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:700; opacity:.85; }
+  #tab-splits .spl-sel{
+    width:100%; padding:6px 8px; background:#1e2a3a;
+    border:1px solid rgba(148,163,184,.3); color:inherit; border-radius:6px; font-size:13px; font-weight:600;
+  }
+  #tab-splits #spl-table th{ cursor:pointer; white-space:nowrap; }
+  #tab-splits #spl-table th.spl-sorted{ text-decoration:underline; }
+</style>
 
 <!-- UMPIRE REPORT -->
 {% if is_final %}
@@ -7158,5 +7269,147 @@ document.addEventListener("DOMContentLoaded", ()=>{
 })();
 </script>
 {% endif %}
+
+<!-- SPLITS EXPLORER -->
+<script>
+(function(){
+  const SPL_PK = {{ game_pk | tojson }};
+  if(!SPL_PK) return;
+  let splLoaded = false;
+  let splSort = { key: 'pa', dir: -1 };
+  let splRows = [];
+  let splCols = [];
+
+  const SEL = {
+    side:'spl-side', group:'spl-group', team:'spl-team', hand:'spl-hand',
+    venue:'spl-venue', daynight:'spl-dn', range:'spl-range', count:'spl-count', bases:'spl-bases'
+  };
+
+  const BAT_COLS = [
+    {k:'name', label:'Player', txt:true},
+    {k:'pa', label:'PA'}, {k:'ab', label:'AB'}, {k:'h', label:'H'},
+    {k:'2b', label:'2B'}, {k:'3b', label:'3B'}, {k:'hr', label:'HR'},
+    {k:'bb', label:'BB'}, {k:'so', label:'SO'},
+    {k:'avg', label:'AVG', fmt:'avg'}, {k:'obp', label:'OBP', fmt:'avg'},
+    {k:'slg', label:'SLG', fmt:'avg'}, {k:'ops', label:'OPS', fmt:'avg'},
+    {k:'woba', label:'wOBA', fmt:'avg'}, {k:'xwoba', label:'xwOBA', fmt:'avg'},
+    {k:'k_pct', label:'K%', fmt:'pct'}, {k:'bb_pct', label:'BB%', fmt:'pct'},
+  ];
+  const PIT_COLS = [
+    {k:'name', label:'Pitcher', txt:true},
+    {k:'pa', label:'TBF'}, {k:'h', label:'H'}, {k:'hr', label:'HR'},
+    {k:'bb', label:'BB'}, {k:'so', label:'K'},
+    {k:'avg', label:'AVG', fmt:'avg'}, {k:'obp', label:'OBP', fmt:'avg'},
+    {k:'slg', label:'SLG', fmt:'avg'}, {k:'woba', label:'wOBA', fmt:'avg'},
+    {k:'xwoba', label:'xwOBA', fmt:'avg'},
+    {k:'k_pct', label:'K%', fmt:'pct'}, {k:'bb_pct', label:'BB%', fmt:'pct'},
+    {k:'whiff_pct', label:'Whiff%', fmt:'pct'},
+  ];
+
+  function $(id){ return document.getElementById(id); }
+
+  function fmtVal(v, fmt){
+    if(v===null || v===undefined) return '—';
+    if(fmt==='avg'){ const s=(v<1&&v>=0)? v.toFixed(3).replace(/^0/,'') : v.toFixed(3); return s; }
+    if(fmt==='pct') return (v*100).toFixed(1)+'%';
+    return v;
+  }
+
+  function updateHandLabels(){
+    const side = $('spl-side').value;
+    document.querySelectorAll('#spl-hand option[data-bat]').forEach(o=>{
+      o.textContent = side==='pitching' ? o.dataset.pit : o.dataset.bat;
+    });
+    // header label of first column follows side too
+  }
+
+  function renderTable(){
+    const thead = $('spl-thead');
+    const tbody = $('spl-tbody');
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    splCols.forEach(c=>{
+      const th = document.createElement('th');
+      th.textContent = c.label;
+      if(!c.txt) th.className = 'mono';
+      if(c.k === splSort.key) th.classList.add('spl-sorted');
+      th.addEventListener('click', ()=>{
+        if(splSort.key === c.k){ splSort.dir *= -1; }
+        else { splSort.key = c.k; splSort.dir = c.txt ? 1 : -1; }
+        renderTable();
+      });
+      thead.appendChild(th);
+    });
+    const rows = splRows.slice().sort((a,b)=>{
+      let av = a[splSort.key], bv = b[splSort.key];
+      if(av===null||av===undefined) av = -Infinity;
+      if(bv===null||bv===undefined) bv = -Infinity;
+      if(typeof av === 'string'){ return splSort.dir * av.localeCompare(bv); }
+      return splSort.dir * (av - bv);
+    });
+    rows.forEach(r=>{
+      const tr = document.createElement('tr');
+      splCols.forEach(c=>{
+        const td = document.createElement('td');
+        if(c.txt){
+          if(c.k==='name' && r.playerId){
+            td.innerHTML = '<a href="/player/'+r.playerId+'">'+r.name+'</a>'+
+              (r.team ? ' <span class="muted small">'+r.team+'</span>' : '');
+          } else {
+            td.textContent = r.name;
+          }
+        } else {
+          td.className = 'mono';
+          td.textContent = fmtVal(r[c.k], c.fmt);
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function fetchSplits(){
+    const params = new URLSearchParams();
+    Object.keys(SEL).forEach(p=>{ params.set(p, $(SEL[p]).value); });
+    updateHandLabels();
+    $('spl-loading').style.display = '';
+    $('spl-loading').textContent = 'Loading splits…';
+    $('spl-empty').style.display = 'none';
+    $('spl-table-wrap').style.display = 'none';
+    fetch('/game/'+SPL_PK+'/splits.json?'+params.toString())
+      .then(r=>r.json())
+      .then(data=>{
+        $('spl-loading').style.display = 'none';
+        if(!data.ok){
+          $('spl-empty').style.display = '';
+          $('spl-empty').querySelector('div').textContent = data.error || 'No data available';
+          return;
+        }
+        splCols = (data.side==='pitching') ? PIT_COLS : BAT_COLS;
+        splRows = data.rows || [];
+        if(!splRows.length){ $('spl-empty').style.display = ''; return; }
+        if(!splCols.some(c=>c.k===splSort.key)) splSort = {key:'pa', dir:-1};
+        renderTable();
+        $('spl-table-wrap').style.display = '';
+      })
+      .catch(err=>{
+        console.error('[Splits] load failed', err);
+        $('spl-loading').style.display = 'none';
+        $('spl-empty').style.display = '';
+        $('spl-empty').querySelector('div').textContent = 'Failed to load splits';
+      });
+  }
+
+  function loadSplits(){
+    if(!splLoaded){ splLoaded = true; fetchSplits(); }
+  }
+
+  Object.values(SEL).forEach(id=>{
+    const el = $(id);
+    if(el) el.addEventListener('change', fetchSplits);
+  });
+  document.querySelector('.tab-btn[data-tab="splits"]')?.addEventListener('click', loadSplits);
+})();
+</script>
 
 {% endblock %}

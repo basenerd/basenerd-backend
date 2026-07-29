@@ -545,6 +545,13 @@ def _compute_pregame_predictions(game_pk, lineup_data, season):
         # Pitcher expected statline
         pitcher_statline = _pitcher_expected_statline(batters, is_spring)
 
+        # Log predictions for later accuracy grading (fire-and-forget, never raises)
+        try:
+            from services.prediction_log import log_pregame
+            log_pregame(game_pk, season, pitcher.get("id"), batters)
+        except Exception:
+            pass
+
         return {
             "pitcher": pitcher,
             "batters": batters,
