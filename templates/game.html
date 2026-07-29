@@ -3200,13 +3200,29 @@
 </div>
 
 <style>
-  #tab-splits .spl-fl{ display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:700; opacity:.85; }
-  #tab-splits .spl-sel{
-    width:100%; padding:6px 8px; background:#1e2a3a;
-    border:1px solid rgba(148,163,184,.3); color:inherit; border-radius:6px; font-size:13px; font-weight:600;
+  #tab-splits .spl-fl{
+    display:flex; flex-direction:column; gap:5px;
+    font-size:11px; font-weight:700; letter-spacing:.02em; text-transform:uppercase;
+    color:var(--muted);
   }
+  #tab-splits .spl-sel{
+    width:100%; padding:8px 10px;
+    background:var(--card); color:var(--text);
+    border:1px solid var(--border); border-radius:8px;
+    font-size:13px; font-weight:600; cursor:pointer;
+    appearance:none; -webkit-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6577' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat; background-position:right 10px center; padding-right:28px;
+  }
+  #tab-splits .spl-sel:hover{ border-color:#cbd3df; }
+  #tab-splits .spl-sel:focus{ outline:none; border-color:var(--link); box-shadow:0 0 0 2px rgba(11,92,171,.15); }
   #tab-splits #spl-table th{ cursor:pointer; white-space:nowrap; }
   #tab-splits #spl-table th.spl-sorted{ text-decoration:underline; }
+  #tab-splits tr.spl-group td{
+    background:var(--row); font-weight:800; font-size:12px;
+    letter-spacing:.03em; text-transform:uppercase; color:var(--muted);
+    padding:8px 10px; border-top:2px solid var(--border);
+  }
 </style>
 
 <!-- UMPIRE REPORT -->
@@ -7279,6 +7295,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
   let splSort = { key: 'pa', dir: -1 };
   let splRows = [];
   let splCols = [];
+  let splTeams = { away: '', home: '' };
+  let splGroup = 'player';
 
   const SEL = {
     side:'spl-side', group:'spl-group', team:'spl-team', hand:'spl-hand',
@@ -7323,6 +7341,45 @@ document.addEventListener("DOMContentLoaded", ()=>{
     // header label of first column follows side too
   }
 
+  function sortRows(rows){
+    return rows.slice().sort((a,b)=>{
+      let av = a[splSort.key], bv = b[splSort.key];
+      if(av===null||av===undefined) av = -Infinity;
+      if(bv===null||bv===undefined) bv = -Infinity;
+      if(typeof av === 'string'){ return splSort.dir * av.localeCompare(bv); }
+      return splSort.dir * (av - bv);
+    });
+  }
+
+  function appendDataRow(tbody, r){
+    const tr = document.createElement('tr');
+    splCols.forEach(c=>{
+      const td = document.createElement('td');
+      if(c.txt){
+        if(c.k==='name' && r.playerId){
+          td.innerHTML = '<a href="/player/'+r.playerId+'">'+r.name+'</a>';
+        } else {
+          td.textContent = r.name;
+        }
+      } else {
+        td.className = 'mono';
+        td.textContent = fmtVal(r[c.k], c.fmt);
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+
+  function appendGroupHeader(tbody, label){
+    const tr = document.createElement('tr');
+    tr.className = 'spl-group';
+    const td = document.createElement('td');
+    td.colSpan = splCols.length;
+    td.textContent = label;
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
+
   function renderTable(){
     const thead = $('spl-thead');
     const tbody = $('spl-tbody');
@@ -7340,31 +7397,24 @@ document.addEventListener("DOMContentLoaded", ()=>{
       });
       thead.appendChild(th);
     });
-    const rows = splRows.slice().sort((a,b)=>{
-      let av = a[splSort.key], bv = b[splSort.key];
-      if(av===null||av===undefined) av = -Infinity;
-      if(bv===null||bv===undefined) bv = -Infinity;
-      if(typeof av === 'string'){ return splSort.dir * av.localeCompare(bv); }
-      return splSort.dir * (av - bv);
+
+    // Always render visiting (away) team on top, home team on the bottom,
+    // each as its own group. Players never share a combined list.
+    const order = [splTeams.away, splTeams.home].filter(Boolean);
+    const seen = new Set();
+    const groups = [];
+    order.forEach(ab=>{
+      const rows = splRows.filter(r=>r.team===ab);
+      if(rows.length){ groups.push({abbrev:ab, rows}); seen.add(ab); }
     });
-    rows.forEach(r=>{
-      const tr = document.createElement('tr');
-      splCols.forEach(c=>{
-        const td = document.createElement('td');
-        if(c.txt){
-          if(c.k==='name' && r.playerId){
-            td.innerHTML = '<a href="/player/'+r.playerId+'">'+r.name+'</a>'+
-              (r.team ? ' <span class="muted small">'+r.team+'</span>' : '');
-          } else {
-            td.textContent = r.name;
-          }
-        } else {
-          td.className = 'mono';
-          td.textContent = fmtVal(r[c.k], c.fmt);
-        }
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
+    // safety: any rows whose team wasn't matched
+    const leftovers = splRows.filter(r=>!seen.has(r.team));
+    if(leftovers.length) groups.push({abbrev:'', rows:leftovers});
+
+    const showHeaders = (splGroup === 'player') && groups.length > 1;
+    groups.forEach(g=>{
+      if(showHeaders && g.abbrev) appendGroupHeader(tbody, g.abbrev);
+      sortRows(g.rows).forEach(r=>appendDataRow(tbody, r));
     });
   }
 
@@ -7387,6 +7437,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
         }
         splCols = (data.side==='pitching') ? PIT_COLS : BAT_COLS;
         splRows = data.rows || [];
+        splTeams = data.teams || { away:'', home:'' };
+        splGroup = data.group || 'player';
         if(!splRows.length){ $('spl-empty').style.display = ''; return; }
         if(!splCols.some(c=>c.k===splSort.key)) splSort = {key:'pa', dir:-1};
         renderTable();
