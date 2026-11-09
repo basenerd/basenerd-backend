@@ -32,6 +32,8 @@ import requests
 # ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))   # for services.*
 
 from generate_pitcher_report_pdf import (
     _fetch_live_feed,
@@ -39,6 +41,7 @@ from generate_pitcher_report_pdf import (
     generate_report,
 )
 from notification_log import already_sent, mark_sent
+from services.season import require_in_season
 
 # Load .env
 env_path = ROOT / ".env"
@@ -340,6 +343,11 @@ def main():
     parser.add_argument("--window", type=int, default=DEFAULT_WINDOW_MIN,
                         help=f"Minutes to look back for finished pitchers (default: {DEFAULT_WINDOW_MIN})")
     args = parser.parse_args()
+
+    # Cron invokes this bare every 15 minutes year-round. An explicit --date
+    # is a deliberate manual run, so it is never gated.
+    if not args.date and not require_in_season("daily_pitcher_emails"):
+        return 0
 
     now_et = datetime.now(ET)
     if args.date:

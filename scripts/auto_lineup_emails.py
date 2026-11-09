@@ -40,6 +40,8 @@ SCRIPTS_DIR = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 sys.path.insert(0, str(ROOT))
 
+from services.season import require_in_season
+
 REPORTS_DIR = ROOT / "reports" / "previews"
 MLB_API = "https://statsapi.mlb.com/api/v1"
 
@@ -291,6 +293,11 @@ def main():
     if args.test:
         send_test_email()
         return
+
+    # Cron invokes this bare every 15 minutes year-round. An explicit --date
+    # or --test is a deliberate manual run, so neither is gated.
+    if not args.date and not require_in_season("auto_lineup_emails"):
+        return 0
 
     if args.date:
         if args.date.lower() == "yesterday":

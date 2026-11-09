@@ -33,6 +33,12 @@ import requests
 log = logging.getLogger("track_nrfi")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from services.season import require_in_season  # noqa: E402
+
 # ---- .env loader ----
 _env_path = Path(__file__).resolve().parent.parent / ".env"
 if _env_path.exists():
@@ -277,6 +283,12 @@ def main():
     parser.add_argument("--backfill", type=int, default=0,
                         help="Resolve predictions for the last N days")
     args = parser.parse_args()
+
+    # Cron invokes this bare every 20 minutes year-round. An explicit --date
+    # or --backfill is a deliberate manual run, so it is never gated.
+    if not args.date and not args.backfill:
+        if not require_in_season("track_nrfi"):
+            return 0
 
     today = datetime.utcnow().date()
     target = args.date or today.strftime("%Y-%m-%d")

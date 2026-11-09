@@ -43,8 +43,11 @@ if env_path.exists():
             k, v = line.split("=", 1)
             os.environ.setdefault(k.strip(), v.strip())
 
+from services.season import in_season
+
 MLB_API = "https://statsapi.mlb.com/api/v1"
 POLL_INTERVAL = 30  # seconds between checks
+OFFSEASON_SLEEP = 6 * 3600  # re-check the calendar 4x/day in the offseason
 GMAIL_USER = os.environ.get("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 NOTIFY_EMAIL = "nicklabella6@gmail.com"
@@ -502,6 +505,16 @@ def run_daemon():
 
     while True:
         try:
+            # Out of season there is nothing to watch, and this worker runs
+            # continuously. Sleeping long here drops the schedule poll from
+            # 48 requests/day to 4 rather than hammering it all winter.
+            # (Suspending the worker in Render saves the instance hours too;
+            # this only stops the pointless traffic.)
+            if not in_season():
+                log.info("Offseason — sleeping %dh.", OFFSEASON_SLEEP // 3600)
+                time.sleep(OFFSEASON_SLEEP)
+                continue
+
             today = _today_et()
             log.info("=== Date: %s ===", today)
             _seen_hrs.clear()  # fresh day, fresh tracking
