@@ -51,7 +51,7 @@ FEATURE_COLS = NUM_FEATURES + CAT_FEATURES
 GLOBAL_CAT_FEATURES = ["pitch_type", "p_throws"]
 GLOBAL_FEATURE_COLS = NUM_FEATURES + GLOBAL_CAT_FEATURES
 
-MODEL_VERSION = "stuff_v5_per_type_hgbm"
+MODEL_VERSION = "stuff_v6_per_type_hgbm"   # v6: base_state occupancy fix
 TRAIN_YEARS = (2021, 2025)
 RANDOM_STATE = 42
 
@@ -135,9 +135,13 @@ def fetch_training_data(conn) -> pd.DataFrame:
             balls,
             strikes,
             outs_when_up,
-            COALESCE(on_1b, 0) +
-            COALESCE(on_2b, 0) * 2 +
-            COALESCE(on_3b, 0) * 4  AS base_state,
+            -- on_1b/on_2b/on_3b hold the RUNNER'S PLAYER ID, not a 0/1 flag,
+            -- so arithmetic on them yields a near-unique number per runner
+            -- combination (423,188 "base states" instead of 8). Test for
+            -- occupancy instead.
+            (on_1b IS NOT NULL)::int +
+            (on_2b IS NOT NULL)::int * 2 +
+            (on_3b IS NOT NULL)::int * 4  AS base_state,
             delta_run_exp
         FROM statcast_pitches
         WHERE game_type = 'R'

@@ -137,6 +137,25 @@ def score_control(df, pipe, meta):
     cmax = float(meta.get("control_clip_max", 160.0))
     version = meta.get("model_version", "unknown")
 
+    # Only rows with all control features present
+    mask_all = df[num_feats + cat_feats].notna().all(axis=1)
+
+    # Prefer the pipeline, whose fitted OrdinalEncoder is authoritative. The
+    # manual path below hardcodes a pitch-type list that does not match the
+    # learned categories (omits 'FO', includes 'FT'), so it only runs for a
+    # model the installed sklearn cannot predict directly.
+    try:
+        out = pd.Series(np.nan, index=df.index)
+        if not mask_all.any():
+            return out, version
+        sub = df.loc[mask_all]
+        preds = pipe.predict(sub[num_feats + cat_feats])
+        cp = center + scale * (-pd.Series(preds, index=sub.index) / gstd)
+        out.loc[sub.index] = cp.clip(cmin, cmax)
+        return out, version
+    except Exception:
+        pass
+
     model = pipe.named_steps["model"]
     if not hasattr(model, "_preprocessor"):
         model._preprocessor = None

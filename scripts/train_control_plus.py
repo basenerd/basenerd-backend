@@ -33,7 +33,7 @@ NUM_FEATURES = ["plate_x", "plate_z", "sz_top", "sz_bot"]
 CAT_FEATURES = ["pitch_type"]
 FEATURE_COLS = NUM_FEATURES + CAT_FEATURES
 
-MODEL_VERSION = "control_v2_location_hgbm"
+MODEL_VERSION = "control_v3_location_hgbm"  # v3: base_state occupancy fix
 TRAIN_YEARS = (2021, 2024)
 SAMPLE_FRAC = 1.0       # use all data; set <1.0 to subsample for faster iteration
 RANDOM_STATE = 42
@@ -64,9 +64,12 @@ def fetch_training_data(conn) -> pd.DataFrame:
             balls,
             strikes,
             outs_when_up,
-            COALESCE(on_1b, 0) +
-            COALESCE(on_2b, 0) * 2 +
-            COALESCE(on_3b, 0) * 4  AS base_state,
+            -- on_1b/on_2b/on_3b hold the RUNNER'S PLAYER ID, not a 0/1 flag,
+            -- so arithmetic on them yields a near-unique number per runner
+            -- combination. Test for occupancy instead.
+            (on_1b IS NOT NULL)::int +
+            (on_2b IS NOT NULL)::int * 2 +
+            (on_3b IS NOT NULL)::int * 4  AS base_state,
             delta_run_exp
         FROM statcast_pitches
         WHERE game_type = 'R'

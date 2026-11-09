@@ -244,6 +244,17 @@ def _predict_stuff(pipe, X_df, num_feats, cat_feats, meta=None):
 
 
 def _predict_control(pipe, X_df, num_feats, cat_feats):
+    # Prefer the pipeline: its own fitted OrdinalEncoder is authoritative.
+    # The manual path below hardcodes a pitch-type list that does NOT match
+    # what the encoder learned -- it omits 'FO' and includes 'FT', so every
+    # code from index 7 up is shifted (FS scored as FO, FO falling through to
+    # CH). It exists only because a model pickled by sklearn 1.0.2 cannot be
+    # predicted by 1.8.0; anything trained on the current version skips it.
+    try:
+        return pipe.predict(X_df)
+    except Exception:
+        pass
+
     model = pipe.named_steps["model"]
     if not hasattr(model, "_preprocessor"):
         model._preprocessor = None

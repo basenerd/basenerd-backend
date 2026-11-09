@@ -1,5 +1,5 @@
 {
-  "model_version": "stuff_v5_per_type_hgbm",
+  "model_version": "stuff_v6_per_type_hgbm",
   "model_type": "HistGradientBoostingRegressor",
   "pitch_type": "KC",
   "train_year_range": [
@@ -52,11 +52,11 @@
   "cat_features": [
     "p_throws"
   ],
-  "goodness_std": 0.015032637761491314,
+  "goodness_std": 0.019004849881965404,
   "stuff_center": 100.0,
   "stuff_scale": 15.0,
   "stuff_clip_min": 40.0,
   "stuff_clip_max": 160.0,
-  "val_rmse": 0.20384422307063324,
-  "val_r2": 0.008857043521358299
+  "val_rmse": 0.2127647540616099,
+  "val_r2": 0.00768646042742982
 }

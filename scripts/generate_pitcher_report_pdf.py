@@ -431,12 +431,19 @@ def _predict_stuff(stuff_pipe, X_df, num_feats, cat_feats, meta=None):
 
 
 def _predict_control(ctrl_pipe, X_df, num_feats, cat_feats):
-    """Predict with control model, bypassing broken sklearn pipeline deserialization.
+    """Predict with the control model.
 
-    The control model's ColumnTransformer + OrdinalEncoder don't deserialize
-    cleanly across sklearn versions. We manually pass numeric features through
-    and ordinal-encode pitch_type, then call the model's _raw_predict directly.
+    Prefer the pipeline, whose fitted OrdinalEncoder is authoritative. The
+    manual path below is only for a model pickled by an older sklearn that
+    cannot be predicted by the installed one — and it hardcodes a pitch-type
+    list that does not match what the encoder learned (omits 'FO', includes
+    'FT', shifting every code from index 7 up), so it is a last resort.
     """
+    try:
+        return ctrl_pipe.predict(X_df)
+    except Exception:
+        pass
+
     model = ctrl_pipe.named_steps["model"]
     if not hasattr(model, "_preprocessor"):
         model._preprocessor = None

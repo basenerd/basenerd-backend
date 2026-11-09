@@ -1,5 +1,5 @@
 {
-  "model_version": "stuff_v5_per_type_hgbm",
+  "model_version": "stuff_v6_per_type_hgbm",
   "model_type": "HistGradientBoostingRegressor",
   "pitch_type": "SI",
   "train_year_range": [
@@ -52,11 +52,11 @@
   "cat_features": [
     "p_throws"
   ],
-  "goodness_std": 0.02469511164598544,
+  "goodness_std": 0.027734454745107766,
   "stuff_center": 100.0,
   "stuff_scale": 15.0,
   "stuff_clip_min": 40.0,
   "stuff_clip_max": 160.0,
-  "val_rmse": 0.2091886709107329,
-  "val_r2": 0.017696716202176832
+  "val_rmse": 0.22839299464786092,
+  "val_r2": 0.018900353606662312
 }
