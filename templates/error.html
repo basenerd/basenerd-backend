@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card error-page">
+  <div class="card-body">
+    <div class="error-code mono">{{ code }}</div>
+    <div class="error-headline">{{ headline }}</div>
+    <div class="error-detail muted">{{ detail }}</div>
+
+    {% if suggestions %}
+      <div class="error-suggest">
+        {% for s in suggestions %}
+          <a class="btn" href="{{ s.url }}">{{ s.label }}</a>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="error-nav">
+      <div class="subcard-title">Or jump to</div>
+      <div class="error-nav-links">
+        <a href="/">Home</a>
+        <a href="/games">Games</a>
+        <a href="/standings">Standings</a>
+        <a href="/players">Players</a>
+        <a href="/stats">Stats</a>
+        <a href="/teams">Teams</a>
+        <a href="/articles">Articles</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .error-page{ max-width:620px; margin:32px auto; }
+  .error-page .card-body{ padding:28px 24px; }
+
+  .error-code{
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:.16em;
+    color:var(--muted);
+  }
+  .error-headline{
+    font-size:24px;
+    font-weight:800;
+    letter-spacing:-.01em;
+    margin-top:6px;
+  }
+  .error-detail{
+    font-size:14px;
+    line-height:1.5;
+    margin-top:8px;
+    max-width:52ch;
+  }
+
+  .error-suggest{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:18px;
+  }
+
+  .error-nav{
+    margin-top:24px;
+    padding-top:16px;
+    border-top:1px solid var(--border);
+  }
+  .error-nav-links{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px 16px;
+    margin-top:2px;
+    font-weight:600;
+  }
+
+  @media (max-width:640px){
+    .error-page{ margin:16px auto; }
+    .error-page .card-body{ padding:20px 16px; }
+    .error-headline{ font-size:21px; }
+  }
+</style>
+
+{% endblock %}

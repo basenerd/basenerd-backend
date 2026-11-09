@@ -2,7 +2,7 @@ from datetime import datetime
 import json
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, abort
 from services.spray_db import fetch_player_spray
 from services.savant_profile import get_player_savant_profile
 from services.swing_profile import get_swing_profile
@@ -102,27 +102,6 @@ class _SafeJSONProvider(DefaultJSONProvider):
 app.json_provider_class = _SafeJSONProvider
 app.json = _SafeJSONProvider(app)
 
-@app.context_processor
-def inject_global_games_ticker():
-    """
-    Global top-of-page ticker: ALL games on today's schedule
-    (scheduled + live + final).
-    """
-    try:
-        user_tz = "America/Phoenix"
-        today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
-
-        # IMPORTANT: this returns the full day's slate; do NOT filter by status
-        ticker_games = get_games_for_date(today_ymd, tz_name=user_tz, include_live_context=False)
-    except Exception:
-        ticker_games = []
-        today_ymd = None
-
-    return {
-        "ticker_games": ticker_games,
-        "ticker_date": today_ymd,
-    }
-    
 @app.template_global()
 def sr_color(pct):
     if pct is None:
@@ -1011,7 +990,8 @@ def home():
     user_tz = "America/Phoenix"
     today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
     try:
-        today_games = get_games_for_date(today_ymd, tz_name=user_tz)
+        today_games = get_games_for_date(today_ymd, tz_name=user_tz,
+                                         with_probable_lines=False)
     except Exception:
         today_games = []
 
@@ -1024,7 +1004,8 @@ def home_live_games():
     user_tz = "America/Phoenix"
     today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
     try:
-        games_list = get_games_for_date(today_ymd, tz_name=user_tz)
+        games_list = get_games_for_date(today_ymd, tz_name=user_tz,
+                                        with_probable_lines=False)
     except Exception:
         games_list = []
     return jsonify(games_list)
@@ -1062,7 +1043,6 @@ def home_weekly_leaders():
                         _date(latest.year, 1, 1)
                     )
                     result["as_of"] = str(latest)
-                    print(f"[home_weekly_leaders] latest={latest}, window_start={window_start}")
                 else:
                     window_start = None
 
@@ -1088,7 +1068,6 @@ def home_weekly_leaders():
                     {"name": r[0] or str(r[1]), "id": r[1], "pitch_type": r[2] or "", "value": round(float(r[3]), 1)}
                     for r in rows
                 ]
-                print(f"[home_weekly_leaders] top_velos: {len(rows)} rows")
 
                 # 2. Top exit velocities (max per batter)
                 cur.execute("""
@@ -1108,7 +1087,6 @@ def home_weekly_leaders():
                     {"id": r[0], "value": round(float(r[1]), 1)}
                     for r in rows
                 ]
-                print(f"[home_weekly_leaders] top_exit_velos: {len(rows)} rows")
 
                 # 3. Longest home runs
                 cur.execute("""
@@ -1127,7 +1105,6 @@ def home_weekly_leaders():
                     {"id": r[0], "value": int(r[1]), "date": str(r[2])[:10], "game_pk": r[3]}
                     for r in rows
                 ]
-                print(f"[home_weekly_leaders] top_hr_dist: {len(rows)} rows")
 
                 # 4. Top hitters by xwOBA (last 7 days, min 10 PA)
                 cur.execute("""
@@ -1149,7 +1126,6 @@ def home_weekly_leaders():
                     {"id": r[0], "value": round(float(r[1]), 3), "pa": int(r[2])}
                     for r in rows
                 ]
-                print(f"[home_weekly_leaders] top_performers: {len(rows)} rows")
     except Exception as e:
         print(f"[home_weekly_leaders] DB error: {e}")
         import traceback; traceback.print_exc()
@@ -1258,7 +1234,6 @@ from services.mlb_api import get_team, get_40man_roster_grouped
 @app.get("/team/<int:team_id>")
 def team(team_id):
     user_tz = "America/Phoenix"
-    print(f"[TEAM ROUTE HIT] team_id={team_id}")
 
     # -------------------------
     # Team metadata
@@ -1283,7 +1258,6 @@ def team(team_id):
         "venue": (raw.get("venue") or {}).get("name"),
         "logo_url": f"https://www.mlbstatic.com/team-logos/{raw.get('id')}.svg" if raw.get("id") else None,
     }
-    print("[team] team_obj:", team_obj)
 
     # If team lookup failed, bail early with a clear message
     if not team_obj.get("team_id"):
@@ -1312,13 +1286,6 @@ def team(team_id):
     except Exception as e:
         print(f"[team] roster fetch failed team_id={team_id}: {e}")
         roster_grouped, roster_other = {}, []
-
-    print(
-        "[team] roster sizes:",
-        {k: len(v or []) for k, v in (roster_grouped or {}).items()},
-        "other:",
-        len(roster_other or []),
-    )
 
     # -------------------------
     # Schedule helpers
@@ -1364,10 +1331,8 @@ def team(team_id):
     reg_cur = [g for g in games_cur if (g.get("gameType") or "").upper() == "R"]
 
     season = cur_year if (reg_cur and any(_is_played(g) for g in reg_cur)) else (cur_year - 1)
-    print("[team] season chosen:", season, "games_cur:", len(games_cur), "reg_cur:", len(reg_cur))
 
     games_season = _flatten_team_schedule(team_id, season)
-    print("[team] games_season:", len(games_season))
 
     # -------------------------
     # Build game cards
@@ -1468,7 +1433,6 @@ def team(team_id):
     upcoming.sort(key=lambda x: _parse_dt(x.get("gameDate") or "") or datetime.max)
     next_game = _game_card_from_sched(upcoming[0]) if upcoming else None
 
-    print("[team] last_game:", bool(last_game), "next_game:", bool(next_game))
 
     # -------------------------
     # Division standings (IMPORTANT FIX): correct standings JSON shape
@@ -1508,7 +1472,6 @@ def team(team_id):
     except Exception as e:
         print(f"[team] standings failed: {e}")
 
-    print("[team] division_rows:", len(division_rows))
 
     # -------------------------
     # Leaders
@@ -1592,19 +1555,10 @@ def team(team_id):
             leaders_pit.append(row)
 
     leaders = {"hitting": leaders_hit, "pitching": leaders_pit} if (leaders_hit or leaders_pit) else None
-    print("[team] leaders present:", bool(leaders))
 
     # -------------------------
     # Render
     # -------------------------
-    print("[team] context summary:",
-          "team?", bool(team_obj),
-          "last_game?", bool(last_game),
-          "next_game?", bool(next_game),
-          "division_rows", len(division_rows),
-          "leaders?", bool(leaders),
-          "roster_grouped_keys", list((roster_grouped or {}).keys()))
-
     return render_template(
         "team.html",
         title=team_obj.get("name", "Team"),
@@ -1625,7 +1579,9 @@ def ticker_json():
     """Today's games for the global ticker bar."""
     user_tz = "America/Phoenix"
     today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
-    games_list = get_games_for_date(today_ymd, tz_name=user_tz, include_live_context=False)
+    games_list = get_games_for_date(today_ymd, tz_name=user_tz,
+                                    include_live_context=False,
+                                    with_probable_lines=False)
     # Return lightweight cards
     cards = []
     for g in games_list:
@@ -1706,7 +1662,8 @@ def todays_projections():
     picked = (request.args.get("date") or "").strip()
     today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
     target = picked or today_ymd
-    games_list = get_games_for_date(target, tz_name=user_tz)
+    games_list = get_games_for_date(target, tz_name=user_tz,
+                                    with_probable_lines=False)
     return render_template(
         "todays_projections.html",
         title=f"Today's Projections • {target}",
@@ -1723,7 +1680,8 @@ def stadium_conditions_json():
     picked = (request.args.get("date") or "").strip()
     today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
     target = picked or today_ymd
-    games_list = get_games_for_date(target, tz_name=user_tz)
+    games_list = get_games_for_date(target, tz_name=user_tz,
+                                    with_probable_lines=False)
     results = []
     for g in games_list:
         venue_id = g.get("venueId")
@@ -1753,6 +1711,14 @@ def game_detail(game_pk: int):
     user_tz = "America/Phoenix"
 
     feed = get_game_feed(game_pk)
+
+    # StatsAPI answers 200 with an empty skeleton for an unknown gamePk
+    # (home team id 0, no officialDate) rather than 404ing, so check the
+    # payload instead of the status code.
+    _gd = (feed or {}).get("gameData") or {}
+    if not ((_gd.get("teams") or {}).get("home") or {}).get("id"):
+        abort(404, description=f"No MLB game found with id {game_pk}.")
+
     game_obj = normalize_game_detail(feed, tz_name=user_tz)
 
     # ✅ always available for template debugging / links
@@ -2768,7 +2734,15 @@ def player(player_id: int):
     # optional query params
     log_year = request.args.get("log_year", type=int)
 
-    bio = get_player(player_id)
+    # StatsAPI 404s on an unknown person id, which get_player re-raises as
+    # requests.HTTPError. Surface that as a 404 page rather than a 500.
+    try:
+        bio = get_player(player_id)
+    except Exception:
+        bio = None
+    if not (bio or {}).get("id"):
+        abort(404, description=f"No MLB player found with id {player_id}.")
+
     role = get_player_role(bio)
         # -------------------------
     # Stadium SVG (player current team)
@@ -3100,20 +3074,32 @@ def player(player_id: int):
         transactions = get_player_transactions(player_id)
     except Exception:
         transactions = []
-    savant_profile = {"available": True, "season": 2025, "groups": []}
-    print("DEBUG: building savant_profile", "player_id=", int(bio["id"]), "season=", season_found)
     season_for_scouting = int(season_found or log_year or 2025)
-    player_id = int(bio["id"])  # or int(bio["id"]) depending on your bio object
-    
-    savant_profile = get_player_savant_profile(player_id, season_for_scouting, min_pa=1)
-    
-    print("DEBUG: savant_profile available =", savant_profile.get("available"), "groups =", len(savant_profile.get("groups", [])))
-    hitter_pitch_profile = get_hitter_pitch_profile(player_id, season_for_scouting)
-    spray_data = fetch_player_spray(player_id, season_for_scouting, limit=1000)
-    try:
-        swing_profile = get_swing_profile(player_id, season_for_scouting)
-    except Exception:
-        swing_profile = {"available": False}
+    player_id = int(bio["id"])
+
+    # Scouting data is all Postgres-backed. A missing DATABASE_URL or an
+    # unreachable database used to raise straight out of the view and 500 the
+    # whole page; the bio, snapshot and career sections above need none of it,
+    # so each block degrades to "unavailable" instead of taking the page down.
+    def _safe(fn, fallback, label):
+        try:
+            return fn()
+        except Exception as e:
+            app.logger.warning("player %s: %s unavailable (%s)", player_id, label, e)
+            return fallback
+
+    savant_profile = _safe(
+        lambda: get_player_savant_profile(player_id, season_for_scouting, min_pa=1),
+        {"available": False, "season": season_for_scouting, "groups": []}, "savant_profile")
+    hitter_pitch_profile = _safe(
+        lambda: get_hitter_pitch_profile(player_id, season_for_scouting),
+        {"available": False}, "hitter_pitch_profile")
+    spray_data = _safe(
+        lambda: fetch_player_spray(player_id, season_for_scouting, limit=1000),
+        [], "spray_data")
+    swing_profile = _safe(
+        lambda: get_swing_profile(player_id, season_for_scouting),
+        {"available": False}, "swing_profile")
     
     return render_template(
         "player.html",
@@ -3733,7 +3719,8 @@ def admin_roof():
     today_ymd = datetime.now(ZoneInfo(user_tz)).date().strftime("%Y-%m-%d")
     target = picked or today_ymd
 
-    games_list = get_games_for_date(target, tz_name=user_tz)
+    games_list = get_games_for_date(target, tz_name=user_tz,
+                                    with_probable_lines=False)
     overrides = load_roof_overrides()
 
     # Only show games at retractable-roof venues
@@ -3922,6 +3909,65 @@ def simulate_state(game_id: str):
     through = request.args.get("through", 0, type=int)
     state = build_state_at_pitch(game_data, through)
     return jsonify(state)
+
+
+# ── Error handlers ───────────────────────────────────────────────────
+# Without these, a bad player id or a dead game_pk renders Flask's default
+# traceback page with none of the site's chrome. JSON endpoints get a JSON
+# body instead of an HTML page so client-side fetch() callers can read it.
+
+def _wants_json() -> bool:
+    """True for /api/* and *.json routes, or an explicit JSON Accept header."""
+    p = request.path or ""
+    if p.startswith("/api/") or p.endswith(".json"):
+        return True
+    accept = request.accept_mimetypes
+    return accept["application/json"] > accept["text/html"]
+
+
+@app.errorhandler(404)
+def handle_404(e):
+    if _wants_json():
+        return jsonify({"ok": False, "error": "not_found", "path": request.path}), 404
+    return render_template(
+        "error.html",
+        title="Not Found • Basenerd",
+        code="404 — NOT FOUND",
+        headline="That page isn't here",
+        detail=getattr(e, "description", None)
+               or "The link may be mistyped, or it pointed at a player, game or "
+                  "team that no longer exists.",
+        suggestions=[
+            {"label": "Browse players", "url": "/players"},
+            {"label": "Today's games", "url": "/games"},
+        ],
+    ), 404
+
+
+@app.errorhandler(500)
+@app.errorhandler(Exception)
+def handle_500(e):
+    # Let Flask's own HTTP errors (404, 405, ...) keep their status.
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e
+
+    app.logger.exception("Unhandled error on %s", request.path)
+
+    if _wants_json():
+        return jsonify({"ok": False, "error": "server_error", "path": request.path}), 500
+    return render_template(
+        "error.html",
+        title="Something Broke • Basenerd",
+        code="500 — SERVER ERROR",
+        headline="Something broke on our end",
+        detail="This one's on us, not you. The error has been logged. "
+               "Upstream data feeds occasionally stall — a reload often works.",
+        suggestions=[
+            {"label": "Reload this page", "url": request.full_path or request.path},
+            {"label": "Go home", "url": "/"},
+        ],
+    ), 500
 
 
 if __name__ == "__main__":
