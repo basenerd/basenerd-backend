@@ -50,6 +50,12 @@ hr{ border:0; border-top:1px solid var(--border); margin:16px 0; }
   overflow: hidden;
 }
 
+/* <picture> is inline by default, which would break the img's height:100% */
+.site-banner-wrap picture{
+  display: block;
+  height: 100%;
+}
+
 .site-banner{
   width: 100%;
   height: 100%;

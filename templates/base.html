@@ -500,7 +500,8 @@
         <div class="sidebar-inner">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
             <a class="brand" href="/" style="text-decoration:none; display:flex; align-items:center;">
-              <img src="{{ url_for('static', filename='basenerd-logo-official.png') }}" alt="Logo" style="height: 24px; width: auto; vertical-align: middle; margin-right: 8px;">
+              <img src="{{ url_for('static', filename='logo-96.png') }}" alt="" width="24" height="24"
+                   style="height: 24px; width: 24px; vertical-align: middle; margin-right: 8px;">
               <span>basenerd</span>
             </a>
             <button id="mobileNavClose" class="mobile-nav-close" type="button" aria-label="Close menu">✕</button>
@@ -576,9 +577,13 @@
         <div class="main-inner">
           <!-- Global site banner -->
           <div class="site-banner-wrap">
-            <img src="{{ url_for('static', filename='basenerd-banner (2).png') }}" 
-              alt="Basenerd Banner"
-             class="site-banner">
+            <picture>
+              <source srcset="{{ url_for('static', filename='banner.webp') }}" type="image/webp">
+              <img src="{{ url_for('static', filename='banner.png') }}"
+                   alt="Basenerd" width="1500" height="95"
+                   fetchpriority="high" decoding="async"
+                   class="site-banner">
+            </picture>
           </div>
 
           <!-- Global game ticker -->
