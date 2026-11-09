@@ -22,8 +22,8 @@ for table, pq in TABLES.items():
     df = load_profile(table, os.path.join(DATA, pq))
     print(f"  {table}: {len(df):,} rows, cols={list(df.columns)[:6]}...")
 
-print("\n=== matchup_predict_v2 loads profiles ===")
-import services.matchup_predict_v2 as m
+print("\n=== matchup_predict loads profiles ===")
+import services.matchup_predict as m
 m._load()
 print(f"  _batter_profiles:   {0 if m._batter_profiles is None else len(m._batter_profiles):,} rows")
 print(f"  _batter_pitch_types:{0 if m._batter_pitch_types is None else len(m._batter_pitch_types):,} rows")

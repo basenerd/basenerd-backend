@@ -15,6 +15,9 @@ __pycache__/
 # Reports output
 reports/
 
+# Generated dev plots (rebuild with scripts/stuff_plus_visuals.py)
+visuals/
+
 # Large training data (rebuild from DB)
 data/matchup_train.parquet
 data/pitch_selection_train.parquet
