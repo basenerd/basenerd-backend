@@ -66,6 +66,7 @@ from services.umpire_zone import (
 from services.pregame_predictions import get_pregame_predictions
 from services.articles import load_articles, get_article
 from services.articles import get_markdown_page
+from services.season import stats_season, current_season, season_list
 from services.postseason import get_postseason_series, build_playoff_bracket
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -101,6 +102,9 @@ class _SafeJSONProvider(DefaultJSONProvider):
 
 app.json_provider_class = _SafeJSONProvider
 app.json = _SafeJSONProvider(app)
+
+# Quadrennial tournament; next edition is 2030.
+WBC_YEAR = 2026
 
 @app.template_global()
 def sr_color(pct):
@@ -415,12 +419,8 @@ def stats_page():
     Stats leaderboard UI page.
     Data loads via /stats_json so we can paginate/sort/filter without reloading.
     """
-    now = datetime.utcnow()
-    current_year = now.year
-    default_season = current_year if now.month >= 3 else current_year - 1
-
     # initial defaults
-    season = request.args.get("season", default=default_season, type=int)
+    season = request.args.get("season", default=stats_season(), type=int)
     group = (request.args.get("group") or "batting").strip().lower()
 
     # map UI group -> API stat group
@@ -791,7 +791,7 @@ def matchup_probs_json(game_pk: int):
         except Exception:
             pass
 
-        _season = int((game_data.get("game") or {}).get("season", 2025) or 2025)
+        _season = int((game_data.get("game") or {}).get("season") or stats_season())
 
         import time as _t
         _t0 = _t.time()
@@ -3074,7 +3074,7 @@ def player(player_id: int):
         transactions = get_player_transactions(player_id)
     except Exception:
         transactions = []
-    season_for_scouting = int(season_found or log_year or 2025)
+    season_for_scouting = int(season_found or log_year or stats_season())
     player_id = int(bio["id"])
 
     # Scouting data is all Postgres-backed. A missing DATABASE_URL or an
@@ -3389,7 +3389,9 @@ def wbc():
     from services.mlb_api import get_wbc_games_for_date, get_wbc_teams, get_wbc_standings
 
     user_tz = "America/Phoenix"
-    year = 2026
+    # The WBC is quadrennial: 2026 is the tournament this page covers and the
+    # next is 2030. Deliberately fixed, not a season-rollover oversight.
+    year = WBC_YEAR
 
     tab = (request.args.get("tab") or "games").strip().lower()
     if tab not in ("games", "standings", "teams", "stats"):
@@ -3504,7 +3506,7 @@ def wbc():
 @app.get("/playoff-odds")
 def playoff_odds():
     import json as _json
-    season = request.args.get("season", default=2026, type=int)
+    season = request.args.get("season", default=stats_season(), type=int)
 
     error = None
     projection = None
@@ -3553,7 +3555,7 @@ def playoff_odds():
         "playoff_odds.html",
         title=f"Playoff Odds {season} • Basenerd",
         season=season,
-        seasons=[2026, 2025],
+        seasons=season_list(2),
         projection=projection,
         all_teams=all_teams,
         meta=meta,
@@ -3564,18 +3566,44 @@ def playoff_odds():
 @app.get("/projections")
 def projections():
     import json as _json
-    season = request.args.get("season", default=2026, type=int)
-    data_dir = os.path.join(os.path.dirname(__file__), "data")
-    proj_path = os.path.join(data_dir, f"player_projections_{season}.json")
+    season = request.args.get("season", default=stats_season(), type=int)
 
     error = None
     batters = []
     pitchers = []
     meta = None
+    raw = None
 
-    if os.path.exists(proj_path):
-        with open(proj_path, "r") as f:
-            raw = _json.load(f)
+    # Database first: the generator runs on a cron whose ephemeral disk the
+    # web service cannot see, so the file below is only ever as fresh as the
+    # last deploy. Same pattern as /playoff-odds.
+    try:
+        import psycopg
+        db_url = os.environ.get("DATABASE_URL") or ""
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+        if db_url:
+            with psycopg.connect(db_url, connect_timeout=5) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT data FROM player_projection_cache WHERE season = %s",
+                        (season,),
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        raw = row[0] if isinstance(row[0], dict) else _json.loads(row[0])
+    except Exception:
+        pass  # fall through to file
+
+    # Fallback to the committed JSON file
+    if raw is None:
+        data_dir = os.path.join(os.path.dirname(__file__), "data")
+        proj_path = os.path.join(data_dir, f"player_projections_{season}.json")
+        if os.path.exists(proj_path):
+            with open(proj_path, "r") as f:
+                raw = _json.load(f)
+
+    if raw is not None:
         meta = raw.get("_meta", {})
         batters = raw.get("batters", [])
         pitchers = raw.get("pitchers", [])
@@ -3597,13 +3625,13 @@ def projections():
 
 @app.get("/umpires")
 def umpires_page():
-    season = 2026
+    season = stats_season()
     data = umpire_list(season)
     return render_template(
         "umpires.html",
         title="Umpires \u2022 Basenerd",
         season=season,
-        seasons=[2026],
+        seasons=[stats_season()],
     )
 
 
@@ -3658,7 +3686,7 @@ def game_splits_json(game_pk: int):
 
 @app.get("/umpire/<int:umpire_id>")
 def umpire_page(umpire_id: int):
-    season = request.args.get("season", type=int) or 2026
+    season = request.args.get("season", type=int) or stats_season()
     profile = umpire_profile(umpire_id, season)
     seasons = profile.get("seasons", list(range(2021, 2027)))
     name = profile.get("name") or f"Umpire #{umpire_id}"
@@ -3879,7 +3907,7 @@ def simulate_start():
             away_bullpen=away_bullpen,
             home_bullpen=home_bullpen,
             venue=venue,
-            season=2026,
+            season=stats_season(),
             seed=seed,
         )
         game_id = result["game_id"]

@@ -1276,7 +1276,7 @@ def simulate_game(
     away_bullpen: List[dict],
     home_bullpen: List[dict],
     venue: str = "NYY",
-    season: int = 2026,
+    season: Optional[int] = None,
     seed: Optional[int] = None,
 ) -> dict:
     """
@@ -1298,6 +1298,13 @@ def simulate_game(
     --------
     Complete game log dict with pitches, events, lineups, score, etc.
     """
+    # Resolved here rather than in the signature: a default argument is
+    # evaluated once at import, which would pin the season for the life of
+    # the worker process.
+    if season is None:
+        from services.season import stats_season
+        season = stats_season()
+
     rng = random.Random(seed)
 
     # Load park factors for the venue

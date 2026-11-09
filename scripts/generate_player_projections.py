@@ -25,6 +25,7 @@ Usage:
 import os
 import sys
 import json
+import math
 import time
 import argparse
 import requests
@@ -93,6 +94,25 @@ TEAM_ABBREVS = {
     139: "TB",  140: "TEX", 141: "TOR", 142: "MIN", 143: "PHI",
     144: "ATL", 145: "CWS", 146: "MIA", 147: "NYY", 158: "MIL",
 }
+
+
+# ────────────────────────────────────────────────────────
+# Serialization helpers
+# ────────────────────────────────────────────────────────
+
+def _json_safe(obj):
+    """Recursively replace NaN/Infinity with None so the payload is valid JSON.
+
+    numpy scalars subclass the Python numeric types, so isinstance covers
+    np.float64/np.float32 as well as plain floats.
+    """
+    if isinstance(obj, float):
+        return None if (math.isnan(obj) or math.isinf(obj)) else float(obj)
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    return obj
 
 
 # ────────────────────────────────────────────────────────
@@ -887,6 +907,12 @@ def generate_projections(season=2026):
         }
     }
 
+    # json.dump writes bare NaN/Infinity for undefined values. That is not
+    # valid JSON: Postgres JSONB rejects it outright ("Token NaN is invalid")
+    # and strict parsers in other languages choke on the file too. Normalise
+    # to null once, then use the same payload for the file and the DB.
+    output = _json_safe(output)
+
     out_path = os.path.join(DATA_DIR, f"player_projections_{season}.json")
     with open(out_path, "w") as f:
         json.dump(output, f, indent=2, default=float)
@@ -894,6 +920,41 @@ def generate_projections(season=2026):
     print(f"\n{'=' * 60}")
     print(f"Projections saved to {out_path}")
     print(f"  {len(all_batters)} batters, {len(all_pitchers)} pitchers")
+
+    # Hand off to the web service through Postgres. On Render the cron and the
+    # web service have separate ephemeral disks, so the file above never
+    # reaches the app -- only whatever was committed at deploy time does.
+    # Mirrors scripts/update_season_projection.py.
+    db_url = os.environ.get("DATABASE_URL") or ""
+    if db_url:
+        try:
+            from datetime import timezone
+            import psycopg
+            if db_url.startswith("postgres://"):
+                db_url = db_url.replace("postgres://", "postgresql://", 1)
+            with psycopg.connect(db_url) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS player_projection_cache (
+                            season INT PRIMARY KEY,
+                            data JSONB NOT NULL,
+                            generated_at TIMESTAMPTZ NOT NULL
+                        )
+                    """)
+                    cur.execute("""
+                        INSERT INTO player_projection_cache (season, data, generated_at)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (season) DO UPDATE SET
+                            data = EXCLUDED.data,
+                            generated_at = EXCLUDED.generated_at
+                    """, (season, json.dumps(output, default=float),
+                          datetime.now(timezone.utc)))
+                conn.commit()
+            print("  Saved to player_projection_cache table")
+        except Exception as e:
+            print(f"  WARNING: DB write failed (file still saved): {e}", file=sys.stderr)
+    else:
+        print("  DATABASE_URL unset -- skipped DB write (file only)")
 
     # Summaries
     print(f"\nTop 15 Batters by xwOBA:")

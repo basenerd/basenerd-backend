@@ -304,12 +304,19 @@ def _extract_lineups_from_feed(feed):
     }
 
 
-def get_pregame_predictions(game_pk, season=2026):
+def get_pregame_predictions(game_pk, season=None):
     """
     For a given game, predict PA outcomes for every batter vs the opposing starter.
 
     Results are cached by lineup hash — predictions only recompute when lineups change.
     """
+    # Resolved here rather than in the signature: a default argument is
+    # evaluated once at import, which would pin the season for the life of
+    # the worker process.
+    if season is None:
+        from services.season import stats_season
+        season = stats_season()
+
     feed = get_game_feed(game_pk)
     lineup_data = _extract_lineups_from_feed(feed)
 
