@@ -24,10 +24,7 @@ from matplotlib.gridspec import GridSpec
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://basenerd_user:d5LmELIOiEszYPBSLSDT1oIi79gkgDV6@dpg-d5i0tku3jp1c73f1d3gg-a.oregon-postgres.render.com/basenerd",
-)
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 REGISTRY_PATH = "models/stuff_models/registry.json"
 MODEL_PATH = "models/stuff_model.pkl"       # legacy fallback
 META_PATH = "models/stuff_model_meta.json"  # legacy fallback

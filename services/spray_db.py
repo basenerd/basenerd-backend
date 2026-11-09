@@ -18,7 +18,7 @@ except Exception:
 
 
 def _db_url() -> str:
-    url = 'postgresql://basenerd_user:d5LmELIOiEszYPBSLSDT1oIi79gkgDV6@dpg-d5i0tku3jp1c73f1d3gg-a.oregon-postgres.render.com/basenerd?sslmode=require'
+    url = os.environ.get("DATABASE_URL") or os.environ.get("DATABASE_URL_PG") or ""
     if not url:
         raise RuntimeError("DATABASE_URL is not set")
     # Render often gives postgres://

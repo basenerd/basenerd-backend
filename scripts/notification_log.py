@@ -34,13 +34,7 @@ if _env_path.exists():
             _k, _v = _line.split("=", 1)
             os.environ.setdefault(_k.strip(), _v.strip())
 
-# Render internal hostname (no .oregon-postgres.render.com suffix)
-_RENDER_INTERNAL_DB = (
-    "postgresql://basenerd_user:d5LmELIOiEszYPBSLSDT1oIi79gkgDV6"
-    "@dpg-d5i0tku3jp1c73f1d3gg-a/basenerd"
-)
-
-_DATABASE_URL = os.environ.get("DATABASE_URL", "") or _RENDER_INTERNAL_DB
+_DATABASE_URL = os.environ.get("DATABASE_URL", "")
 _table_ensured = False
 
 _db_available = False

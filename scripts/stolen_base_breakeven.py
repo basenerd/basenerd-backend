@@ -12,6 +12,8 @@ Formula:
 Self-contained: loads advancement_probs via psycopg2, embeds MC simulator.
 """
 
+import os
+
 import numpy as np
 import pandas as pd
 import psycopg2
@@ -20,11 +22,13 @@ import psycopg2
 # DATABASE CONFIG
 # ============================================
 
-DB_USER = "basenerd_user"
-DB_PASS = "d5LmELIOiEszYPBSLSDT1oIi79gkgDV6"
-DB_HOST = "dpg-d5i0tku3jp1c73f1d3gg-a.oregon-postgres.render.com"
-DB_PORT = 5432
-DB_NAME = "basenerd"
+def _db_url() -> str:
+    url = os.environ.get("DATABASE_URL") or os.environ.get("DATABASE_URL_PG") or ""
+    if not url:
+        raise RuntimeError("DATABASE_URL is not set")
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    return url
 
 
 # ============================================
@@ -32,10 +36,7 @@ DB_NAME = "basenerd"
 # ============================================
 
 def load_advancement_lookup():
-    conn = psycopg2.connect(
-        host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
-        user=DB_USER, password=DB_PASS
-    )
+    conn = psycopg2.connect(_db_url())
     df = pd.read_sql(
         """
         SELECT event_type, base_state, outs, spray_bucket,

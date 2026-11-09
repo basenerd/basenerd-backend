@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine
@@ -6,14 +8,16 @@ from sqlalchemy import create_engine
 # DATABASE CONFIG
 # ============================================
 
-DB_USER = "basenerd_user"
-DB_PASS = "d5LmELIOiEszYPBSLSDT1oIi79gkgDV6"
-DB_HOST = "dpg-d5i0tku3jp1c73f1d3gg-a.oregon-postgres.render.com"
-DB_PORT = 5432
-DB_NAME = "basenerd"
-
 def build_engine():
-    url = f"postgresql+pg8000://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    """Engine from DATABASE_URL, normalised to the pg8000 driver."""
+    url = os.environ.get("DATABASE_URL") or os.environ.get("DATABASE_URL_PG") or ""
+    if not url:
+        raise RuntimeError("DATABASE_URL is not set")
+    # Accept postgres:// and postgresql:// and pin the installed driver.
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+pg8000://", 1)
     return create_engine(url)
 
 
